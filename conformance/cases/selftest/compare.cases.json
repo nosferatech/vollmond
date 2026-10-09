@@ -1,0 +1,39 @@
+{
+  "defaults": {
+    "spec": ["4.2", "5.8"],
+    "profiles": [],
+    "operation": "compare"
+  },
+  "cases": [
+    {
+      "id": "number-forms",
+      "description": "1, 1.0, 10e-1 and 1E0 are the same number.",
+      "input": { "a": [1, 1, 1], "b": [1.0, 10e-1, 1E0] },
+      "expect": { "result": true }
+    },
+    {
+      "id": "integer-beyond-2-53",
+      "description": "Two integers that round to the same double differ; a runner that reads numbers as doubles sees them equal.",
+      "input": { "a": 9007199254740993, "b": 9007199254740992 },
+      "expect": { "result": false }
+    },
+    {
+      "id": "decimal-beyond-double",
+      "description": "Two decimals that round to the same double differ.",
+      "input": { "a": 0.1, "b": 0.10000000000000001 },
+      "expect": { "result": false }
+    },
+    {
+      "id": "member-order",
+      "description": "Objects are equal regardless of member order.",
+      "input": { "a": { "x": 1, "y": [1, 2] }, "b": { "y": [1, 2], "x": 1 } },
+      "expect": { "result": true }
+    },
+    {
+      "id": "array-order",
+      "description": "Arrays are compared in order.",
+      "input": { "a": [1, 2], "b": [2, 1] },
+      "expect": { "result": false }
+    }
+  ]
+}

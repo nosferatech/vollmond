@@ -1,0 +1,54 @@
+{
+  "defaults": {
+    "spec": ["7.1", "7.3", "A"],
+    "profiles": ["read"],
+    "operation": "resolve",
+    "input": { "store": "appendix-a" }
+  },
+  "cases": [
+    {
+      "id": "empty-fragment",
+      "description": "An empty fragment is the record's root.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#" },
+      "expect": {
+        "result": {
+          "cardinality": "one",
+          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "" }]
+        }
+      }
+    },
+    {
+      "id": "front-matter-field",
+      "description": "A semantic path of one step reaches a front-matter field.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#status" },
+      "expect": {
+        "result": {
+          "cardinality": "one",
+          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status" }]
+        }
+      }
+    },
+    {
+      "id": "section-body",
+      "description": "A section's key followed by $body reaches its prose.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed/$body" },
+      "expect": {
+        "result": {
+          "cardinality": "one",
+          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/0/$body" }]
+        }
+      }
+    },
+    {
+      "id": "explicit-anchor",
+      "description": "An explicit anchor on a heading reaches its section.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done" },
+      "expect": {
+        "result": {
+          "cardinality": "one",
+          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1" }]
+        }
+      }
+    }
+  ]
+}
