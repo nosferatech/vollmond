@@ -1,2 +1,2 @@
-# The suite's inputs are compared byte for byte: git must never convert their line endings.
+# The suite's inputs are compared byte for byte, so git must never convert their line endings.
 * -text

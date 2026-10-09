@@ -24,15 +24,63 @@
       "expect": { "result": false }
     },
     {
+      "id": "number-against-string",
+      "description": "A number never equals a string of its digits.",
+      "input": { "a": 1, "b": "1" },
+      "expect": { "result": false }
+    },
+    {
+      "id": "true-against-1",
+      "description": "A boolean never equals a number; in Python, True == 1 and True == Decimal(1) hold.",
+      "input": { "a": true, "b": 1 },
+      "expect": { "result": false }
+    },
+    {
+      "id": "false-against-0-in-array",
+      "description": "Types are compared inside arrays too; in Python, [False] == [0] holds.",
+      "input": { "a": [false], "b": [0] },
+      "expect": { "result": false }
+    },
+    {
+      "id": "strings-not-normalized",
+      "description": "A precomposed e with acute accent (NFC) differs from e followed by a combining acute accent (NFD).",
+      "input": { "a": "é", "b": "é" },
+      "expect": { "result": false }
+    },
+    {
       "id": "member-order",
       "description": "Objects are equal regardless of member order.",
       "input": { "a": { "x": 1, "y": [1, 2] }, "b": { "y": [1, 2], "x": 1 } },
       "expect": { "result": true }
     },
     {
+      "id": "extra-member",
+      "description": "An object with an extra member differs.",
+      "input": { "a": { "x": 1 }, "b": { "x": 1, "y": 2 } },
+      "expect": { "result": false }
+    },
+    {
+      "id": "null-against-absent",
+      "description": "A member whose value is null differs from a missing member.",
+      "input": { "a": { "x": 1, "y": null }, "b": { "x": 1 } },
+      "expect": { "result": false }
+    },
+    {
       "id": "array-order",
       "description": "Arrays are compared in order.",
       "input": { "a": [1, 2], "b": [2, 1] },
+      "expect": { "result": false }
+    },
+    {
+      "id": "unordered-permutation",
+      "description": "Unordered lists with the same items in another order are equal.",
+      "input": { "a": [1, 2, 2], "b": [2, 1, 2], "unordered": true },
+      "expect": { "result": true }
+    },
+    {
+      "id": "unordered-multiset",
+      "description": "Unordered lists are multisets; a comparison by set sees these two as equal.",
+      "input": { "a": ["a", "a", "b"], "b": ["a", "b", "b"], "unordered": true },
       "expect": { "result": false }
     }
   ]

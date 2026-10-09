@@ -9,10 +9,7 @@
     {
       "id": "lf",
       "description": "The example of §5.3 with LF line endings and a final newline gives the value view §5.3 shows.",
-      "input": {
-        "record": "lf.md",
-        "versions": { "lf.md": "6c79cbf2df27c2a263be0ca8c56bfd77dccf34e2" }
-      },
+      "input": { "record": "lf.md" },
       "expect": {
         "result": {
           "$title": "Flusher stalls under load",
@@ -32,10 +29,7 @@
     {
       "id": "crlf-no-final-newline",
       "description": "The same record with CRLF line endings and no final newline gives the same value view.",
-      "input": {
-        "record": "crlf.md",
-        "versions": { "crlf.md": "c4cc8cf2d7d196c8dec172f5f30e6bc83223ccd9" }
-      },
+      "input": { "record": "crlf.md" },
       "expect": {
         "result": {
           "$title": "Flusher stalls under load",

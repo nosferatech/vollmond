@@ -1,0 +1,8 @@
+# The suite's inputs are compared byte for byte, so editors must not change whitespace, line endings or final newlines.
+[{cases,stores}/**]
+trim_trailing_whitespace = false
+insert_final_newline = unset
+end_of_line = unset
+charset = unset
+indent_style = unset
+indent_size = unset

@@ -1,20 +1,25 @@
 {
   "defaults": {
-    "spec": ["7.1", "7.3", "A"],
+    "spec": ["7.1", "7.3", "7.5", "A"],
     "profiles": ["read"],
     "operation": "resolve",
-    "input": { "store": "appendix-a" }
+    "input": { "store": "appendix-a", "as": "singular" }
   },
   "cases": [
     {
+      "id": "no-fragment",
+      "description": "A record path without a fragment is the record's root; its canonical address is taken as no fragment (open question 10).",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md" },
+      "expect": {
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]
+      }
+    },
+    {
       "id": "empty-fragment",
-      "description": "An empty fragment is the record's root.",
+      "description": "An empty fragment is the record's root too.",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#" },
       "expect": {
-        "result": {
-          "cardinality": "one",
-          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "" }]
-        }
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]
       }
     },
     {
@@ -22,10 +27,25 @@
       "description": "A semantic path of one step reaches a front-matter field.",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#status" },
       "expect": {
-        "result": {
-          "cardinality": "one",
-          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status" }]
-        }
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status", "address": "#status" }]
+      }
+    },
+    {
+      "id": "front-matter-field-exact",
+      "description": "The exact path of the same field reaches the same node, with the same canonical address.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/status" },
+      "expect": {
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status", "address": "#status" }]
+      }
+    },
+    {
+      "id": "section-key-and-derived-anchor",
+      "description": "The first section's key and its derived anchor are both what-is-confirmed; they name the same node, so the address is not ambiguous.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed" },
+      "expect": {
+        "result": [
+          { "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/0", "address": "#what-is-confirmed" }
+        ]
       }
     },
     {
@@ -33,21 +53,35 @@
       "description": "A section's key followed by $body reaches its prose.",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed/$body" },
       "expect": {
-        "result": {
-          "cardinality": "one",
-          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/0/$body" }]
-        }
+        "result": [
+          {
+            "path": "tickets/0171-clean-root-in-scattered-record.md",
+            "at": "/$sections/0/$body",
+            "address": "#what-is-confirmed/$body"
+          }
+        ]
+      }
+    },
+    {
+      "id": "section-body-exact",
+      "description": "The exact path of the same prose reaches the same node, with the same canonical address.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/$sections/0/$body" },
+      "expect": {
+        "result": [
+          {
+            "path": "tickets/0171-clean-root-in-scattered-record.md",
+            "at": "/$sections/0/$body",
+            "address": "#what-is-confirmed/$body"
+          }
+        ]
       }
     },
     {
       "id": "explicit-anchor",
-      "description": "An explicit anchor on a heading reaches its section.",
+      "description": "An explicit anchor on a heading reaches its section, and is its canonical address.",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done" },
       "expect": {
-        "result": {
-          "cardinality": "one",
-          "targets": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1" }]
-        }
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1", "address": "#done" }]
       }
     }
   ]
