@@ -67,8 +67,9 @@ that possible before vampiredb migrates:
 
 Two repositories hold demonstration stores (project owner, 2026-10-09):
 
-- **`nosferatech/vampiredb-tickets`, private**, created when I2.7 needs it: vampiredb's tickets, converted by the importer of I3.7,
-  iterated on through I3 to I7. It is also where rollout step R3 can end up.
+- **`nosferatech/eternal-circle`**, created by the project owner on 2026-10-09, internal to the organization, cloned at
+  `~/eternal-circle`: tickets kept with vmd, starting with vampiredb's, converted by the importer of I3.7, and iterated on through
+  I3 to I7. It is also where rollout step R3 can end up.
 - **`nosferatech/vollmond-practice`, public**, created once the private store has matured: a demonstration and test store for
   GitHub as a backend (I6, I7), with data that can be public.
 
