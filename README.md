@@ -13,12 +13,20 @@ Prerequisites: Node 24 or later and npm.
 
 ```sh
 npm ci              # install the pinned dependencies
-npm run build       # tsc -b: compile the packages to dist/
-npm run typecheck   # type check all packages
+npm run build       # tsc -b: compile the packages to dist/ (tests are not built)
+npm run typecheck   # type check all packages, tests included, without emitting
 npm run lint        # Biome: lint and format check
 npm run format      # Biome: rewrite files to the formatting rules
-npm test            # Vitest: run all tests
+npm test            # Vitest: run all tests; needs no build
 ```
 
-CI runs build, type check, lint and tests on every pull request and on pushes to `main`. Dependencies are pinned to exact versions
-(`.npmrc`); commit `package-lock.json` with any change to them.
+CI runs build, type check, lint, tests and a smoke run of the built command on every pull request and on pushes to `main`.
+Dependencies are pinned to exact versions (`.npmrc`); commit `package-lock.json` with any change to them.
+
+To run the command from a checkout, build first and then use `node packages/cli/dist/main.js --version`, or
+`npm exec --workspace @vollmond/cli vmd -- --version`. Do not use `npx vmd`: the registry has an unrelated package named `vmd`, and
+`npx` would run that. The `vmd` link in `node_modules/.bin` appears only after a build followed by `npm rebuild` or a fresh
+`npm install`, because the link points at a file that `tsc` creates.
+
+`@vollmond/core` must not use Node APIs. Its `tsconfig.json` leaves out Node's types, and `packages/core/src/no-node-types.typecheck.ts`
+makes `npm run typecheck` fail if they ever become visible to it.
