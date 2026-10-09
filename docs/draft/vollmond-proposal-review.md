@@ -1,6 +1,6 @@
 # Review of the Vollmond MD proposal, Draft v0.1
 
-Reviewed: `docs/draft/vollmond-proposal.md` as of commit `3cd411f` ("initial proposal draft"), with the discussion it came from
+Reviewed: `docs/draft/vollmond-proposal.md` as of commit `b7c8a52` ("initial proposal draft"), with the discussion it came from
 (`docs/draft/markdown_discussion.pdf`) and the two intended first customers: `~/vampiredb/tickets` and `~/vampiredb/docs`,
 plus Belfry (`~/belfry`) as a likely consumer.
 Date: 2026-10-09. Section numbers (§) refer to Draft v0.1.
@@ -250,3 +250,6 @@ Recorded 2026-10-09, and applied to Draft v0.3.
   is given.
 - **Object member order is not significant.** A backend that stores original bytes keeps their order, but no backend or query may
   be required to: covering indexes and relational stores have no original order to return. Order that matters uses arrays.
+- **Validation on GitHub without Actions runners.** A GitHub App driven by webhooks validates in Lambda: pattern A (check after
+  commit, posting a commit status), B (a required check on pull requests and merge groups), or C (a gatekeeper branch that only
+  the app may update). Pre-receive hooks are not available on github.com. The tickets store uses pattern A.

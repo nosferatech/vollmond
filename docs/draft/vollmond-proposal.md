@@ -1,6 +1,6 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.3 (2026-10-09). Supersedes Draft v0.2 (commit `6e8d4b7`) and Draft v0.1 (commit `3cd411f`). The review of v0.1 and
+Status: Draft v0.3 (2026-10-09). Supersedes Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The review of v0.1 and
 the decisions taken while discussing v0.2 are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
@@ -627,8 +627,8 @@ Where validation runs is a deployment choice, not a format rule:
 | Mode | Who validates | Invalid data can be stored? |
 |---|---|---|
 | Client | the writing client's library, before it writes | yes, by a client that skips it |
-| CI | a job on every push | yes, and it is reported |
-| Gate | the backend, or a required check on a protected branch | no |
+| After commit | a service checking each new commit, and reporting on it (§16.3, pattern A) | yes, and it is reported |
+| Gate | a required check before merge (pattern B), a gatekeeper branch (pattern C), or the backend itself | no |
 
 In every mode, **validation does not gate the index.** Invalid records are indexed with their issues attached, so they are
 visible rather than missing (§14).
@@ -1063,11 +1063,14 @@ and writes are refused. This is the cheapest way for agents and programs to read
 
 ```
 git push (any client, any author)
-   └─▶ GitHub push webhook ──▶ API Gateway ──▶ indexer Lambda
-                                                 1. verify the signature; ignore other branches
-                                                 2. changes(stored head .. pushed head) via compare
-                                                 3. fetch changed blobs, parse, validate (never gating)
-                                                 4. write new content-hashed files, then the manifest, to S3
+   └─▶ GitHub push webhook ──▶ receiver (Lambda function URL)
+                                  verify the signature, queue the event, answer 202
+                              ──▶ SQS ──▶ worker Lambda
+                                  1. ignore other branches
+                                  2. changes(stored head .. pushed head) via compare
+                                  3. fetch changed blobs, parse, validate (never gating)
+                                  4. write new content-hashed files, then the manifest, to S3
+                                  5. post the vmd/check status on the pushed commit (§16.3)
    scheduled reconciler (every few minutes) ──▶ same steps, when the stored head ≠ the branch head
 
 website (static, S3) ──▶ manifest.json ──▶ records-*.jsonl (list, VQL filtering in the browser)
@@ -1077,8 +1080,10 @@ website (static, S3) ──▶ manifest.json ──▶ records-*.jsonl (list, VQ
 - **Every commit is indexed, whoever made it.** A direct push, a merged pull request, an API commit and a web edit all trigger
   the webhook.
 - **The website never reads GitHub.** The indexer publishes content alongside the index, so reads cost only S3 requests.
-- **Ordering and loss.** Webhooks can arrive late, twice or not at all. The indexer always diffs from the head it last published
-  to the head it is told about, so duplicates are harmless. The reconciler covers lost deliveries.
+- **Ordering and loss.** Webhooks can arrive late, twice or not at all. GitHub waits 10 seconds for a response, counts a slower
+  one as failed, and never redelivers a failed delivery on its own; hence the receiver only queues. The worker always diffs from
+  the head it last published to the head it is told about, so duplicates are harmless. The reconciler covers lost deliveries: it
+  compares branch heads, and can list failed deliveries through the REST API and redeliver them.
 - **Latency.** A webhook-triggered Lambda needs a few GitHub API calls and a few S3 writes, so a target of a few seconds from push
   to visible is realistic. The figures should be measured in phase I7. A GitHub Actions workflow could do the same job but adds a
   runner's start-up time.
@@ -1099,6 +1104,42 @@ browser ──▶ API Lambda (authenticated user)
 The Lambda authenticates to GitHub as a GitHub App installed on the store repository, scoped to that repository's contents. Key
 allocation stays a client concern; if the write language later gains computed values, allocation may move into it.
 
+### 16.3 Validating without Actions runners
+
+A GitHub Actions job running `vmd check` works, but every run waits for a runner to start, and the minutes are billed. The same
+GitHub App that publishes the index can validate instead, driven by webhooks, in seconds and at negligible Lambda cost. The one
+thing github.com cannot do is reject a push synchronously: pre-receive hooks exist only on GitHub Enterprise Server. Three patterns
+follow from that, one per validation mode (§9.4):
+
+**Pattern A: check after commit.** For stores that accept direct pushes. The worker of §16.1 validates every pushed commit and
+posts a `vmd/check` commit status on it, success or failure with the first issues in its description and the rest in the
+published index. Invalid data can land, but it shows as a red ✗ on the commit and as issues in the index, and `vmd check` before
+pushing (client mode) catches most of it first. **The tickets store uses this pattern.**
+
+**Pattern B: a required check.** For stores that change through pull requests, with or without a merge queue. The app also
+subscribes to `pull_request` and `merge_group` (`checks_requested`) events, validates each head commit, and reports a check run.
+A ruleset makes `vmd/check` required and can require that it come from this app, so nobody else with write access can set it.
+The merge queue waits for the check on its temporary commit; set a check timeout, so that a failed Lambda fails the check rather
+than stalling the queue. After the merge, pattern A's push handling publishes the index. A repository whose required checks already
+include Actions jobs (vampiredb's Rust CI) does not merge faster this way, but vmd needs no runner of its own.
+
+**Pattern C: a gatekeeper branch.** For stores that want gate mode while people and agents still use `git push`. A ruleset's
+"Restrict updates" rule on the main branch lists only the vmd app in its bypass list. Clients push to `incoming/<name>`; the worker
+validates the incoming commits against the main branch and, if they pass, advances it with a conditional ref update (rebasing as
+in §11.6 if it moved), deletes the incoming branch, and posts a status. `vmd push` waits for that status. Writes through the vmd
+API (§16.2) commit to the main branch directly. The cost is more moving parts, and conflicts that surface after the push rather
+than during it.
+
+| Pattern | Blocks invalid data? | App permissions besides the push webhook |
+|---|---|---|
+| A | no; reports it | statuses: write; contents: read |
+| B | yes, at merge | checks: write; pull requests and merge queues: read |
+| C | yes, at push | contents: write; the app in the ruleset's bypass list |
+
+**Incremental validation.** The worker loads the index it published for the base commit from S3, fetches only the changed blobs,
+and re-validates the changed records and those whose references point into them (the `refs` table, §14.2). Without a saved index,
+one tarball download of the repository gives a full validation.
+
 ---
 
 ## 17. Git integration
@@ -1110,8 +1151,9 @@ allocation stays a client concern; if the write language later gains computed va
 | `.vmd/aliases.jsonl` | yes |
 | `.vmd/cache/`, `.vmd/base`, `.vmd/journal/` | no; add to `.gitignore` |
 
-- **CI** runs `vmd check --changed <base>` on pull requests and pushes. Hooks (`pre-commit` running `vmd check --staged`) are a
-  local convenience, not a guarantee: a clone does not install them, and API commits do not run them.
+- **Validation on GitHub** runs in the vmd GitHub App, one of the patterns of §16.3. Elsewhere, any CI can run
+  `vmd check --changed <base>`. Hooks (`pre-commit` running `vmd check --staged`) are a local convenience, not a guarantee: a clone
+  does not install them, and API commits do not run them.
 - **`git mv`** works. `vmd check` detects the move and suggests the reference rewrite (§13.5). `vmd mv` does both in one step.
 - **Merge drivers and semantic diff** are deferred. Custom merge drivers run only in local git, never in GitHub's merge button or
   merge queue, so their value for GitHub-hosted stores is small. Until then, a conflicted record is resolved as text and re-checked.
@@ -1212,8 +1254,8 @@ Each phase ends with its part of the conformance suite passing and a demonstrati
 | **I4** Write | the storage write operations with version tokens on the local and git backends; semantic operations; the span-preserving writer; the canonical serializer with round-trip property tests | an agent can create and update tickets with `vmd new` / `vmd set` and with plain edits, and both pass `vmd check` |
 | **I5** Refactor | `rename`, `mv`, relative-path rewriting, aliases, retitle and move detection, `check --fix` | an anchor in Minimal_Log.md is renamed with every reference rewritten, in one commit |
 | **I6** Remote | the GitHub backend; the HTTP binding with an in-memory reference server; `sync` and `push`; automatic rebase | an agent without a clone edits a ticket through the GitHub backend, and two agents edit different sections of one ticket without conflict |
-| **I7** Publish | the portable index; the indexer Lambda and reconciler; the static site with browser-side VQL; the create-ticket endpoint | a push is visible on the site within the target latency; a ticket created on the site appears in the repository |
-| **I8** Later | MCP server if justified; label templates; views; reference extractors; the query-engine interface with a GraphQL engine; semantic diff; merge driver; the SQL profile; a Python implementation | |
+| **I7** Publish | the portable index; the GitHub App with its receiver, queue, worker and reconciler, publishing the index and posting pattern A statuses (§16.3); the static site with browser-side VQL; the create-ticket endpoint | a push is visible on the site, and has its `vmd/check` status, within the target latency; a ticket created on the site appears in the repository |
+| **I8** Later | validation patterns B and C (§16.3); MCP server if justified; label templates; views; reference extractors; the query-engine interface with a GraphQL engine; semantic diff; merge driver; the SQL profile; a Python implementation | |
 
 ---
 
@@ -1221,9 +1263,9 @@ Each phase ends with its part of the conformance suite passing and a demonstrati
 
 | Step | Customer | Uses | Changes for users |
 |---|---|---|---|
-| **R1** | vampiredb docs, read-only | I1–I3 | agents gain `outline`, `get`, `query`, `refs`; CI runs `vmd check` next to `scripts/docs.sh`. The docs' header tables move to front matter, mechanically |
+| **R1** | vampiredb docs, read-only | I1–I3 | agents gain `outline`, `get`, `query`, `refs`; vampiredb's existing Actions CI, which its merge queue runs anyway, runs `vmd check` next to `scripts/docs.sh`. The docs' header tables move to front matter, mechanically |
 | **R2** | vampiredb docs, refactors | I4–I5 | `vmd rename` and `vmd mv` replace hand edits and `docs.sh --fix-refs`'s link checking; the rule "an anchor is never renamed" is relaxed to "renamed only through vmd" |
-| **R3** | tickets, in their own repository | I2–I4 | `tickets/` moves to a separate repository with direct pushes. Header tables become front matter (`Status` and its note become `status` and `status_note`). `+index.md` and `index.html` give way to `vmd query`. vampiredb's `CLAUDE.md` and `tickets/README.md` are updated. Links from tickets into vampiredb's docs leave the store, so they become ordinary GitHub URLs that vmd does not track (§8.2) |
+| **R3** | tickets, in their own repository | I2–I4 | `tickets/` moves to a separate repository with direct pushes, validated by `vmd check` before pushing, and by pattern A (§16.3) once R4 brings the GitHub App. Header tables become front matter (`Status` and its note become `status` and `status_note`). `+index.md` and `index.html` give way to `vmd query`. vampiredb's `CLAUDE.md` and `tickets/README.md` are updated. Links from tickets into vampiredb's docs leave the store, so they become ordinary GitHub URLs that vmd does not track (§8.2) |
 | **R4** | tickets website | I6–I7 | the read-only site, then ticket creation |
 | **R5** | Belfry | I6–I7 | Belfry becomes a vmd client. Perf runs can be published as a store (a run is a record with its measurements in front matter and its files as assets), so the same `query`, `get` and bundle download apply |
 
