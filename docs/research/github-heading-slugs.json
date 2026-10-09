@@ -4979,7 +4979,7 @@
   ]
  },
  {
-  "case": "09-latin-nfc/kelvin-sign",
+  "case": "09-latin-nfc/plain-k-after-normalization",
   "document": "09-latin-nfc.md",
   "markdown": "## K kelvin",
   "headings": [
@@ -5123,7 +5123,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/sharp-s",
+  "case": "10-latin-nfd/sharp-s-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## Straße",
   "headings": [
@@ -5139,7 +5139,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/capital-sharp-s",
+  "case": "10-latin-nfd/capital-sharp-s-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## GROẞE",
   "headings": [
@@ -5155,7 +5155,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/o-slash",
+  "case": "10-latin-nfd/o-slash-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## Øre og æble",
   "headings": [
@@ -5235,7 +5235,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/dotless-i",
+  "case": "10-latin-nfd/dotless-i-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## ı dotless",
   "headings": [
@@ -5251,7 +5251,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/titlecase-dz",
+  "case": "10-latin-nfd/titlecase-dz-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## ǅ titlecase",
   "headings": [
@@ -5283,7 +5283,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/long-s",
+  "case": "10-latin-nfd/long-s-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## ſhort s",
   "headings": [
@@ -5299,7 +5299,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/kelvin-sign",
+  "case": "10-latin-nfd/plain-k-after-normalization-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## K kelvin",
   "headings": [
@@ -5315,7 +5315,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/ligature-fi",
+  "case": "10-latin-nfd/ligature-fi-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## ﬁ ligature",
   "headings": [
@@ -5331,7 +5331,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/ligature-ae",
+  "case": "10-latin-nfd/ligature-ae-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## Æsop",
   "headings": [
@@ -5347,7 +5347,7 @@
   ]
  },
  {
-  "case": "10-latin-nfd/eszett-lower-final",
+  "case": "10-latin-nfd/eszett-lower-final-same-as-nfc",
   "document": "10-latin-nfd.md",
   "markdown": "## maße",
   "headings": [
@@ -5539,7 +5539,7 @@
   ]
  },
  {
-  "case": "11-latin-nfc-nfd-mixed/sharp-s-nfd",
+  "case": "11-latin-nfc-nfd-mixed/sharp-s-nfd-same-as-nfc",
   "document": "11-latin-nfc-nfd-mixed.md",
   "markdown": "## Straße",
   "headings": [
@@ -5571,7 +5571,7 @@
   ]
  },
  {
-  "case": "11-latin-nfc-nfd-mixed/capital-sharp-s-nfd",
+  "case": "11-latin-nfc-nfd-mixed/capital-sharp-s-nfd-same-as-nfc",
   "document": "11-latin-nfc-nfd-mixed.md",
   "markdown": "## GROẞE",
   "headings": [
@@ -5603,7 +5603,7 @@
   ]
  },
  {
-  "case": "11-latin-nfc-nfd-mixed/o-slash-nfd",
+  "case": "11-latin-nfc-nfd-mixed/o-slash-nfd-same-as-nfc",
   "document": "11-latin-nfc-nfd-mixed.md",
   "markdown": "## Øre og æble",
   "headings": [
@@ -10825,6 +10825,362 @@
     "href": "#quill-4",
     "explicitIds": [],
     "html": "Quill"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/other-alphabetic-pair",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## Ⓐx ⒜y",
+  "headings": [
+   {
+    "level": 2,
+    "text": "Ⓐx ⒜y",
+    "id": "user-content-ⓐx-y",
+    "anchor": "ⓐx-y",
+    "href": "#ⓐx-y",
+    "explicitIds": [],
+    "html": "Ⓐx ⒜y"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/circled-capital-a",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## Ⓐ circled capital",
+  "headings": [
+   {
+    "level": 2,
+    "text": "Ⓐ circled capital",
+    "id": "user-content-ⓐ-circled-capital",
+    "anchor": "ⓐ-circled-capital",
+    "href": "#ⓐ-circled-capital",
+    "explicitIds": [],
+    "html": "Ⓐ circled capital"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/circled-small-a",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ⓐ circled small",
+  "headings": [
+   {
+    "level": 2,
+    "text": "ⓐ circled small",
+    "id": "user-content-ⓐ-circled-small",
+    "anchor": "ⓐ-circled-small",
+    "href": "#ⓐ-circled-small",
+    "explicitIds": [],
+    "html": "ⓐ circled small"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/parenthesized-a",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ⒜ parenthesized",
+  "headings": [
+   {
+    "level": 2,
+    "text": "⒜ parenthesized",
+    "id": "user-content--parenthesized",
+    "anchor": "-parenthesized",
+    "href": "#-parenthesized",
+    "explicitIds": [],
+    "html": "⒜ parenthesized"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/roman-small-numeral",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ⅰ small roman",
+  "headings": [
+   {
+    "level": 2,
+    "text": "ⅰ small roman",
+    "id": "user-content-ⅰ-small-roman",
+    "anchor": "ⅰ-small-roman",
+    "href": "#ⅰ-small-roman",
+    "explicitIds": [],
+    "html": "ⅰ small roman"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/devanagari-digits",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## १२३ digits",
+  "headings": [
+   {
+    "level": 2,
+    "text": "१२३ digits",
+    "id": "user-content-१२३-digits",
+    "anchor": "१२३-digits",
+    "href": "#१२३-digits",
+    "explicitIds": [],
+    "html": "१२३ digits"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/thai-digits",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ๑๒๓ digits",
+  "headings": [
+   {
+    "level": 2,
+    "text": "๑๒๓ digits",
+    "id": "user-content-๑๒๓-digits",
+    "anchor": "๑๒๓-digits",
+    "href": "#๑๒๓-digits",
+    "explicitIds": [],
+    "html": "๑๒๓ digits"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/bengali-digits",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ১২৩ digits",
+  "headings": [
+   {
+    "level": 2,
+    "text": "১২৩ digits",
+    "id": "user-content-১২৩-digits",
+    "anchor": "১২৩-digits",
+    "href": "#১২৩-digits",
+    "explicitIds": [],
+    "html": "১২৩ digits"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/extended-arabic-indic-digits",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## ۱۲۳ digits",
+  "headings": [
+   {
+    "level": 2,
+    "text": "۱۲۳ digits",
+    "id": "user-content-۱۲۳-digits",
+    "anchor": "۱۲۳-digits",
+    "href": "#۱۲۳-digits",
+    "explicitIds": [],
+    "html": "۱۲۳ digits"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/mathematical-bold-digits",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## 𝟎𝟏 digits",
+  "headings": [
+   {
+    "level": 2,
+    "text": "𝟎𝟏 digits",
+    "id": "user-content-𝟎𝟏-digits",
+    "anchor": "𝟎𝟏-digits",
+    "href": "#𝟎𝟏-digits",
+    "explicitIds": [],
+    "html": "𝟎𝟏 digits"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/superscript-letter",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## xᵃ modifier letter",
+  "headings": [
+   {
+    "level": 2,
+    "text": "xᵃ modifier letter",
+    "id": "user-content-xᵃ-modifier-letter",
+    "anchor": "xᵃ-modifier-letter",
+    "href": "#xᵃ-modifier-letter",
+    "explicitIds": [],
+    "html": "xᵃ modifier letter"
+   }
+  ]
+ },
+ {
+  "case": "54-alphabetic-and-digits/squared-latin-capital",
+  "document": "54-alphabetic-and-digits.md",
+  "markdown": "## 🄰 squared",
+  "headings": [
+   {
+    "level": 2,
+    "text": "🄰 squared",
+    "id": "user-content-🄰-squared",
+    "anchor": "🄰-squared",
+    "href": "#🄰-squared",
+    "explicitIds": [],
+    "html": "🄰 squared"
+   }
+  ]
+ },
+ {
+  "case": "55-case-mapping-singletons/kelvin-sign",
+  "document": "55-case-mapping-singletons.md",
+  "markdown": "## K kelvin",
+  "headings": [
+   {
+    "level": 2,
+    "text": "K kelvin",
+    "id": "user-content-k-kelvin",
+    "anchor": "k-kelvin",
+    "href": "#k-kelvin",
+    "explicitIds": [],
+    "html": "K kelvin"
+   }
+  ]
+ },
+ {
+  "case": "55-case-mapping-singletons/angstrom-sign",
+  "document": "55-case-mapping-singletons.md",
+  "markdown": "## Å angstrom",
+  "headings": [
+   {
+    "level": 2,
+    "text": "Å angstrom",
+    "id": "user-content-å-angstrom",
+    "anchor": "å-angstrom",
+    "href": "#å-angstrom",
+    "explicitIds": [],
+    "html": "Å angstrom"
+   }
+  ]
+ },
+ {
+  "case": "55-case-mapping-singletons/ohm-sign",
+  "document": "55-case-mapping-singletons.md",
+  "markdown": "## Ω ohm",
+  "headings": [
+   {
+    "level": 2,
+    "text": "Ω ohm",
+    "id": "user-content-ω-ohm",
+    "anchor": "ω-ohm",
+    "href": "#ω-ohm",
+    "explicitIds": [],
+    "html": "Ω ohm"
+   }
+  ]
+ },
+ {
+  "case": "55-case-mapping-singletons/unicode17-beria-erfe",
+  "document": "55-case-mapping-singletons.md",
+  "markdown": "## 𖺠 unicode17",
+  "headings": [
+   {
+    "level": 2,
+    "text": "𖺠 unicode17",
+    "id": "user-content-𖺻-unicode17",
+    "anchor": "𖺻-unicode17",
+    "href": "#𖺻-unicode17",
+    "explicitIds": [],
+    "html": "𖺠 unicode17"
+   }
+  ]
+ },
+ {
+  "case": "56-empty-slug-then-literal-suffix/p1",
+  "document": "56-empty-slug-then-literal-suffix.md",
+  "markdown": "## .",
+  "headings": [
+   {
+    "level": 2,
+    "text": ".",
+    "id": "",
+    "anchor": "",
+    "href": "#",
+    "explicitIds": [],
+    "html": "."
+   }
+  ]
+ },
+ {
+  "case": "56-empty-slug-then-literal-suffix/p2",
+  "document": "56-empty-slug-then-literal-suffix.md",
+  "markdown": "## .",
+  "headings": [
+   {
+    "level": 2,
+    "text": ".",
+    "id": "user-content--1",
+    "anchor": "-1",
+    "href": "#-1",
+    "explicitIds": [],
+    "html": "."
+   }
+  ]
+ },
+ {
+  "case": "56-empty-slug-then-literal-suffix/literal-minus-1",
+  "document": "56-empty-slug-then-literal-suffix.md",
+  "markdown": "## -1",
+  "headings": [
+   {
+    "level": 2,
+    "text": "-1",
+    "id": "user-content--1-1",
+    "anchor": "-1-1",
+    "href": "#-1-1",
+    "explicitIds": [],
+    "html": "-1"
+   }
+  ]
+ },
+ {
+  "case": "56-empty-slug-then-literal-suffix/tail",
+  "document": "56-empty-slug-then-literal-suffix.md",
+  "markdown": "## tail",
+  "headings": [
+   {
+    "level": 2,
+    "text": "tail",
+    "id": "user-content-tail",
+    "anchor": "tail",
+    "href": "#tail",
+    "explicitIds": [],
+    "html": "tail"
+   }
+  ]
+ },
+ {
+  "case": "57-explicit-id-prefix/plain-id",
+  "document": "57-explicit-id-prefix.md",
+  "markdown": "## One <a id=\"pre2\"></a>",
+  "headings": [
+   {
+    "level": 2,
+    "text": "One \n",
+    "id": "user-content-one-",
+    "anchor": "one-",
+    "href": "#one-",
+    "explicitIds": [
+     "user-content-pre2"
+    ],
+    "html": "One <a id=\"user-content-pre2\"></a>\n"
+   }
+  ]
+ },
+ {
+  "case": "57-explicit-id-prefix/prefixed-id",
+  "document": "57-explicit-id-prefix.md",
+  "markdown": "## Two <a id=\"user-content-pre2\"></a>",
+  "headings": [
+   {
+    "level": 2,
+    "text": "Two \n",
+    "id": "user-content-two-",
+    "anchor": "two-",
+    "href": "#two-",
+    "explicitIds": [
+     "user-content-pre2"
+    ],
+    "html": "Two <a id=\"user-content-pre2\"></a>\n"
    }
   ]
  }
