@@ -1,0 +1,127 @@
+node v24.21.0, V8 13.6.233.17-node.53
+
+== JSON.parse: value after parse, as a double
+9007199254740991                                           9007199254740991
+9007199254740992                                           9007199254740992
+9007199254740993                                           9007199254740992
+12345678901234567890                                       12345678901234567000
+123456789012345678901234567890                             1.2345678901234568e+29
+1                                                          1
+1.0                                                        1
+1e0                                                        1
+10e-1                                                      1
+-0                                                         -0 (negative zero)
+-0.0                                                       -0 (negative zero)
+0                                                          0
+1e400                                                      Infinity
+-1e400                                                     -Infinity
+1e-400                                                     0
+5e-324                                                     5e-324
+0.1                                                        0.1
+0.30000000000000004                                        0.30000000000000004
+0.3000000000000000444089209850062616169452667236328125     0.30000000000000004
+1.7976931348623157e308                                     1.7976931348623157e+308
+123456789.123456789123456789                               123456789.12345679
+
+== JSON.parse with a reviver: does context.source exist, and what is it
+9007199254740991                                           {"hasCtx":true,"source":"9007199254740991"}
+9007199254740992                                           {"hasCtx":true,"source":"9007199254740992"}
+9007199254740993                                           {"hasCtx":true,"source":"9007199254740993"}
+12345678901234567890                                       {"hasCtx":true,"source":"12345678901234567890"}
+123456789012345678901234567890                             {"hasCtx":true,"source":"123456789012345678901234567890"}
+1                                                          {"hasCtx":true,"source":"1"}
+1.0                                                        {"hasCtx":true,"source":"1.0"}
+1e0                                                        {"hasCtx":true,"source":"1e0"}
+10e-1                                                      {"hasCtx":true,"source":"10e-1"}
+-0                                                         {"hasCtx":true,"source":"-0"}
+-0.0                                                       {"hasCtx":true,"source":"-0.0"}
+0                                                          {"hasCtx":true,"source":"0"}
+1e400                                                      {"hasCtx":true,"source":"1e400"}
+-1e400                                                     {"hasCtx":true,"source":"-1e400"}
+1e-400                                                     {"hasCtx":true,"source":"1e-400"}
+5e-324                                                     {"hasCtx":true,"source":"5e-324"}
+0.1                                                        {"hasCtx":true,"source":"0.1"}
+0.30000000000000004                                        {"hasCtx":true,"source":"0.30000000000000004"}
+0.3000000000000000444089209850062616169452667236328125     {"hasCtx":true,"source":"0.3000000000000000444089209850062616169452667236328125"}
+1.7976931348623157e308                                     {"hasCtx":true,"source":"1.7976931348623157e308"}
+123456789.123456789123456789                               {"hasCtx":true,"source":"123456789.123456789123456789"}
+object member: {"a":1.0,"b":[2e2]}                         [["a","1.0"],["0","2e2"],["b",null],["",null]]
+source is absent for objects, arrays (and strings?)        [["0",true],["a",false],["s",true],["t",true],["n",true],["",false]]
+source after the reviver modifies a sibling                [["0",1,"1"],["1",99,null],["",[1,99],null]]
+
+== Keeping the lexeme with a reviver: replace each number with an object
+{"a":12345678901234567890,"b":1.0}                         {"a":{"text":"12345678901234567890"},"b":{"text":"1.0"}}
+BigInt from source for integers                            ["12345678901234567890n",1.5]
+
+== JSON.rawJSON and JSON.isRawJSON (serialization of exact text)
+typeof JSON.rawJSON                                        function
+JSON.stringify({a: JSON.rawJSON("12345678901234567890")})  {"a":12345678901234567890}
+JSON.stringify({a: JSON.rawJSON("1.0")})                   {"a":1.0}
+JSON.stringify({a: JSON.rawJSON("1e400")})                 {"a":1e400}
+JSON.rawJSON("abc") (must be a primitive JSON text)        THROWS SyntaxError: Unexpected token 'a', "abc" is not valid JSON
+JSON.rawJSON("[1]") (arrays and objects refused)           THROWS SyntaxError: Unexpected token '[', "[1]" is not valid JSON
+JSON.stringify({a: 12345678901234567890n}) without toJSON  THROWS TypeError: Do not know how to serialize a BigInt
+JSON.stringify(1e400 literal) i.e. Infinity                {"a":null}
+JSON.stringify(-0)                                         {"a":0}
+
+== JSON.parse: duplicate keys and other strictness
+{"a":1,"a":2}                                              {"a":2}
+{"__proto__":1}  own property?                             ["__proto__"]
+trailing comma [1,]                                        THROWS SyntaxError: Unexpected token ']', "[1,]" is not valid JSON
+comment                                                    THROWS SyntaxError: Expected ',' or ']' after array element in JSON at position 3 (line 1 column 4)
+leading zero 01                                            THROWS SyntaxError: Unexpected number in JSON at position 1 (line 1 column 2)
++1                                                         THROWS SyntaxError: Unexpected token '+', "+1" is not valid JSON
+.5                                                         THROWS SyntaxError: Unexpected token '.', ".5" is not valid JSON
+NaN                                                        THROWS SyntaxError: "NaN" is not valid JSON
+lone surrogate "\ud800"                                    1
+BOM prefix                                                 THROWS SyntaxError: Unexpected token '﻿', "﻿1" is not valid JSON
+JSON.parse with a reviver sees only the last duplicate     [["a","2"],["",null]]
+
+== jsonc-parser: parse() value, with strict options
+parse(12345678901234567890)                                {"value":12345678901234567000,"errors":[]}
+parse(1.0)                                                 {"value":1,"errors":[]}
+parse(-0)                                                  {"value":"-0","errors":[]}
+parse(1e400)                                               {"value":null,"errors":[]}
+parse(1e-400)                                              {"value":0,"errors":[]}
+parse({"a":1,"a":2})                                       {"value":{"a":2},"errors":[]}
+parse([1,])                                                {"value":[1],"errors":["ValueExpected@3"]}
+parse([1 /* c */])                                         {"value":[1],"errors":["InvalidCommentToken@3"]}
+parse(01)                                                  {"value":0,"errors":["EndOfFileExpected@1"]}
+parse(+1)                                                  {"errors":["InvalidSymbol@0","ValueExpected@2"]}
+parse(.5)                                                  {"errors":["InvalidSymbol@0","ValueExpected@2"]}
+parse(NaN)                                                 {"errors":["InvalidSymbol@0","ValueExpected@3"]}
+
+== jsonc-parser: parseTree() gives offsets and length for every node, so the lexeme is s.slice(offset, offset+length)
+{"a":12345678901234567890,"b":1.0,"c":[-0,1e400,0.10]}     {"lexemes":[["a","12345678901234567890",12345678901234567000],["b","1.0",1],["c.0","-0","-0"],["c.1","1e400",null],["c.2","0.10",0.1]],"errors":[]}
+node.value for 12345678901234567890 is a double            {"value":"12345678901234567000","lexeme":"12345678901234567890"}
+node.value for 1e400                                       Infinity
+
+== jsonc-parser: the SAX visitor (visit) gives offset and length for each literal
+visit {"a":12345678901234567890}                           [{"value":"12345678901234567000","offset":5,"length":20}]
+
+== jsonc-parser: duplicate keys are not reported by parse() or parseTree(); detect by walking the tree
+parseTree {"a":1,"a":2} children                           ["a","a"]
+findNodeAtLocation(tree, ["a"]) with duplicates            1
+
+== jsonc-parser: edits splice only the changed span (modify + applyEdits)
+modify a, leave 12345678901234567890 alone                 {
+  "a": 2,
+  "big": 12345678901234567890
+}
+
+modify with a string value to splice exact text? (no raw API; value must be JSON-serializable) THROWS TypeError: Do not know how to serialize a BigInt
+
+== jsonc-parser: further strictness probes (errors reported, not thrown)
+parse("\"\\ud800\"")                                       {"value":"1 code units","errors":[]}
+parse("﻿1")                                                {"errors":["InvalidSymbol@0","ValueExpected@2"]}
+parse("1.")                                                {"value":1,"errors":["UnexpectedEndOfNumber@0"]}
+parse("1e")                                                {"value":1,"errors":["UnexpectedEndOfNumber@0"]}
+parse("-")                                                 {"errors":["InvalidSymbol@0","ValueExpected@1"]}
+parse("00")                                                {"value":0,"errors":["EndOfFileExpected@1"]}
+parse("[1 2]")                                             {"value":[1,2],"errors":["CommaExpected@3"]}
+parse("{\"a\":1,}")                                        {"value":{"a":1},"errors":["PropertyNameExpected@7","ValueExpected@7"]}
+parse("{'a':1}")                                           {"value":{},"errors":["InvalidSymbol@1","PropertyNameExpected@4","ValueExpected@6"]}
+parse("{\"a\":1}{\"b\":2}")                                {"value":{"a":1},"errors":["EndOfFileExpected@7"]}
+
+== jsonc-parser: a hand-built splice from node offsets replaces one number and leaves the others
+replace "b" lexeme 1.0 with 2.50                           {"a":12345678901234567890,"b":2.50}

@@ -1,0 +1,335 @@
+python 3.9.6; PyYAML 6.0.3; ruamel.yaml 0.19.1; libyaml in PyYAML: True
+
+## Scalars, as the value of `v:`
+columns: PyYAML safe_load | ruamel safe | ruamel rt
+"0"                                int(0) | int(0) | ScalarInt(0)
+"1"                                int(1) | int(1) | int(1)
+"-0"                               int(0) | int(0) | ScalarInt(0)
+"+1"                               int(1) | int(1) | int(1)
+"1.0"                              float(1.0) | float(1.0) | ScalarFloat(1.0)
+"1."                               float(1.0) | float(1.0) | ScalarFloat(1.0)
+".5"                               float(0.5) | float(0.5) | ScalarFloat(0.5)
+"-.5"                              "-.5" | float(-0.5) | ScalarFloat(-0.5)
+"1e3"                              "1e3" | float(1000.0) | ScalarFloat(1000.0)
+"1.0e3"                            "1.0e3" | float(1000.0) | ScalarFloat(1000.0)
+"1e+3"                             "1e+3" | float(1000.0) | ScalarFloat(1000.0)
+"1E3"                              "1E3" | float(1000.0) | ScalarFloat(1000.0)
+"10e-1"                            "10e-1" | float(1.0) | ScalarFloat(1.0)
+"9007199254740991"                 int(9007199254740991) | int(9007199254740991) | int(9007199254740991)
+"9007199254740992"                 int(9007199254740992) | int(9007199254740992) | int(9007199254740992)
+"9007199254740993"                 int(9007199254740993) | int(9007199254740993) | int(9007199254740993)
+"-9007199254740993"                int(-9007199254740993) | int(-9007199254740993) | int(-9007199254740993)
+"12345678901234567890"             int(12345678901234567890) | int(12345678901234567890) | int(12345678901234567890)
+"18446744073709551616"             int(18446744073709551616) | int(18446744073709551616) | int(18446744073709551616)
+"123456789012345678901234567890"   int(123456789012345678901234567890) | int(123456789012345678901234567890) | int(123456789012345678901234567890)
+"1e400"                            "1e400" | float(inf) | ScalarFloat(inf)
+"-1e400"                           "-1e400" | float(-inf) | ScalarFloat(-inf)
+"1.0e400"                          "1.0e400" | float(inf) | ScalarFloat(inf)
+"1e-400"                           "1e-400" | float(0.0) | ScalarFloat(0.0)
+"5e-324"                           "5e-324" | float(5e-324) | ScalarFloat(5e-324)
+"0.1"                              float(0.1) | float(0.1) | ScalarFloat(0.1)
+"0.30000000000000004"              float(0.30000000000000004) | float(0.30000000000000004) | ScalarFloat(0.30000000000000004)
+"123456789.123456789123456789"     float(123456789.12345679) | float(123456789.12345679) | ScalarFloat(123456789.12345679)
+"0o17"                             "0o17" | int(15) | OctalInt(15)
+"017"                              int(15) | int(17) | ScalarInt(17)
+"0x1F"                             int(31) | int(31) | HexCapsInt(31)
+"0b101"                            int(5) | int(5) | BinaryInt(5)
+"0X1f"                             "0X1f" | "0X1f" | "0X1f"
+"0O17"                             "0O17" | "0O17" | "0O17"
+"08"                               "08" | int(8) | ScalarInt(8)
+"1_000"                            int(1000) | int(1000) | ScalarInt(1000)
+"1_000.5"                          float(1000.5) | float(1000.5) | ScalarFloat(1000.5)
+"1:30"                             int(90) | "1:30" | "1:30"
+"1:30:00"                          int(5400) | "1:30:00" | "1:30:00"
+"190:20:30"                        int(685230) | "190:20:30" | "190:20:30"
+"1:30.5"                           float(90.5) | "1:30.5" | "1:30.5"
+"2026-10-09"                       date(2026-10-09) | date(2026-10-09) | date(2026-10-09)
+"2026-10-09T08:00:00Z"             datetime(2026-10-09T08:00:00+00:00) | datetime(2026-10-09T08:00:00+00:00) | datetime(2026-10-09T08:00:00+00:00)
+"2026-10-09 08:00:00"              datetime(2026-10-09T08:00:00) | datetime(2026-10-09T08:00:00) | datetime(2026-10-09T08:00:00)
+"2026-10-09T08:00:00+02:00"        datetime(2026-10-09T08:00:00+02:00) | datetime(2026-10-09T08:00:00+02:00) | datetime(2026-10-09T08:00:00+02:00)
+"2026-10-09T08:00:00"              datetime(2026-10-09T08:00:00) | datetime(2026-10-09T08:00:00) | datetime(2026-10-09T08:00:00)
+"2026-13-45"                       ERROR ValueError: month must be in 1..12 | ERROR ValueError: month must be in 1..12 | ERROR ValueError: month must be in 1..12
+"yes"                              bool(True) | "yes" | "yes"
+"no"                               bool(False) | "no" | "no"
+"Yes"                              bool(True) | "Yes" | "Yes"
+"No"                               bool(False) | "No" | "No"
+"YES"                              bool(True) | "YES" | "YES"
+"NO"                               bool(False) | "NO" | "NO"
+"on"                               bool(True) | "on" | "on"
+"off"                              bool(False) | "off" | "off"
+"On"                               bool(True) | "On" | "On"
+"Off"                              bool(False) | "Off" | "Off"
+"ON"                               bool(True) | "ON" | "ON"
+"OFF"                              bool(False) | "OFF" | "OFF"
+"y"                                "y" | "y" | "y"
+"n"                                "n" | "n" | "n"
+"Y"                                "Y" | "Y" | "Y"
+"N"                                "N" | "N" | "N"
+"true"                             bool(True) | bool(True) | bool(True)
+"True"                             bool(True) | bool(True) | bool(True)
+"TRUE"                             bool(True) | bool(True) | bool(True)
+"false"                            bool(False) | bool(False) | bool(False)
+"False"                            bool(False) | bool(False) | bool(False)
+"FALSE"                            bool(False) | bool(False) | bool(False)
+"tRuE"                             "tRuE" | "tRuE" | "tRuE"
+"null"                             None | None | None
+"Null"                             None | None | None
+"NULL"                             None | None | None
+"~"                                None | None | None
+""                                 None | None | None
+".inf"                             float(inf) | float(inf) | float(inf)
+"-.inf"                            float(-inf) | float(-inf) | float(-inf)
+"+.inf"                            float(inf) | float(inf) | float(inf)
+".Inf"                             float(inf) | float(inf) | float(inf)
+".INF"                             float(inf) | float(inf) | float(inf)
+".nan"                             float(nan) | float(nan) | float(nan)
+".NaN"                             float(nan) | float(nan) | float(nan)
+".NAN"                             float(nan) | float(nan) | float(nan)
+"inf"                              "inf" | "inf" | "inf"
+"nan"                              "nan" | "nan" | "nan"
+"="                                ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org, | ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org, | TaggedScalar(TaggedScalar(value='=', style=None, tag=Tag('tag:yaml.org,2002:value')))
+"<<"                               ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org, | ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org, | TaggedScalar(TaggedScalar(value='<<', style=None, tag=Tag('tag:yaml.org,2002:merge')))
+"\"2026-10-09\""                   "2026-10-09" | "2026-10-09" | "2026-10-09"
+"\"yes\""                          "yes" | "yes" | "yes"
+"\"1:30\""                         "1:30" | "1:30" | "1:30"
+"'017'"                            "017" | "017" | "017"
+
+## Documents
+
+anchor and alias: "a: &x [1, 2]\nb: *x\n"
+  PyYAML safe_load   {"a": [int(1), int(2)], "b": [int(1), int(2)]}
+  ruamel safe        {"a": [int(1), int(2)], "b": [int(1), int(2)]}
+  ruamel rt          {"a": [int(1), int(2)], "b": [int(1), int(2)]}
+
+anchor on scalar: "a: &n 12345678901234567890\nb: *n\n"
+  PyYAML safe_load   {"a": int(12345678901234567890), "b": int(12345678901234567890)}
+  ruamel safe        {"a": int(12345678901234567890), "b": int(12345678901234567890)}
+  ruamel rt          {"a": ScalarInt(12345678901234567890), "b": ScalarInt(12345678901234567890)}
+
+merge key: "base: &b {x: 1, y: 2}\nd:\n  <<: *b\n  y: 3\n"
+  PyYAML safe_load   {"base": {"x": int(1), "y": int(2)}, "d": {"x": int(1), "y": int(3)}}
+  ruamel safe        {"base": {"x": int(1), "y": int(2)}, "d": {"x": int(1), "y": int(3)}}
+  ruamel rt          {"base": {"x": int(1), "y": int(2)}, "d": {"y": int(3), "x": int(1)}}
+
+merge key as plain string (1.2 core without merge): "<<: 1\n"
+  PyYAML safe_load   ERROR ConstructorError: while constructing a mapping
+  ruamel safe        ERROR ConstructorError: while constructing a mapping
+  ruamel rt          ERROR ConstructorError: while constructing a mapping
+
+custom tag on scalar: "a: !foo bar\n"
+  PyYAML safe_load   ERROR ConstructorError: could not determine a constructor for the tag '!foo'
+  ruamel safe        ERROR ConstructorError: could not determine a constructor for the tag '!foo'
+  ruamel rt          {"a": TaggedScalar(TaggedScalar(value='bar', style=None, tag=Tag('!foo')))}
+
+custom tag on mapping: "a: !foo {b: 1}\n"
+  PyYAML safe_load   ERROR ConstructorError: could not determine a constructor for the tag '!foo'
+  ruamel safe        ERROR ConstructorError: could not determine a constructor for the tag '!foo'
+  ruamel rt          {"a": {"b": int(1)}}
+
+tag !!str on number: "a: !!str 12345678901234567890\n"
+  PyYAML safe_load   {"a": "12345678901234567890"}
+  ruamel safe        {"a": "12345678901234567890"}
+  ruamel rt          {"a": TaggedScalar(TaggedScalar(value='12345678901234567890', style=None, tag=Tag('tag:yaml.org,2002:str')))}
+
+tag !!int on string: "a: !!int \"12\"\n"
+  PyYAML safe_load   {"a": int(12)}
+  ruamel safe        {"a": int(12)}
+  ruamel rt          {"a": int(12)}
+
+tag !!float on int: "a: !!float 1\n"
+  PyYAML safe_load   {"a": float(1.0)}
+  ruamel safe        {"a": float(1.0)}
+  ruamel rt          {"a": ScalarFloat(1.0)}
+
+tag !!set: "a: !!set {x, y}\n"
+  PyYAML safe_load   {"a": set{"y", "x"}}
+  ruamel safe        {"a": set{"y", "x"}}
+  ruamel rt          {"a": CommentedSet(set(odict_keys(['x', 'y'])))}
+
+tag !!omap: "a: !!omap [x: 1, y: 2]\n"
+  PyYAML safe_load   {"a": [["x", int(1)], ["y", int(2)]]}
+  ruamel safe        {"a": {"x": int(1), "y": int(2)}}
+  ruamel rt          {"a": {"x": int(1), "y": int(2)}}
+
+tag !!binary: "a: !!binary aGVsbG8=\n"
+  PyYAML safe_load   {"a": bytes[5]}
+  ruamel safe        {"a": bytes[5]}
+  ruamel rt          {"a": bytes[5]}
+
+tag !!timestamp: "a: !!timestamp 2026-10-09\n"
+  PyYAML safe_load   {"a": date(2026-10-09)}
+  ruamel safe        {"a": date(2026-10-09)}
+  ruamel rt          {"a": date(2026-10-09)}
+
+tag !!python/object: "a: !!python/object/apply:os.getcwd []\n"
+  PyYAML safe_load   ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org,
+  ruamel safe        ERROR ConstructorError: could not determine a constructor for the tag 'tag:yaml.org,
+  ruamel rt          {"a": []}
+
+multiple documents: "a: 1\n---\nb: 2\n"
+  PyYAML safe_load   2 docs: {"a": int(1)} ; {"b": int(2)}
+  ruamel safe        2 docs: {"a": int(1)} ; {"b": int(2)}
+  ruamel rt          2 docs: {"a": int(1)} ; {"b": int(2)}
+
+document end marker then second: "a: 1\n...\n---\nb: 2\n"
+  PyYAML safe_load   2 docs: {"a": int(1)} ; {"b": int(2)}
+  ruamel safe        2 docs: {"a": int(1)} ; {"b": int(2)}
+  ruamel rt          2 docs: {"a": int(1)} ; {"b": int(2)}
+
+explicit single document: "---\na: 1\n"
+  PyYAML safe_load   {"a": int(1)}
+  ruamel safe        {"a": int(1)}
+  ruamel rt          {"a": int(1)}
+
+empty file: ""
+  PyYAML safe_load   0 docs: 
+  ruamel safe        0 docs: 
+  ruamel rt          0 docs: 
+
+comment only: "# nothing\n"
+  PyYAML safe_load   0 docs: 
+  ruamel safe        0 docs: 
+  ruamel rt          0 docs: 
+
+non-string key: integer: "1: a\n"
+  PyYAML safe_load   {int(1): "a"}
+  ruamel safe        {int(1): "a"}
+  ruamel rt          {int(1): "a"}
+
+non-string key: true: "true: a\n"
+  PyYAML safe_load   {bool(True): "a"}
+  ruamel safe        {bool(True): "a"}
+  ruamel rt          {bool(True): "a"}
+
+non-string key: null: "null: a\n"
+  PyYAML safe_load   {None: "a"}
+  ruamel safe        {None: "a"}
+  ruamel rt          {None: "a"}
+
+non-string key: date: "2026-10-09: a\n"
+  PyYAML safe_load   {date(2026-10-09): "a"}
+  ruamel safe        {date(2026-10-09): "a"}
+  ruamel rt          {date(2026-10-09): "a"}
+
+non-string key: sequence: "? [a, b]\n: c\n"
+  PyYAML safe_load   ERROR ConstructorError: while constructing a mapping
+  ruamel safe        {["a", "b"]: "c"}
+  ruamel rt          {["a", "b"]: "c"}
+
+non-string key: mapping: "? {a: 1}\n: c\n"
+  PyYAML safe_load   ERROR ConstructorError: while constructing a mapping
+  ruamel safe        ERROR ConstructorError: while constructing a mapping
+  ruamel rt          {CommentedKeyMap(ordereddict([('a', 1)])): "c"}
+
+non-string key: float: "1.5: a\n"
+  PyYAML safe_load   {float(1.5): "a"}
+  ruamel safe        {float(1.5): "a"}
+  ruamel rt          {ScalarFloat(1.5): "a"}
+
+key 1 and key '1': "1: a\n'1': b\n"
+  PyYAML safe_load   {int(1): "a", "1": "b"}
+  ruamel safe        {int(1): "a", "1": "b"}
+  ruamel rt          {int(1): "a", "1": "b"}
+
+duplicate key: "a: 1\na: 2\n"
+  PyYAML safe_load   {"a": int(2)}
+  ruamel safe        ERROR DuplicateKeyError: while constructing a mapping
+  ruamel rt          ERROR DuplicateKeyError: while constructing a mapping
+
+duplicate key after normalization (1 and 01): "1: a\n01: b\n"
+  PyYAML safe_load   {int(1): "b"}
+  ruamel safe        ERROR DuplicateKeyError: while constructing a mapping
+  ruamel rt          ERROR DuplicateKeyError: while constructing a mapping
+
+duplicate key in flow mapping: "{a: 1, a: 2}\n"
+  PyYAML safe_load   {"a": int(2)}
+  ruamel safe        ERROR DuplicateKeyError: while constructing a mapping
+  ruamel rt          ERROR DuplicateKeyError: while constructing a mapping
+
+key __proto__: "__proto__: 1\n"
+  PyYAML safe_load   {"__proto__": int(1)}
+  ruamel safe        {"__proto__": int(1)}
+  ruamel rt          {"__proto__": int(1)}
+
+unpaired surrogate escape: "a: \"\\ud800\"\n"
+  PyYAML safe_load   {"a": "\ud800"}
+  ruamel safe        {"a": "\ud800"}
+  ruamel rt          {"a": "\ud800"}
+
+tab in indentation: "a:\n\t- 1\n"
+  PyYAML safe_load   ERROR ScannerError: while scanning for the next token
+  ruamel safe        ERROR ScannerError: while scanning for the next token
+  ruamel rt          ERROR ScannerError: while scanning for the next token
+
+BOM: "\ufeffa: 1\n"
+  PyYAML safe_load   {"a": int(1)}
+  ruamel safe        {"a": int(1)}
+  ruamel rt          {"a": int(1)}
+
+top-level scalar: "12345678901234567890\n"
+  PyYAML safe_load   int(12345678901234567890)
+  ruamel safe        int(12345678901234567890)
+  ruamel rt          int(12345678901234567890)
+
+top-level sequence: "- 1\n- 2\n"
+  PyYAML safe_load   [int(1), int(2)]
+  ruamel safe        [int(1), int(2)]
+  ruamel rt          [int(1), int(2)]
+
+## Single-document loaders on a multi-document source and on an empty source
+  PyYAML safe_load   multi    ERROR ComposerError: expected a single document in the stream
+  PyYAML safe_load   empty    None
+  ruamel safe load   multi    ERROR ComposerError: expected a single document in the stream
+  ruamel safe load   empty    None
+  ruamel rt load     multi    ERROR ComposerError: expected a single document in the stream
+  ruamel rt load     empty    None
+
+## PyYAML: the unsafe loaders and the warning in its own documentation
+   python/object/apply under yaml.safe_load -> ConstructorError
+
+## ruamel.yaml: duplicate keys option
+  rt allow_duplicate_keys=True: {"a": int(1)}
+  rt version attribute: None (None means the default, YAML 1.2)
+  rt version (1,1) v: yes -> bool(True)
+  rt version (1,1) v: 017 -> OctalInt(15)
+  rt version (1,1) v: 0o17 -> "0o17"
+  rt version (1,1) v: 2026-10-09 -> date(2026-10-09)
+  rt version (1,1) v: 1:30 -> int(90)
+  rt version (1,1) v: 1_000 -> ScalarInt(1000)
+
+## ruamel.yaml round trip: are numbers rewritten when a document is loaded and dumped unchanged?
+  identical: False
+    'e: -0' -> 'e: 0'
+    'g: 1e400' -> 'g: .inf'
+    'h: +1' -> 'h: 1'
+  value types after rt load: {'a': 'ScalarFloat', 'b': 'int', 'c': 'HexCapsInt', 'd': 'ScalarFloat', 'e': 'ScalarInt', 'f': 'OctalInt', 'g': 'ScalarFloat', 'h': 'int', 'i': 'ScalarInt', 'j': 'ScalarInt', 'k': 'ScalarFloat', 'l': 'ScalarFloat', 'm': 'ScalarFloat', 'n': 'ScalarFloat'}
+  after data['a'] = 2 :
+    ['a: 2', 'b: 12345678901234567890', 'c: 0x1F']
+
+## ruamel.yaml rt: where a custom tag lives after loading
+  mapping tag attribute: Tag('!foo') ; scalar: TaggedScalar Tag('!foo')
+
+## ruamel.yaml: line and column of a node (rt)
+  lc of key b: (1, 0) value: (1, 3)
+
+## Exact source text of a number in Python: the composed node tree (before any conversion to int or float)
+  PyYAML yaml.compose:
+    a: value='1.0' tag=tag:yaml.org,2002:float source slice='1.0'
+    b: value='12345678901234567890' tag=tag:yaml.org,2002:int source slice='12345678901234567890'
+    c: value='0x1F' tag=tag:yaml.org,2002:int source slice='0x1F'
+    d: value='1e3' tag=tag:yaml.org,2002:str source slice='1e3'
+    e: value='-0' tag=tag:yaml.org,2002:int source slice='-0'
+    f: value='0o17' tag=tag:yaml.org,2002:str source slice='0o17'
+    g: value='1e400' tag=tag:yaml.org,2002:str source slice='1e400'
+    h: value='+1' tag=tag:yaml.org,2002:int source slice='+1'
+    i: value='017' tag=tag:yaml.org,2002:int source slice='017'
+  ruamel YAML().compose:
+    a: value='1.0' tag=tag:yaml.org,2002:float source slice='1.0'
+    b: value='12345678901234567890' tag=tag:yaml.org,2002:int source slice='12345678901234567890'
+    c: value='0x1F' tag=tag:yaml.org,2002:int source slice='0x1F'
+    d: value='1e3' tag=tag:yaml.org,2002:float source slice='1e3'
+    e: value='-0' tag=tag:yaml.org,2002:int source slice='-0'
+    f: value='0o17' tag=tag:yaml.org,2002:int source slice='0o17'
+    g: value='1e400' tag=tag:yaml.org,2002:float source slice='1e400'
+    h: value='+1' tag=tag:yaml.org,2002:int source slice='+1'
+    i: value='017' tag=tag:yaml.org,2002:int source slice='017'
