@@ -1,0 +1,60 @@
+serde_json 1.0.151, arbitrary_precision = false
+
+== Numbers parsed into serde_json::Value
+9007199254740991                                 Number[u64] as_f64=Some(9007199254740991.0) display=9007199254740991
+9007199254740992                                 Number[u64] as_f64=Some(9007199254740992.0) display=9007199254740992
+9007199254740993                                 Number[u64] as_f64=Some(9007199254740992.0) display=9007199254740993
+12345678901234567890                             Number[u64] as_f64=Some(1.2345678901234567e19) display=12345678901234567890
+18446744073709551615                             Number[u64] as_f64=Some(1.8446744073709552e19) display=18446744073709551615
+18446744073709551616                             Number[f64] as_f64=Some(1.8446744073709552e19) display=1.8446744073709552e+19
+123456789012345678901234567890                   Number[f64] as_f64=Some(1.2345678901234568e29) display=1.2345678901234568e+29
+-9223372036854775808                             Number[i64] as_f64=Some(-9.223372036854776e18) display=-9223372036854775808
+-9223372036854775809                             Number[f64] as_f64=Some(-9.223372036854776e18) display=-9.223372036854776e+18
+1                                                Number[u64] as_f64=Some(1.0) display=1
+1.0                                              Number[f64] as_f64=Some(1.0) display=1.0
+1e0                                              Number[f64] as_f64=Some(1.0) display=1.0
+10e-1                                            Number[f64] as_f64=Some(1.0) display=1.0
+-0                                               Number[f64] as_f64=Some(-0.0) display=-0.0
+-0.0                                             Number[f64] as_f64=Some(-0.0) display=-0.0
+1e400                                            ERROR number out of range at line 1 column 5
+-1e400                                           ERROR number out of range at line 1 column 6
+1e-400                                           Number[f64] as_f64=Some(0.0) display=0.0
+5e-324                                           Number[f64] as_f64=Some(5e-324) display=5e-324
+0.1                                              Number[f64] as_f64=Some(0.1) display=0.1
+0.3000000000000000444089209850062616169452667236328125 Number[f64] as_f64=Some(0.30000000000000004) display=0.30000000000000004
+123456789.123456789123456789                     Number[f64] as_f64=Some(123456789.1234568) display=123456789.1234568
+
+== Equality of two Values
+1 == 1.0 ? false
+9007199254740993 == 9007199254740992 ? false
+1e2 == 100 ? false
+0.10 == 0.1 ? true
+
+== Round trip of the text through Value
+1.0                      -> 1.0
+12345678901234567890     -> 12345678901234567890
+1e3                      -> 1000.0
+-0                       -> -0.0
+0.10                     -> 0.1
+1E400                    -> ERROR number out of range at line 1 column 5
+
+== Duplicate keys
+Value, {"a":1,"a":2}                             {"a":2}
+struct with field a, {"a":1,"a":2}               Err("duplicate field `a` at line 1 column 10")
+
+== Strictness
+NaN                                              ERROR expected value at line 1 column 1
+Infinity                                         ERROR expected value at line 1 column 1
+trailing comma [1,]                              ERROR trailing comma at line 1 column 4
+comment                                          ERROR expected `,` or `]` at line 1 column 4
+leading zero 01                                  ERROR invalid number at line 1 column 2
++1                                               ERROR expected value at line 1 column 1
+.5                                               ERROR expected value at line 1 column 1
+lone surrogate escape                            ERROR unexpected end of hex escape at line 1 column 8
+two values                                       ERROR trailing characters at line 1 column 3
+
+== RawValue keeps the exact text of any JSON value
+1.0                      -> 1.0
+12345678901234567890     -> 12345678901234567890
+1e400                    -> 1e400
+-0                       -> -0

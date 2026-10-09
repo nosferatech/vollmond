@@ -1,0 +1,65 @@
+
+== Which lexemes survive a double? (the cases an "exact only when needed" representation would wrap)
+1                                                            double-safe   canonical=1   Number()=1
+1.0                                                          double-safe   canonical=1   Number()=1
+10e-1                                                        double-safe   canonical=1   Number()=1
+0.1                                                          double-safe   canonical=0.1   Number()=0.1
+9007199254740991                                             double-safe   canonical=9007199254740991   Number()=9007199254740991
+9007199254740993                                             NEEDS EXACT   canonical=9007199254740993   Number()=9007199254740992
+12345678901234567890                                         NEEDS EXACT   canonical=12345678901234567890   Number()=12345678901234567000
+1e400                                                        NEEDS EXACT   canonical=1e400   Number()=Infinity
+1e-400                                                       NEEDS EXACT   canonical=1e-400   Number()=0
+5e-324                                                       double-safe   canonical=5e-324   Number()=5e-324
+0.30000000000000004                                          double-safe   canonical=0.30000000000000004   Number()=0.30000000000000004
+0.3000000000000000444089209850062616169452667236328125       NEEDS EXACT   canonical=3000000000000000444089209850062616169452667236328125e-52   Number()=0.30000000000000004
+123456789.123456789123456789                                 NEEDS EXACT   canonical=123456789.123456789123456789   Number()=123456789.12345679
+-0                                                           double-safe   canonical=0   Number()=0
+2.50                                                         double-safe   canonical=2.5   Number()=2.5
+1e21                                                         double-safe   canonical=1e21   Number()=1e+21
+100000000000000000000000                                     double-safe   canonical=1e23   Number()=1e+23
+
+== Plain doubles: equality and ordering silently lose information
+9007199254740993 vs 9007199254740992                         double equal=true   exact compare=1
+12345678901234567890 vs 12345678901234567891                 double equal=true   exact compare=-1
+1e400 vs 2e400                                               double equal=true   exact compare=-1
+0.30000000000000004 vs 0.3000000000000000444089209850062616169452667236328125 double equal=true   exact compare=-1
+
+== RFC 8785 canonical JSON and the node version token (SHA-256 over JCS, 16 hex digits)
+9007199254740992                                             {"id":9007199254740992}  token=24bb430971eb50f9
+9007199254740993                                             {"id":9007199254740992}  token=24bb430971eb50f9
+12345678901234567890                                         {"id":12345678901234567000}  token=6cf3f4db3b979bef
+12345678901234567891                                         {"id":12345678901234567000}  token=6cf3f4db3b979bef
+1e400                                                        THROWS Non-finite number (Infinity) is not permitted in JSON (RFC 8785 §3.2.2.3)
+1.0                                                          {"id":1}  token=037c9214eef74cc3
+1                                                            {"id":1}  token=037c9214eef74cc3
+  (same text, same token: two different stored values share a version token if they round to the same double)
+extended rule: 9007199254740992 / 9007199254740993           9007199254740992 / 9007199254740993
+extended rule: 12345678901234567890 / ...891                 12345678901234567890 / 12345678901234567891
+extended rule: 1e400                                         1e400
+extended rule: 1.0 and 10e-1 both become                     1 and 1
+
+== Ajv 8 on the candidate in-memory shapes
+plain double 12345678901234567000, type integer              valid
+plain double, maximum 9007199254740991                       invalid (maximum: must be <= 9007199254740991)
+plain double Infinity (from 1e400), type number              invalid (type: must be number)
+plain double 9007199254740992 vs enum [9007199254740993]     valid
+plain double, const 9007199254740993, data ...992            valid
+BigInt 12345678901234567890n, type integer                   invalid (type: must be integer)
+BigInt, type number                                          invalid (type: must be number)
+wrapper {text}, type number                                  invalid (type: must be number)
+wrapper class instance with valueOf, type number             invalid (type: must be number)
+plain number 1.0 (parsed), type integer                      valid
+  (Ajv checks typeof data == "number" for type number and integer; BigInt and objects fail, so any exact shape needs an adapter)
+
+== Sorting and comparison for a query engine
+sort with Number()                                           -0 0 2 10 1.5e1 9007199254740993 9007199254740992 12345678901234567891 12345678901234567890
+sort with exact compare                                      -0 0 2 10 1.5e1 9007199254740992 9007199254740993 12345678901234567890 12345678901234567891
+
+== Cost of the shapes: time and heap for 300000 numbers (document of the numbers 1 to 300000 with a few fractions)
+JSON.parse (plain doubles)                                       6 ms   retained    2.5 MB
+JSON.parse with reviver reading context.source                 107 ms   retained   19.4 MB
+JSON.parse with reviver, wrapper only if not double-safe       130 ms   retained    2.4 MB
+jsonc-parser parse (plain doubles)                              19 ms   retained    3.2 MB
+jsonc-parser parseTree (offsets kept for every node)            23 ms   retained   27.1 MB
+jsonc-parser visit, wrapper for every number                    21 ms   retained   15.1 MB
+jsonc-parser visit, hybrid (number or wrapper)                  33 ms   retained    3.1 MB

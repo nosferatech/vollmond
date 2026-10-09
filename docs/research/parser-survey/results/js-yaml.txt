@@ -1,0 +1,523 @@
+node v24.21.0; yaml 2.9.1; js-yaml 5.4.3; js-yaml4 4.3.2
+
+## Scalars, as the value of `v:` (one block per input)
+columns: yaml core | yaml core+bigint | yaml 1.1 | js-yaml5 default | js-yaml5 yaml11 | js-yaml4 default | js-yaml4 core
+"0"                                num(0) | big(0) | num(0) | num(0) | num(0) | num(0) | num(0)
+"1"                                num(1) | big(1) | num(1) | num(1) | num(1) | num(1) | num(1)
+"-0"                               num(-0) | big(0) | num(-0) | num(-0) | num(-0) | num(0) | num(0)
+"+1"                               num(1) | big(1) | num(1) | num(1) | num(1) | num(1) | num(1)
+"1.0"                              num(1) | num(1) | num(1) | num(1) | num(1) | num(1) | num(1)
+"1."                               num(1) | num(1) | num(1) | num(1) | num(1) | num(1) | num(1)
+".5"                               num(0.5) | num(0.5) | num(0.5) | num(0.5) | num(0.5) | num(0.5) | num(0.5)
+"-.5"                              num(-0.5) | num(-0.5) | num(-0.5) | num(-0.5) | num(-0.5) | "-.5" | "-.5"
+"1e3"                              num(1000) | num(1000) | num(1000) | num(1000) | "1e3" | num(1000) | num(1000)
+"1.0e3"                            num(1000) | num(1000) | num(1000) | num(1000) | "1.0e3" | num(1000) | num(1000)
+"1e+3"                             num(1000) | num(1000) | num(1000) | num(1000) | "1e+3" | num(1000) | num(1000)
+"1E3"                              num(1000) | num(1000) | num(1000) | num(1000) | "1E3" | num(1000) | num(1000)
+"10e-1"                            num(1) | num(1) | num(1) | num(1) | "10e-1" | num(1) | num(1)
+"9007199254740991"                 num(9007199254740991) | big(9007199254740991) | num(9007199254740991) | num(9007199254740991) | num(9007199254740991) | num(9007199254740991) | num(9007199254740991)
+"9007199254740992"                 num(9007199254740992) | big(9007199254740992) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992)
+"9007199254740993"                 num(9007199254740992) | big(9007199254740993) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992) | num(9007199254740992)
+"-9007199254740993"                num(-9007199254740992) | big(-9007199254740993) | num(-9007199254740992) | num(-9007199254740992) | num(-9007199254740992) | num(-9007199254740992) | num(-9007199254740992)
+"12345678901234567890"             num(12345678901234567000) | big(12345678901234567890) | num(12345678901234567000) | num(12345678901234567000) | num(12345678901234567000) | num(12345678901234567000) | num(12345678901234567000)
+"18446744073709551616"             num(18446744073709552000) | big(18446744073709551616) | num(18446744073709552000) | num(18446744073709552000) | num(18446744073709552000) | num(18446744073709552000) | num(18446744073709552000)
+"123456789012345678901234567890"   num(1.2345678901234568e+29) | big(123456789012345678901234567890) | num(1.2345678901234568e+29) | num(1.2345678901234568e+29) | num(1.2345678901234568e+29) | num(1.2345678901234568e+29) | num(1.2345678901234568e+29)
+"1e400"                            num(Infinity) | num(Infinity) | num(Infinity) | "1e400" | "1e400" | "1e400" | "1e400"
+"-1e400"                           num(-Infinity) | num(-Infinity) | num(-Infinity) | "-1e400" | "-1e400" | "-1e400" | "-1e400"
+"1.0e400"                          num(Infinity) | num(Infinity) | num(Infinity) | "1.0e400" | "1.0e400" | "1.0e400" | "1.0e400"
+"1e-400"                           num(0) | num(0) | num(0) | num(0) | "1e-400" | num(0) | num(0)
+"5e-324"                           num(5e-324) | num(5e-324) | num(5e-324) | num(5e-324) | "5e-324" | num(5e-324) | num(5e-324)
+"0.1"                              num(0.1) | num(0.1) | num(0.1) | num(0.1) | num(0.1) | num(0.1) | num(0.1)
+"0.30000000000000004"              num(0.30000000000000004) | num(0.30000000000000004) | num(0.30000000000000004) | num(0.30000000000000004) | num(0.30000000000000004) | num(0.30000000000000004) | num(0.30000000000000004)
+"123456789.123456789123456789"     num(123456789.12345679) | num(123456789.12345679) | num(123456789.12345679) | num(123456789.12345679) | num(123456789.12345679) | num(123456789.12345679) | num(123456789.12345679)
+"0o17"                             num(15) | big(15) | "0o17" | num(15) | "0o17" | num(15) | num(15)
+"017"                              num(17) | big(17) | num(15) | num(17) | num(15) | num(17) | num(17)
+"0x1F"                             num(31) | big(31) | num(31) | num(31) | num(31) | num(31) | num(31)
+"0b101"                            "0b101" | "0b101" | num(5) | "0b101" | num(5) | num(5) | num(5)
+"0X1f"                             "0X1f" | "0X1f" | "0X1f" | "0X1f" | "0X1f" | "0X1f" | "0X1f"
+"0O17"                             "0O17" | "0O17" | "0O17" | "0O17" | "0O17" | "0O17" | "0O17"
+"08"                               num(8) | big(8) | num(8) | num(8) | "08" | num(8) | num(8)
+"1_000"                            "1_000" | "1_000" | num(1000) | "1_000" | num(1000) | "1_000" | "1_000"
+"1_000.5"                          "1_000.5" | "1_000.5" | num(1000.5) | "1_000.5" | num(1000.5) | "1_000.5" | "1_000.5"
+"1:30"                             "1:30" | "1:30" | num(90) | "1:30" | num(90) | "1:30" | "1:30"
+"1:30:00"                          "1:30:00" | "1:30:00" | num(5400) | "1:30:00" | num(5400) | "1:30:00" | "1:30:00"
+"190:20:30"                        "190:20:30" | "190:20:30" | num(685230) | "190:20:30" | num(685230) | "190:20:30" | "190:20:30"
+"1:30.5"                           "1:30.5" | "1:30.5" | num(90.5) | "1:30.5" | num(90.5) | "1:30.5" | "1:30.5"
+"2026-10-09"                       "2026-10-09" | "2026-10-09" | Date(2026-10-09T00:00:00.000Z) | "2026-10-09" | Date(2026-10-09T00:00:00.000Z) | Date(2026-10-09T00:00:00.000Z) | "2026-10-09"
+"2026-10-09T08:00:00Z"             "2026-10-09T08:00:00Z" | "2026-10-09T08:00:00Z" | Date(2026-10-09T08:00:00.000Z) | "2026-10-09T08:00:00Z" | Date(2026-10-09T08:00:00.000Z) | Date(2026-10-09T08:00:00.000Z) | "2026-10-09T08:00:00Z"
+"2026-10-09 08:00:00"              "2026-10-09 08:00:00" | "2026-10-09 08:00:00" | Date(2026-10-09T08:00:00.000Z) | "2026-10-09 08:00:00" | Date(2026-10-09T08:00:00.000Z) | Date(2026-10-09T08:00:00.000Z) | "2026-10-09 08:00:00"
+"2026-10-09T08:00:00+02:00"        "2026-10-09T08:00:00+02:00" | "2026-10-09T08:00:00+02:00" | Date(2026-10-09T06:00:00.000Z) | "2026-10-09T08:00:00+02:00" | Date(2026-10-09T06:00:00.000Z) | Date(2026-10-09T06:00:00.000Z) | "2026-10-09T08:00:00+02:00"
+"2026-10-09T08:00:00"              "2026-10-09T08:00:00" | "2026-10-09T08:00:00" | Date(2026-10-09T08:00:00.000Z) | "2026-10-09T08:00:00" | Date(2026-10-09T08:00:00.000Z) | Date(2026-10-09T08:00:00.000Z) | "2026-10-09T08:00:00"
+"2026-13-45"                       "2026-13-45" | "2026-13-45" | Date(2027-02-14T00:00:00.000Z) | "2026-13-45" | "2026-13-45" | Date(2027-02-14T00:00:00.000Z) | "2026-13-45"
+"yes"                              "yes" | "yes" | bool(true) | "yes" | bool(true) | "yes" | "yes"
+"no"                               "no" | "no" | bool(false) | "no" | bool(false) | "no" | "no"
+"Yes"                              "Yes" | "Yes" | bool(true) | "Yes" | bool(true) | "Yes" | "Yes"
+"No"                               "No" | "No" | bool(false) | "No" | bool(false) | "No" | "No"
+"YES"                              "YES" | "YES" | bool(true) | "YES" | bool(true) | "YES" | "YES"
+"NO"                               "NO" | "NO" | bool(false) | "NO" | bool(false) | "NO" | "NO"
+"on"                               "on" | "on" | bool(true) | "on" | bool(true) | "on" | "on"
+"off"                              "off" | "off" | bool(false) | "off" | bool(false) | "off" | "off"
+"On"                               "On" | "On" | bool(true) | "On" | bool(true) | "On" | "On"
+"Off"                              "Off" | "Off" | bool(false) | "Off" | bool(false) | "Off" | "Off"
+"ON"                               "ON" | "ON" | bool(true) | "ON" | bool(true) | "ON" | "ON"
+"OFF"                              "OFF" | "OFF" | bool(false) | "OFF" | bool(false) | "OFF" | "OFF"
+"y"                                "y" | "y" | bool(true) | "y" | bool(true) | "y" | "y"
+"n"                                "n" | "n" | bool(false) | "n" | bool(false) | "n" | "n"
+"Y"                                "Y" | "Y" | bool(true) | "Y" | bool(true) | "Y" | "Y"
+"N"                                "N" | "N" | bool(false) | "N" | bool(false) | "N" | "N"
+"true"                             bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true)
+"True"                             bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true)
+"TRUE"                             bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true) | bool(true)
+"false"                            bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false)
+"False"                            bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false)
+"FALSE"                            bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false) | bool(false)
+"tRuE"                             "tRuE" | "tRuE" | "tRuE" | "tRuE" | "tRuE" | "tRuE" | "tRuE"
+"null"                             null | null | null | null | null | null | null
+"Null"                             null | null | null | null | null | null | null
+"NULL"                             null | null | null | null | null | null | null
+"~"                                null | null | null | null | null | null | null
+""                                 null | null | null | null | null | null | null
+".inf"                             num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity)
+"-.inf"                            num(-Infinity) | num(-Infinity) | num(-Infinity) | num(-Infinity) | num(-Infinity) | num(-Infinity) | num(-Infinity)
+"+.inf"                            num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity)
+".Inf"                             num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity)
+".INF"                             num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity) | num(Infinity)
+".nan"                             num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN)
+".NaN"                             num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN)
+".NAN"                             num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN) | num(NaN)
+"inf"                              "inf" | "inf" | "inf" | "inf" | "inf" | "inf" | "inf"
+"nan"                              "nan" | "nan" | "nan" | "nan" | "nan" | "nan" | "nan"
+"="                                "=" | "=" | "=" | "=" | "=" | "=" | "="
+"<<"                               "<<" | "<<" | "<<" | "<<" | "<<" | "<<" | "<<"
+"\"2026-10-09\""                   "2026-10-09" | "2026-10-09" | "2026-10-09" | "2026-10-09" | "2026-10-09" | "2026-10-09" | "2026-10-09"
+"\"yes\""                          "yes" | "yes" | "yes" | "yes" | "yes" | "yes" | "yes"
+"\"1:30\""                         "1:30" | "1:30" | "1:30" | "1:30" | "1:30" | "1:30" | "1:30"
+"'017'"                            "017" | "017" | "017" | "017" | "017" | "017" | "017"
+
+## Documents
+
+anchor and alias: "a: &x [1, 2]\nb: *x\n"
+  yaml core          {a: [num(1), num(2)], b: [num(1), num(2)]}
+  yaml core+bigint   {a: [big(1), big(2)], b: [big(1), big(2)]}
+  yaml 1.1           {a: [num(1), num(2)], b: [num(1), num(2)]}
+  js-yaml5 default   {a: [num(1), num(2)], b: [num(1), num(2)]}
+  js-yaml5 yaml11    {a: [num(1), num(2)], b: [num(1), num(2)]}
+  js-yaml4 default   {a: [num(1), num(2)], b: [num(1), num(2)]}
+  js-yaml4 core      {a: [num(1), num(2)], b: [num(1), num(2)]}
+
+anchor on scalar: "a: &n 12345678901234567890\nb: *n\n"
+  yaml core          {a: num(12345678901234567000), b: num(12345678901234567000)}
+  yaml core+bigint   {a: big(12345678901234567890), b: big(12345678901234567890)}
+  yaml 1.1           {a: num(12345678901234567000), b: num(12345678901234567000)}
+  js-yaml5 default   {a: num(12345678901234567000), b: num(12345678901234567000)}
+  js-yaml5 yaml11    {a: num(12345678901234567000), b: num(12345678901234567000)}
+  js-yaml4 default   {a: num(12345678901234567000), b: num(12345678901234567000)}
+  js-yaml4 core      {a: num(12345678901234567000), b: num(12345678901234567000)}
+
+merge key: "base: &b {x: 1, y: 2}\nd:\n  <<: *b\n  y: 3\n"
+  yaml core          {base: {x: num(1), y: num(2)}, d: {<<: {x: num(1), y: num(2)}, y: num(3)}}
+  yaml core+bigint   {base: {x: big(1), y: big(2)}, d: {<<: {x: big(1), y: big(2)}, y: big(3)}}
+  yaml 1.1           {base: {x: num(1), true: num(2)}, d: {x: num(1), true: num(3)}}
+  js-yaml5 default   {base: {x: num(1), y: num(2)}, d: {<<: {x: num(1), y: num(2)}, y: num(3)}}
+  js-yaml5 yaml11    ERROR duplicated mapping key (4:3)
+  js-yaml4 default   {base: {x: num(1), y: num(2)}, d: {x: num(1), y: num(3)}}
+  js-yaml4 core      {base: {x: num(1), y: num(2)}, d: {<<: {x: num(1), y: num(2)}, y: num(3)}}
+  yaml uniqueKeys:false {base: {x: num(1), y: num(2)}, d: {<<: {x: num(1), y: num(2)}, y: num(3)}}
+  yaml merge:true    {base: {x: num(1), y: num(2)}, d: {x: num(1), y: num(3)}}
+  js-yaml5 json:true {base: {x: num(1), y: num(2)}, d: {<<: {x: num(1), y: num(2)}, y: num(3)}}
+  js-yaml4 json:true {base: {x: num(1), y: num(2)}, d: {x: num(1), y: num(3)}}
+
+merge key as plain string (1.2 core without merge): "<<: 1\n"
+  yaml core          {<<: num(1)}
+  yaml core+bigint   {<<: big(1)}
+  yaml 1.1           ERROR Merge sources must be maps or map aliases
+  js-yaml5 default   {<<: num(1)}
+  js-yaml5 yaml11    ERROR cannot merge mappings; the provided source object is unacceptable (1:1
+  js-yaml4 default   ERROR cannot merge mappings; the provided source object is unacceptable (1:6
+  js-yaml4 core      {<<: num(1)}
+  yaml uniqueKeys:false {<<: num(1)}
+  yaml merge:true    ERROR Merge sources must be maps or map aliases
+  js-yaml5 json:true {<<: num(1)}
+  js-yaml4 json:true ERROR cannot merge mappings; the provided source object is unacceptable (1:6)
+
+custom tag on scalar: "a: !foo bar\n"
+  yaml core          2 docs: {a: "bar"} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml core+bigint   2 docs: {a: "bar"} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml 1.1           2 docs: {a: "bar"} ; "warnings:TAG_RESOLVE_FAILED"
+  js-yaml5 default   ERROR unknown scalar tag !<!foo> (1:4)
+  js-yaml5 yaml11    ERROR unknown scalar tag !<!foo> (1:4)
+  js-yaml4 default   ERROR unknown tag !<!foo> (1:12)
+  js-yaml4 core      ERROR unknown tag !<!foo> (1:12)
+
+custom tag on mapping: "a: !foo {b: 1}\n"
+  yaml core          2 docs: {a: {b: num(1)}} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml core+bigint   2 docs: {a: {b: big(1)}} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml 1.1           2 docs: {a: {b: num(1)}} ; "warnings:TAG_RESOLVE_FAILED"
+  js-yaml5 default   ERROR unknown mapping tag !<!foo> (1:4)
+  js-yaml5 yaml11    ERROR unknown mapping tag !<!foo> (1:4)
+  js-yaml4 default   ERROR unknown tag !<!foo> (1:15)
+  js-yaml4 core      ERROR unknown tag !<!foo> (1:15)
+
+tag !!str on number: "a: !!str 12345678901234567890\n"
+  yaml core          {a: "12345678901234567890"}
+  yaml core+bigint   {a: "12345678901234567890"}
+  yaml 1.1           {a: "12345678901234567890"}
+  js-yaml5 default   {a: "12345678901234567890"}
+  js-yaml5 yaml11    {a: "12345678901234567890"}
+  js-yaml4 default   {a: "12345678901234567890"}
+  js-yaml4 core      {a: "12345678901234567890"}
+
+tag !!int on string: "a: !!int \"12\"\n"
+  yaml core          {a: num(12)}
+  yaml core+bigint   {a: big(12)}
+  yaml 1.1           {a: num(12)}
+  js-yaml5 default   {a: num(12)}
+  js-yaml5 yaml11    {a: num(12)}
+  js-yaml4 default   {a: num(12)}
+  js-yaml4 core      {a: num(12)}
+
+tag !!float on int: "a: !!float 1\n"
+  yaml core          2 docs: {a: "1"} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml core+bigint   2 docs: {a: "1"} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml 1.1           2 docs: {a: "1"} ; "warnings:TAG_RESOLVE_FAILED"
+  js-yaml5 default   {a: num(1)}
+  js-yaml5 yaml11    ERROR cannot resolve a node with !<tag:yaml.org,2002:float> explicit tag (1:
+  js-yaml4 default   {a: num(1)}
+  js-yaml4 core      {a: num(1)}
+
+tag !!set: "a: !!set {x, y}\n"
+  yaml core          {a: Set{"x", "y"}}
+  yaml core+bigint   {a: Set{"x", "y"}}
+  yaml 1.1           {a: Set{"x", bool(true)}}
+  js-yaml5 default   ERROR unknown mapping tag !<tag:yaml.org,2002:set> (1:4)
+  js-yaml5 yaml11    {a: Set{"x", bool(true)}}
+  js-yaml4 default   {a: {x: null, y: null}}
+  js-yaml4 core      ERROR unknown tag !<tag:yaml.org,2002:set> (1:16)
+
+tag !!omap: "a: !!omap [x: 1, y: 2]\n"
+  yaml core          {a: Map{"x"=>num(1), "y"=>num(2)}}
+  yaml core+bigint   {a: Map{"x"=>big(1), "y"=>big(2)}}
+  yaml 1.1           {a: Map{"x"=>num(1), bool(true)=>num(2)}}
+  js-yaml5 default   ERROR unknown sequence tag !<tag:yaml.org,2002:omap> (1:4)
+  js-yaml5 yaml11    {a: [{x: num(1)}, {true: num(2)}]}
+  js-yaml4 default   {a: [{x: num(1)}, {y: num(2)}]}
+  js-yaml4 core      ERROR unknown tag !<tag:yaml.org,2002:omap> (1:23)
+
+tag !!binary: "a: !!binary aGVsbG8=\n"
+  yaml core          {a: bytes[5]}
+  yaml core+bigint   {a: bytes[5]}
+  yaml 1.1           {a: bytes[5]}
+  js-yaml5 default   ERROR unknown scalar tag !<tag:yaml.org,2002:binary> (1:4)
+  js-yaml5 yaml11    {a: bytes[5]}
+  js-yaml4 default   {a: bytes[5]}
+  js-yaml4 core      ERROR unknown tag !<tag:yaml.org,2002:binary> (1:21)
+
+tag !!timestamp: "a: !!timestamp 2026-10-09\n"
+  yaml core          {a: Date(2026-10-09T00:00:00.000Z)}
+  yaml core+bigint   {a: Date(2026-10-09T00:00:00.000Z)}
+  yaml 1.1           {a: Date(2026-10-09T00:00:00.000Z)}
+  js-yaml5 default   ERROR unknown scalar tag !<tag:yaml.org,2002:timestamp> (1:4)
+  js-yaml5 yaml11    {a: Date(2026-10-09T00:00:00.000Z)}
+  js-yaml4 default   {a: Date(2026-10-09T00:00:00.000Z)}
+  js-yaml4 core      ERROR unknown tag !<tag:yaml.org,2002:timestamp> (1:26)
+
+tag !!python/object: "a: !!python/object/apply:os.getcwd []\n"
+  yaml core          2 docs: {a: []} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml core+bigint   2 docs: {a: []} ; "warnings:TAG_RESOLVE_FAILED"
+  yaml 1.1           2 docs: {a: []} ; "warnings:TAG_RESOLVE_FAILED"
+  js-yaml5 default   ERROR unknown sequence tag !<tag:yaml.org,2002:python/object/apply:os.getcwd
+  js-yaml5 yaml11    ERROR unknown sequence tag !<tag:yaml.org,2002:python/object/apply:os.getcwd
+  js-yaml4 default   ERROR unknown tag !<tag:yaml.org,2002:python/object/apply:os.getcwd> (1:38)
+  js-yaml4 core      ERROR unknown tag !<tag:yaml.org,2002:python/object/apply:os.getcwd> (1:38)
+
+multiple documents: "a: 1\n---\nb: 2\n"
+  yaml core          2 docs: {a: num(1)} ; {b: num(2)}
+  yaml core+bigint   2 docs: {a: big(1)} ; {b: big(2)}
+  yaml 1.1           2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml5 default   2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml5 yaml11    2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml4 default   2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml4 core      2 docs: {a: num(1)} ; {b: num(2)}
+
+document end marker then second: "a: 1\n...\n---\nb: 2\n"
+  yaml core          2 docs: {a: num(1)} ; {b: num(2)}
+  yaml core+bigint   2 docs: {a: big(1)} ; {b: big(2)}
+  yaml 1.1           2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml5 default   2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml5 yaml11    2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml4 default   2 docs: {a: num(1)} ; {b: num(2)}
+  js-yaml4 core      2 docs: {a: num(1)} ; {b: num(2)}
+
+explicit single document: "---\na: 1\n"
+  yaml core          {a: num(1)}
+  yaml core+bigint   {a: big(1)}
+  yaml 1.1           {a: num(1)}
+  js-yaml5 default   {a: num(1)}
+  js-yaml5 yaml11    {a: num(1)}
+  js-yaml4 default   {a: num(1)}
+  js-yaml4 core      {a: num(1)}
+
+empty file: ""
+  yaml core          0 docs: 
+  yaml core+bigint   0 docs: 
+  yaml 1.1           0 docs: 
+  js-yaml5 default   0 docs: 
+  js-yaml5 yaml11    0 docs: 
+  js-yaml4 default   0 docs: 
+  js-yaml4 core      0 docs: 
+
+comment only: "# nothing\n"
+  yaml core          0 docs: 
+  yaml core+bigint   0 docs: 
+  yaml 1.1           0 docs: 
+  js-yaml5 default   0 docs: 
+  js-yaml5 yaml11    0 docs: 
+  js-yaml4 default   null
+  js-yaml4 core      null
+
+non-string key: integer: "1: a\n"
+  yaml core          {1: "a"}
+  yaml core+bigint   {1: "a"}
+  yaml 1.1           {1: "a"}
+  js-yaml5 default   {1: "a"}
+  js-yaml5 yaml11    {1: "a"}
+  js-yaml4 default   {1: "a"}
+  js-yaml4 core      {1: "a"}
+
+non-string key: true: "true: a\n"
+  yaml core          {true: "a"}
+  yaml core+bigint   {true: "a"}
+  yaml 1.1           {true: "a"}
+  js-yaml5 default   {true: "a"}
+  js-yaml5 yaml11    {true: "a"}
+  js-yaml4 default   {true: "a"}
+  js-yaml4 core      {true: "a"}
+
+non-string key: null: "null: a\n"
+  yaml core          {: "a"}
+  yaml core+bigint   {: "a"}
+  yaml 1.1           {: "a"}
+  js-yaml5 default   {null: "a"}
+  js-yaml5 yaml11    {null: "a"}
+  js-yaml4 default   {null: "a"}
+  js-yaml4 core      {null: "a"}
+
+non-string key: date: "2026-10-09: a\n"
+  yaml core          {2026-10-09: "a"}
+  yaml core+bigint   {2026-10-09: "a"}
+  yaml 1.1           {Fri Oct 09 2026 00:00:00 GMT+0000 (Coordinated Universal Time): "a"}
+  js-yaml5 default   {2026-10-09: "a"}
+  js-yaml5 yaml11    ERROR object-based map does not support complex keys (1:1)
+  js-yaml4 default   {Fri Oct 09 2026 00:00:00 GMT+0000 (Coordinated Universal Time): "a"}
+  js-yaml4 core      {2026-10-09: "a"}
+
+non-string key: sequence: "? [a, b]\n: c\n"
+  yaml core          {[ a, b ]: "c"}
+  yaml core+bigint   {[ a, b ]: "c"}
+  yaml 1.1           {[ a, b ]: "c"}
+  js-yaml5 default   ERROR object-based map does not support complex keys (1:1)
+  js-yaml5 yaml11    ERROR object-based map does not support complex keys (1:1)
+  js-yaml4 default   {a,b: "c"}
+  js-yaml4 core      {a,b: "c"}
+
+non-string key: mapping: "? {a: 1}\n: c\n"
+  yaml core          {{ a: 1 }: "c"}
+  yaml core+bigint   {{ a: 1 }: "c"}
+  yaml 1.1           {{ a: 1 }: "c"}
+  js-yaml5 default   ERROR object-based map does not support complex keys (1:1)
+  js-yaml5 yaml11    ERROR object-based map does not support complex keys (1:1)
+  js-yaml4 default   {[object Object]: "c"}
+  js-yaml4 core      {[object Object]: "c"}
+
+non-string key: float: "1.5: a\n"
+  yaml core          {1.5: "a"}
+  yaml core+bigint   {1.5: "a"}
+  yaml 1.1           {1.5: "a"}
+  js-yaml5 default   {1.5: "a"}
+  js-yaml5 yaml11    {1.5: "a"}
+  js-yaml4 default   {1.5: "a"}
+  js-yaml4 core      {1.5: "a"}
+
+key 1 and key '1': "1: a\n'1': b\n"
+  yaml core          {1: "b"}
+  yaml core+bigint   {1: "b"}
+  yaml 1.1           {1: "b"}
+  js-yaml5 default   ERROR duplicated mapping key (2:2)
+  js-yaml5 yaml11    ERROR duplicated mapping key (2:2)
+  js-yaml4 default   ERROR duplicated mapping key (2:1)
+  js-yaml4 core      ERROR duplicated mapping key (2:1)
+
+duplicate key: "a: 1\na: 2\n"
+  yaml core          ERROR DUPLICATE_KEY
+  yaml core+bigint   ERROR DUPLICATE_KEY
+  yaml 1.1           ERROR DUPLICATE_KEY
+  js-yaml5 default   ERROR duplicated mapping key (2:1)
+  js-yaml5 yaml11    ERROR duplicated mapping key (2:1)
+  js-yaml4 default   ERROR duplicated mapping key (2:1)
+  js-yaml4 core      ERROR duplicated mapping key (2:1)
+  yaml uniqueKeys:false {a: num(2)}
+  yaml merge:true    ERROR DUPLICATE_KEY
+  js-yaml5 json:true {a: num(2)}
+  js-yaml4 json:true {a: num(2)}
+
+duplicate key after normalization (1 and 01): "1: a\n01: b\n"
+  yaml core          ERROR DUPLICATE_KEY
+  yaml core+bigint   ERROR DUPLICATE_KEY
+  yaml 1.1           ERROR DUPLICATE_KEY
+  js-yaml5 default   ERROR duplicated mapping key (2:1)
+  js-yaml5 yaml11    ERROR duplicated mapping key (2:1)
+  js-yaml4 default   ERROR duplicated mapping key (2:1)
+  js-yaml4 core      ERROR duplicated mapping key (2:1)
+  yaml uniqueKeys:false {1: "b"}
+  yaml merge:true    ERROR DUPLICATE_KEY
+  js-yaml5 json:true {1: "b"}
+  js-yaml4 json:true {1: "b"}
+
+duplicate key in flow mapping: "{a: 1, a: 2}\n"
+  yaml core          ERROR DUPLICATE_KEY
+  yaml core+bigint   ERROR DUPLICATE_KEY
+  yaml 1.1           ERROR DUPLICATE_KEY
+  js-yaml5 default   ERROR duplicated mapping key (1:8)
+  js-yaml5 yaml11    ERROR duplicated mapping key (1:8)
+  js-yaml4 default   ERROR duplicated mapping key (1:8)
+  js-yaml4 core      ERROR duplicated mapping key (1:8)
+  yaml uniqueKeys:false {a: num(2)}
+  yaml merge:true    ERROR DUPLICATE_KEY
+  js-yaml5 json:true {a: num(2)}
+  js-yaml4 json:true {a: num(2)}
+
+key __proto__: "__proto__: 1\n"
+  yaml core          {__proto__: num(1)}
+  yaml core+bigint   {__proto__: big(1)}
+  yaml 1.1           {__proto__: num(1)}
+  js-yaml5 default   {__proto__: num(1)}
+  js-yaml5 yaml11    {__proto__: num(1)}
+  js-yaml4 default   {__proto__: num(1)}
+  js-yaml4 core      {__proto__: num(1)}
+
+unpaired surrogate escape: "a: \"\\ud800\"\n"
+  yaml core          {a: "\ud800"}
+  yaml core+bigint   {a: "\ud800"}
+  yaml 1.1           {a: "\ud800"}
+  js-yaml5 default   {a: "\ud800"}
+  js-yaml5 yaml11    {a: "\ud800"}
+  js-yaml4 default   {a: "\ud800"}
+  js-yaml4 core      {a: "\ud800"}
+
+tab in indentation: "a:\n\t- 1\n"
+  yaml core          ERROR TAB_AS_INDENT
+  yaml core+bigint   ERROR TAB_AS_INDENT
+  yaml 1.1           ERROR TAB_AS_INDENT
+  js-yaml5 default   ERROR tab characters must not be used in indentation (2:1)
+  js-yaml5 yaml11    ERROR tab characters must not be used in indentation (2:1)
+  js-yaml4 default   ERROR tab characters must not be used in indentation (2:1)
+  js-yaml4 core      ERROR tab characters must not be used in indentation (2:1)
+
+BOM: "﻿a: 1\n"
+  yaml core          {a: num(1)}
+  yaml core+bigint   {a: big(1)}
+  yaml 1.1           {a: num(1)}
+  js-yaml5 default   {a: num(1)}
+  js-yaml5 yaml11    {a: num(1)}
+  js-yaml4 default   {a: num(1)}
+  js-yaml4 core      {a: num(1)}
+
+top-level scalar: "12345678901234567890\n"
+  yaml core          num(12345678901234567000)
+  yaml core+bigint   big(12345678901234567890)
+  yaml 1.1           num(12345678901234567000)
+  js-yaml5 default   num(12345678901234567000)
+  js-yaml5 yaml11    num(12345678901234567000)
+  js-yaml4 default   num(12345678901234567000)
+  js-yaml4 core      num(12345678901234567000)
+
+top-level sequence: "- 1\n- 2\n"
+  yaml core          [num(1), num(2)]
+  yaml core+bigint   [big(1), big(2)]
+  yaml 1.1           [num(1), num(2)]
+  js-yaml5 default   [num(1), num(2)]
+  js-yaml5 yaml11    [num(1), num(2)]
+  js-yaml4 default   [num(1), num(2)]
+  js-yaml4 core      [num(1), num(2)]
+
+## Serializers, which strings are quoted (the strings a YAML 1.1 reader would misread)
+  columns: yaml default | yaml version 1.1 | js-yaml5 dump | js-yaml4 dump
+  "2026-10-09"             2026-10-09 | "2026-10-09" | '2026-10-09' | '2026-10-09'
+  "2026-10-09T08:00:00Z"   2026-10-09T08:00:00Z | "2026-10-09T08:00:00Z" | '2026-10-09T08:00:00Z' | '2026-10-09T08:00:00Z'
+  "yes"                    yes | "yes" | 'yes' | 'yes'
+  "No"                     No | "No" | 'No' | 'No'
+  "on"                     on | "on" | 'on' | 'on'
+  "OFF"                    OFF | "OFF" | 'OFF' | 'OFF'
+  "y"                      y | "y" | 'y' | 'y'
+  "n"                      n | "n" | 'n' | 'n'
+  "1:30"                   1:30 | "1:30" | '1:30' | '1:30'
+  "017"                    "017" | "017" | '017' | '017'
+  "0b101"                  0b101 | "0b101" | '0b101' | '0b101'
+  "1_000"                  1_000 | "1_000" | '1_000' | 1_000
+  "0o17"                   "0o17" | 0o17 | '0o17' | '0o17'
+  "0x1F"                   "0x1F" | "0x1F" | '0x1F' | '0x1F'
+  "1e3"                    "1e3" | "1e3" | '1e3' | '1e3'
+  ".inf"                   ".inf" | ".inf" | '.inf' | '.inf'
+  "~"                      "~" | "~" | '~' | '~'
+  "null"                   "null" | "null" | 'null' | 'null'
+  "<<"                     << | << | '<<' | '<<'
+  "="                      = | = | '=' | '='
+  "true"                   "true" | "true" | 'true' | 'true'
+  "12345678901234567890"   "12345678901234567890" | "12345678901234567890" | '12345678901234567890' | '12345678901234567890'
+  "plain"                  plain | plain | plain | plain
+
+## yaml: exact source text of a number (Scalar.source, ranges, CST)
+  a: value=num(1) source="1.0" range=[3,6,7] slice="1.0" format=undefined tag=undefined
+  b: value=num(12345678901234567000) source="12345678901234567890" range=[10,30,31] slice="12345678901234567890" format=undefined tag=undefined
+  c: value=num(31) source="0x1F" range=[34,38,39] slice="0x1F" format=HEX tag=undefined
+  d: value=num(1000) source="1e3" range=[42,45,46] slice="1e3" format=EXP tag=undefined
+  e: value=num(-0) source="-0" range=[49,51,52] slice="-0" format=undefined tag=undefined
+  f: value=num(15) source="0o17" range=[55,59,60] slice="0o17" format=OCT tag=undefined
+  g: value=num(Infinity) source="1e400" range=[63,68,69] slice="1e400" format=EXP tag=undefined
+  h: value=num(1) source="+1" range=[72,74,75] slice="+1" format=undefined tag=undefined
+  i: value=num(17) source="017" range=[78,81,82] slice="017" format=undefined tag=undefined
+  with intAsBigInt, b: big(12345678901234567890) source "12345678901234567890"
+  CST tokens for `b`:
+    key=a value.source="1.0" offset=3
+    key=b value.source="12345678901234567890" offset=10
+    key=c value.source="0x1F" offset=34
+    key=d value.source="1e3" offset=42
+    key=e value.source="-0" offset=49
+    key=f value.source="0o17" offset=55
+    key=g value.source="1e400" offset=63
+    key=h value.source="+1" offset=72
+    key=i value.source="017" offset=78
+  toString() of the unchanged document: "a: 1.0\nb: 12345678901234567000\nc: 0x1f\nd: 1e+3\ne: -0\nf: 0o17\ng: .inf\nh: 1\ni: 17\n"
+  toString() round trip equals the source? false
+  after set(a, 2): "a: 2.0\nb: 12345678901234567000\nc: 0x1f\nd: 1e+3\ne: -0\nf: 0o17\ng: .inf\nh: 1\ni: 17\n"
+  after set(a, Scalar(bigint)): "a: 12345678901234567890"
+
+## yaml: parse() (the convenience function) on a multi-document source and on aliases
+  YAML.parse multi-doc throws: MULTIPLE_DOCS Source contains multiple documents; please use YAML.parseAllDocuments() at line 2, column 1:
+  alias nodes visible in the AST: 1
+
+## Single-document loaders on a multi-document source and on an empty source
+  yaml parse     multi                      ERROR Source contains multiple documents; please use YAML.parseAllDocuments(
+  yaml parse     empty                      null
+  yaml parse     maxAliases:0 on an alias   {a: [num(1)], b: [num(1)]}
+  js-yaml5 load  multi                      ERROR expected a single document in the stream, but found more
+  js-yaml5 load  empty                      ERROR expected a document, but the input is empty
+  js-yaml5 load  maxAliases:0 on an alias   ERROR aliases exceeded maxAliases (0) (2:5)
+  js-yaml4 load  multi                      ERROR expected a single document in the stream, but found more
+  js-yaml4 load  empty                      undefined
+  js-yaml4 load  maxAliases:0 on an alias   {a: [num(1)], b: [num(1)]}
+
+## yaml: the document tree keeps what toJS loses
+  errors: [] toJS keys: ["1","true","","[ x, y ]"]
+  tree keys (typeof value, style): number/PLAIN, string/QUOTE_SINGLE, boolean/PLAIN, object/PLAIN, collection
+  explicit tags on the tree: ["!foo","tag:yaml.org,2002:set","tag:yaml.org,2002:timestamp"] warnings: ["TAG_RESOLVE_FAILED"]
+
+## yaml: strictness options that matter
+  uniqueKeys default errors on duplicate: ["DUPLICATE_KEY"]
+  strict:false still errors on duplicate: ["DUPLICATE_KEY"]
+  schema "json" on 017 / yes / 2026-10-09: {v: num(17)} {v: "yes"} {v: "2026-10-09"}
+    schema json, 017: ERROR TAG_RESOLVE_FAILED
+    schema json, yes: ERROR TAG_RESOLVE_FAILED
+    schema json, 2026-10-09: ERROR TAG_RESOLVE_FAILED
+    schema json, 1e3: ERROR TAG_RESOLVE_FAILED
+    schema json, .inf: ERROR TAG_RESOLVE_FAILED

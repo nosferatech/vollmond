@@ -1,0 +1,74 @@
+== readTree, default ObjectMapper
+9007199254740991                                 LONG Long text=9007199254740991 isIntegralNumber=true
+9007199254740993                                 LONG Long text=9007199254740993 isIntegralNumber=true
+12345678901234567890                             BIG_INTEGER BigInteger text=12345678901234567890 isIntegralNumber=true
+18446744073709551616                             BIG_INTEGER BigInteger text=18446744073709551616 isIntegralNumber=true
+123456789012345678901234567890                   BIG_INTEGER BigInteger text=123456789012345678901234567890 isIntegralNumber=true
+1                                                INT Integer text=1 isIntegralNumber=true
+1.0                                              DOUBLE Double text=1.0 isIntegralNumber=false
+1e0                                              DOUBLE Double text=1.0 isIntegralNumber=false
+-0                                               INT Integer text=0 isIntegralNumber=true
+-0.0                                             DOUBLE Double text=-0.0 isIntegralNumber=false
+1e400                                            DOUBLE Double text=Infinity isIntegralNumber=false
+1e-400                                           DOUBLE Double text=0.0 isIntegralNumber=false
+0.1                                              DOUBLE Double text=0.1 isIntegralNumber=false
+0.3000000000000000444089209850062616169452667236328125 DOUBLE Double text=0.30000000000000004 isIntegralNumber=false
+123456789.123456789123456789                     DOUBLE Double text=1.2345678912345679E8 isIntegralNumber=false
+
+== readTree, USE_BIG_DECIMAL_FOR_FLOATS
+9007199254740991                                 LONG Long text=9007199254740991 isIntegralNumber=true
+9007199254740993                                 LONG Long text=9007199254740993 isIntegralNumber=true
+12345678901234567890                             BIG_INTEGER BigInteger text=12345678901234567890 isIntegralNumber=true
+18446744073709551616                             BIG_INTEGER BigInteger text=18446744073709551616 isIntegralNumber=true
+123456789012345678901234567890                   BIG_INTEGER BigInteger text=123456789012345678901234567890 isIntegralNumber=true
+1                                                INT Integer text=1 isIntegralNumber=true
+1.0                                              BIG_DECIMAL BigDecimal text=1 isIntegralNumber=false
+1e0                                              BIG_DECIMAL BigDecimal text=1 isIntegralNumber=false
+-0                                               INT Integer text=0 isIntegralNumber=true
+-0.0                                             BIG_DECIMAL BigDecimal text=0 isIntegralNumber=false
+1e400                                            BIG_DECIMAL BigDecimal text=1E+400 isIntegralNumber=false
+1e-400                                           BIG_DECIMAL BigDecimal text=1E-400 isIntegralNumber=false
+0.1                                              BIG_DECIMAL BigDecimal text=0.1 isIntegralNumber=false
+0.3000000000000000444089209850062616169452667236328125 BIG_DECIMAL BigDecimal text=0.3000000000000000444089209850062616169452667236328125 isIntegralNumber=false
+123456789.123456789123456789                     BIG_DECIMAL BigDecimal text=123456789.123456789123456789 isIntegralNumber=false
+
+== Equality and round trip in the tree model
+1 equals 1.0 (default mapper)? false; (BigDecimal mapper)? false
+1.0 equals 1.00 (default mapper)? true; (BigDecimal mapper)? true
+1e2 equals 100 (default mapper)? false; (BigDecimal mapper)? false
+write back 1.0: default 1.0; BigDecimal 1
+write back 1e3: default 1000.0; BigDecimal 1E+3
+write back 0.10: default 0.1; BigDecimal 0.1
+write back 12345678901234567890: default 12345678901234567890; BigDecimal 12345678901234567890
+write back -0: default 0; BigDecimal 0
+write back 1e400: default "Infinity"; BigDecimal 1E+400
+
+== Plain Java object binding (Map/Object)
+12345678901234567890 -> BigInteger 12345678901234567890
+1.0 -> Double 1.0
+9007199254740993 -> Long 9007199254740993
+1e400 -> Double Infinity
+
+== Duplicate keys
+tree, {"a":1,"a":2}                              {"a":2}
+tree, STRICT_DUPLICATE_DETECTION                 ERROR JsonParseException: Duplicate field 'a'
+tree, FAIL_ON_READING_DUP_TREE_KEY               ERROR MismatchedInputException: Duplicate field 'a' for `ObjectNode`: not allowed when `DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY` enabled
+
+== Strictness (default ObjectMapper)
+NaN                                              ERROR JsonParseException: Non-standard token 'NaN': enable `JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS` to allow
+Infinity                                         ERROR JsonParseException: Non-standard token 'Infinity': enable `JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS` to allow
+trailing comma [1,]                              ERROR JsonParseException: Unexpected character (']' (code 93)): expected a valid value (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+comment                                          ERROR JsonParseException: Unexpected character ('/' (code 47)): maybe a (non-standard) comment? (not recognized as one since Feature 'ALLOW_COMMENTS' not enabled for parser)
+leading zero 01                                  ERROR JsonParseException: Invalid numeric value: Leading zeroes not allowed
++1                                               ERROR JsonParseException: Unexpected character ('+' (code 43)) in numeric value: JSON spec does not allow numbers to have plus signs: enable `JsonReadFeature.ALLOW_LEADING_PLUS_SIGN_FOR_NUMBERS` to allow
+.5                                               ERROR JsonParseException: Unexpected character ('.' (code 46)): expected a valid value (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+lone surrogate escape                            "?"
+two values                                       INT Integer text=1 isIntegralNumber=true
+readTree of '1 2' returned the first value; trailing content ignored unless FAIL_ON_TRAILING_TOKENS
+two values, FAIL_ON_TRAILING_TOKENS              ERROR MismatchedInputException: Trailing token (of type VALUE_NUMBER_INT) found after value (bound as `com.fasterxml.jackson.databind.JsonNode`): not allowed as per `DeserializationFeature.FAIL_ON_TRAILING_TOKENS`
+
+== Exact text of a number from the streaming parser
+getText=12345678901234567890 numberType=BIG_INTEGER
+getText=1.0 numberType=DOUBLE
+getText=1e400 numberType=DOUBLE
+getText=-0 numberType=INT

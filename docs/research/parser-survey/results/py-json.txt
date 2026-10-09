@@ -1,0 +1,98 @@
+python 3.9.6; json module of the standard library
+
+== json.loads defaults
+9007199254740991                                           int(9007199254740991)
+9007199254740992                                           int(9007199254740992)
+9007199254740993                                           int(9007199254740993)
+12345678901234567890                                       int(12345678901234567890)
+123456789012345678901234567890                             int(123456789012345678901234567890)
+1                                                          int(1)
+1.0                                                        float(1.0)
+1e0                                                        float(1.0)
+10e-1                                                      float(1.0)
+-0                                                         int(0)
+-0.0                                                       float(-0.0)
+0                                                          int(0)
+1e400                                                      float(inf)
+-1e400                                                     float(-inf)
+1e-400                                                     float(0.0)
+5e-324                                                     float(5e-324)
+0.1                                                        float(0.1)
+0.30000000000000004                                        float(0.30000000000000004)
+0.3000000000000000444089209850062616169452667236328125     float(0.30000000000000004)
+123456789.123456789123456789                               float(123456789.12345679)
+
+== json.loads(parse_float=Decimal, parse_int=default)
+9007199254740991                                           int(9007199254740991)
+9007199254740992                                           int(9007199254740992)
+9007199254740993                                           int(9007199254740993)
+12345678901234567890                                       int(12345678901234567890)
+123456789012345678901234567890                             int(123456789012345678901234567890)
+1                                                          int(1)
+1.0                                                        Decimal('1.0')
+1e0                                                        Decimal('1')
+10e-1                                                      Decimal('1.0')
+-0                                                         int(0)
+-0.0                                                       Decimal('-0.0')
+0                                                          int(0)
+1e400                                                      Decimal('1E+400')
+-1e400                                                     Decimal('-1E+400')
+1e-400                                                     Decimal('1E-400')
+5e-324                                                     Decimal('5E-324')
+0.1                                                        Decimal('0.1')
+0.30000000000000004                                        Decimal('0.30000000000000004')
+0.3000000000000000444089209850062616169452667236328125     Decimal('0.3000000000000000444089209850062616169452667236328125')
+123456789.123456789123456789                               Decimal('123456789.123456789123456789')
+
+== json.loads(parse_float=str, parse_int=str): the lexeme itself (also for -0, 1e400)
+9007199254740991                                           "9007199254740991"
+9007199254740992                                           "9007199254740992"
+9007199254740993                                           "9007199254740993"
+12345678901234567890                                       "12345678901234567890"
+123456789012345678901234567890                             "123456789012345678901234567890"
+1                                                          "1"
+1.0                                                        "1.0"
+1e0                                                        "1e0"
+10e-1                                                      "10e-1"
+-0                                                         "-0"
+-0.0                                                       "-0.0"
+0                                                          "0"
+1e400                                                      "1e400"
+-1e400                                                     "-1e400"
+1e-400                                                     "1e-400"
+5e-324                                                     "5e-324"
+0.1                                                        "0.1"
+0.30000000000000004                                        "0.30000000000000004"
+0.3000000000000000444089209850062616169452667236328125     "0.3000000000000000444089209850062616169452667236328125"
+123456789.123456789123456789                               "123456789.123456789123456789"
+
+== 1 == 1.0 and json round trip of the type
+json.loads('1') == json.loads('1.0')                       bool(True)
+json.dumps(json.loads('1.0'))                              "1.0"
+json.dumps(json.loads('1e3'))                              "1000.0"
+json.dumps(json.loads('12345678901234567890'))             "12345678901234567890"
+json.dumps(json.loads('1e400'))  (Infinity is written)     "Infinity"
+json.dumps(Decimal('1E+400'))                              RAISES TypeError: Object of type Decimal is not JSON serializable
+
+== Duplicate keys
+{"a":1,"a":2}                                              {a: int(2)}
+with object_pairs_hook that raises on a repeat             RAISES ValueError: duplicate key
+
+== Strictness
+NaN                                                        float(nan)
+Infinity                                                   float(inf)
+-Infinity                                                  float(-inf)
+trailing comma [1,]                                        RAISES JSONDecodeError: Expecting value: line 1 column 4 (char 3)
+comment                                                    RAISES JSONDecodeError: Expecting ',' delimiter: line 1 column 4 (char 3)
+leading zero 01                                            RAISES JSONDecodeError: Extra data: line 1 column 2 (char 1)
++1                                                         RAISES JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+.5                                                         RAISES JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+lone surrogate escape                                      "\ud800"
+BOM prefix (str)                                           RAISES JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+two values                                                 RAISES JSONDecodeError: Extra data: line 1 column 3 (char 2)
+control character in string                                RAISES JSONDecodeError: Invalid control character at: line 1 column 3 (char 2)
+NaN with parse_constant that raises                        RAISES ValueError: NaN
+json.loads(bytes with BOM)                                 int(1)
+
+== Digit limit for int <-> str conversion (3.11 and later; 3.9.14 and later patch releases)
+hasattr(sys, 'get_int_max_str_digits')                     bool(False)
