@@ -253,3 +253,14 @@ Recorded 2026-10-09, and applied to Draft v0.3.
 - **Validation on GitHub without Actions runners.** A GitHub App driven by webhooks validates in Lambda: pattern A (check after
   commit, posting a commit status), B (a required check on pull requests and merge groups), or C (a gatekeeper branch that only
   the app may update). Pre-receive hooks are not available on github.com. The tickets store uses pattern A.
+
+## Decisions from planning the implementation
+
+Recorded 2026-10-09.
+
+- **TypeScript** for the core library, the CLI, the Lambda functions and the browser (open question 2 of v0.3, now closed).
+- **int64**: a number within ±(2^53−1), a decimal string beyond it; readers accept both (open question 4 of v0.3, now closed).
+- **vollmond's own work is tracked in GitHub issues**, not as vmd records: outside contributors and bug reporters already have
+  access there, and a ticket store of its own would need access control. vampiredb and Belfry dogfood vmd for their tickets.
+- **The implementation plan** (`docs/plan/implementation-plan.md`) details phases I0 to I3; I4 to I8 are planned when I3 is nearly
+  done.

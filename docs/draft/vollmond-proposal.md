@@ -166,8 +166,8 @@ assertion for them.
 Without a schema, values are plain strings and numbers. VQL then compares strings as strings, which still orders canonical dates
 and UTC date-times correctly.
 
-The int64 rule follows Protocol Buffers' JSON mapping, which writes 64-bit integers as strings and reads either form; it keeps
-small values readable as numbers in YAML front matter (open question 4).
+The int64 rule follows Protocol Buffers' JSON mapping, which writes 64-bit integers as strings and reads either form, but writes
+values within ±(2^53−1) as numbers, so that small values stay readable in YAML front matter.
 
 ### 4.4 Interoperating with YAML 1.1 readers
 
@@ -538,7 +538,7 @@ Programs use store paths, not relative paths. The library converts both ways:
 ### 8.4 Labels
 
 Rewriting a reference changes only its target. The link text is kept. Label templates, which recompute a link's text from its
-target (as vampiredb's section numbers are), are deferred; their syntax is open (open question 6).
+target (as vampiredb's section numbers are), are deferred; their syntax is open (open question 4).
 
 ### 8.5 Status
 
@@ -1225,29 +1225,29 @@ A backend conforms to the storage contract (§11) separately, and states whether
 
 1. **Relevance ranking.** The core returns matches in document order (§10.5). Whether a standard `score` sort is worth
    specifying, or is left to engines.
-2. **Implementation language.** Recommended: **TypeScript** for the core library. One codebase then runs in the CLI (Node), in
-   Lambda, and in the browser, where the website needs VQL, parsing for previews, and client-side validation. Python consumers use
-   `vmd --json` or the HTTP binding at first. A native Python implementation of Read and Query can follow, checked by the
-   conformance suite.
-3. **The parser survey** behind §4.2 and Appendix B: confirm each parser's number handling, and how JavaScript implementations
+2. **The parser survey** behind §4.2 and Appendix B: confirm each parser's number handling, and how JavaScript implementations
    preserve large integers (source-text access in `JSON.parse` revivers, or a parser with offsets).
-4. **The int64 canonical form** (§4.3): numbers within ±(2^53−1) and strings beyond, or always strings as Protocol Buffers does.
-5. **Lists as data.** Whether a Markdown list (for example a checklist) should ever map to an array in the core. Recommended: no;
+3. **Lists as data.** Whether a Markdown list (for example a checklist) should ever map to an array in the core. Recommended: no;
    lists become structure through views (§18.2).
-6. **Label templates** (§8.4): link text derived from the target, such as section numbers. The syntax is open; deferred to I8.
-7. **Escape hatches** for messy data (§5.7), such as a resolution policy for ingesting stores that cannot be cleaned up. Deferred
+4. **Label templates** (§8.4): link text derived from the target, such as section numbers. The syntax is open; deferred to I8.
+5. **Escape hatches** for messy data (§5.7), such as a resolution policy for ingesting stores that cannot be cleaned up. Deferred
    until a case needs one.
-8. **The browser-side index limit**: at what size the website switches from filtering in the browser to a query service (§16.1).
+6. **The browser-side index limit**: at what size the website switches from filtering in the browser to a query service (§16.1).
 
 ---
 
 ## 21. Implementation plan
 
+The implementation is in **TypeScript**: one codebase for the CLI (Node), the Lambda functions and the browser. Python consumers use
+`vmd --json` or the HTTP binding, and a native Python implementation of the Read and Query profiles may follow, checked by the
+conformance suite. Phases I0 to I3 are planned task by task in [the implementation plan](../plan/implementation-plan.md), and
+vollmond's own work is tracked in GitHub issues.
+
 Each phase ends with its part of the conformance suite passing and a demonstration on real data.
 
 | Phase | Builds | Done when |
 |---|---|---|
-| **I0** Spec and suite | this document reviewed; the parser survey (open question 3); the conformance suite's layout and first fixtures; the GitHub slug algorithm pinned with test cases | fixtures for §4–§7 exist, and open questions 2–4 are decided |
+| **I0** Spec and suite | this document reviewed; the parser survey (open question 2); the conformance suite's layout and first fixtures; the GitHub slug algorithm pinned with test cases | fixtures for §4–§7 exist, and the parser survey has answered open question 2 |
 | **I1** Read | the value types; parsers for Markdown, YAML and JSON with source maps; the value view; anchors and tags; exact and semantic paths; the local backend's read operations; `ls`, `cat`, `grep`, `outline`, `get` | `vmd outline` and `vmd get` work on all of vampiredb's docs; Minimal_Log.md outlines in well under a second |
 | **I2** Validate and refs | config and collections; schemas, `x-vmd-list` compilation, logical types; uniqueness modes; reference extraction and resolution; the local index cache; `check`, `refs`, `schema` | `vmd check` over vampiredb's docs and tickets reports every broken link that `docs.sh` reports |
 | **I3** Query | the VQL parser and scanning evaluator; both targets; projection, sort, paging; full text | the queries vampiredb's `+index.md` and `index.html` answer today run as `vmd query` |
@@ -1400,7 +1400,7 @@ $defs:
 
 ## Appendix B. Numbers in common parsers
 
-Preliminary, from documentation and experience; to be confirmed by the survey in I0 (open question 3).
+Preliminary, from documentation and experience; to be confirmed by the survey in I0 (open question 2).
 
 | Parser | Integers | Beyond 2^53 | Non-integers | Exact options |
 |---|---|---|---|---|

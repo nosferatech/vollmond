@@ -9,6 +9,8 @@ project is at the specification stage: there is no code yet.
   versions. Sections are cited by number: `vollmond-proposal.md §7.3`.
 - `docs/draft/vollmond-proposal-review.md` holds the review of Draft v0.1 and the **decision log**: one section per round of
   discussion, recording what the project owner decided.
+- `docs/plan/implementation-plan.md` breaks the implementation into phases and tasks. Each task is a GitHub issue, and each phase a
+  milestone. Work is tracked in GitHub issues.
 
 ## Changing the proposal
 
