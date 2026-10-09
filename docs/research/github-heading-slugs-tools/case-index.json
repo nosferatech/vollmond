@@ -1,0 +1,3757 @@
+[
+ {
+  "document": "01-ascii-words",
+  "cases": [
+   {
+    "name": "lowercase-word",
+    "markdown": "# hello",
+    "expected": 1
+   },
+   {
+    "name": "title-case",
+    "markdown": "## Title Case Words",
+    "expected": 1
+   },
+   {
+    "name": "upper-case",
+    "markdown": "## UPPER CASE WORDS",
+    "expected": 1
+   },
+   {
+    "name": "mixed-case",
+    "markdown": "## mIxEd cAsE",
+    "expected": 1
+   },
+   {
+    "name": "inner-multiple-spaces",
+    "markdown": "## multiple   inner   spaces",
+    "expected": 1
+   },
+   {
+    "name": "single-letter-lower",
+    "markdown": "## a",
+    "expected": 1
+   },
+   {
+    "name": "single-letter-upper",
+    "markdown": "## Z",
+    "expected": 1
+   },
+   {
+    "name": "sentence",
+    "markdown": "## The quick brown fox jumps over the lazy dog",
+    "expected": 1
+   },
+   {
+    "name": "what-is-confirmed",
+    "markdown": "## What is confirmed",
+    "expected": 1
+   },
+   {
+    "name": "flusher-title",
+    "markdown": "# Flusher stalls under load",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "02-punctuation-each-char",
+  "cases": [
+   {
+    "name": "embedded-00",
+    "markdown": "## P00.x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-01",
+    "markdown": "## P01,x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-02",
+    "markdown": "## P02:x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-03",
+    "markdown": "## P03;x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-04",
+    "markdown": "## P04!x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-05",
+    "markdown": "## P05?x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-06",
+    "markdown": "## P06'x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-07",
+    "markdown": "## P07\"x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-08",
+    "markdown": "## P08(x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-09",
+    "markdown": "## P09)x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-10",
+    "markdown": "## P10[x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-11",
+    "markdown": "## P11]x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-12",
+    "markdown": "## P12{x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-13",
+    "markdown": "## P13}x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-14",
+    "markdown": "## P14<x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-15",
+    "markdown": "## P15>x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-16",
+    "markdown": "## P16/x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-17",
+    "markdown": "## P17\\x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-18",
+    "markdown": "## P18|x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-19",
+    "markdown": "## P19@x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-20",
+    "markdown": "## P20#x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-21",
+    "markdown": "## P21$x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-22",
+    "markdown": "## P22%x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-23",
+    "markdown": "## P23^x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-24",
+    "markdown": "## P24&x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-25",
+    "markdown": "## P25*x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-26",
+    "markdown": "## P26+x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-27",
+    "markdown": "## P27=x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-28",
+    "markdown": "## P28~x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-29",
+    "markdown": "## P29`x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-30",
+    "markdown": "## P30-x",
+    "expected": 1
+   },
+   {
+    "name": "embedded-31",
+    "markdown": "## P31_x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-00",
+    "markdown": "## Q00 . x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-01",
+    "markdown": "## Q01 , x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-02",
+    "markdown": "## Q02 : x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-03",
+    "markdown": "## Q03 ; x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-04",
+    "markdown": "## Q04 ! x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-05",
+    "markdown": "## Q05 ? x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-06",
+    "markdown": "## Q06 ' x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-07",
+    "markdown": "## Q07 \" x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-08",
+    "markdown": "## Q08 ( x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-09",
+    "markdown": "## Q09 ) x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-10",
+    "markdown": "## Q10 [ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-11",
+    "markdown": "## Q11 ] x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-12",
+    "markdown": "## Q12 { x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-13",
+    "markdown": "## Q13 } x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-14",
+    "markdown": "## Q14 < x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-15",
+    "markdown": "## Q15 > x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-16",
+    "markdown": "## Q16 / x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-17",
+    "markdown": "## Q17 \\ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-18",
+    "markdown": "## Q18 | x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-19",
+    "markdown": "## Q19 @ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-20",
+    "markdown": "## Q20 # x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-21",
+    "markdown": "## Q21 $ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-22",
+    "markdown": "## Q22 % x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-23",
+    "markdown": "## Q23 ^ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-24",
+    "markdown": "## Q24 & x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-25",
+    "markdown": "## Q25 * x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-26",
+    "markdown": "## Q26 + x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-27",
+    "markdown": "## Q27 = x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-28",
+    "markdown": "## Q28 ~ x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-29",
+    "markdown": "## Q29 ` x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-30",
+    "markdown": "## Q30 - x",
+    "expected": 1
+   },
+   {
+    "name": "spaced-31",
+    "markdown": "## Q31 _ x",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "03-punctuation-compound",
+  "cases": [
+   {
+    "name": "parens",
+    "markdown": "## (parenthesised) words",
+    "expected": 1
+   },
+   {
+    "name": "brackets",
+    "markdown": "## [bracketed] words",
+    "expected": 1
+   },
+   {
+    "name": "braces",
+    "markdown": "## {braced} words",
+    "expected": 1
+   },
+   {
+    "name": "angle-not-tag",
+    "markdown": "## a <= b >= c",
+    "expected": 1
+   },
+   {
+    "name": "angle-tag-like",
+    "markdown": "## see <angle> here",
+    "expected": 1
+   },
+   {
+    "name": "double-quotes",
+    "markdown": "## \"double quoted\" words",
+    "expected": 1
+   },
+   {
+    "name": "single-quotes",
+    "markdown": "## 'single quoted' words",
+    "expected": 1
+   },
+   {
+    "name": "apostrophe",
+    "markdown": "## It's the user's choice",
+    "expected": 1
+   },
+   {
+    "name": "dollar-math",
+    "markdown": "## inline $x+y$ math",
+    "expected": 1
+   },
+   {
+    "name": "dollar-math-block",
+    "markdown": "## display $$x+y$$ math",
+    "expected": 1
+   },
+   {
+    "name": "slash-path",
+    "markdown": "## a/b/c path",
+    "expected": 1
+   },
+   {
+    "name": "backslash-path",
+    "markdown": "## C:\\dir\\file path",
+    "expected": 1
+   },
+   {
+    "name": "email",
+    "markdown": "## write to user@example.com now",
+    "expected": 1
+   },
+   {
+    "name": "percent",
+    "markdown": "## 50% off",
+    "expected": 1
+   },
+   {
+    "name": "ampersand-qa",
+    "markdown": "## Q&A session",
+    "expected": 1
+   },
+   {
+    "name": "ampersand-spaced",
+    "markdown": "## Salt & pepper",
+    "expected": 1
+   },
+   {
+    "name": "ampersand-att",
+    "markdown": "## AT&T and R&D",
+    "expected": 1
+   },
+   {
+    "name": "question-bang",
+    "markdown": "## what?!",
+    "expected": 1
+   },
+   {
+    "name": "ellipsis-ascii",
+    "markdown": "## wait... what",
+    "expected": 1
+   },
+   {
+    "name": "dotted",
+    "markdown": "## a.b.c dotted",
+    "expected": 1
+   },
+   {
+    "name": "eg",
+    "markdown": "## e.g. this, i.e. that",
+    "expected": 1
+   },
+   {
+    "name": "equation",
+    "markdown": "## x = y + z",
+    "expected": 1
+   },
+   {
+    "name": "comparison",
+    "markdown": "## a == b and a != b",
+    "expected": 1
+   },
+   {
+    "name": "arrows-ascii",
+    "markdown": "## a -> b => c <- d",
+    "expected": 1
+   },
+   {
+    "name": "pipes",
+    "markdown": "## a|b|c",
+    "expected": 1
+   },
+   {
+    "name": "tildes",
+    "markdown": "## ~tilde~ words",
+    "expected": 1
+   },
+   {
+    "name": "carets",
+    "markdown": "## ^caret^ words",
+    "expected": 1
+   },
+   {
+    "name": "call",
+    "markdown": "## foo(bar) call",
+    "expected": 1
+   },
+   {
+    "name": "empty-call",
+    "markdown": "## baz() call",
+    "expected": 1
+   },
+   {
+    "name": "index",
+    "markdown": "## array[0] access",
+    "expected": 1
+   },
+   {
+    "name": "colon-title",
+    "markdown": "## Note: read this",
+    "expected": 1
+   },
+   {
+    "name": "semicolon",
+    "markdown": "## one; two; three",
+    "expected": 1
+   },
+   {
+    "name": "hash-inside",
+    "markdown": "## C# and F# languages",
+    "expected": 1
+   },
+   {
+    "name": "at-sign",
+    "markdown": "## the @ sign",
+    "expected": 1
+   },
+   {
+    "name": "plus",
+    "markdown": "## C++ and A+B",
+    "expected": 1
+   },
+   {
+    "name": "backslash-escape-bang",
+    "markdown": "## escaped\\! mark",
+    "expected": 1
+   },
+   {
+    "name": "backslash-escape-dot",
+    "markdown": "## esc\\.aped dot",
+    "expected": 1
+   },
+   {
+    "name": "backslash-escape-star",
+    "markdown": "## \\*not emphasis\\*",
+    "expected": 1
+   },
+   {
+    "name": "backslash-before-letter",
+    "markdown": "## back\\slash letter",
+    "expected": 1
+   },
+   {
+    "name": "entity-amp",
+    "markdown": "## fish &amp; chips",
+    "expected": 1
+   },
+   {
+    "name": "entity-lt-gt",
+    "markdown": "## &lt;tag&gt; entity",
+    "expected": 1
+   },
+   {
+    "name": "entity-quot",
+    "markdown": "## &quot;quoted&quot; entity",
+    "expected": 1
+   },
+   {
+    "name": "entity-numeric",
+    "markdown": "## hex &#x26; dec &#38; entity",
+    "expected": 1
+   },
+   {
+    "name": "entity-copy",
+    "markdown": "## &copy; 2026 entity",
+    "expected": 1
+   },
+   {
+    "name": "entity-nbsp",
+    "markdown": "## a&nbsp;b entity",
+    "expected": 1
+   },
+   {
+    "name": "backtick-unmatched",
+    "markdown": "## stray ` backtick",
+    "expected": 1
+   },
+   {
+    "name": "asterisk-unmatched",
+    "markdown": "## stray * asterisk",
+    "expected": 1
+   },
+   {
+    "name": "underscore-unmatched",
+    "markdown": "## stray _ underscore",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "04-punctuation-only",
+  "cases": [
+   {
+    "name": "alone-00",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "alone-01",
+    "markdown": "## ,",
+    "expected": 1
+   },
+   {
+    "name": "alone-02",
+    "markdown": "## :",
+    "expected": 1
+   },
+   {
+    "name": "alone-03",
+    "markdown": "## ;",
+    "expected": 1
+   },
+   {
+    "name": "alone-04",
+    "markdown": "## !",
+    "expected": 1
+   },
+   {
+    "name": "alone-05",
+    "markdown": "## ?",
+    "expected": 1
+   },
+   {
+    "name": "alone-06",
+    "markdown": "## '",
+    "expected": 1
+   },
+   {
+    "name": "alone-07",
+    "markdown": "## \"",
+    "expected": 1
+   },
+   {
+    "name": "alone-08",
+    "markdown": "## (",
+    "expected": 1
+   },
+   {
+    "name": "alone-09",
+    "markdown": "## )",
+    "expected": 1
+   },
+   {
+    "name": "alone-10",
+    "markdown": "## [",
+    "expected": 1
+   },
+   {
+    "name": "alone-11",
+    "markdown": "## ]",
+    "expected": 1
+   },
+   {
+    "name": "alone-12",
+    "markdown": "## {",
+    "expected": 1
+   },
+   {
+    "name": "alone-13",
+    "markdown": "## }",
+    "expected": 1
+   },
+   {
+    "name": "alone-14",
+    "markdown": "## <",
+    "expected": 1
+   },
+   {
+    "name": "alone-15",
+    "markdown": "## >",
+    "expected": 1
+   },
+   {
+    "name": "alone-16",
+    "markdown": "## /",
+    "expected": 1
+   },
+   {
+    "name": "alone-17",
+    "markdown": "## \\",
+    "expected": 1
+   },
+   {
+    "name": "alone-18",
+    "markdown": "## |",
+    "expected": 1
+   },
+   {
+    "name": "alone-19",
+    "markdown": "## @",
+    "expected": 1
+   },
+   {
+    "name": "alone-20",
+    "markdown": "## #",
+    "expected": 1
+   },
+   {
+    "name": "alone-21",
+    "markdown": "## $",
+    "expected": 1
+   },
+   {
+    "name": "alone-22",
+    "markdown": "## %",
+    "expected": 1
+   },
+   {
+    "name": "alone-23",
+    "markdown": "## ^",
+    "expected": 1
+   },
+   {
+    "name": "alone-24",
+    "markdown": "## &",
+    "expected": 1
+   },
+   {
+    "name": "alone-25",
+    "markdown": "## *",
+    "expected": 1
+   },
+   {
+    "name": "alone-26",
+    "markdown": "## +",
+    "expected": 1
+   },
+   {
+    "name": "alone-27",
+    "markdown": "## =",
+    "expected": 1
+   },
+   {
+    "name": "alone-28",
+    "markdown": "## ~",
+    "expected": 1
+   },
+   {
+    "name": "alone-29",
+    "markdown": "## `",
+    "expected": 1
+   },
+   {
+    "name": "alone-30",
+    "markdown": "## -",
+    "expected": 1
+   },
+   {
+    "name": "alone-31",
+    "markdown": "## _",
+    "expected": 1
+   },
+   {
+    "name": "triple-bang",
+    "markdown": "## !!!",
+    "expected": 1
+   },
+   {
+    "name": "triple-q",
+    "markdown": "## ???",
+    "expected": 1
+   },
+   {
+    "name": "triple-dot",
+    "markdown": "## ...",
+    "expected": 1
+   },
+   {
+    "name": "mixed-punct",
+    "markdown": "## ?!.,;:",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "05-hyphens-underscores",
+  "cases": [
+   {
+    "name": "single-hyphen",
+    "markdown": "## a-b",
+    "expected": 1
+   },
+   {
+    "name": "double-hyphen",
+    "markdown": "## a--b",
+    "expected": 1
+   },
+   {
+    "name": "triple-hyphen",
+    "markdown": "## a---b",
+    "expected": 1
+   },
+   {
+    "name": "leading-hyphen",
+    "markdown": "## -a",
+    "expected": 1
+   },
+   {
+    "name": "leading-double-hyphen",
+    "markdown": "## --a",
+    "expected": 1
+   },
+   {
+    "name": "trailing-hyphen",
+    "markdown": "## b-",
+    "expected": 1
+   },
+   {
+    "name": "trailing-double-hyphen",
+    "markdown": "## c--",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-only",
+    "markdown": "## -",
+    "expected": 1
+   },
+   {
+    "name": "double-hyphen-only",
+    "markdown": "## --",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-spaced",
+    "markdown": "## d - e",
+    "expected": 1
+   },
+   {
+    "name": "double-hyphen-spaced",
+    "markdown": "## f -- g",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-leading-space",
+    "markdown": "## - h",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-trailing-space",
+    "markdown": "## i -",
+    "expected": 1
+   },
+   {
+    "name": "underscore-only",
+    "markdown": "## _",
+    "expected": 1
+   },
+   {
+    "name": "double-underscore-only",
+    "markdown": "## __",
+    "expected": 1
+   },
+   {
+    "name": "single-underscore",
+    "markdown": "## j_k",
+    "expected": 1
+   },
+   {
+    "name": "double-underscore",
+    "markdown": "## l__m",
+    "expected": 1
+   },
+   {
+    "name": "triple-underscore",
+    "markdown": "## n___o",
+    "expected": 1
+   },
+   {
+    "name": "leading-underscore",
+    "markdown": "## _p",
+    "expected": 1
+   },
+   {
+    "name": "trailing-underscore",
+    "markdown": "## q_",
+    "expected": 1
+   },
+   {
+    "name": "wrapped-underscore",
+    "markdown": "## _r_",
+    "expected": 1
+   },
+   {
+    "name": "wrapped-double-underscore",
+    "markdown": "## __s__",
+    "expected": 1
+   },
+   {
+    "name": "snake-case",
+    "markdown": "## snake_case_word",
+    "expected": 1
+   },
+   {
+    "name": "kebab-case",
+    "markdown": "## kebab-case-word",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-underscore-mix",
+    "markdown": "## t-_-u",
+    "expected": 1
+   },
+   {
+    "name": "underscore-spaced",
+    "markdown": "## v _ w",
+    "expected": 1
+   },
+   {
+    "name": "en-dash",
+    "markdown": "## x – y",
+    "expected": 1
+   },
+   {
+    "name": "em-dash",
+    "markdown": "## z — a2",
+    "expected": 1
+   },
+   {
+    "name": "unicode-hyphen",
+    "markdown": "## b2‐c2",
+    "expected": 1
+   },
+   {
+    "name": "non-breaking-hyphen",
+    "markdown": "## d2‑e2",
+    "expected": 1
+   },
+   {
+    "name": "minus-sign",
+    "markdown": "## f2−g2",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-between-digits",
+    "markdown": "## 1-2-3",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-and-punct",
+    "markdown": "## h2-!-i2",
+    "expected": 1
+   },
+   {
+    "name": "dot-hyphen",
+    "markdown": "## j2.-k2",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "06-numbers",
+  "cases": [
+   {
+    "name": "section-number",
+    "markdown": "## 11.4 The tail",
+    "expected": 1
+   },
+   {
+    "name": "section-number-3",
+    "markdown": "### 1.2.3 Deep",
+    "expected": 1
+   },
+   {
+    "name": "numbered-list-style",
+    "markdown": "## 1. Intro",
+    "expected": 1
+   },
+   {
+    "name": "paren-number",
+    "markdown": "## 2) Item",
+    "expected": 1
+   },
+   {
+    "name": "date",
+    "markdown": "## 2024-01-05 release",
+    "expected": 1
+   },
+   {
+    "name": "decimal",
+    "markdown": "## 3.14 pi",
+    "expected": 1
+   },
+   {
+    "name": "version",
+    "markdown": "## v1.0.0",
+    "expected": 1
+   },
+   {
+    "name": "version-pre",
+    "markdown": "## v2.0.0-rc.1+build.5",
+    "expected": 1
+   },
+   {
+    "name": "only-digits",
+    "markdown": "## 4",
+    "expected": 1
+   },
+   {
+    "name": "zero",
+    "markdown": "## 0",
+    "expected": 1
+   },
+   {
+    "name": "leading-zero",
+    "markdown": "## 007",
+    "expected": 1
+   },
+   {
+    "name": "hash-number",
+    "markdown": "## #1 priority",
+    "expected": 1
+   },
+   {
+    "name": "percent-number",
+    "markdown": "## 100%",
+    "expected": 1
+   },
+   {
+    "name": "currency",
+    "markdown": "## $5.00 price",
+    "expected": 1
+   },
+   {
+    "name": "thousands",
+    "markdown": "## 1,000 items",
+    "expected": 1
+   },
+   {
+    "name": "number-word",
+    "markdown": "## 5 words here",
+    "expected": 1
+   },
+   {
+    "name": "fraction-ascii",
+    "markdown": "## 1/2 cup",
+    "expected": 1
+   },
+   {
+    "name": "range",
+    "markdown": "## 10-20 range",
+    "expected": 1
+   },
+   {
+    "name": "time",
+    "markdown": "## 12:30 PM",
+    "expected": 1
+   },
+   {
+    "name": "ordinal",
+    "markdown": "## 1st place",
+    "expected": 1
+   },
+   {
+    "name": "negative",
+    "markdown": "## -5 degrees",
+    "expected": 1
+   },
+   {
+    "name": "plus-number",
+    "markdown": "## +5 degrees",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "07-inline-markup",
+  "cases": [
+   {
+    "name": "code-only",
+    "markdown": "## `code`",
+    "expected": 1
+   },
+   {
+    "name": "code-in-text",
+    "markdown": "## Use `foo` here",
+    "expected": 1
+   },
+   {
+    "name": "code-with-punct",
+    "markdown": "## Call `a.b()` now",
+    "expected": 1
+   },
+   {
+    "name": "code-with-space",
+    "markdown": "## The `two words` span",
+    "expected": 1
+   },
+   {
+    "name": "code-with-hyphen",
+    "markdown": "## The `some-flag` option",
+    "expected": 1
+   },
+   {
+    "name": "code-uppercase",
+    "markdown": "## The `CamelCase` type",
+    "expected": 1
+   },
+   {
+    "name": "code-double-backtick",
+    "markdown": "## Show `` a ` b `` literal",
+    "expected": 1
+   },
+   {
+    "name": "code-punct-only",
+    "markdown": "## Operator `->` arrow",
+    "expected": 1
+   },
+   {
+    "name": "emphasis-star",
+    "markdown": "## An *emphasised* word",
+    "expected": 1
+   },
+   {
+    "name": "emphasis-underscore",
+    "markdown": "## An _emphasised_ word",
+    "expected": 1
+   },
+   {
+    "name": "strong-star",
+    "markdown": "## A **strong** word",
+    "expected": 1
+   },
+   {
+    "name": "strong-underscore",
+    "markdown": "## A __strong__ word",
+    "expected": 1
+   },
+   {
+    "name": "strong-emphasis",
+    "markdown": "## A ***both*** word",
+    "expected": 1
+   },
+   {
+    "name": "strikethrough",
+    "markdown": "## A ~~struck~~ word",
+    "expected": 1
+   },
+   {
+    "name": "emphasis-only",
+    "markdown": "## *only emphasis*",
+    "expected": 1
+   },
+   {
+    "name": "strong-only",
+    "markdown": "## **only strong**",
+    "expected": 1
+   },
+   {
+    "name": "intraword-star",
+    "markdown": "## intra*word*emphasis",
+    "expected": 1
+   },
+   {
+    "name": "intraword-underscore",
+    "markdown": "## intra_word_not_emphasis",
+    "expected": 1
+   },
+   {
+    "name": "arithmetic-stars",
+    "markdown": "## 2*3*4 product",
+    "expected": 1
+   },
+   {
+    "name": "link",
+    "markdown": "## A [link text](http://example.com/path) here",
+    "expected": 1
+   },
+   {
+    "name": "link-only",
+    "markdown": "## [only link](http://example.com/only)",
+    "expected": 1
+   },
+   {
+    "name": "link-with-title",
+    "markdown": "## B [titled](http://example.com/t \"the title\") here",
+    "expected": 1
+   },
+   {
+    "name": "link-relative",
+    "markdown": "## C [relative](other.md#frag) here",
+    "expected": 1
+   },
+   {
+    "name": "link-reference",
+    "markdown": "## D [reference][ref1] here",
+    "expected": 1
+   },
+   {
+    "name": "link-emphasis-inside",
+    "markdown": "## E [*em* inside](http://example.com/e) here",
+    "expected": 1
+   },
+   {
+    "name": "image",
+    "markdown": "## F ![alt text](img.png) here",
+    "expected": 1
+   },
+   {
+    "name": "image-only",
+    "markdown": "## ![only image](img2.png)",
+    "expected": 1
+   },
+   {
+    "name": "image-link",
+    "markdown": "## G [![badge](b.png)](http://example.com/b) here",
+    "expected": 1
+   },
+   {
+    "name": "autolink-angle",
+    "markdown": "## H <http://example.com/auto> here",
+    "expected": 1
+   },
+   {
+    "name": "autolink-bare",
+    "markdown": "## I https://example.com/bare here",
+    "expected": 1
+   },
+   {
+    "name": "autolink-www",
+    "markdown": "## J www.example.com here",
+    "expected": 1
+   },
+   {
+    "name": "escaped-star",
+    "markdown": "## K \\*literal\\* stars",
+    "expected": 1
+   },
+   {
+    "name": "escaped-underscore",
+    "markdown": "## L a\\_b literal",
+    "expected": 1
+   },
+   {
+    "name": "emoji-shortcode",
+    "markdown": "## M :rocket: shortcode",
+    "expected": 1
+   },
+   {
+    "name": "emoji-shortcode-only",
+    "markdown": "## :+1:",
+    "expected": 1
+   },
+   {
+    "name": "issue-ref",
+    "markdown": "## N see #8 issue",
+    "expected": 1
+   },
+   {
+    "name": "repo-issue-ref",
+    "markdown": "## O nosferatech/vollmond#8 ref",
+    "expected": 1
+   },
+   {
+    "name": "mention",
+    "markdown": "## P @octocat mention",
+    "expected": 1
+   },
+   {
+    "name": "sha",
+    "markdown": "## Q commit 5b0819b ref",
+    "expected": 1
+   },
+   {
+    "name": "task-text",
+    "markdown": "## R [ ] checkbox text",
+    "expected": 1
+   },
+   {
+    "name": "footnote-like",
+    "markdown": "## S note[^1] marker",
+    "expected": 1
+   },
+   {
+    "name": "hard-break-backslash",
+    "markdown": "## T line\\\nU break",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "08-html",
+  "cases": [
+   {
+    "name": "anchor-end",
+    "markdown": "## Title one <a id=\"x\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-end-class",
+    "markdown": "## Title two <a id=\"y\" class=\"a b\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-end-no-space",
+    "markdown": "## Title three<a id=\"y3\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-end-trailing-space",
+    "markdown": "## Title four <a id=\"z\"></a> ",
+    "expected": 1
+   },
+   {
+    "name": "anchor-start",
+    "markdown": "## <a id=\"s\"></a> Title five",
+    "expected": 1
+   },
+   {
+    "name": "anchor-middle",
+    "markdown": "## Ti<a id=\"m\"></a>tle six",
+    "expected": 1
+   },
+   {
+    "name": "anchor-middle-spaced",
+    "markdown": "## Title <a id=\"m2\"></a> seven",
+    "expected": 1
+   },
+   {
+    "name": "anchor-only",
+    "markdown": "## <a id=\"o\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-only-class",
+    "markdown": "## <a class=\"only\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-name",
+    "markdown": "## Title eight <a name=\"nm\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-empty-attrs",
+    "markdown": "## Title nine <a></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-with-text",
+    "markdown": "## Title ten <a id=\"t10\">inner text</a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-href",
+    "markdown": "## Title eleven <a href=\"#q\">link text</a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-with-uppercase",
+    "markdown": "## Title twelve <a id=\"MixedCase\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-with-punct",
+    "markdown": "## Title thirteen <a id=\"a.b_c-d\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-equals-own-slug",
+    "markdown": "## Same as anchor <a id=\"same-as-anchor\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-equals-later-slug",
+    "markdown": "## First has anchor <a id=\"later-heading\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "later-heading",
+    "markdown": "## Later heading",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-equals-earlier-slug",
+    "markdown": "## Third has anchor <a id=\"earlier-heading\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "anchor-id-with-user-content",
+    "markdown": "## Title fourteen <a id=\"user-content-pre\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "two-anchors",
+    "markdown": "## Title fifteen <a id=\"a15\"></a><a id=\"b15\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "span",
+    "markdown": "## <span>Span</span> words",
+    "expected": 1
+   },
+   {
+    "name": "bold-html",
+    "markdown": "## <b>Bold</b> html words",
+    "expected": 1
+   },
+   {
+    "name": "em-html",
+    "markdown": "## <em>Emphasis</em> html words",
+    "expected": 1
+   },
+   {
+    "name": "code-html",
+    "markdown": "## <code>Code</code> html words",
+    "expected": 1
+   },
+   {
+    "name": "img-html",
+    "markdown": "## <img src=\"x.png\" alt=\"alt text\"> image words",
+    "expected": 1
+   },
+   {
+    "name": "kbd",
+    "markdown": "## Press <kbd>Ctrl</kbd>+<kbd>C</kbd>",
+    "expected": 1
+   },
+   {
+    "name": "br",
+    "markdown": "## Line<br>break words",
+    "expected": 1
+   },
+   {
+    "name": "comment",
+    "markdown": "## Visible <!-- hidden --> comment",
+    "expected": 1
+   },
+   {
+    "name": "comment-only",
+    "markdown": "## <!-- hidden only -->",
+    "expected": 1
+   },
+   {
+    "name": "unclosed-tag",
+    "markdown": "## Unclosed <b tag",
+    "expected": 1
+   },
+   {
+    "name": "sup-sub",
+    "markdown": "## H<sub>2</sub>O and x<sup>2</sup>",
+    "expected": 1
+   },
+   {
+    "name": "div",
+    "markdown": "## <div>Div</div> words",
+    "expected": 1
+   },
+   {
+    "name": "details-tag",
+    "markdown": "## <details>Details tag</details>",
+    "expected": 1
+   },
+   {
+    "name": "script-text",
+    "markdown": "## <script>alert(1)</script> script words",
+    "expected": 1
+   },
+   {
+    "name": "non-tag-angle",
+    "markdown": "## <notatag> words",
+    "expected": 1
+   },
+   {
+    "name": "entity-tag",
+    "markdown": "## &lt;b&gt;escaped&lt;/b&gt; words",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "09-latin-nfc",
+  "cases": [
+   {
+    "name": "accent-cafe",
+    "markdown": "## Café au lait",
+    "expected": 1
+   },
+   {
+    "name": "accent-creme",
+    "markdown": "## Crème brûlée",
+    "expected": 1
+   },
+   {
+    "name": "accent-naive",
+    "markdown": "## Naïve résumé",
+    "expected": 1
+   },
+   {
+    "name": "accent-angstrom",
+    "markdown": "## Ångström",
+    "expected": 1
+   },
+   {
+    "name": "accent-upper",
+    "markdown": "## ÀÉÎÕÜ upper",
+    "expected": 1
+   },
+   {
+    "name": "sharp-s",
+    "markdown": "## Straße",
+    "expected": 1
+   },
+   {
+    "name": "capital-sharp-s",
+    "markdown": "## GROẞE",
+    "expected": 1
+   },
+   {
+    "name": "o-slash",
+    "markdown": "## Øre og æble",
+    "expected": 1
+   },
+   {
+    "name": "l-stroke",
+    "markdown": "## Łódź",
+    "expected": 1
+   },
+   {
+    "name": "n-tilde",
+    "markdown": "## Señor Niño",
+    "expected": 1
+   },
+   {
+    "name": "c-cedilla",
+    "markdown": "## Français",
+    "expected": 1
+   },
+   {
+    "name": "dotted-I",
+    "markdown": "## İstanbul",
+    "expected": 1
+   },
+   {
+    "name": "dotless-i",
+    "markdown": "## ı dotless",
+    "expected": 1
+   },
+   {
+    "name": "titlecase-dz",
+    "markdown": "## ǅ titlecase",
+    "expected": 1
+   },
+   {
+    "name": "vietnamese",
+    "markdown": "## Tiếng Việt",
+    "expected": 1
+   },
+   {
+    "name": "long-s",
+    "markdown": "## ſhort s",
+    "expected": 1
+   },
+   {
+    "name": "plain-k-after-normalization",
+    "markdown": "## K kelvin",
+    "expected": 1
+   },
+   {
+    "name": "ligature-fi",
+    "markdown": "## ﬁ ligature",
+    "expected": 1
+   },
+   {
+    "name": "ligature-ae",
+    "markdown": "## Æsop",
+    "expected": 1
+   },
+   {
+    "name": "eszett-lower-final",
+    "markdown": "## maße",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "10-latin-nfd",
+  "cases": [
+   {
+    "name": "accent-cafe",
+    "markdown": "## Café au lait",
+    "expected": 1
+   },
+   {
+    "name": "accent-creme",
+    "markdown": "## Crème brûlée",
+    "expected": 1
+   },
+   {
+    "name": "accent-naive",
+    "markdown": "## Naïve résumé",
+    "expected": 1
+   },
+   {
+    "name": "accent-angstrom",
+    "markdown": "## Ångström",
+    "expected": 1
+   },
+   {
+    "name": "accent-upper",
+    "markdown": "## ÀÉÎÕÜ upper",
+    "expected": 1
+   },
+   {
+    "name": "sharp-s-same-as-nfc",
+    "markdown": "## Straße",
+    "expected": 1
+   },
+   {
+    "name": "capital-sharp-s-same-as-nfc",
+    "markdown": "## GROẞE",
+    "expected": 1
+   },
+   {
+    "name": "o-slash-same-as-nfc",
+    "markdown": "## Øre og æble",
+    "expected": 1
+   },
+   {
+    "name": "l-stroke",
+    "markdown": "## Łódź",
+    "expected": 1
+   },
+   {
+    "name": "n-tilde",
+    "markdown": "## Señor Niño",
+    "expected": 1
+   },
+   {
+    "name": "c-cedilla",
+    "markdown": "## Français",
+    "expected": 1
+   },
+   {
+    "name": "dotted-I",
+    "markdown": "## İstanbul",
+    "expected": 1
+   },
+   {
+    "name": "dotless-i-same-as-nfc",
+    "markdown": "## ı dotless",
+    "expected": 1
+   },
+   {
+    "name": "titlecase-dz-same-as-nfc",
+    "markdown": "## ǅ titlecase",
+    "expected": 1
+   },
+   {
+    "name": "vietnamese",
+    "markdown": "## Tiếng Việt",
+    "expected": 1
+   },
+   {
+    "name": "long-s-same-as-nfc",
+    "markdown": "## ſhort s",
+    "expected": 1
+   },
+   {
+    "name": "plain-k-after-normalization-same-as-nfc",
+    "markdown": "## K kelvin",
+    "expected": 1
+   },
+   {
+    "name": "ligature-fi-same-as-nfc",
+    "markdown": "## ﬁ ligature",
+    "expected": 1
+   },
+   {
+    "name": "ligature-ae-same-as-nfc",
+    "markdown": "## Æsop",
+    "expected": 1
+   },
+   {
+    "name": "eszett-lower-final-same-as-nfc",
+    "markdown": "## maße",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "11-latin-nfc-nfd-mixed",
+  "cases": [
+   {
+    "name": "accent-cafe-nfc",
+    "markdown": "## Café au lait",
+    "expected": 1
+   },
+   {
+    "name": "accent-cafe-nfd",
+    "markdown": "## Café au lait",
+    "expected": 1
+   },
+   {
+    "name": "accent-creme-nfc",
+    "markdown": "## Crème brûlée",
+    "expected": 1
+   },
+   {
+    "name": "accent-creme-nfd",
+    "markdown": "## Crème brûlée",
+    "expected": 1
+   },
+   {
+    "name": "accent-naive-nfc",
+    "markdown": "## Naïve résumé",
+    "expected": 1
+   },
+   {
+    "name": "accent-naive-nfd",
+    "markdown": "## Naïve résumé",
+    "expected": 1
+   },
+   {
+    "name": "accent-angstrom-nfc",
+    "markdown": "## Ångström",
+    "expected": 1
+   },
+   {
+    "name": "accent-angstrom-nfd",
+    "markdown": "## Ångström",
+    "expected": 1
+   },
+   {
+    "name": "accent-upper-nfc",
+    "markdown": "## ÀÉÎÕÜ upper",
+    "expected": 1
+   },
+   {
+    "name": "accent-upper-nfd",
+    "markdown": "## ÀÉÎÕÜ upper",
+    "expected": 1
+   },
+   {
+    "name": "sharp-s-nfc",
+    "markdown": "## Straße",
+    "expected": 1
+   },
+   {
+    "name": "sharp-s-nfd-same-as-nfc",
+    "markdown": "## Straße",
+    "expected": 1
+   },
+   {
+    "name": "capital-sharp-s-nfc",
+    "markdown": "## GROẞE",
+    "expected": 1
+   },
+   {
+    "name": "capital-sharp-s-nfd-same-as-nfc",
+    "markdown": "## GROẞE",
+    "expected": 1
+   },
+   {
+    "name": "o-slash-nfc",
+    "markdown": "## Øre og æble",
+    "expected": 1
+   },
+   {
+    "name": "o-slash-nfd-same-as-nfc",
+    "markdown": "## Øre og æble",
+    "expected": 1
+   },
+   {
+    "name": "l-stroke-nfc",
+    "markdown": "## Łódź",
+    "expected": 1
+   },
+   {
+    "name": "l-stroke-nfd",
+    "markdown": "## Łódź",
+    "expected": 1
+   },
+   {
+    "name": "n-tilde-nfc",
+    "markdown": "## Señor Niño",
+    "expected": 1
+   },
+   {
+    "name": "n-tilde-nfd",
+    "markdown": "## Señor Niño",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "12-scripts",
+  "cases": [
+   {
+    "name": "greek",
+    "markdown": "## Ελληνικά γράμματα",
+    "expected": 1
+   },
+   {
+    "name": "greek-upper-final-sigma",
+    "markdown": "## ΟΔΥΣΣΕΥΣ",
+    "expected": 1
+   },
+   {
+    "name": "greek-lower-final-sigma",
+    "markdown": "## οδυσσευς",
+    "expected": 1
+   },
+   {
+    "name": "greek-tonos",
+    "markdown": "## άέήίόύώ tonos",
+    "expected": 1
+   },
+   {
+    "name": "cyrillic",
+    "markdown": "## Привет мир",
+    "expected": 1
+   },
+   {
+    "name": "cyrillic-yo",
+    "markdown": "## ЁЖ ёж",
+    "expected": 1
+   },
+   {
+    "name": "han-simplified",
+    "markdown": "## 中文标题",
+    "expected": 1
+   },
+   {
+    "name": "han-with-spaces",
+    "markdown": "## 日本語 の 見出し",
+    "expected": 1
+   },
+   {
+    "name": "hiragana",
+    "markdown": "## ひらがな",
+    "expected": 1
+   },
+   {
+    "name": "katakana",
+    "markdown": "## カタカナ",
+    "expected": 1
+   },
+   {
+    "name": "katakana-prolonged",
+    "markdown": "## コーヒー",
+    "expected": 1
+   },
+   {
+    "name": "hangul",
+    "markdown": "## 한국어 제목",
+    "expected": 1
+   },
+   {
+    "name": "arabic",
+    "markdown": "## مرحبا بالعالم",
+    "expected": 1
+   },
+   {
+    "name": "arabic-diacritics",
+    "markdown": "## مَرْحَبا",
+    "expected": 1
+   },
+   {
+    "name": "arabic-indic-digits",
+    "markdown": "## ٣٤٥ digits",
+    "expected": 1
+   },
+   {
+    "name": "hebrew",
+    "markdown": "## שלום עולם",
+    "expected": 1
+   },
+   {
+    "name": "hebrew-niqqud",
+    "markdown": "## שָׁלוֹם",
+    "expected": 1
+   },
+   {
+    "name": "thai",
+    "markdown": "## สวัสดี",
+    "expected": 1
+   },
+   {
+    "name": "devanagari",
+    "markdown": "## हिन्दी",
+    "expected": 1
+   },
+   {
+    "name": "armenian",
+    "markdown": "## Հայերեն",
+    "expected": 1
+   },
+   {
+    "name": "georgian",
+    "markdown": "## ქართული",
+    "expected": 1
+   },
+   {
+    "name": "tamil",
+    "markdown": "## தமிழ்",
+    "expected": 1
+   },
+   {
+    "name": "mixed-script",
+    "markdown": "## Hello 世界 мир",
+    "expected": 1
+   },
+   {
+    "name": "fullwidth-latin",
+    "markdown": "## ＡＢＣ ａｂｃ",
+    "expected": 1
+   },
+   {
+    "name": "fullwidth-digits",
+    "markdown": "## １２３",
+    "expected": 1
+   },
+   {
+    "name": "math-script-capital",
+    "markdown": "## 𝒜 math script",
+    "expected": 1
+   },
+   {
+    "name": "han-extension-b",
+    "markdown": "## 𠀀 ext b",
+    "expected": 1
+   },
+   {
+    "name": "deseret",
+    "markdown": "## 𐐀𐐨 deseret",
+    "expected": 1
+   },
+   {
+    "name": "superscript-two",
+    "markdown": "## x² squared",
+    "expected": 1
+   },
+   {
+    "name": "circled-digit",
+    "markdown": "## ① circled",
+    "expected": 1
+   },
+   {
+    "name": "roman-numeral",
+    "markdown": "## Ⅳ roman",
+    "expected": 1
+   },
+   {
+    "name": "vulgar-fraction",
+    "markdown": "## ½ cup",
+    "expected": 1
+   },
+   {
+    "name": "letterlike-trademark",
+    "markdown": "## Product™ name",
+    "expected": 1
+   },
+   {
+    "name": "ordinal-indicator",
+    "markdown": "## 1º place",
+    "expected": 1
+   },
+   {
+    "name": "micro-sign",
+    "markdown": "## 5 µm size",
+    "expected": 1
+   },
+   {
+    "name": "ohm-sign",
+    "markdown": "## 5 Ω resistor",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "13-symbols-emoji",
+  "cases": [
+   {
+    "name": "emoji-leading",
+    "markdown": "## 🚀 Launch",
+    "expected": 1
+   },
+   {
+    "name": "emoji-trailing",
+    "markdown": "## Land 🚀",
+    "expected": 1
+   },
+   {
+    "name": "emoji-only",
+    "markdown": "## 👍",
+    "expected": 1
+   },
+   {
+    "name": "emoji-middle",
+    "markdown": "## a 🚀 b",
+    "expected": 1
+   },
+   {
+    "name": "emoji-adjacent-word",
+    "markdown": "## c🚀d",
+    "expected": 1
+   },
+   {
+    "name": "emoji-heart-vs16",
+    "markdown": "## ❤️ heart vs16",
+    "expected": 1
+   },
+   {
+    "name": "emoji-heart-text",
+    "markdown": "## ❤ heart text",
+    "expected": 1
+   },
+   {
+    "name": "emoji-zwj-family",
+    "markdown": "## 👨‍👩‍👧 family",
+    "expected": 1
+   },
+   {
+    "name": "emoji-flag",
+    "markdown": "## 🇩🇪 flag",
+    "expected": 1
+   },
+   {
+    "name": "emoji-keycap",
+    "markdown": "## 1️⃣ keycap",
+    "expected": 1
+   },
+   {
+    "name": "emoji-skin-tone",
+    "markdown": "## 👋🏽 wave",
+    "expected": 1
+   },
+   {
+    "name": "check-mark",
+    "markdown": "## ✔ done",
+    "expected": 1
+   },
+   {
+    "name": "warning-sign",
+    "markdown": "## ⚠ warning",
+    "expected": 1
+   },
+   {
+    "name": "black-star",
+    "markdown": "## ★ star",
+    "expected": 1
+   },
+   {
+    "name": "copyright",
+    "markdown": "## © copyright",
+    "expected": 1
+   },
+   {
+    "name": "registered",
+    "markdown": "## ® registered",
+    "expected": 1
+   },
+   {
+    "name": "degree",
+    "markdown": "## 20° degrees",
+    "expected": 1
+   },
+   {
+    "name": "currency-euro",
+    "markdown": "## € euro",
+    "expected": 1
+   },
+   {
+    "name": "currency-pound-yen",
+    "markdown": "## £ pound ¥ yen",
+    "expected": 1
+   },
+   {
+    "name": "math-symbols",
+    "markdown": "## ∑ sum ∞ infinity ≠ neq",
+    "expected": 1
+   },
+   {
+    "name": "arrows",
+    "markdown": "## left ← right → arrows",
+    "expected": 1
+   },
+   {
+    "name": "box-drawing",
+    "markdown": "## ─│┌ box",
+    "expected": 1
+   },
+   {
+    "name": "ellipsis-char",
+    "markdown": "## wait… what",
+    "expected": 1
+   },
+   {
+    "name": "curly-double",
+    "markdown": "## “curly” quotes",
+    "expected": 1
+   },
+   {
+    "name": "curly-single",
+    "markdown": "## ‘curly’ quotes",
+    "expected": 1
+   },
+   {
+    "name": "guillemets",
+    "markdown": "## «french» quotes",
+    "expected": 1
+   },
+   {
+    "name": "inverted-punct",
+    "markdown": "## ¿Qué? ¡Hola!",
+    "expected": 1
+   },
+   {
+    "name": "middle-dot",
+    "markdown": "## a·b dot",
+    "expected": 1
+   },
+   {
+    "name": "bullet",
+    "markdown": "## • bullet",
+    "expected": 1
+   },
+   {
+    "name": "cjk-punct",
+    "markdown": "## 「括弧」。",
+    "expected": 1
+   },
+   {
+    "name": "fullwidth-punct",
+    "markdown": "## ！？， fullwidth",
+    "expected": 1
+   },
+   {
+    "name": "section-sign",
+    "markdown": "## § section",
+    "expected": 1
+   },
+   {
+    "name": "pilcrow",
+    "markdown": "## ¶ pilcrow",
+    "expected": 1
+   },
+   {
+    "name": "dagger",
+    "markdown": "## † dagger",
+    "expected": 1
+   },
+   {
+    "name": "per-mille",
+    "markdown": "## 5‰ permille",
+    "expected": 1
+   },
+   {
+    "name": "music-note",
+    "markdown": "## ♪ note",
+    "expected": 1
+   },
+   {
+    "name": "dingbat-digit",
+    "markdown": "## ❶ dingbat",
+    "expected": 1
+   },
+   {
+    "name": "private-use",
+    "markdown": "##  private use",
+    "expected": 1
+   },
+   {
+    "name": "replacement-char",
+    "markdown": "## � replacement",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "14-combining-spaces-controls",
+  "cases": [
+   {
+    "name": "combining-acute-alone",
+    "markdown": "## é",
+    "expected": 1
+   },
+   {
+    "name": "combining-stack",
+    "markdown": "## ä́ stacked",
+    "expected": 1
+   },
+   {
+    "name": "combining-after-digit",
+    "markdown": "## 1́ digit mark",
+    "expected": 1
+   },
+   {
+    "name": "combining-after-space",
+    "markdown": "## b ́ spaced mark",
+    "expected": 1
+   },
+   {
+    "name": "combining-enclosing",
+    "markdown": "## x⃝ enclosed",
+    "expected": 1
+   },
+   {
+    "name": "combining-zalgo",
+    "markdown": "## Z͓a͛lgo",
+    "expected": 1
+   },
+   {
+    "name": "combining-leading",
+    "markdown": "## ́lead mark",
+    "expected": 1
+   },
+   {
+    "name": "combining-only",
+    "markdown": "## ́̂",
+    "expected": 1
+   },
+   {
+    "name": "nbsp-between",
+    "markdown": "## c d nbsp",
+    "expected": 1
+   },
+   {
+    "name": "nbsp-leading",
+    "markdown": "##  e nbsp lead",
+    "expected": 1
+   },
+   {
+    "name": "nbsp-trailing",
+    "markdown": "## f nbsp trail ",
+    "expected": 1
+   },
+   {
+    "name": "en-space",
+    "markdown": "## g h en space",
+    "expected": 1
+   },
+   {
+    "name": "em-space",
+    "markdown": "## i j em space",
+    "expected": 1
+   },
+   {
+    "name": "thin-space",
+    "markdown": "## k l thin space",
+    "expected": 1
+   },
+   {
+    "name": "ideographic-space",
+    "markdown": "## m　n ideographic space",
+    "expected": 1
+   },
+   {
+    "name": "narrow-nbsp",
+    "markdown": "## o p narrow nbsp",
+    "expected": 1
+   },
+   {
+    "name": "zero-width-space",
+    "markdown": "## q​r zws",
+    "expected": 1
+   },
+   {
+    "name": "zero-width-joiner",
+    "markdown": "## s‍t zwj",
+    "expected": 1
+   },
+   {
+    "name": "zero-width-non-joiner",
+    "markdown": "## u‌v zwnj",
+    "expected": 1
+   },
+   {
+    "name": "bom-inside",
+    "markdown": "## w﻿x bom",
+    "expected": 1
+   },
+   {
+    "name": "soft-hyphen",
+    "markdown": "## y­z soft hyphen",
+    "expected": 1
+   },
+   {
+    "name": "bidi-mark",
+    "markdown": "## c1‎d1 lrm",
+    "expected": 1
+   },
+   {
+    "name": "variation-selector",
+    "markdown": "## e1️f1 vs16",
+    "expected": 1
+   },
+   {
+    "name": "tag-character",
+    "markdown": "## g1󠁁h1 tag a",
+    "expected": 1
+   },
+   {
+    "name": "control-bell",
+    "markdown": "## i1\u0007j1 bell",
+    "expected": 1
+   },
+   {
+    "name": "vertical-tab",
+    "markdown": "## k1\u000bl1 vt",
+    "expected": 1
+   },
+   {
+    "name": "form-feed",
+    "markdown": "## m1\fn1 ff",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "15-lowercase-unicode-versions",
+  "cases": [
+   {
+    "name": "georgian-mtavruli",
+    "markdown": "## ᲐᲑ mtavruli",
+    "expected": 1
+   },
+   {
+    "name": "cherokee-capital",
+    "markdown": "## ᎠᎡ cherokee",
+    "expected": 1
+   },
+   {
+    "name": "latin-extended-d-unicode8",
+    "markdown": "## Ꞵ unicode8",
+    "expected": 1
+   },
+   {
+    "name": "latin-unicode11",
+    "markdown": "## Ꞹ unicode11",
+    "expected": 1
+   },
+   {
+    "name": "latin-unicode14",
+    "markdown": "## Ꟁ unicode14",
+    "expected": 1
+   },
+   {
+    "name": "cyrillic-tje-unicode16",
+    "markdown": "## Ᲊ unicode16",
+    "expected": 1
+   },
+   {
+    "name": "latin-unicode16",
+    "markdown": "## Ɤ unicode16b",
+    "expected": 1
+   },
+   {
+    "name": "garay-capital-unicode16",
+    "markdown": "## 𐵐 garay",
+    "expected": 1
+   },
+   {
+    "name": "greek-final-sigma-context",
+    "markdown": "## ΣΑΣ sas",
+    "expected": 1
+   },
+   {
+    "name": "greek-sigma-end-of-word",
+    "markdown": "## ΑΣ as",
+    "expected": 1
+   },
+   {
+    "name": "turkish-dotless-capital",
+    "markdown": "## I and İ",
+    "expected": 1
+   },
+   {
+    "name": "lithuanian-dot",
+    "markdown": "## Į́ lt",
+    "expected": 1
+   },
+   {
+    "name": "special-casing-ligature",
+    "markdown": "## ﬃ ffi",
+    "expected": 1
+   },
+   {
+    "name": "special-casing-n-apostrophe",
+    "markdown": "## ŉ napos",
+    "expected": 1
+   },
+   {
+    "name": "special-casing-j-caron",
+    "markdown": "## ǰ jcaron",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "20-repeat-two",
+  "cases": [
+   {
+    "name": "notes-1st",
+    "markdown": "## Notes",
+    "expected": 1
+   },
+   {
+    "name": "notes-2nd",
+    "markdown": "## Notes",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "21-repeat-five",
+  "cases": [
+   {
+    "name": "plan-1",
+    "markdown": "## Plan",
+    "expected": 1
+   },
+   {
+    "name": "plan-2",
+    "markdown": "## Plan",
+    "expected": 1
+   },
+   {
+    "name": "plan-3",
+    "markdown": "## Plan",
+    "expected": 1
+   },
+   {
+    "name": "plan-4",
+    "markdown": "## Plan",
+    "expected": 1
+   },
+   {
+    "name": "plan-5",
+    "markdown": "## Plan",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "22-repeat-then-literal-1",
+  "cases": [
+   {
+    "name": "foo",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-again",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-1-literal",
+    "markdown": "## Foo-1",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "23-repeat-literal-1-first",
+  "cases": [
+   {
+    "name": "foo-1-literal",
+    "markdown": "## Foo-1",
+    "expected": 1
+   },
+   {
+    "name": "foo",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-again",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-third",
+    "markdown": "## Foo",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "24-repeat-literal-1-between",
+  "cases": [
+   {
+    "name": "foo",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-1-literal",
+    "markdown": "## Foo-1",
+    "expected": 1
+   },
+   {
+    "name": "foo-again",
+    "markdown": "## Foo",
+    "expected": 1
+   },
+   {
+    "name": "foo-third",
+    "markdown": "## Foo",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "25-repeat-of-literal-1",
+  "cases": [
+   {
+    "name": "bar-1-literal",
+    "markdown": "## Bar-1",
+    "expected": 1
+   },
+   {
+    "name": "bar-1-literal-again",
+    "markdown": "## Bar-1",
+    "expected": 1
+   },
+   {
+    "name": "bar-1-literal-third",
+    "markdown": "## Bar-1",
+    "expected": 1
+   },
+   {
+    "name": "bar",
+    "markdown": "## Bar",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "26-repeat-literal-2",
+  "cases": [
+   {
+    "name": "baz",
+    "markdown": "## Baz",
+    "expected": 1
+   },
+   {
+    "name": "baz-again",
+    "markdown": "## Baz",
+    "expected": 1
+   },
+   {
+    "name": "baz-2-literal",
+    "markdown": "## Baz-2",
+    "expected": 1
+   },
+   {
+    "name": "baz-third",
+    "markdown": "## Baz",
+    "expected": 1
+   },
+   {
+    "name": "baz-fourth",
+    "markdown": "## Baz",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "27-repeat-case-insensitive",
+  "cases": [
+   {
+    "name": "qux-lower",
+    "markdown": "## qux",
+    "expected": 1
+   },
+   {
+    "name": "qux-title",
+    "markdown": "## Qux",
+    "expected": 1
+   },
+   {
+    "name": "qux-upper",
+    "markdown": "## QUX",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "28-repeat-different-levels",
+  "cases": [
+   {
+    "name": "level1",
+    "markdown": "# Same",
+    "expected": 1
+   },
+   {
+    "name": "level2",
+    "markdown": "## Same",
+    "expected": 1
+   },
+   {
+    "name": "level3",
+    "markdown": "### Same",
+    "expected": 1
+   },
+   {
+    "name": "level6",
+    "markdown": "###### Same",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "29-repeat-via-punctuation",
+  "cases": [
+   {
+    "name": "plain",
+    "markdown": "## Quux",
+    "expected": 1
+   },
+   {
+    "name": "bang",
+    "markdown": "## Quux!",
+    "expected": 1
+   },
+   {
+    "name": "question",
+    "markdown": "## Quux?",
+    "expected": 1
+   },
+   {
+    "name": "spaced-punct",
+    "markdown": "## Quux ?",
+    "expected": 1
+   },
+   {
+    "name": "code",
+    "markdown": "## `Quux`",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "30-repeat-with-explicit-anchor",
+  "cases": [
+   {
+    "name": "anchored-first",
+    "markdown": "## Corge <a id=\"corge\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "plain-same-slug",
+    "markdown": "## Corge",
+    "expected": 1
+   },
+   {
+    "name": "anchored-again",
+    "markdown": "## Corge <a id=\"corge-1\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "plain-third",
+    "markdown": "## Corge",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "31-repeat-explicit-anchor-after",
+  "cases": [
+   {
+    "name": "plain-first",
+    "markdown": "## Grault",
+    "expected": 1
+   },
+   {
+    "name": "anchored-same-anchor",
+    "markdown": "## Other <a id=\"grault\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "plain-second",
+    "markdown": "## Grault",
+    "expected": 1
+   },
+   {
+    "name": "plain-other",
+    "markdown": "## Other",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "32-repeat-empty",
+  "cases": [
+   {
+    "name": "empty-1",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "empty-2",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "empty-3",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "punct-only",
+    "markdown": "## !!!",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-only-1",
+    "markdown": "## -",
+    "expected": 1
+   },
+   {
+    "name": "hyphen-only-2",
+    "markdown": "## -",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "33-repeat-numeric",
+  "cases": [
+   {
+    "name": "n1",
+    "markdown": "## 1",
+    "expected": 1
+   },
+   {
+    "name": "n1-again",
+    "markdown": "## 1",
+    "expected": 1
+   },
+   {
+    "name": "n1-literal-1",
+    "markdown": "## 1-1",
+    "expected": 1
+   },
+   {
+    "name": "n1-third",
+    "markdown": "## 1",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "34-repeat-thirteen",
+  "cases": [
+   {
+    "name": "w01",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w02",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w03",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w04",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w05",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w06",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w07",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w08",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w09",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w10",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w11",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w12",
+    "markdown": "## Waldo",
+    "expected": 1
+   },
+   {
+    "name": "w13",
+    "markdown": "## Waldo",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "35-repeat-nfc-nfd",
+  "cases": [
+   {
+    "name": "nfc",
+    "markdown": "## Café",
+    "expected": 1
+   },
+   {
+    "name": "nfd",
+    "markdown": "## Café",
+    "expected": 1
+   },
+   {
+    "name": "nfc-again",
+    "markdown": "## Café",
+    "expected": 1
+   },
+   {
+    "name": "ascii",
+    "markdown": "## Cafe",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "36-repeat-html-heading",
+  "cases": [
+   {
+    "name": "markdown-first",
+    "markdown": "## Fred",
+    "expected": 1
+   },
+   {
+    "name": "html-heading",
+    "markdown": "<h2>Fred</h2>",
+    "expected": 1
+   },
+   {
+    "name": "markdown-after",
+    "markdown": "## Fred",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "37-repeat-setext",
+  "cases": [
+   {
+    "name": "setext-first",
+    "markdown": "Plugh\n=====",
+    "expected": 1
+   },
+   {
+    "name": "atx-same",
+    "markdown": "## Plugh",
+    "expected": 1
+   },
+   {
+    "name": "setext-h2",
+    "markdown": "Plugh\n-----",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "40-setext",
+  "cases": [
+   {
+    "name": "setext-h1",
+    "markdown": "Setext one\n==========",
+    "expected": 1
+   },
+   {
+    "name": "setext-h2",
+    "markdown": "Setext two\n----------",
+    "expected": 1
+   },
+   {
+    "name": "setext-short-underline",
+    "markdown": "Setext three\n=",
+    "expected": 1
+   },
+   {
+    "name": "setext-long-underline",
+    "markdown": "Setext four\n----------------------------",
+    "expected": 1
+   },
+   {
+    "name": "setext-multiline",
+    "markdown": "Setext five line one\nsetext five line two\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-multiline-h2",
+    "markdown": "Setext six line one\nsetext six line two\n-----",
+    "expected": 1
+   },
+   {
+    "name": "setext-trailing-spaces",
+    "markdown": "Setext seven   \n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-leading-spaces",
+    "markdown": "   Setext eight\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-indented-underline",
+    "markdown": "Setext nine\n   =====",
+    "expected": 1
+   },
+   {
+    "name": "setext-inline-markup",
+    "markdown": "Setext *ten* and `code`\n-----",
+    "expected": 1
+   },
+   {
+    "name": "setext-hard-break-spaces",
+    "markdown": "Setext eleven a  \nsetext eleven b\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-hard-break-backslash",
+    "markdown": "Setext twelve a\\\nsetext twelve b\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-punct",
+    "markdown": "Setext thirteen, with: punct!\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-html-anchor",
+    "markdown": "Setext fourteen <a id=\"s14\"></a>\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-unicode",
+    "markdown": "Setext fünfzehn\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-trailing-hashes",
+    "markdown": "Setext sixteen ##\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-escaped-hash",
+    "markdown": "\\# Setext seventeen\n=====",
+    "expected": 1
+   },
+   {
+    "name": "setext-tab",
+    "markdown": "Setext\teighteen\n=====",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "41-levels",
+  "cases": [
+   {
+    "name": "level-1",
+    "markdown": "# Level one",
+    "expected": 1
+   },
+   {
+    "name": "level-2",
+    "markdown": "## Level two",
+    "expected": 1
+   },
+   {
+    "name": "level-3",
+    "markdown": "### Level three",
+    "expected": 1
+   },
+   {
+    "name": "level-4",
+    "markdown": "#### Level four",
+    "expected": 1
+   },
+   {
+    "name": "level-5",
+    "markdown": "##### Level five",
+    "expected": 1
+   },
+   {
+    "name": "level-6",
+    "markdown": "###### Level six",
+    "expected": 1
+   },
+   {
+    "name": "level-7-not-heading",
+    "markdown": "####### Level seven",
+    "expected": 0
+   },
+   {
+    "name": "no-space-not-heading",
+    "markdown": "#NoSpace",
+    "expected": 0
+   },
+   {
+    "name": "tab-after-hashes",
+    "markdown": "#\tTab after hash",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "42-empty-headings",
+  "cases": [
+   {
+    "name": "hash-only-1",
+    "markdown": "#",
+    "expected": 1
+   },
+   {
+    "name": "hash-only-2",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "hash-space",
+    "markdown": "# ",
+    "expected": 1
+   },
+   {
+    "name": "hash-spaces",
+    "markdown": "#     ",
+    "expected": 1
+   },
+   {
+    "name": "hash-closing-only",
+    "markdown": "# #",
+    "expected": 1
+   },
+   {
+    "name": "hash-closing-only-2",
+    "markdown": "## ##",
+    "expected": 1
+   },
+   {
+    "name": "hash-closing-spaced",
+    "markdown": "###   ###   ",
+    "expected": 1
+   },
+   {
+    "name": "anchor-only-empty",
+    "markdown": "# <a id=\"e\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "nbsp-entity-only",
+    "markdown": "# &nbsp;",
+    "expected": 1
+   },
+   {
+    "name": "nbsp-char-only",
+    "markdown": "#  ",
+    "expected": 1
+   },
+   {
+    "name": "tab-only",
+    "markdown": "#\t",
+    "expected": 1
+   },
+   {
+    "name": "empty-code",
+    "markdown": "# ` `",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "43-whitespace",
+  "cases": [
+   {
+    "name": "one-leading-space",
+    "markdown": " # Lead one",
+    "expected": 1
+   },
+   {
+    "name": "two-leading-spaces",
+    "markdown": "  ## Lead two",
+    "expected": 1
+   },
+   {
+    "name": "three-leading-spaces",
+    "markdown": "   ### Lead three",
+    "expected": 1
+   },
+   {
+    "name": "four-leading-spaces-code",
+    "markdown": "    #### Lead four",
+    "expected": 0
+   },
+   {
+    "name": "space-after-hash-many",
+    "markdown": "#      Many spaces after",
+    "expected": 1
+   },
+   {
+    "name": "trailing-spaces",
+    "markdown": "# Trail one   ",
+    "expected": 1
+   },
+   {
+    "name": "trailing-tab",
+    "markdown": "# Trail two\t",
+    "expected": 1
+   },
+   {
+    "name": "leading-and-trailing",
+    "markdown": "#    Both sides    ",
+    "expected": 1
+   },
+   {
+    "name": "tab-inside",
+    "markdown": "## Tab\tinside",
+    "expected": 1
+   },
+   {
+    "name": "tabs-inside-many",
+    "markdown": "## Tabs\t\tinside",
+    "expected": 1
+   },
+   {
+    "name": "tab-after-hashes",
+    "markdown": "##\tTab after hashes",
+    "expected": 1
+   },
+   {
+    "name": "tab-spaces-mixed",
+    "markdown": "## Mixed \t spaces tab",
+    "expected": 1
+   },
+   {
+    "name": "closing-hashes",
+    "markdown": "## Closing one ##",
+    "expected": 1
+   },
+   {
+    "name": "closing-hashes-many",
+    "markdown": "## Closing two #######",
+    "expected": 1
+   },
+   {
+    "name": "closing-hashes-trailing-space",
+    "markdown": "## Closing three ##   ",
+    "expected": 1
+   },
+   {
+    "name": "hash-not-closing",
+    "markdown": "## Hash four #notclosing",
+    "expected": 1
+   },
+   {
+    "name": "hash-escaped-closing",
+    "markdown": "## Hash five \\#",
+    "expected": 1
+   },
+   {
+    "name": "hash-no-space-closing",
+    "markdown": "## Hash six#",
+    "expected": 1
+   },
+   {
+    "name": "trailing-space-markup",
+    "markdown": "## Trail `code`  ",
+    "expected": 1
+   },
+   {
+    "name": "trailing-space-emphasis",
+    "markdown": "## Trail *em*  ",
+    "expected": 1
+   },
+   {
+    "name": "space-before-punct",
+    "markdown": "## Space before , comma",
+    "expected": 1
+   },
+   {
+    "name": "space-after-punct",
+    "markdown": "## Dot.  Two spaces after",
+    "expected": 1
+   },
+   {
+    "name": "space-then-hyphen",
+    "markdown": "## Spaced - hyphen - words",
+    "expected": 1
+   },
+   {
+    "name": "entity-newline",
+    "markdown": "## Entity&#10;newline",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "44-containers",
+  "cases": [
+   {
+    "name": "top-level",
+    "markdown": "## Top level",
+    "expected": 1
+   },
+   {
+    "name": "blockquote",
+    "markdown": "> ## Quoted heading",
+    "expected": 1
+   },
+   {
+    "name": "blockquote-nested",
+    "markdown": "> > ### Nested quoted heading",
+    "expected": 1
+   },
+   {
+    "name": "list-item",
+    "markdown": "- ## List item heading",
+    "expected": 1
+   },
+   {
+    "name": "ordered-list-item",
+    "markdown": "1. ## Ordered item heading",
+    "expected": 1
+   },
+   {
+    "name": "details-block",
+    "markdown": "<details>\n<summary>Summary</summary>\n\n## Inside details\n\n</details>",
+    "expected": 1
+   },
+   {
+    "name": "html-h2",
+    "markdown": "<h2>Raw html heading</h2>",
+    "expected": 1
+   },
+   {
+    "name": "html-h3-with-id",
+    "markdown": "<h3 id=\"rawid\">Raw html heading with id</h3>",
+    "expected": 1
+   },
+   {
+    "name": "html-h1-attrs",
+    "markdown": "<h1 class=\"c\" align=\"center\">Raw html with attrs</h1>",
+    "expected": 1
+   },
+   {
+    "name": "html-h2-nested-markup",
+    "markdown": "<h2><em>Raw</em> <code>nested</code> markup</h2>",
+    "expected": 1
+   },
+   {
+    "name": "fenced-code",
+    "markdown": "```\n## Not a heading in fence\n```",
+    "expected": 0
+   },
+   {
+    "name": "indented-code",
+    "markdown": "    ## Not a heading indented",
+    "expected": 0
+   },
+   {
+    "name": "html-comment-block",
+    "markdown": "<!--\n## Not a heading in comment\n-->",
+    "expected": 0
+   },
+   {
+    "name": "table-cell",
+    "markdown": "| col |\n|---|\n| ## in cell |",
+    "expected": 0
+   },
+   {
+    "name": "paragraph-continuation",
+    "markdown": "Paragraph start\n## heading ends paragraph",
+    "expected": 1
+   },
+   {
+    "name": "thematic-then-heading",
+    "markdown": "***\n\n## After thematic",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "45-long-headings",
+  "cases": [
+   {
+    "name": "len-100",
+    "markdown": "## Alorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore e",
+    "expected": 1
+   },
+   {
+    "name": "len-255",
+    "markdown": "## Blorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum",
+    "expected": 1
+   },
+   {
+    "name": "len-256",
+    "markdown": "## Clorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum d",
+    "expected": 1
+   },
+   {
+    "name": "len-257",
+    "markdown": "## Dlorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum do",
+    "expected": 1
+   },
+   {
+    "name": "len-1000",
+    "markdown": "## Elorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet cons",
+    "expected": 1
+   },
+   {
+    "name": "len-5000",
+    "markdown": "## Florem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua lorem ipsum dolor sit amet consectetur",
+    "expected": 1
+   },
+   {
+    "name": "one-word-300",
+    "markdown": "## gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+    "expected": 1
+   },
+   {
+    "name": "one-word-1000",
+    "markdown": "## hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+    "expected": 1
+   },
+   {
+    "name": "cjk-1000",
+    "markdown": "## 漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢",
+    "expected": 1
+   },
+   {
+    "name": "emoji-300",
+    "markdown": "## i🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀",
+    "expected": 1
+   },
+   {
+    "name": "hyphens-300",
+    "markdown": "## i------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------j",
+    "expected": 1
+   },
+   {
+    "name": "spaces-300",
+    "markdown": "## k                                                                                                                                                                                                                                                                                                            l",
+    "expected": 1
+   },
+   {
+    "name": "differ-at-end-a",
+    "markdown": "## mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm1",
+    "expected": 1
+   },
+   {
+    "name": "differ-at-end-b",
+    "markdown": "## mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm2",
+    "expected": 1
+   },
+   {
+    "name": "identical-long-1",
+    "markdown": "## nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+    "expected": 1
+   },
+   {
+    "name": "identical-long-2",
+    "markdown": "## nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "46-crlf",
+  "cases": [
+   {
+    "name": "crlf-plain",
+    "markdown": "## Crlf plain",
+    "expected": 1
+   },
+   {
+    "name": "crlf-trailing-space",
+    "markdown": "## Crlf trailing space  ",
+    "expected": 1
+   },
+   {
+    "name": "crlf-setext",
+    "markdown": "Crlf setext\r\n----------",
+    "expected": 1
+   },
+   {
+    "name": "crlf-anchor",
+    "markdown": "## Crlf anchor <a id=\"crlf\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "crlf-closing",
+    "markdown": "## Crlf closing ##",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "47-empty-slug-alone",
+  "cases": [
+   {
+    "name": "e1",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "e2",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "e3",
+    "markdown": "##",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "48-empty-slug-punct-then-empty",
+  "cases": [
+   {
+    "name": "p1",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "p2",
+    "markdown": "## ,",
+    "expected": 1
+   },
+   {
+    "name": "e",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "p3",
+    "markdown": "## ;",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "49-empty-slug-empty-first",
+  "cases": [
+   {
+    "name": "e",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "p1",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "p2",
+    "markdown": "## ;",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "50-empty-slug-punct-empty-punct",
+  "cases": [
+   {
+    "name": "p1",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "e",
+    "markdown": "##",
+    "expected": 1
+   },
+   {
+    "name": "p2",
+    "markdown": "## ;",
+    "expected": 1
+   },
+   {
+    "name": "a",
+    "markdown": "## a",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "51-empty-slug-punct-only",
+  "cases": [
+   {
+    "name": "p1",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "p2",
+    "markdown": "## ,",
+    "expected": 1
+   },
+   {
+    "name": "p3",
+    "markdown": "## ;",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "52-proposal-examples",
+  "cases": [
+   {
+    "name": "title-heading",
+    "markdown": "# Flusher stalls under load",
+    "expected": 1
+   },
+   {
+    "name": "section-heading",
+    "markdown": "## What is confirmed",
+    "expected": 1
+   },
+   {
+    "name": "explicit-anchor-example",
+    "markdown": "## What was done <a id=\"done\" class=\"decision review\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "section-number-example",
+    "markdown": "## 11.4 The tail",
+    "expected": 1
+   },
+   {
+    "name": "retitle-example",
+    "markdown": "## Notes",
+    "expected": 1
+   },
+   {
+    "name": "retitle-example-repeat",
+    "markdown": "## Notes",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "53-repeat-container-first",
+  "cases": [
+   {
+    "name": "in-blockquote",
+    "markdown": "> ## Quill",
+    "expected": 1
+   },
+   {
+    "name": "top-level-after-quote",
+    "markdown": "## Quill",
+    "expected": 1
+   },
+   {
+    "name": "in-list",
+    "markdown": "- ## Quill",
+    "expected": 1
+   },
+   {
+    "name": "in-details",
+    "markdown": "<details>\n\n## Quill\n\n</details>",
+    "expected": 1
+   },
+   {
+    "name": "top-level-last",
+    "markdown": "## Quill",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "54-alphabetic-and-digits",
+  "cases": [
+   {
+    "name": "other-alphabetic-pair",
+    "markdown": "## Ⓐx ⒜y",
+    "expected": 1
+   },
+   {
+    "name": "circled-capital-a",
+    "markdown": "## Ⓐ circled capital",
+    "expected": 1
+   },
+   {
+    "name": "circled-small-a",
+    "markdown": "## ⓐ circled small",
+    "expected": 1
+   },
+   {
+    "name": "parenthesized-a",
+    "markdown": "## ⒜ parenthesized",
+    "expected": 1
+   },
+   {
+    "name": "roman-small-numeral",
+    "markdown": "## ⅰ small roman",
+    "expected": 1
+   },
+   {
+    "name": "devanagari-digits",
+    "markdown": "## १२३ digits",
+    "expected": 1
+   },
+   {
+    "name": "thai-digits",
+    "markdown": "## ๑๒๓ digits",
+    "expected": 1
+   },
+   {
+    "name": "bengali-digits",
+    "markdown": "## ১২৩ digits",
+    "expected": 1
+   },
+   {
+    "name": "extended-arabic-indic-digits",
+    "markdown": "## ۱۲۳ digits",
+    "expected": 1
+   },
+   {
+    "name": "mathematical-bold-digits",
+    "markdown": "## 𝟎𝟏 digits",
+    "expected": 1
+   },
+   {
+    "name": "superscript-letter",
+    "markdown": "## xᵃ modifier letter",
+    "expected": 1
+   },
+   {
+    "name": "squared-latin-capital",
+    "markdown": "## 🄰 squared",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "55-case-mapping-singletons",
+  "cases": [
+   {
+    "name": "kelvin-sign",
+    "markdown": "## K kelvin",
+    "expected": 1
+   },
+   {
+    "name": "angstrom-sign",
+    "markdown": "## Å angstrom",
+    "expected": 1
+   },
+   {
+    "name": "ohm-sign",
+    "markdown": "## Ω ohm",
+    "expected": 1
+   },
+   {
+    "name": "unicode17-beria-erfe",
+    "markdown": "## 𖺠 unicode17",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "56-empty-slug-then-literal-suffix",
+  "cases": [
+   {
+    "name": "p1",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "p2",
+    "markdown": "## .",
+    "expected": 1
+   },
+   {
+    "name": "literal-minus-1",
+    "markdown": "## -1",
+    "expected": 1
+   },
+   {
+    "name": "tail",
+    "markdown": "## tail",
+    "expected": 1
+   }
+  ]
+ },
+ {
+  "document": "57-explicit-id-prefix",
+  "cases": [
+   {
+    "name": "plain-id",
+    "markdown": "## One <a id=\"pre2\"></a>",
+    "expected": 1
+   },
+   {
+    "name": "prefixed-id",
+    "markdown": "## Two <a id=\"user-content-pre2\"></a>",
+    "expected": 1
+   }
+  ]
+ }
+]
