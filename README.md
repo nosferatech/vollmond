@@ -1,2 +1,4 @@
 # vollmond
-Vollmond MD is an extension. Built around Markdown and Front Matter, intended to be friendly to humans, agents and applications. that provides validation, query and update framework.  
+Vollmond MD is an extension built around Markdown and Front Matter: 
+- provides validation, query and update framework.  
+- intended to be friendly to humans, agents and applications. 
