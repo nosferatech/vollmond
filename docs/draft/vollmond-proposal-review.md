@@ -229,3 +229,24 @@ validation rely on schemas anyway. `$anchor` works without a schema.
 **Tags.** `$anchor` is unique per record. Non-unique labels are `$tags` (not `$class` or `$type`, which serialization frameworks
 commonly use). Tags select sets of nodes, through VQL (`@tags:example`) or references declared `cardinality: many`. In Markdown
 they are written with the HTML idiom, `<a class="example"></a>` in a heading, and map to `$tags`.
+
+## Decisions from discussing Draft v0.3
+
+Recorded 2026-10-09, and applied to Draft v0.3.
+
+- **The root address.** An address with no fragment, or with an empty one, is the record's root.
+- **Value types** are specified: the I-JSON subset of JSON, rules for numbers, and standard logical types declared with `format`
+  (date, time, date-time, duration, int64, bigint, decimal, and more). Which number forms common parsers support needs a survey.
+- **Key allocation** (the next ticket number) is the client's job for now. A write language with computed values may take it over
+  later.
+- **Links that leave the store** are ordinary, untracked links. Reference tracking and rewriting need every collection in one
+  store, preferably on one backend, since there are no transactions across backends.
+- **Label templates** would be useful; the syntax is open, and they are deferred.
+- **Data blocks** are marked ```` ```yaml data ```` (or `json data`). Front matter is `---` at the start of a file only; sections
+  use fences.
+- **Queries match nodes.** Results print each node's canonical address (its anchor, else a semantic path from the nearest anchored
+  ancestor or the root), its title, size, what matched and an excerpt, grouped by record, with a per-record cap, a page size and a
+  cursor. More of each match is shown on request (`--show`, `--fields`, with `@match` and `@record`), capped in size unless `--all`
+  is given.
+- **Object member order is not significant.** A backend that stores original bytes keeps their order, but no backend or query may
+  be required to: covering indexes and relational stores have no original order to return. Order that matters uses arrays.
