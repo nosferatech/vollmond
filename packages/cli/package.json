@@ -1,0 +1,26 @@
+{
+  "name": "@vollmond/cli",
+  "version": "0.0.0",
+  "description": "The vmd command: Vollmond MD from the command line.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "vmd": "./dist/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "dependencies": {
+    "@vollmond/core": "0.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2"
+  }
+}
