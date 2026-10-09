@@ -264,3 +264,11 @@ Recorded 2026-10-09.
   access there, and a ticket store of its own would need access control. vampiredb and Belfry dogfood vmd for their tickets.
 - **The implementation plan** (`docs/plan/implementation-plan.md`) details phases I0 to I3; I4 to I8 are planned when I3 is nearly
   done.
+
+## Decisions during phase I0
+
+Recorded 2026-10-09.
+
+- **Package and command names.** The npm packages are named `vollmond`: `@vollmond/core` and `@vollmond/cli` (both free, as is the
+  unscoped `vollmond`). The command is `vmd`, although the unrelated npm package `vmd`, a Markdown previewer unmaintained for eight
+  years, installs a command of the same name.
