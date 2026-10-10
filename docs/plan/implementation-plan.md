@@ -100,10 +100,10 @@ Goal: everything I1 to I3 implement is pinned down by fixtures, and the open que
 | **I0.4** Fixtures: values | §4: the I-JSON subset, rejected YAML constructs, numbers (including integers beyond 2^53), the logical types' canonical forms | fixtures exist, each with its expected result or expected error |
 | **I0.5** Fixtures: Markdown | §5.3: front matter, the title heading, sections and nesting, data blocks, `$body` trimming, container blocks, `---` in a body | as above |
 | **I0.6** Fixtures: anchors and addresses | §6 and §7: explicit and derived anchors, tags, block anchors, exact and semantic paths, cardinality, canonical addresses | as above |
-| **I0.7** GitHub slugs pinned | heading slugs as GitHub computes them, captured by rendering test documents through GitHub's Markdown API and reading the heading ids it emits, for ASCII, punctuation, Unicode, inline code and repeats | fixtures record GitHub's output, so a change on GitHub's side shows up as a failing fixture |
+| **I0.7** Derived-anchor fixtures | vmd's slug rule (proposal §6.3, decisions C12 to C14 and F5) applied to the heading inputs captured in `docs/research/github-heading-slugs/`: ASCII, punctuation, Unicode, inline code, HTML and repeats, each with vmd's expected anchors. GitHub's output stays in `docs/research/` for comparison and is not a fixture, since vmd does not follow GitHub (C12) | every captured input has a fixture with vmd's expected anchors, and each case where vmd differs from GitHub says so in its description |
 | **I0.8** Spec corrections | every ambiguity the fixtures expose, fixed in the proposal with a decision-log entry | no fixture depends on an unwritten rule |
 
-I0.2, I0.3 and I0.7 can run in parallel with I0.1. I0.4 to I0.6 follow I0.3.
+I0.2 and I0.3 can run in parallel with I0.1. I0.4 to I0.7 follow I0.3. I0.7 was re-scoped on 2026-10-10: it first pinned GitHub's slugs, which decision C12 made informative only.
 
 ---
 
