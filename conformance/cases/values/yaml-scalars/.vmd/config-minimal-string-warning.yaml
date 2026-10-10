@@ -1,0 +1,4 @@
+vmd: 1
+yaml_quoting: minimal
+issues:
+  yaml-ambiguous-string: warning

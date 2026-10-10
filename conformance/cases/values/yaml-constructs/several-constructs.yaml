@@ -1,0 +1,3 @@
+a: .nan
+b: !foo x
+c: &y 1

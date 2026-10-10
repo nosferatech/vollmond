@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "date": { "type": "array", "items": {"type": "string", "format": "date"} },
+    "time": { "type": "array", "items": {"type": "string", "format": "time"} },
+    "date-time": { "type": "array", "items": {"type": "string", "format": "date-time"} },
+    "local-date-time": { "type": "array", "items": {"type": "string", "format": "local-date-time"} },
+    "duration": { "type": "array", "items": {"type": "string", "format": "duration"} },
+    "int64": { "type": "array", "items": {"type": ["integer", "string"], "format": "int64"} },
+    "bigint": { "type": "array", "items": {"type": ["integer", "string"], "format": "bigint"} },
+    "decimal": { "type": "array", "items": {"type": "string", "format": "decimal"} },
+    "uri": { "type": "array", "items": {"type": "string", "format": "uri"} },
+    "uri-reference": { "type": "array", "items": {"type": "string", "format": "uri-reference"} },
+    "email": { "type": "array", "items": {"type": "string", "format": "email"} },
+    "uuid": { "type": "array", "items": {"type": "string", "format": "uuid"} }
+  }
+}

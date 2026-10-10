@@ -1,0 +1,11 @@
+date: "2026-10-09"
+date-time: '2026-10-09T08:00:00Z'
+date-time-spaced: "2026-10-09 08:00:00"
+yes-word: "yes"
+off-word: 'OFF'
+y-word: "y"
+binary: "0b101"
+underscored: "1_000"
+sexagesimal: "1:30"
+merge: "<<"
+equals: '='

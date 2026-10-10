@@ -44,6 +44,251 @@
       "description": "9007199254740993.0 has a fraction, so it is not an integer by form and means its nearest double, 9007199254740992.",
       "input": { "record": "integer-with-fraction.yaml" },
       "expect": { "result": { "n": 9007199254740992 } }
+    },
+    {
+      "id": "json-integer-beyond-2-53",
+      "description": "The JSON integer 9007199254740993 (2^53 + 1), the example of §4.2, rounds to 2^53 as a double, so the record fails parse; JSON.parse rounds it silently.",
+      "input": { "record": "integer-beyond-2-53.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "integer-beyond-2-53.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "json-integer-twenty-digits",
+      "description": "12345678901234567890, the other example of §4.2, is beyond 2^63 and its double differs from it.",
+      "input": { "record": "integer-twenty-digits.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "integer-twenty-digits.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "json-integer-u64-max",
+      "description": "18446744073709551615 (2^64 - 1) fits an unsigned 64-bit integer, as serde_json reads it exactly, but its double is 2^64, so it is an error; a check against the 64-bit range misses it.",
+      "input": { "record": "integer-u64-max.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "integer-u64-max.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "json-integers-at-2-53",
+      "description": "±(2^53 - 1) and ±2^53 are integers by form whose doubles equal them, so they are read exactly; a check of |n| > 2^53 - 1 rejects 2^53 wrongly.",
+      "input": { "record": "integer-2-53.json" },
+      "expect": {
+        "result": { "a": 9007199254740992, "b": -9007199254740992, "c": 9007199254740991, "d": -9007199254740991 }
+      }
+    },
+    {
+      "id": "json-integer-2-60-written-exactly",
+      "description": "1152921504606846976 is 2^60 written exactly, an integer by form whose double equals it, so it is read with no issue although it is beyond 2^53; the check compares the double with the integer, not the magnitude with 2^53.",
+      "input": { "record": "integer-2-60-exact.json" },
+      "expect": { "result": { "n": 1152921504606846976 } }
+    },
+    {
+      "id": "big-integer-as-a-string",
+      "description": "The same digits as a JSON string are a string, which is what the hint of number-not-representable suggests (§4.2, §4.3).",
+      "spec": ["4.2", "4.3"],
+      "input": { "record": "big-integer-as-string.json" },
+      "expect": { "result": { "n": "9007199254740993" } }
+    },
+    {
+      "id": "forms-of-one-number",
+      "description": "1, 1.0, 10e-1 and 1E0 are one number, and 0.1 and 0.10000000000000001 are another, with no issue for the extra digits.",
+      "input": { "record": "same-number-forms.json" },
+      "expect": { "result": { "a": 1, "b": 1, "c": 1, "d": 1, "e": 0.1, "f": 0.1 } }
+    },
+    {
+      "id": "fraction-with-more-digits-than-a-double",
+      "description": "3.141592653589793238462643383279, RFC 7493's example of too much precision, is a fractional number, so it means its nearest double with no issue.",
+      "input": { "record": "long-fraction.json" },
+      "expect": { "result": { "pi": 3.141592653589793 } }
+    },
+    {
+      "id": "exponent-form-rounds-ties-to-even",
+      "description": "9007199254740993e0 and 9007199254740995e0 lie halfway between two doubles and round to the even one, 9007199254740992 and 9007199254740996, with no issue since they are not integers by form.",
+      "input": { "record": "exponent-ties-to-even.json" },
+      "expect": { "result": { "a": 9007199254740992, "b": 9007199254740996 } }
+    },
+    {
+      "id": "overflow",
+      "description": "1e400, the example of §4.2, is too large for a double; JSON.parse gives Infinity and Python gives inf.",
+      "input": { "record": "overflow.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "overflow.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "overflow-negative",
+      "description": "-1e400 is too large in magnitude for a double, as 1e400 is.",
+      "input": { "record": "overflow-negative.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "overflow-negative.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "overflow-just-above-the-largest-double",
+      "description": "1.7976931348623159e308 is above the midpoint between the largest double and 2^1024, so it rounds to infinity and is too large; a check that compares the exponent with 308 misses it.",
+      "input": { "record": "overflow-above-max-double.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "overflow-above-max-double.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "largest-double",
+      "description": "1.7976931348623157e308 is the largest double, and 1.7976931348623158e308 is below the midpoint to 2^1024 and rounds to it, so neither is an error.",
+      "input": { "record": "max-double.json" },
+      "expect": {
+        "result": { "a": 1.7976931348623157e308, "b": 1.7976931348623157e308, "c": -1.7976931348623157e308 }
+      }
+    },
+    {
+      "id": "underflow",
+      "description": "1e-400, the example of §4.2, is non-zero and a double rounds it to zero.",
+      "input": { "record": "underflow.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "underflow.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "underflow-negative",
+      "description": "-1e-400 is non-zero and a double rounds it to negative zero, which is zero.",
+      "input": { "record": "underflow-negative.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "underflow-negative.json", "at": "/n" }]
+      }
+    },
+    {
+      "id": "underflow-below-half-the-smallest-double",
+      "description": "2.4703282292062327e-324 is just below 2^-1075, half the smallest positive double, so it rounds to zero; a check that compares with 5e-324 or with the exponent -324 misses it.",
+      "input": { "record": "underflow-below-half-subnormal.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "number-not-representable", "severity": "error", "path": "underflow-below-half-subnormal.json", "at": "/n" }
+        ]
+      }
+    },
+    {
+      "id": "smallest-double",
+      "description": "5e-324, 4.9e-324, 3e-324 and 2.4703282292062328e-324 (just above 2^-1075) all round to the smallest positive double, which is not zero, so none is an error.",
+      "input": { "record": "smallest-subnormal.json" },
+      "expect": { "result": { "a": 5e-324, "b": 5e-324, "c": 5e-324, "d": 5e-324, "e": -5e-324 } }
+    },
+    {
+      "id": "zero-with-a-large-exponent",
+      "description": "0e-400, 0e400 and -0.0e-999 are zero, which is neither too large nor a non-zero number rounded to zero, so they are 0 with no issue.",
+      "input": { "record": "zero-with-large-exponent.json" },
+      "expect": { "result": { "a": 0, "b": 0, "c": 0 } }
+    },
+    {
+      "id": "negative-zero",
+      "description": "-0, -0.0 and -0e0 are 0 with no issue (§4.2), although JavaScript reads them as negative zero.",
+      "input": { "record": "negative-zero.json" },
+      "expect": { "result": { "a": 0, "b": 0, "c": 0 } }
+    },
+    {
+      "id": "every-number-error-reported",
+      "description": "A record with an integer beyond 2^53, an overflow inside an array and an underflow inside an object reports all three at their nodes, not only the first (§9.2).",
+      "spec": ["4.2", "9.2"],
+      "input": { "record": "several-errors.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "number-not-representable", "severity": "error", "path": "several-errors.json", "at": "/a" },
+          { "code": "number-not-representable", "severity": "error", "path": "several-errors.json", "at": "/b/1" },
+          { "code": "number-not-representable", "severity": "error", "path": "several-errors.json", "at": "/c/d" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-plus-sign-integer",
+      "description": "+9007199254740993 is a YAML integer by form with a leading +, the example of §4.2, and a double cannot hold it.",
+      "input": { "record": "plus-sign-integer.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "plus-sign-integer.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "yaml-plus-sign-small-integer",
+      "description": "+42 is a YAML 1.2 core integer (YAML 1.2.2, section 10.3.2, [-+]? [0-9]+) and means 42.",
+      "spec": ["4.2", "4.4"],
+      "input": { "record": "plus-sign-small.yaml" },
+      "expect": { "result": { "n": 42 } }
+    },
+    {
+      "id": "yaml-octal-integer-beyond-2-53",
+      "description": "0o400000000000000001 is 2^53 + 1 in the core schema's octal form, an integer by form that a double cannot hold.",
+      "input": { "record": "octal-integer.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "octal-integer.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "yaml-hex-integer-64-bit",
+      "description": "0xFFFFFFFFFFFFFFFF is 2^64 - 1, a hexadecimal integer by form whose double is 2^64.",
+      "input": { "record": "hex-64-bit.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "hex-64-bit.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "yaml-integer-forms",
+      "description": "The core schema's integer forms (YAML 1.2.2, section 10.3.2) read as numbers: 0x20000000000000 is 2^53 exactly, 0o17 and 0x1F and 0x1f are 15 and 31, and 017 is decimal 17.",
+      "spec": ["4.2", "4.4"],
+      "input": { "record": "yaml-integer-forms.yaml" },
+      "expect": { "result": { "hex-2-53": 9007199254740992, "octal": 15, "hex-upper": 31, "hex-lower": 31, "leading-zero": 17 } }
+    },
+    {
+      "id": "yaml-float-forms",
+      "description": "The core schema's float forms (YAML 1.2.2, section 10.3.2) read as numbers, including -.5 and 1e3, which PyYAML reads as strings (parser survey, section 4.1).",
+      "spec": ["4.2", "4.4"],
+      "input": { "record": "yaml-float-forms.yaml" },
+      "expect": { "result": { "a": 0.5, "b": -0.5, "c": 1.5, "d": 1, "e": 1000, "f": 1000, "g": 1e20, "h": 2.5e-7 } }
+    },
+    {
+      "id": "yaml-overflow-and-underflow",
+      "description": "1e400 and 1e-400 match the core schema's float form, so they are numbers that a double cannot hold, although js-yaml and PyYAML read them as strings (parser survey, section 4.1).",
+      "input": { "record": "yaml-out-of-range.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "number-not-representable", "severity": "error", "path": "yaml-out-of-range.yaml", "at": "/big" },
+          { "code": "number-not-representable", "severity": "error", "path": "yaml-out-of-range.yaml", "at": "/small" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-negative-zero",
+      "description": "The YAML numbers -0, -0.0 and -.0 are 0 with no issue.",
+      "input": { "record": "yaml-negative-zero.yaml" },
+      "expect": { "result": { "a": 0, "b": 0, "c": 0 } }
+    },
+    {
+      "id": "yaml-quoted-big-integer",
+      "description": "A quoted YAML scalar is a string, so \"9007199254740993\" is read as written, with no issue.",
+      "spec": ["4.2", "4.3"],
+      "input": { "record": "yaml-quoted-integer.yaml" },
+      "expect": { "result": { "n": "9007199254740993" } }
+    },
+    {
+      "id": "front-matter-integer-beyond-2-53",
+      "description": "The rule holds in every format, so an integer beyond 2^53 in a Markdown record's front matter fails parse at its field.",
+      "spec": ["4.2", "5.3"],
+      "input": { "record": "front-matter.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "front-matter.md", "at": "/n" }]
+      }
     }
   ]
 }

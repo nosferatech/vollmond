@@ -1,0 +1,9 @@
+true-lower: true
+true-title: True
+true-upper: TRUE
+false-lower: false
+null-lower: null
+null-title: Null
+null-upper: NULL
+null-tilde: ~
+null-empty:

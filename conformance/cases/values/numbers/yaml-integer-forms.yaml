@@ -1,0 +1,5 @@
+hex-2-53: 0x20000000000000
+octal: 0o17
+hex-upper: 0x1F
+hex-lower: 0x1f
+leading-zero: 017

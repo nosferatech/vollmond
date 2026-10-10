@@ -1,0 +1,209 @@
+{
+  "defaults": {
+    "spec": ["4.1"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "yaml-constructs" }
+  },
+  "cases": [
+    {
+      "id": "infinity",
+      "description": ".inf is the core schema's positive infinity (YAML 1.2.2, section 10.3.2), a value outside the data model.",
+      "input": { "record": "infinity.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-finite", "severity": "error", "path": "infinity.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "infinity-signs-and-cases",
+      "description": "-.inf, +.inf, .Inf and .INF are the core schema's other spellings of infinity (YAML 1.2.2, section 10.3.2), each an error at its node.",
+      "input": { "record": "infinity-forms.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-non-finite", "severity": "error", "path": "infinity-forms.yaml", "at": "/a" },
+          { "code": "yaml-non-finite", "severity": "error", "path": "infinity-forms.yaml", "at": "/b" },
+          { "code": "yaml-non-finite", "severity": "error", "path": "infinity-forms.yaml", "at": "/c" },
+          { "code": "yaml-non-finite", "severity": "error", "path": "infinity-forms.yaml", "at": "/d" }
+        ]
+      }
+    },
+    {
+      "id": "not-a-number",
+      "description": ".nan, .NaN and .NAN are the core schema's not-a-number (YAML 1.2.2, section 10.3.2), each an error at its node.",
+      "input": { "record": "nan.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-non-finite", "severity": "error", "path": "nan.yaml", "at": "/a" },
+          { "code": "yaml-non-finite", "severity": "error", "path": "nan.yaml", "at": "/b" },
+          { "code": "yaml-non-finite", "severity": "error", "path": "nan.yaml", "at": "/c" }
+        ]
+      }
+    },
+    {
+      "id": "infinity-in-a-flow-sequence",
+      "description": "A non-finite number inside a sequence is an error at that item.",
+      "input": { "record": "non-finite-in-array.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-finite", "severity": "error", "path": "non-finite-in-array.yaml", "at": "/a/1" }]
+      }
+    },
+    {
+      "id": "non-finite-lookalikes-are-strings",
+      "description": "A quoted \".inf\", and the plain .iNf, inf, nan and .Nan, match none of the core schema's float forms (YAML 1.2.2, section 10.3.2), so they are strings.",
+      "spec": ["4.1", "4.4"],
+      "input": { "record": "non-finite-lookalikes.yaml" },
+      "expect": { "result": { "a": ".inf", "b": ".iNf", "c": "inf", "d": "nan", "e": ".Nan" } }
+    },
+    {
+      "id": "integer-key",
+      "description": "The plain key 1 is an integer in the core schema, so the root mapping has a non-string key; the yaml package's toJS turns it into the string \"1\" (parser survey, section 4.2).",
+      "input": { "record": "integer-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-string-key", "severity": "error", "path": "integer-key.yaml", "at": "" }]
+      }
+    },
+    {
+      "id": "boolean-key",
+      "description": "The plain key true is a boolean in the core schema, a non-string key.",
+      "input": { "record": "boolean-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-string-key", "severity": "error", "path": "boolean-key.yaml", "at": "" }]
+      }
+    },
+    {
+      "id": "null-key",
+      "description": "The plain key ~ is null in the core schema, a non-string key; the yaml package's toJS turns it into the empty string (parser survey, section 4.2).",
+      "input": { "record": "null-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-string-key", "severity": "error", "path": "null-key.yaml", "at": "" }]
+      }
+    },
+    {
+      "id": "float-key-in-nested-mapping",
+      "description": "The plain key 1.5 is a float, so the nested mapping that holds it is the error's node.",
+      "input": { "record": "nested-float-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-string-key", "severity": "error", "path": "nested-float-key.yaml", "at": "/m" }]
+      }
+    },
+    {
+      "id": "sequence-key",
+      "description": "A complex key that is a sequence is not a string.",
+      "input": { "record": "sequence-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-string-key", "severity": "error", "path": "sequence-key.yaml", "at": "" }]
+      }
+    },
+    {
+      "id": "string-keys",
+      "description": "Quoted \"1\", 'true' and \"~\" are strings, and so are the plain keys 2026-10-09 and yes, since the core schema has no dates and no yes (YAML 1.2.2, section 10.3.2), so every key is a string.",
+      "spec": ["4.1", "4.4"],
+      "input": { "record": "string-keys.yaml" },
+      "expect": { "result": { "1": "a", "true": "b", "2026-10-09": "c", "yes": "d", "~": "e" } }
+    },
+    {
+      "id": "anchor-without-alias",
+      "description": "An anchor is an error even when no alias uses it.",
+      "input": { "record": "anchor.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-alias", "severity": "error", "path": "anchor.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "anchor-and-alias",
+      "description": "The example of the conformance README: the anchor and the alias are each an error at the node that carries it; every YAML reader surveyed expands the alias by default (parser survey, section 4.2).",
+      "input": { "record": "anchor-and-alias.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-alias", "severity": "error", "path": "anchor-and-alias.yaml", "at": "/a" },
+          { "code": "yaml-alias", "severity": "error", "path": "anchor-and-alias.yaml", "at": "/b" }
+        ]
+      }
+    },
+    {
+      "id": "anchor-on-a-mapping",
+      "description": "An anchor on a block mapping is an error at that mapping.",
+      "input": { "record": "anchor-on-mapping.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-alias", "severity": "error", "path": "anchor-on-mapping.yaml", "at": "/m" }]
+      }
+    },
+    {
+      "id": "merge-key",
+      "description": "A merge key << with an inline mapping, which js-yaml 4, PyYAML and ruamel.yaml merge (parser survey, section 4.2), is an error at the mapping that holds it, here the root.",
+      "input": { "record": "merge-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-merge-key", "severity": "error", "path": "merge-key.yaml", "at": "" }]
+      }
+    },
+    {
+      "id": "merge-key-in-nested-mapping",
+      "description": "A merge key in a nested mapping is an error at that mapping.",
+      "input": { "record": "nested-merge-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-merge-key", "severity": "error", "path": "nested-merge-key.yaml", "at": "/m" }]
+      }
+    },
+    {
+      "id": "custom-tag",
+      "description": "The local tag !foo on a scalar is an error at the tagged node; the yaml package only warns about it and keeps the value (parser survey, section 4.2).",
+      "input": { "record": "custom-tag.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-tag", "severity": "error", "path": "custom-tag.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "custom-tag-on-a-mapping",
+      "description": "A custom tag on a flow mapping is an error at that mapping.",
+      "input": { "record": "custom-tag-on-mapping.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-tag", "severity": "error", "path": "custom-tag-on-mapping.yaml", "at": "/m" }]
+      }
+    },
+    {
+      "id": "verbatim-tag",
+      "description": "A verbatim tag that names a global tag of its own, !<tag:example.com,2026:thing>, is a custom tag too.",
+      "input": { "record": "verbatim-tag.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-tag", "severity": "error", "path": "verbatim-tag.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "every-construct-reported",
+      "description": "A record with .nan, a custom tag and an anchor reports all three, not only the first (§9.2).",
+      "spec": ["4.1", "9.2"],
+      "input": { "record": "several-constructs.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-non-finite", "severity": "error", "path": "several-constructs.yaml", "at": "/a" },
+          { "code": "yaml-tag", "severity": "error", "path": "several-constructs.yaml", "at": "/b" },
+          { "code": "yaml-alias", "severity": "error", "path": "several-constructs.yaml", "at": "/c" }
+        ]
+      }
+    },
+    {
+      "id": "one-document-with-markers",
+      "description": "A file with one document between the markers --- and ... is a single document, so it is read; only several documents are an error.",
+      "input": { "record": "explicit-document.yaml" },
+      "expect": { "result": { "a": 1 } }
+    }
+  ]
+}

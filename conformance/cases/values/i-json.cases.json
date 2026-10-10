@@ -1,0 +1,152 @@
+{
+  "defaults": {
+    "spec": ["4.1"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "i-json" }
+  },
+  "cases": [
+    {
+      "id": "duplicate-member",
+      "description": "Two members of one JSON object named a fail parse at the second; JSON.parse and Python's json keep the last one silently.",
+      "input": { "record": "duplicate-member.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-member.json", "at": "/a" }]
+      }
+    },
+    {
+      "id": "duplicate-member-nested-same-value",
+      "description": "A duplicate inside a nested object is an error at that object's member, even when both values are equal.",
+      "input": { "record": "duplicate-member-nested.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-member-nested.json", "at": "/x/k" }]
+      }
+    },
+    {
+      "id": "duplicate-member-through-an-escape",
+      "description": "\"\\u0061\" names the same member as \"a\", since I-JSON compares names after processing escapes (RFC 7493, section 2.3); a check on the raw text misses it.",
+      "input": { "record": "duplicate-member-escaped.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-member-escaped.json", "at": "/a" }]
+      }
+    },
+    {
+      "id": "member-names-not-normalized",
+      "description": "A name with a precomposed é (NFC) and one with e and a combining acute accent (NFD) are different names, since strings are not normalized, so the record has two members.",
+      "input": { "record": "names-nfc-and-nfd.json" },
+      "expect": { "result": { "\u00e9": 1, "e\u0301": 2 } }
+    },
+    {
+      "id": "string-not-normalized",
+      "description": "A string in NFD keeps its combining accent in the value view; a reader that normalizes to NFC gives a different string.",
+      "input": { "record": "string-nfd.json" },
+      "expect": { "result": { "s": "e\u0301" } }
+    },
+    {
+      "id": "escaped-surrogate-pair",
+      "description": "\"\\ud83d\\ude00\" is a surrogate pair, the way JSON escapes a character outside the Basic Multilingual Plane (RFC 8259, section 7), so it is the one character U+1F600 and valid.",
+      "input": { "record": "surrogate-pair-escaped.json" },
+      "expect": { "result": { "s": "\ud83d\ude00" } }
+    },
+    {
+      "id": "unpaired-high-surrogate",
+      "description": "\"\\ud800\" is a high surrogate with no low surrogate after it, which is not valid Unicode; every JSON parser surveyed except serde_json accepts it (Appendix B).",
+      "input": { "record": "unpaired-high-surrogate.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "unpaired-surrogate", "severity": "error", "path": "unpaired-high-surrogate.json", "at": "/s" }]
+      }
+    },
+    {
+      "id": "unpaired-low-surrogate",
+      "description": "\"\\uDEAD\", RFC 7493's own example, is a low surrogate with no high surrogate before it.",
+      "input": { "record": "unpaired-low-surrogate.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "unpaired-surrogate", "severity": "error", "path": "unpaired-low-surrogate.json", "at": "/s" }]
+      }
+    },
+    {
+      "id": "unpaired-surrogate-inside-a-string-in-an-array",
+      "description": "An unpaired surrogate between other characters of a string in an array is an error at that string.",
+      "input": { "record": "unpaired-surrogate-in-array.json" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "unpaired-surrogate", "severity": "error", "path": "unpaired-surrogate-in-array.json", "at": "/a/1" }]
+      }
+    },
+    {
+      "id": "every-error-reported",
+      "description": "A record with an unpaired surrogate and a duplicate member reports both, not only the first (§9.2).",
+      "spec": ["4.1", "9.2"],
+      "input": { "record": "duplicate-and-surrogate.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "unpaired-surrogate", "severity": "error", "path": "duplicate-and-surrogate.json", "at": "/a" },
+          { "code": "duplicate-member", "severity": "error", "path": "duplicate-and-surrogate.json", "at": "/b" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-duplicate-key",
+      "description": "A YAML mapping with the key a twice fails parse at the second; PyYAML keeps the last one silently (parser survey, section 4.2).",
+      "input": { "record": "duplicate-key.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-key.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "yaml-duplicate-key-quoted",
+      "description": "The plain key a and the quoted key \"a\" are the same string, so they are duplicates.",
+      "input": { "record": "duplicate-key-quoted.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-key-quoted.yaml", "at": "/a" }]
+      }
+    },
+    {
+      "id": "yaml-duplicate-key-in-flow-mapping",
+      "description": "A duplicate key in a flow mapping is an error at that mapping's member.",
+      "input": { "record": "duplicate-key-flow.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "duplicate-key-flow.yaml", "at": "/m/k" }]
+      }
+    },
+    {
+      "id": "yaml-unpaired-surrogate-16-bit-escape",
+      "description": "The YAML escape \\ud800 in a double-quoted scalar gives an unpaired surrogate, which every YAML reader surveyed accepts (parser survey, section 4.2) and vmd rejects in any format.",
+      "input": { "record": "yaml-unpaired-surrogate.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "unpaired-surrogate", "severity": "error", "path": "yaml-unpaired-surrogate.yaml", "at": "/s" }]
+      }
+    },
+    {
+      "id": "yaml-unpaired-surrogate-32-bit-escape",
+      "description": "The 32-bit YAML escape \\U0000DC00 (YAML 1.2.2, section 5.7) names a lone low surrogate too.",
+      "input": { "record": "yaml-unpaired-surrogate-32-bit.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "unpaired-surrogate", "severity": "error", "path": "yaml-unpaired-surrogate-32-bit.yaml", "at": "/s" }
+        ]
+      }
+    },
+    {
+      "id": "front-matter-duplicate-key",
+      "description": "Front matter is a YAML mapping, so a key repeated in it is a duplicate-member error at the second, a structural error rather than the duplicate-key of §5.7.",
+      "spec": ["4.1", "5.3"],
+      "input": { "record": "front-matter-duplicate.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "duplicate-member", "severity": "error", "path": "front-matter-duplicate.md", "at": "/status" }]
+      }
+    }
+  ]
+}
