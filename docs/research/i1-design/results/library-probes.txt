@@ -12,6 +12,10 @@ yaml raw U+FFFE             errors [] warnings [] %YAML {"version":"1.2","explic
 yaml byte order mark        errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
 yaml duplicate key          errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
 yaml unclosed flow          errors ["BAD_INDENT"] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml block scalar, CR       errors ["UNEXPECTED_TOKEN"] value {"a":""}
+yaml block scalar, LF       errors [] value {"a":"x\n"}
+yaml plain scalar, CR       errors [] value {"a":"x\r  y\r"}
+yaml plain scalar, LF       errors [] value {"a":"x y"}
 yaml range of n in "k: x😀y\nn: 0x1F" [11,15,16] (UTF-16 units give 11), source 0x1F, value 31
 yaml "\ud800" is accepted; isWellFormed() = false; root isMap: true
 jsonc "NaN"                      errors [["InvalidSymbol",0],["ValueExpected",3]] tree none

@@ -40,6 +40,16 @@ probeYaml("raw U+FFFE", 'a: "\uFFFE"\n');
 probeYaml("byte order mark", "\uFEFFa: 1\n");
 probeYaml("duplicate key", "a: 1\na: 2\n");
 probeYaml("unclosed flow", "a: [1, 2\nb: 3\n");
+// A lone CR is a line break in YAML 1.2.2 (section 5.4), but not to `yaml` 2.9.1.
+for (const [label, source] of [
+  ["block scalar, CR", "a: |\r  x\r"],
+  ["block scalar, LF", "a: |\n  x\n"],
+  ["plain scalar, CR", "a: x\r  y\r"],
+  ["plain scalar, LF", "a: x\n  y\n"],
+]) {
+  const doc = parseDocument(source, yamlOptions);
+  console.log(`yaml ${label.padEnd(22)} errors ${JSON.stringify(doc.errors.map((e) => e.code))} value ${JSON.stringify(doc.toJS())}`);
+}
 const ranged = parseDocument("k: x\u{1F600}y\nn: 0x1F\n", yamlOptions);
 const n = ranged.get("n", true);
 console.log(`yaml range of n in "k: x\u{1F600}y\\nn: 0x1F" ${JSON.stringify(n.range)} (UTF-16 units give 11), source ${n.source}, value ${n.value}`);
