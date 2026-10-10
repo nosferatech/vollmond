@@ -447,10 +447,18 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
   validates after the commit (pattern A) is a weakly validating backend, whose constraints hold except for the latest commits
   still being validated, and a client that syncs only to commits marked green sees a validating backend. The role of queries,
   which assume the backend is correct, rests on this (§9.4, §9.5, §11.1).
-- **G3. Version differences.** On a major version difference, a client that supports the store's major version reads and writes
-  at that compatibility level. Otherwise it refuses a newer store and warns on an older one. A minor version difference gives no
-  warning, which holds because minor versions are compatible in both directions: a change that is not compatible in both
-  directions is by definition a major version change (§9.1). The full design stays in #46.
+- **G3. Version differences, as the owner refined them.** The owner first answered that a client supporting the store's major
+  version works at that compatibility level, that it otherwise refuses a newer store and warns on an older one, and that a minor
+  difference gives no warning. The refinement replaces that with a model of three versions, those of the data, the reader and the
+  writer. A store can move to 2.2, and a 2.1 reader reads its data without any warning as long as the data uses no 2.2 feature.
+  A 2.1 reader that meets a 2.2 feature fails with an error. If a 2.1 reader cannot read data that a 2.2 writer wrote at 2.1
+  compatibility, or reads it wrongly, the change should not have been a minor version. So minor versions only add and never
+  change the meaning of existing syntax. Every addition must be detectable by an older reader (a new `$` section member, a new
+  `data` info string, a new `x-vmd-*` keyword), which vmd's strictness supplies. A reader decides from the features the data
+  uses, not from the declared number (`feature-unsupported`), and a client refuses a major version it does not support (§9.1).
+  Left to #46, as proposals with their precedents (§20), are a store setting for the writers' compatibility level, feature
+  classes after ext4's compat, ro_compat and incompat flags, ZFS feature flags and git's `extensions.*`, and how a store writes a
+  minor version.
 - **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
 - **G5. An empty many-reference is valid** (§8.5).
 - **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax

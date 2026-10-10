@@ -282,7 +282,9 @@ follows.
   parent is the nearest preceding heading of a lower level, or the root. Skipped levels are allowed.
 - **A section's data block** is a fenced code block whose info string is `yaml data` or `json data`, placed immediately after the
   heading (only blank lines between). It must hold an object, its top-level keys must not begin with `$`, and its members are the
-  section's fields. There is at most one. A fenced block anywhere else is prose. The first word of the info string keeps GitHub's
+  section's fields. There is at most one. A fence in that place whose info string has `data` as its second word, and a first
+  word other than `yaml` or `json`, is a structural error (`feature-unsupported`), since a newer minor version may define it
+  (§9.1). A fenced block anywhere else is prose. The first word of the info string keeps GitHub's
   syntax highlighting; the second marks the block as data rather than an example. The marker was chosen over two alternatives
   (the schema naming the sections that carry data, and the first YAML or JSON fence after a heading always being data): both
   turn ordinary examples into data, and the first makes a file's value depend on its collection.
@@ -348,7 +350,9 @@ file, or one holding only whitespace and comments, is the empty record `{}`, as 
 syntax error, since it is not JSON.
 
 The section members apply to the root object and to items of `$sections`. On a section, a member whose name begins with `$` and
-that is not a section member (§5.2) is a structural error (`dollar-member`). Inside a field's value, three such members are vmd
+that is not a section member (§5.2) is a structural error. It is `dollar-member` for `$key` and for a section member out of its
+place (`$schema` below the root), and `feature-unsupported` for any other name, which may be a section member of a newer minor
+version (§9.1). Inside a field's value, three such members are vmd
 syntax and every other one is data:
 
 - `$anchor` and `$tags` label the object that holds them (§6),
@@ -777,16 +781,27 @@ checked. A collection whose schema file is missing, or is not a valid schema, is
 - **Only `vmd` is required.** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness, compatibility
   quoting, every issue at its default severity, no collections and nothing ignored. A configuration without `vmd`, or that is not
   valid, is an error (`config-invalid`).
-- **`vmd` is the store's format version**, major version `1` for this specification. A change that is not compatible in both
-  directions, old clients with new stores and new clients with old stores, is a major version change. Minor versions are
-  therefore compatible in both directions, and a minor version difference gives no warning. On a major version difference:
-  - a client that supports the store's major version reads and writes the store at that version's compatibility level;
-  - otherwise the client refuses a store newer than it, for reads and writes, and reads an older one with a warning, without
-    writing to it (`format-version-unsupported`).
+- **`vmd` is the store's format version**, major version `1` for this specification. Three versions meet, those of the data, of
+  the reader and of the writer. A store can move to version 2.2 while a 2.1 reader reads its data without any warning,
+  as long as the data uses no 2.2 feature.
+  - **Minor versions only add.** A minor version never changes the meaning of existing syntax. A change to the slug rule, to
+    number parsing or to how a block is read is a major version change, and so is any change after which a reader of the previous
+    minor version cannot read, or misreads, data that a newer writer wrote at the older compatibility level.
+  - **Every addition is detectable.** Each feature that a minor version adds must take a form that an older reader rejects
+    rather than misreads, so that the older reader fails instead of returning a wrong value. This is the design rule that makes
+    the model work. vmd's strictness supplies it, since an unknown `$` member on a section (§5.4), an unknown `data` info string after a
+    heading (§5.3) and an unknown `x-vmd-*` keyword in a schema (§9.3) are errors. An addition qualifies only as one of those
+    forms, a new section member beginning with `$`, a new `data` info string or a new `x-vmd-*` keyword.
+  - **A reader decides from the features the data uses**, not from the version number the store declares. A store that declares a
+    newer minor version gives no warning. Data that uses a feature the reader does not know is an error (`feature-unsupported`),
+    whose message says that the construct may come from a newer version, and names the store's declared version when the store
+    declares one.
+  - **Major versions.** A client that supports the store's major version reads and writes the store at that version's level.
+    Otherwise it refuses the store (`format-version-unsupported`).
 
   Room is reserved for a client to declare the version it is built for, in the repository's settings or in a connection string.
-  How a store writes a minor version, and how a client and a store on different versions transcode between them, is a design
-  topic of its own ([#46](https://github.com/nosferatech/vollmond/issues/46)).
+  The rest is a design topic of its own ([#46](https://github.com/nosferatech/vollmond/issues/46)), with the proposals that §20
+  lists.
 - **`issues`** sets the severity of an issue code to `off`, `warning` or `error`, within the limits Appendix D gives. An unknown
   code, or a severity outside those limits, makes the configuration invalid (`config-invalid`). An `issues` entry is explicit and
   wins over a setting that implies a severity, so under `yaml_quoting: minimal` the entry `yaml-ambiguous-string: warning`
@@ -830,6 +845,9 @@ Parsing and checking report every error they can find, not only the first, so th
 | `x-vmd-ref` | a `$ref` object, or a `uri-reference` string | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults |
 | `x-vmd-summary` | any property | included in default listings and query results |
 | `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries |
+
+A keyword that begins with `x-vmd-` and that this version does not define makes the schema invalid (`feature-unsupported`), so
+that a keyword a newer minor version adds is never silently ignored (§9.1).
 
 `x-vmd-list` has these members:
 
@@ -907,7 +925,8 @@ Each part of vmd has one role towards data that may not be valid:
    per client or per connection, refuses records with structural errors or schema violations, which are then errors, not results.
    Other validation issues, such as dangling references or warnings, do not affect it. It is for uses where correctness matters
    more than availability, and for backends that do not validate.
-5. **A reader on another format version** than the store's follows the rule of §9.1.
+5. **A reader on another format version** than the store's reads by the features the data uses (§9.1). It fails on a feature
+   it does not know rather than misread it, and refuses a store whose major version it does not support.
 
 ---
 
@@ -1563,9 +1582,31 @@ A backend conforms to the storage contract (§11) separately, and states whether
    says the same is open.
 
 Larger design topics are tracked as issues instead: format and protocol versioning
-([#46](https://github.com/nosferatech/vollmond/issues/46), with the interim rule of §9.1 on major and minor versions), a selector
-language for addresses ([#47](https://github.com/nosferatech/vollmond/issues/47), §6.4), and renames, aliases and concurrent
-changes ([#48](https://github.com/nosferatech/vollmond/issues/48), §13.6).
+([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
+([#47](https://github.com/nosferatech/vollmond/issues/47), §6.4), and renames, aliases and concurrent changes
+([#48](https://github.com/nosferatech/vollmond/issues/48), §13.6).
+
+Versioning starts from the rule of §9.1 (minor versions only add, every addition is detectable, a reader decides from the
+features the data uses, and a client refuses a major version it does not support). These proposals are left to #46:
+
+- **A compatibility level for writers**, a store setting that keeps a 2.2 writer from using 2.2 features until the store's owner
+  raises it. Without it, old readers fail the moment one writer upgrades.
+- **Feature classes**, so that a feature an older client can read but must not write, such as a new schema constraint, lets the
+  client read and refuses its writes. Precedents, each checked against its documentation on 2026-10-10:
+  - ext4's superblock flags ([docs.kernel.org/filesystems/ext4/super.html](https://docs.kernel.org/filesystems/ext4/super.html)).
+    A kernel that does not understand a `compat` feature can still read and write the file system, one that does not understand
+    an `ro_compat` feature can still mount it read-only, and one that does not understand an `incompat` feature should refuse to
+    mount it.
+  - ZFS feature flags (zpool-features(7),
+    [openzfs.github.io](https://openzfs.github.io/openzfs-docs/man/master/7/zpool-features.7.html)). A feature is disabled,
+    enabled (turned on, with no on-disk change yet, so other software can still import the pool) or active. A pool whose
+    unsupported active features are all read-only compatible can be imported read-only.
+  - git's `core.repositoryFormatVersion` 1 with `extensions.*` keys
+    ([git-scm.com/docs/gitrepository-layout](https://git-scm.com/docs/gitrepository-layout)). If a version 1 repository
+    specifies an extension that the running git has not implemented, the operation must not proceed.
+- **How a store writes a minor version**, since `vmd: 1.1` reads as a YAML number, and `vmd: 1.10` as the same number as
+  `vmd: 1.1`.
+- **Transcoding** between a client's declared version and the store's, as the owner's model for F4 describes.
 
 ---
 
@@ -1841,7 +1882,8 @@ The columns:
 | `reserved-member-type` | error | structural | §5.2 | a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects, on a section or, for `$anchor` and `$tags`, on any object; the member |
 | `section-title-missing` | error | structural | §5.2 | an item of `$sections` without a `$title`; the item |
 | `anchor-element-invalid` | error | structural | §6.2 | an `<a>` element with an `id` or `class` that also has content or another attribute; the section, or the `$body` for a block |
-| `dollar-member` | error | structural | §5.3, §5.4 | a member of a section (or a data block) whose name begins with `$` and that is not a section member, `$key` included. Inside a field's value such a member is data; the member |
+| `dollar-member` | error | structural | §5.3, §5.4 | `$key` on a section or in a data block, or a section member out of its place (`$schema` below the root). Inside a field's value such a member is data; the member |
+| `feature-unsupported` | error | structural in a record; operation in a schema | §5.3, §5.4, §9.1, §9.3 | a construct of the reserved forms that this version does not define, which may come from a newer minor version: another `$` member on a section or in a data block, a `data` info string other than `yaml data` and `json data` after a heading, or an unknown `x-vmd-*` keyword in a schema. The message names the store's declared version when there is one; the member, the section, or none |
 | `ref-malformed` | error | structural | §8.1 | a `$ref` object with other members, or whose `$ref` is not a string; the object |
 | `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; the second |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names two nodes; the second in document order |
@@ -1866,7 +1908,7 @@ The columns:
 | `config-invalid` | error | operation | §9.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`; none |
 | `schema-invalid` | error | operation | §9.1, §9.2 | a collection whose schema file is missing or is not a valid schema; none |
 | `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
-| `format-version-unsupported` | error for a store newer than the client; warning on a read of an older one, error on a write to it | operation | §9.1 | a store whose major format version the client does not support; none |
+| `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support, for reads and writes; none |
 | `address-malformed` | error | operation | §7.1 | an address that does not match the grammar; none |
 | `address-not-singular` | error | operation | §7.4 | a singular address the checker cannot prove singular; none |
 | `address-not-found` | error | operation | §7.4 | a singular address that matches no node; none |
