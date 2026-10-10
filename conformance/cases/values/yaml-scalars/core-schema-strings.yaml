@@ -1,0 +1,15 @@
+date: 2026-10-09
+date-time: 2026-10-09T08:00:00Z
+yes-word: yes
+no-word: No
+on-word: on
+off-word: OFF
+y-word: y
+n-word: n
+binary: 0b101
+underscored: 1_000
+sexagesimal: 1:30
+hex-upper-x: 0X1F
+hex-signed: -0x1F
+octal-signed: -0o17
+true-mixed-case: tRuE

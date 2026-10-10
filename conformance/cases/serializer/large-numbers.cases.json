@@ -28,6 +28,24 @@
       "description": "The nearest double of 1e23, an integer-valued double beyond 2^53 that is not exactly 10^23, round-trips through YAML.",
       "input": { "value": { "n": 1e23 }, "format": "yaml" },
       "expect": {}
+    },
+    {
+      "id": "shortest-digits-as-integer-yaml",
+      "description": "1.2345678901234568e20 is an integer-valued double that JavaScript's Number.prototype.toString writes as 123456789012345680000, an integer by form whose double differs from it, so a writer that uses that text produces a record that fails parse.",
+      "input": { "value": { "n": 1.2345678901234568e20 }, "format": "yaml" },
+      "expect": {}
+    },
+    {
+      "id": "shortest-digits-as-integer-json",
+      "description": "The same double written as JSON parses back to the same double rather than to an error.",
+      "input": { "value": { "n": 1.2345678901234568e20 }, "format": "json" },
+      "expect": {}
+    },
+    {
+      "id": "largest-double-yaml",
+      "description": "The largest double round-trips through YAML without becoming infinite or an error.",
+      "input": { "value": { "n": 1.7976931348623157e308 }, "format": "yaml" },
+      "expect": {}
     }
   ]
 }

@@ -1,0 +1,192 @@
+{
+  "defaults": {
+    "spec": ["4.3", "9.2"],
+    "profiles": ["validate"],
+    "operation": "check",
+    "input": { "store": "logical-types" }
+  },
+  "cases": [
+    {
+      "id": "date-valid",
+      "description": "RFC 3339 full-dates, including 29 February of the leap years 2024 and 2000, are valid dates.",
+      "input": { "records": ["date-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "date-invalid",
+      "description": "Month 13, 29 February 2026 and 1900 (not leap years), 31 April, a one-digit day, a date without hyphens and a date-time are not RFC 3339 full-dates (RFC 3339, sections 5.6 and 5.7), so each is a schema violation.",
+      "input": { "records": ["date-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/0" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/1" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/2" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/3" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/4" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/5" },
+          { "code": "schema-violation", "severity": "error", "path": "date-invalid.json", "at": "/date/6" }
+        ]
+      }
+    },
+    {
+      "id": "time-valid",
+      "description": "RFC 3339 full-times with Z or a numeric offset, the two canonical examples of §4.3 among them, are valid times.",
+      "input": { "records": ["time-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "time-invalid",
+      "description": "A time without an offset, a one-digit hour, hour 24, minute 60, a time without seconds and a one-digit offset hour are not RFC 3339 full-times (RFC 3339, section 5.6), so each is a schema violation.",
+      "input": { "records": ["time-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/0" },
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/1" },
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/2" },
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/3" },
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/4" },
+          { "code": "schema-violation", "severity": "error", "path": "time-invalid.json", "at": "/time/5" }
+        ]
+      }
+    },
+    {
+      "id": "date-time-valid",
+      "description": "RFC 3339 date-times with Z or a numeric offset are valid date-times.",
+      "input": { "records": ["date-time-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "date-time-invalid",
+      "description": "A date-time without an offset, which §4.3 requires, a date alone, hour 25 and 30 February are not RFC 3339 date-times, so each is a schema violation.",
+      "input": { "records": ["date-time-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "date-time-invalid.json", "at": "/date-time/0" },
+          { "code": "schema-violation", "severity": "error", "path": "date-time-invalid.json", "at": "/date-time/1" },
+          { "code": "schema-violation", "severity": "error", "path": "date-time-invalid.json", "at": "/date-time/2" },
+          { "code": "schema-violation", "severity": "error", "path": "date-time-invalid.json", "at": "/date-time/3" }
+        ]
+      }
+    },
+    {
+      "id": "local-date-time-valid",
+      "description": "A date and a time without an offset, the canonical form of §4.3, are valid local date-times.",
+      "input": { "records": ["local-date-time-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "local-date-time-invalid",
+      "description": "A date-time with Z or a numeric offset is an offset date-time, not a local one (TOML 1.0.0, Local Date-Time), and a date alone, a time alone and month 13 are not local date-times either, so each is a schema violation.",
+      "input": { "records": ["local-date-time-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "local-date-time-invalid.json", "at": "/local-date-time/0" },
+          { "code": "schema-violation", "severity": "error", "path": "local-date-time-invalid.json", "at": "/local-date-time/1" },
+          { "code": "schema-violation", "severity": "error", "path": "local-date-time-invalid.json", "at": "/local-date-time/2" },
+          { "code": "schema-violation", "severity": "error", "path": "local-date-time-invalid.json", "at": "/local-date-time/3" },
+          { "code": "schema-violation", "severity": "error", "path": "local-date-time-invalid.json", "at": "/local-date-time/4" }
+        ]
+      }
+    },
+    {
+      "id": "duration-valid",
+      "description": "PT10M and P3D, the examples of §4.3, and P1Y2M and P1DT12H are durations under both ISO 8601 and the ABNF of RFC 3339, Appendix A, which JSON Schema uses.",
+      "input": { "records": ["duration-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "duration-invalid",
+      "description": "P and PT with no component, 10M without P, P1H with an hour outside the time part and P1DT with an empty time part are not durations under ISO 8601 or RFC 3339, Appendix A, so each is a schema violation.",
+      "input": { "records": ["duration-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "duration-invalid.json", "at": "/duration/0" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-invalid.json", "at": "/duration/1" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-invalid.json", "at": "/duration/2" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-invalid.json", "at": "/duration/3" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-invalid.json", "at": "/duration/4" }
+        ]
+      }
+    },
+    {
+      "id": "int64-canonical-forms-valid",
+      "description": "Numbers within ±(2^53 - 1) and decimal strings beyond it, up to the limits of a signed 64-bit integer, -9223372036854775808 to 9223372036854775807 as the OpenAPI format registry defines int64, are int64 values in their canonical form (§4.3).",
+      "input": { "records": ["int64-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "int64-invalid",
+      "description": "Decimal strings just beyond the range of a signed 64-bit integer, which the OpenAPI format registry gives as int64's, and which bigint and not int64 holds, and strings that are not integers are schema violations.",
+      "input": { "records": ["int64-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "int64-invalid.json", "at": "/int64/0" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-invalid.json", "at": "/int64/1" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-invalid.json", "at": "/int64/2" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-invalid.json", "at": "/int64/3" }
+        ]
+      }
+    },
+    {
+      "id": "bigint-valid",
+      "description": "bigint is int64 without bounds, so a number within ±(2^53 - 1) and 30-digit decimal strings are valid.",
+      "input": { "records": ["bigint-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "bigint-invalid",
+      "description": "Strings that are not integers are not bigint values.",
+      "input": { "records": ["bigint-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "bigint-invalid.json", "at": "/bigint/0" },
+          { "code": "schema-violation", "severity": "error", "path": "bigint-invalid.json", "at": "/bigint/1" }
+        ]
+      }
+    },
+    {
+      "id": "decimal-valid",
+      "description": "Strings of the form -?digits[.digits] are decimals.",
+      "input": { "records": ["decimal-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "decimal-invalid",
+      "description": "A decimal has no exponent (§4.3), so 1e5 and 1.5E3 are schema violations, and so is a string that is not a number.",
+      "input": { "records": ["decimal-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "decimal-invalid.json", "at": "/decimal/0" },
+          { "code": "schema-violation", "severity": "error", "path": "decimal-invalid.json", "at": "/decimal/1" },
+          { "code": "schema-violation", "severity": "error", "path": "decimal-invalid.json", "at": "/decimal/2" }
+        ]
+      }
+    },
+    {
+      "id": "json-schema-formats-valid",
+      "description": "uri, uri-reference, email and uuid are asserted as JSON Schema 2020-12 defines them (section 7.3), and these values are valid.",
+      "input": { "records": ["identifiers-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "json-schema-formats-invalid",
+      "description": "A relative reference is not a uri and %zz, a percent sign without two hexadecimal digits, is not a uri-reference (RFC 3986, section 2.1), an address without @ is not an email, and a UUID without hyphens or with a non-hexadecimal digit is not an RFC 4122 string form, so each is a schema violation, since vmd asserts format where JSON Schema only annotates by default.",
+      "input": { "records": ["identifiers-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uri/0" },
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uri-reference/0" },
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/email/0" },
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uuid/0" },
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uuid/1" }
+        ]
+      }
+    },
+    {
+      "id": "no-schema-plain-values",
+      "description": "Without a schema, values are plain strings and numbers, so a record in no collection holding an impossible date and strings that no int64 or decimal reads reports nothing.",
+      "input": { "records": ["unschematized/plain-values.json"] },
+      "expect": {}
+    }
+  ]
+}
