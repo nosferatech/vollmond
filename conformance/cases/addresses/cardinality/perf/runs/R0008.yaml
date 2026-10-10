@@ -1,0 +1,6 @@
+host: perf-box
+benchmarks:
+  - name: append-4k
+    p99_us: 120
+  - name: append-4k
+    p99_us: 125

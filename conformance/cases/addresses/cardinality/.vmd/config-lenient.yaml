@@ -4,3 +4,6 @@ collections:
   journal:
     match: ["journal/*.md"]
     schema: journal.schema.yaml
+  runs:
+    match: ["perf/runs/*.yaml"]
+    schema: run.schema.yaml

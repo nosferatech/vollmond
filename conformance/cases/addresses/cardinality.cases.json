@@ -3,7 +3,7 @@
   "cases": [
     {
       "id": "multimap-selector",
-      "description": "A selector through a level the schema declares multimap takes every match. The path log/entry is ambiguous, so each entry's canonical address is its derived anchor, which is unique (§7.5 rule 3).",
+      "description": "A selector through a level the schema declares multimap takes every match, and since log/entry is then ambiguous, each entry's canonical address is its unique derived anchor (§7.5 rule 3).",
       "spec": ["5.7", "7.4", "7.5"],
       "input": { "address": "journal/week-41.md#log/entry", "as": "selector" },
       "expect": {
@@ -50,7 +50,7 @@
     },
     {
       "id": "multimap-meta",
-      "description": "Repeated sections share their key, and each has its derived anchor as its canonical address.",
+      "description": "Repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "journal/week-41.md" },
@@ -68,6 +68,7 @@
       "id": "lenient-selector",
       "description": "In lenient mode a selector takes all matches of a duplicate (§5.7), each with its derived anchor as its canonical address.",
       "spec": ["5.7", "7.4", "7.5"],
+      "profiles": ["read"],
       "input": { "address": "notes/week-42.md#log/entry", "as": "selector", "config": "config-lenient.yaml" },
       "expect": {
         "result": [
@@ -80,6 +81,7 @@
       "id": "lenient-suffixed-derived-anchor",
       "description": "In lenient mode the suffixed derived anchor of a duplicate is a singular address.",
       "spec": ["5.7", "6.3", "7.5"],
+      "profiles": ["read"],
       "input": { "address": "notes/week-42.md#entry-1", "as": "singular", "config": "config-lenient.yaml" },
       "expect": { "result": [{ "path": "notes/week-42.md", "at": "/$sections/0/$sections/1", "address": "#entry-1" }] }
     },
@@ -87,6 +89,7 @@
       "id": "lenient-unique-step",
       "description": "In lenient mode a singular address whose steps meet no duplicate resolves.",
       "spec": ["5.7", "7.4", "7.5"],
+      "profiles": ["read"],
       "input": { "address": "notes/week-42.md#log", "as": "singular", "config": "config-lenient.yaml" },
       "expect": { "result": [{ "path": "notes/week-42.md", "at": "/$sections/0", "address": "#log" }] }
     },
@@ -94,6 +97,7 @@
       "id": "lenient-derived-anchor-not-unique",
       "description": "The second entry's derived anchor entry-1 is also the explicit anchor of another section, so it is not unique, and the canonical address falls back to the exact path (§7.5 rule 3).",
       "spec": ["6.1", "6.3", "7.5"],
+      "profiles": ["read"],
       "input": { "address": "notes/week-43.md#log/entry", "as": "selector", "config": "config-lenient.yaml" },
       "expect": {
         "result": [
@@ -104,8 +108,9 @@
     },
     {
       "id": "lenient-meta",
-      "description": "In lenient mode repeated sections share their key, and each has its derived anchor as its canonical address.",
+      "description": "In lenient mode repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.7", "5.10", "7.5"],
+      "profiles": ["read"],
       "operation": "meta",
       "input": { "record": "notes/week-42.md", "config": "config-lenient.yaml" },
       "expect": {
@@ -116,6 +121,46 @@
           "/$sections/0/$sections/1": { "@key": "entry", "@address": "#entry-1" },
           "/$sections/1": { "@key": "summary", "@address": "#summary" }
         }
+      }
+    },
+    {
+      "id": "keyed-list-step",
+      "description": "With the schema's x-vmd-list {type: map, keys: [name]}, a step selects the benchmark whose name is append-4k, as in the table of §7.3.",
+      "spec": ["5.6", "7.3", "7.5"],
+      "input": { "address": "perf/runs/R0007.yaml#benchmarks/append-4k/p99_us", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "perf/runs/R0007.yaml", "at": "/benchmarks/0/p99_us", "address": "#benchmarks/append-4k/p99_us" }]
+      }
+    },
+    {
+      "id": "keyed-list-exact",
+      "description": "The exact path of a field of a keyed-list item has the item's key in its canonical address.",
+      "spec": ["5.6", "7.2", "7.5"],
+      "input": { "address": "perf/runs/R0007.yaml#/benchmarks/1/p99_us", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "perf/runs/R0007.yaml", "at": "/benchmarks/1/p99_us", "address": "#benchmarks/read-4k/p99_us" }]
+      }
+    },
+    {
+      "id": "keyed-list-duplicate-strict",
+      "description": "A key repeated in a list the schema declares type: map is a duplicate-key error on the second item.",
+      "spec": ["5.6", "5.7", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["perf/runs/R0008.yaml"] },
+      "expect": {
+        "issues": [{ "code": "duplicate-key", "severity": "error", "path": "perf/runs/R0008.yaml", "at": "/benchmarks/1" }]
+      }
+    },
+    {
+      "id": "keyed-list-duplicate-lenient",
+      "description": "A key repeated in a list the schema declares type: map stays a duplicate-key error under lenient uniqueness, which covers only levels no schema declares (§5.7).",
+      "spec": ["5.6", "5.7", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["perf/runs/R0008.yaml"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [{ "code": "duplicate-key", "severity": "error", "path": "perf/runs/R0008.yaml", "at": "/benchmarks/1" }]
       }
     }
   ]

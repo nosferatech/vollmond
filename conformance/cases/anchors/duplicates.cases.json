@@ -3,7 +3,7 @@
   "cases": [
     {
       "id": "explicit-anchors-nested-strict",
-      "description": "The same explicit anchor on a section and on its child is a duplicate anchor on the second; the keys are at different levels, so they are not duplicate keys. Under the strict default, an error.",
+      "description": "Under the strict default, the same explicit anchor on a section and on its child is a duplicate-anchor error on the child, and no duplicate key, since the two keys sit at different levels.",
       "spec": ["5.7", "6.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -14,7 +14,7 @@
     },
     {
       "id": "explicit-anchors-nested-lenient",
-      "description": "The same explicit anchor on a section and on its child is a duplicate anchor on the second; the keys are at different levels, so they are not duplicate keys. Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, the same explicit anchor on a section and on its child is a duplicate-anchor warning on the child, and no duplicate key, since the two keys sit at different levels.",
       "spec": ["5.7", "6.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -25,7 +25,7 @@
     },
     {
       "id": "explicit-anchors-siblings-strict",
-      "description": "The same explicit anchor on two sibling sections is a duplicate anchor, and, since the anchor is each section's key (§5.5), a duplicate key as well, both on the second. Under the strict default, an error.",
+      "description": "Under the strict default, the same explicit anchor on two sibling sections is a duplicate anchor and, since each section's key is its anchor (§5.5), a duplicate key, both errors on the second.",
       "spec": ["5.5", "5.7", "6.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -39,7 +39,7 @@
     },
     {
       "id": "explicit-anchors-siblings-lenient",
-      "description": "The same explicit anchor on two sibling sections is a duplicate anchor, and, since the anchor is each section's key (§5.5), a duplicate key as well, both on the second. Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, the same explicit anchor on two sibling sections is a duplicate anchor and, since each section's key is its anchor (§5.5), a duplicate key, both warnings on the second.",
       "spec": ["5.5", "5.7", "6.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -53,7 +53,7 @@
     },
     {
       "id": "explicit-after-derived-strict",
-      "description": "An explicit anchor equal to an earlier heading's derived anchor is a duplicate anchor on the later node (decision C16). Under the strict default, an error.",
+      "description": "Under the strict default, an explicit anchor equal to an earlier heading's derived anchor is a duplicate-anchor error on the later node (decision C16).",
       "spec": ["5.7", "6.1", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -66,7 +66,7 @@
     },
     {
       "id": "explicit-after-derived-lenient",
-      "description": "An explicit anchor equal to an earlier heading's derived anchor is a duplicate anchor on the later node (decision C16). Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, an explicit anchor equal to an earlier heading's derived anchor is a duplicate-anchor warning on the later node (decision C16).",
       "spec": ["5.7", "6.1", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -79,7 +79,7 @@
     },
     {
       "id": "derived-after-explicit-strict",
-      "description": "A derived anchor equal to an earlier node's explicit anchor is a duplicate anchor on the later heading, which keeps its unsuffixed derived anchor, since explicit anchors take no part in the numbering (§6.3 step 7). Under the strict default, an error.",
+      "description": "Under the strict default, a derived anchor equal to an earlier node's explicit anchor is a duplicate-anchor error on the later heading, whose derived anchor stays unsuffixed, since explicit anchors take no part in the numbering (§6.3 step 7).",
       "spec": ["5.7", "6.1", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -92,7 +92,7 @@
     },
     {
       "id": "derived-after-explicit-lenient",
-      "description": "A derived anchor equal to an earlier node's explicit anchor is a duplicate anchor on the later heading, which keeps its unsuffixed derived anchor, since explicit anchors take no part in the numbering (§6.3 step 7). Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, a derived anchor equal to an earlier node's explicit anchor is a duplicate-anchor warning on the later heading, whose derived anchor stays unsuffixed, since explicit anchors take no part in the numbering (§6.3 step 7).",
       "spec": ["5.7", "6.1", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -105,8 +105,8 @@
     },
     {
       "id": "block-anchors-strict",
-      "description": "Block anchors share the namespace: a heading whose derived anchor, or whose explicit anchor, equals an earlier block anchor is a duplicate anchor on that heading. Under the strict default, an error.",
-      "spec": ["5.7", "6.1", "6.2", "D"],
+      "description": "Under the strict default, a heading whose derived or explicit anchor equals an earlier block anchor is a duplicate-anchor error on that heading, reading a block anchor as an explicit anchor of §6.2, which a first step matches (§7.3), and so as part of the record's one namespace.",
+      "spec": ["5.7", "6.1", "6.2", "7.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
       "input": { "records": ["blocks.md"] },
@@ -119,8 +119,8 @@
     },
     {
       "id": "block-anchors-lenient",
-      "description": "Block anchors share the namespace: a heading whose derived anchor, or whose explicit anchor, equals an earlier block anchor is a duplicate anchor on that heading. Under lenient uniqueness, a warning.",
-      "spec": ["5.7", "6.1", "6.2", "D"],
+      "description": "Under lenient uniqueness, a heading whose derived or explicit anchor equals an earlier block anchor is a duplicate-anchor warning on that heading, reading a block anchor as an explicit anchor of §6.2, which a first step matches (§7.3), and so as part of the record's one namespace.",
+      "spec": ["5.7", "6.1", "6.2", "7.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
       "input": { "records": ["blocks.md"], "config": "config-lenient.yaml" },
@@ -133,7 +133,7 @@
     },
     {
       "id": "data-objects-strict",
-      "description": "Two array items with the same $anchor are a duplicate anchor on the second. Under the strict default, an error.",
+      "description": "Under the strict default, two array items with the same $anchor are a duplicate-anchor error on the second.",
       "spec": ["5.7", "6.1", "6.2", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -142,7 +142,7 @@
     },
     {
       "id": "data-objects-lenient",
-      "description": "Two array items with the same $anchor are a duplicate anchor on the second. Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, two array items with the same $anchor are a duplicate-anchor warning on the second.",
       "spec": ["5.7", "6.1", "6.2", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -151,7 +151,7 @@
     },
     {
       "id": "front-matter-and-heading-strict",
-      "description": "An anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate anchor. Under the strict default, an error.",
+      "description": "Under the strict default, an anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate-anchor error.",
       "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -160,7 +160,7 @@
     },
     {
       "id": "front-matter-and-heading-lenient",
-      "description": "An anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate anchor. Under lenient uniqueness, a warning.",
+      "description": "Under lenient uniqueness, an anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate-anchor warning.",
       "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
       "profiles": ["validate"],
       "operation": "check",
@@ -174,6 +174,15 @@
       "profiles": ["validate"],
       "operation": "check",
       "input": { "records": ["same-node.md"] },
+      "expect": {}
+    },
+    {
+      "id": "letter-case-no-duplicate",
+      "description": "An explicit anchor Done and the derived anchor done of another heading differ in letter case, so they are no duplicate, since names are compared by code point (§4.1, §6.1).",
+      "spec": ["4.1", "6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["letter-case.md"] },
       "expect": {}
     },
     {

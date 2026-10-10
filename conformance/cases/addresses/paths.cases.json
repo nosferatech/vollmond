@@ -362,7 +362,7 @@
     },
     {
       "id": "meta-markdown",
-      "description": "Each section's key is its explicit anchor or the slug of its title, and its canonical address starts at the nearest explicit anchor or at the root.",
+      "description": "Each section's key is its explicit anchor or the slug of its title, and its canonical address starts at the nearest explicit anchor or at the root, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "notes/design.md" },
@@ -379,7 +379,7 @@
     },
     {
       "id": "meta-shadowed-name",
-      "description": "A section that shares its key with a root field elsewhere in the record keeps the path from the root as its canonical address.",
+      "description": "A section that shares its key with a root field elsewhere in the record keeps the path from the root as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "notes/shadow.md" },
@@ -393,7 +393,7 @@
     },
     {
       "id": "meta-yaml",
-      "description": "A YAML section's key is its $anchor or the slug of its title, as in Markdown.",
+      "description": "A YAML section's key is its $anchor or the slug of its title, as in Markdown, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "data/run.yaml" },
@@ -408,7 +408,7 @@
     },
     {
       "id": "meta-no-sections",
-      "description": "A record without sections has only its root, which has no key.",
+      "description": "A record without sections has only its root, which has no key, with the root's canonical address taken as \"\" (README open question 1).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "data/person.json" },
