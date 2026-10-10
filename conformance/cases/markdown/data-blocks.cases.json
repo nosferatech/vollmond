@@ -1,0 +1,201 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "data-blocks" }
+  },
+  "cases": [
+    {
+      "id": "json-data",
+      "description": "A json data fence right after a heading holds the section's fields.",
+      "input": { "record": "json-data.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "runs": [7, 9], "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "tilde-fence-without-blank-line",
+      "description": "A fence of tildes is a fenced code block too, and one on the line right after the heading is a data block (CommonMark 0.31.2, 4.5).",
+      "input": { "record": "tilde-no-blank.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "blank-lines-between",
+      "description": "Only blank lines between the heading and the fence, one of them holding only spaces (CommonMark 0.31.2, 2.1), still make the fence the data block.",
+      "input": { "record": "blank-lines.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "longer-fence",
+      "description": "A four-backtick fence is closed only by a fence at least as long (CommonMark 0.31.2, 4.5), so the data block may hold a YAML string with a three-backtick fence in it.",
+      "input": { "record": "longer-fence.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "example": "```\ncode\n```\n", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "nested-sections",
+      "description": "Each section takes the data block right after its own heading, at any depth.",
+      "input": { "record": "nested.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "owner": "ana",
+              "$body": "Part text.",
+              "$sections": [{ "$title": "Detail", "runs": ["R0007"], "$body": "Detail text." }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "level-1-section",
+      "description": "A level-1 heading that is not the title heading is a section, so the data block after it holds that section's fields and is not misplaced. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "input": { "record": "h1-section.md" },
+      "expect": {
+        "result": {
+          "$body": "Root text.",
+          "$sections": [{ "$title": "One", "owner": "ana", "$body": "One text." }]
+        }
+      }
+    },
+    {
+      "id": "yaml-without-data-is-prose",
+      "description": "A fence whose info string is yaml alone is an example, not a data block, so it is prose in $body.",
+      "input": { "record": "yaml-without-data.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "```yaml\nowner: ana\n```\n\nPart text." }]
+        }
+      }
+    },
+    {
+      "id": "after-paragraph-is-prose",
+      "description": "A yaml data fence after a paragraph is not right after the heading, so it is prose in $body.",
+      "input": { "record": "after-paragraph.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text.\n\n```yaml data\nowner: ana\n```" }]
+        }
+      }
+    },
+    {
+      "id": "after-html-comment-is-prose",
+      "description": "An HTML comment is an HTML block (CommonMark 0.31.2, 4.6), not a blank line, so a yaml data fence after it is prose in $body.",
+      "input": { "record": "after-comment.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "<!-- owner below -->\n\n```yaml data\nowner: ana\n```" }]
+        }
+      }
+    },
+    {
+      "id": "unknown-first-word",
+      "spec": ["5.3", "9.1"],
+      "description": "A fence right after a heading with data as the second word of its info string and toml as the first may come from a newer minor version, so it is a structural error at the section.",
+      "input": { "record": "unknown-word.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "feature-unsupported", "severity": "error", "path": "unknown-word.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "first-word-is-exact",
+      "spec": ["5.3", "9.1"],
+      "description": "YAML is a first word other than yaml or json, so YAML data right after a heading is a structural error like any unknown first word.",
+      "input": { "record": "uppercase-word.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "feature-unsupported", "severity": "error", "path": "uppercase-word.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "yaml-not-an-object",
+      "description": "A data block must hold an object, so a YAML sequence in one is a structural error at its section.",
+      "input": { "record": "yaml-list.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "data-block-not-object", "severity": "error", "path": "yaml-list.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "json-not-an-object",
+      "description": "A JSON string in a json data block is not an object, so it is a structural error at its section.",
+      "input": { "record": "json-string.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "data-block-not-object", "severity": "error", "path": "json-string.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "yaml-syntax-error",
+      "spec": ["5.3", "9.2"],
+      "description": "A yaml data block holding an unclosed flow sequence does not parse, which is a syntax error at the data block's section.",
+      "input": { "record": "yaml-syntax-error.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "syntax-error", "severity": "error", "path": "yaml-syntax-error.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "json-syntax-error",
+      "spec": ["5.3", "9.2"],
+      "description": "A json data block holding an unclosed object, which neither JSON nor YAML reads, is a syntax error at the data block's section.",
+      "input": { "record": "json-syntax-error.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "syntax-error", "severity": "error", "path": "json-syntax-error.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "dollar-key",
+      "spec": ["5.3", "5.4"],
+      "description": "A top-level $key in a data block is a structural error at that member of the section.",
+      "input": { "record": "dollar-key.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "dollar-member", "severity": "error", "path": "dollar-key.md", "at": "/$sections/0/$key" }]
+      }
+    },
+    {
+      "id": "after-the-title",
+      "description": "The root's fields come only from the front matter, so a data block right after the title heading is a structural error at the root.",
+      "input": { "record": "after-title.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "data-block-misplaced", "severity": "error", "path": "after-title.md", "at": "" }]
+      }
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "sections" }
+  },
+  "cases": [
+    {
+      "id": "nesting-by-level",
+      "description": "A section runs to the next heading of the same or a higher level, so a level-3 heading under a level-2 one is its child and the next level-2 heading its sibling.",
+      "input": { "record": "nesting.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "A",
+              "$body": "A text.",
+              "$sections": [{ "$title": "A1", "$body": "A1 text." }]
+            },
+            { "$title": "B", "$body": "B text." }
+          ]
+        }
+      }
+    },
+    {
+      "id": "skipped-levels",
+      "description": "Skipped levels are allowed: a level-4 heading right under the title is a child of the root, and a level-6 heading under a level-2 one is the level-2 section's child.",
+      "input": { "record": "skipped-levels.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            { "$title": "Deep", "$body": "Deep text." },
+            {
+              "$title": "Shallow",
+              "$body": "Shallow text.",
+              "$sections": [{ "$title": "Deepest", "$body": "Deepest text." }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "parent-is-nearest-lower-level",
+      "description": "A section's parent is the nearest preceding heading of a lower level, or the root, so a level-3 heading before any level-2 one and the level-2 heading after it are both children of the root. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "input": { "record": "deeper-first.md" },
+      "expect": {
+        "result": {
+          "$body": "Root text.",
+          "$sections": [
+            { "$title": "Three", "$body": "Three text." },
+            {
+              "$title": "Two",
+              "$body": "Two text.",
+              "$sections": [{ "$title": "Under two", "$body": "Under two text." }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "level-1-sections",
+      "description": "Without a title heading, level-1 headings are sections like any other, and a level-2 heading nests under the level-1 heading before it. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "input": { "record": "h1-sections.md" },
+      "expect": {
+        "result": {
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "One",
+              "$body": "One text.",
+              "$sections": [{ "$title": "One child", "$body": "Child text." }]
+            },
+            { "$title": "Two", "$body": "Two text." }
+          ]
+        }
+      }
+    },
+    {
+      "id": "repeats-kept-in-order",
+      "spec": ["5.3", "5.7", "5.8", "9.2"],
+      "description": "Two sections with the same title are two items in document order; the duplicate is a validation issue for check, not a structural error, so parse succeeds.",
+      "input": { "record": "repeats.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            { "$title": "Notes", "$body": "First notes." },
+            { "$title": "Notes", "$body": "Second notes." }
+          ]
+        }
+      }
+    },
+    {
+      "id": "setext-and-atx-nest-by-level",
+      "description": "A setext heading underlined with - is a level-2 heading (CommonMark 0.31.2, 4.3), so it nests and is nested like an ATX level-2 heading.",
+      "input": { "record": "setext-and-atx.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "$body": "Part text.",
+              "$sections": [{ "$title": "Detail", "$body": "Detail text." }]
+            },
+            { "$title": "Other", "$body": "Other text." }
+          ]
+        }
+      }
+    },
+    {
+      "id": "code-lines-are-not-headings",
+      "description": "Lines beginning with # inside a fenced code block are code, not headings (CommonMark 0.31.2, 4.5), so they start no section and stay in $body.",
+      "input": { "record": "code-is-not-heading.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            { "$title": "Part", "$body": "Part text.\n\n```sh\n# install\n## twice\nnpm ci\n```\n\nAfter the code." }
+          ]
+        }
+      }
+    }
+  ]
+}

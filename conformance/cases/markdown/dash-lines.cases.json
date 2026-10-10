@@ -1,0 +1,46 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "dash-lines" }
+  },
+  "cases": [
+    {
+      "id": "thematic-break",
+      "description": "A --- line after a blank line inside a body is a thematic break (CommonMark 0.31.2, 4.1) and stays in $body.",
+      "input": { "record": "thematic-break.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Above.\n\n---\n\nBelow." } }
+    },
+    {
+      "id": "front-matter-lookalike",
+      "description": "Lines that look like front matter inside a body are a thematic break and a setext heading (CommonMark 0.31.2, 4.1 and 4.3), so they give a section titled 'status: Open' and no field.",
+      "input": { "record": "front-matter-lookalike.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.\n\n---",
+          "$sections": [{ "$title": "status: Open", "$body": "After." }]
+        }
+      }
+    },
+    {
+      "id": "after-a-heading",
+      "description": "A --- line right after an ATX heading cannot underline it, since only a paragraph becomes a setext heading, so it is a thematic break in the section's $body (CommonMark 0.31.2, 4.1 and 4.3).",
+      "input": { "record": "after-heading.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "---\n\nPart text." }]
+        }
+      }
+    },
+    {
+      "id": "after-front-matter",
+      "description": "Only the --- at byte 0 opens front matter, so a later --- line followed by a key and a value is a thematic break and a paragraph in $body, and adds no field.",
+      "input": { "record": "after-front-matter.md" },
+      "expect": { "result": { "$title": "Record", "status": "Open", "$body": "Above.\n\n---\nowner: ana" } }
+    }
+  ]
+}

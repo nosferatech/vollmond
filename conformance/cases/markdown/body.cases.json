@@ -1,0 +1,112 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "body" }
+  },
+  "cases": [
+    {
+      "id": "leading-blank-lines",
+      "description": "Blank lines between the heading and the text are not part of $body.",
+      "input": { "record": "leading-blank-lines.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "whitespace-only-leading-lines",
+      "description": "A line of only spaces or only a tab is a blank line (CommonMark 0.31.2, 2.1), so such lines before the text are removed as leading blank lines.",
+      "input": { "record": "whitespace-only-lines.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "trailing-whitespace",
+      "description": "Spaces and tabs at the end of the last line, and the blank lines after it, are not part of $body, whether the body ends at a heading or at the end of the file.",
+      "input": { "record": "trailing-whitespace.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "inner-blank-lines-kept",
+      "description": "$body is raw Markdown, so several blank lines between two paragraphs stay as they are.",
+      "input": { "record": "inner-blank-lines.md" },
+      "expect": { "result": { "$title": "Record", "$body": "One.\n\n\n\nTwo." } }
+    },
+    {
+      "id": "inner-trailing-whitespace-kept",
+      "description": "Only the trailing whitespace of the whole $body is removed, so the two spaces of a hard line break and a tab at the end of an inner line stay.",
+      "input": { "record": "inner-trailing-spaces.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Line one  \nline two.\t\n\nNext paragraph." } }
+    },
+    {
+      "id": "first-line-indentation-kept",
+      "description": "Only leading blank lines are removed, not the indentation of the first line, so an indented code block at the start of $body stays one (CommonMark 0.31.2, 4.4).",
+      "input": { "record": "indented-code-first.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "    indented code\n\nPart text." }]
+        }
+      }
+    },
+    {
+      "id": "no-blank-line-around-headings",
+      "description": "ATX headings need no blank lines around them and interrupt a paragraph (CommonMark 0.31.2, 4.2), so text on the line after a heading is its $body and ends at the next heading line.",
+      "input": { "record": "no-blank-after-heading.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "ends-at-first-child-heading",
+      "description": "A section's $body ends at its first child heading, and text after the child's heading belongs to the child until the next heading.",
+      "input": { "record": "text-after-child.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "A",
+              "$body": "A text.",
+              "$sections": [{ "$title": "A1", "$body": "A1 text.\n\nStill A1." }]
+            },
+            { "$title": "B", "$body": "B text." }
+          ]
+        }
+      }
+    },
+    {
+      "id": "raw-markdown",
+      "description": "$body is raw Markdown, not an AST, so inline markup, a link, a task list and a table stay in their source form.",
+      "input": { "record": "raw-markdown.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text with *emphasis*, `code` and a [link](https://example.com).\n\n- [x] done\n- [ ] open\n\n| a | b |\n|---|---|\n| 1 | 2 |"
+        }
+      }
+    }
+  ]
+}

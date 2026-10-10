@@ -698,7 +698,7 @@ Alternatives that lost:
   numbers as doubles, types, missing members, Unicode normalization and unordered multisets.
 - **`cases/markdown/line-endings.cases.json`** shows byte-exact inputs. The example of §5.3, once with LF and a final newline
   and once with CRLF and none, gives the value view §5.3 shows, which holds no `$key` (decision F9). The value view reads CRLF as
-  `\n` (§5.1, decision C9); the sample's bodies are single lines, so multi-line bodies are left to the Markdown fixtures (#6). The
+  `\n` (§5.1, decision C9); the sample's bodies are single lines, so multi-line bodies are in `crlf.cases.json` (#6). The
   store sits next to its case file, with its versions manifest.
 - **`cases/addresses/appendix-a.cases.json`** applies `resolve` to the ticket of Appendix A, with the results of its address
   table. It covers every row of the table but the last, which is a VQL query. One case is a section reached by a key and a

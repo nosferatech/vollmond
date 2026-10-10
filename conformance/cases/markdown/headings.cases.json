@@ -1,0 +1,112 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "headings" }
+  },
+  "cases": [
+    {
+      "id": "closing-sequence",
+      "description": "A closing # sequence, which need not match the opening one in length (CommonMark 0.31.2, 4.2), is not part of $title.",
+      "input": { "record": "closing-sequence.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Done", "$body": "Done text." }]
+        }
+      }
+    },
+    {
+      "id": "hash-without-space-is-not-closing",
+      "description": "A # not preceded by a space or tab is not a closing sequence (CommonMark 0.31.2, 4.2), so it stays in $title.",
+      "input": { "record": "hash-in-title.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "C#", "$body": "C# text." }]
+        }
+      }
+    },
+    {
+      "id": "no-space-is-not-a-heading",
+      "description": "A # not followed by a space, a tab or the end of the line does not open a heading (CommonMark 0.31.2, 4.2), so the line is prose in $body.",
+      "input": { "record": "no-space-after-hash.md" },
+      "expect": { "result": { "$title": "Record", "$body": "#hashtag\n\nRoot text." } }
+    },
+    {
+      "id": "inline-source-kept",
+      "description": "$title is the heading's inline Markdown source, so emphasis and code span delimiters stay.",
+      "input": { "record": "inline-source.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Use *emphasis* and `code`", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "indentation-and-spaces-trimmed",
+      "description": "A heading indented by three spaces is still a heading (CommonMark 0.31.2, 4.2), and the spaces around its text are not part of $title.",
+      "input": { "record": "indented-and-spaced.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Spaced out", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "indented-code-is-not-a-heading",
+      "description": "A line indented by four spaces after a blank line is an indented code block, not a heading (CommonMark 0.31.2, 4.2 and 4.4), so it is prose in $body.",
+      "input": { "record": "indented-code.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.\n\n    ## not a heading" } }
+    },
+    {
+      "id": "empty-heading",
+      "description": "## alone is an empty heading (CommonMark 0.31.2, 4.2), so it starts a section whose $title is the empty string.",
+      "input": { "record": "empty-heading.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "html-kept-in-title",
+      "description": "HTML in a heading other than the anchor element stays in $title, which is the heading's inline source, and the record stays readable.",
+      "input": { "record": "unsupported-html.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Fix <u>now</u>", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "unsupported-html-warning",
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "u is not among the inline elements a heading may contain, so check warns about it, at the section.",
+      "input": { "records": ["unsupported-html.md"] },
+      "expect": {
+        "issues": [{ "code": "heading-html", "severity": "warning", "path": "unsupported-html.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "supported-html-no-warning",
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "span is among the inline elements a heading may contain, so check does not warn about it.",
+      "input": { "records": ["supported-html.md"] },
+      "expect": {}
+    }
+  ]
+}

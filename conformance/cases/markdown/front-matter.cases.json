@@ -1,0 +1,61 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "front-matter" }
+  },
+  "cases": [
+    {
+      "id": "json-object",
+      "description": "A JSON object between the --- delimiters is valid YAML 1.2, so its members are the root's fields.",
+      "input": { "record": "json-object.md" },
+      "expect": { "result": { "$title": "Record", "status": "Open", "runs": [7, 9], "$body": "Root text." } }
+    },
+    {
+      "id": "yaml-comment-is-not-a-heading",
+      "description": "A # line inside the front matter is a YAML comment, not a level-1 heading, so the heading after the front matter is the record's only level-1 heading and gives the root's $title.",
+      "input": { "record": "yaml-comment.md" },
+      "expect": { "result": { "$title": "Record", "status": "Open", "$body": "Root text." } }
+    },
+    {
+      "id": "closed-by-the-next-dash-line",
+      "description": "The front matter ends at the next --- line, so --- inside a quoted YAML value neither closes it nor reaches the body.",
+      "input": { "record": "dashes-in-value.md" },
+      "expect": { "result": { "$title": "Record", "rule": "---", "status": "Open", "$body": "Root text." } }
+    },
+    {
+      "id": "root-without-title",
+      "description": "Without a title heading the root's fields still come from the front matter, and the root's $body is the text between the front matter and the first heading, which rests on a reading of §5.3, since it defines $body only after a heading.",
+      "input": { "record": "no-title.md" },
+      "expect": {
+        "result": {
+          "status": "Open",
+          "$body": "Intro text.",
+          "$sections": [{ "$title": "Notes", "$body": "A note." }]
+        }
+      }
+    },
+    {
+      "id": "not-at-the-start",
+      "description": "A --- line after a blank line is not at the very start of the file, so it is a thematic break, and the next --- line makes 'status: Open' a setext heading (CommonMark 0.31.2, 4.1 and 4.3); the record has no fields. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "input": { "record": "not-at-start.md" },
+      "expect": {
+        "result": {
+          "$body": "---",
+          "$sections": [{ "$title": "status: Open", "$body": "Body text." }]
+        }
+      }
+    },
+    {
+      "id": "dollar-key",
+      "spec": ["5.3", "5.4"],
+      "description": "The front matter's members are the root section's, and $key on a section is a $ member where none is allowed, so the record fails parse.",
+      "input": { "record": "dollar-key.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "dollar-member", "severity": "error", "path": "dollar-key.md", "at": "/$key" }]
+      }
+    }
+  ]
+}

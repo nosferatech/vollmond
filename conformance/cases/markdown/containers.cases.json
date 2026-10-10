@@ -1,0 +1,68 @@
+{
+  "defaults": {
+    "spec": ["5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "containers" }
+  },
+  "cases": [
+    {
+      "id": "heading-in-list-item",
+      "description": "A heading inside a list item (CommonMark 0.31.2, 5.2) starts no section and is part of $body.",
+      "input": { "record": "list-item-heading.md" },
+      "expect": {
+        "result": { "$title": "Record", "$body": "Root text.\n\n- ## Item heading\n  Item text.\n- Second item." }
+      }
+    },
+    {
+      "id": "heading-in-block-quote",
+      "description": "A heading inside a block quote (CommonMark 0.31.2, 5.1) starts no section and is part of $body.",
+      "input": { "record": "block-quote-heading.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.\n\n> ## Quoted\n> Quote text." } }
+    },
+    {
+      "id": "setext-in-block-quote",
+      "description": "A setext heading inside a block quote (CommonMark 0.31.2, 4.3 and 5.1) starts no section and is part of $body.",
+      "input": { "record": "block-quote-setext.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.\n\n> Quoted\n> ---" } }
+    },
+    {
+      "id": "data-fence-in-list-item",
+      "description": "A yaml data fence right after a heading inside a list item is prose, since neither the heading nor the fence is a section's.",
+      "input": { "record": "list-item-data.md" },
+      "expect": {
+        "result": { "$title": "Record", "$body": "Root text.\n\n- ## Item\n  ```yaml data\n  owner: ana\n  ```" }
+      }
+    },
+    {
+      "id": "data-fence-in-list-item-after-heading",
+      "description": "A yaml data fence inside a list item right after a section heading is part of the list, not the data block, so the section has no fields.",
+      "input": { "record": "list-item-after-heading.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "- ```yaml data\n  owner: ana\n  ```" }]
+        }
+      }
+    },
+    {
+      "id": "heading-in-html-block",
+      "description": "A heading line inside an HTML block, which runs from <div> to the next blank line (CommonMark 0.31.2, 4.6), starts no section and is part of $body.",
+      "input": { "record": "html-block-heading.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.\n\n<div>\n## Not a section\n</div>" } }
+    },
+    {
+      "id": "html-block-ends-at-blank-line",
+      "description": "An HTML block opened by <details> ends at the first blank line (CommonMark 0.31.2, 4.6), so a heading after that blank line is a section even though it renders inside the details element.",
+      "input": { "record": "html-block-blank-line.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.\n\n<details>\n<summary>More</summary>",
+          "$sections": [{ "$title": "Inside", "$body": "Inside text.\n\n</details>" }]
+        }
+      }
+    }
+  ]
+}
