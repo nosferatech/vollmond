@@ -1,8 +1,8 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.6 (2026-10-10). Supersedes Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
-`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
-decisions applied to the draft. The review of v0.1 and every round of decisions since are in
+Status: Draft v0.7 (2026-10-10). Supersedes Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
+`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
+rises with each round of decisions applied to the draft. The review of v0.1 and every round of decisions since are in
 [vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
@@ -226,10 +226,12 @@ is not an error.
   is upper case. The space that a note in RFC 3339, section 5.6, lets applications use between date and time is not part of the
   `date-time` production and is not accepted there. TOML's local date-time accepts it, as TOML 1.0.0 permits it for every
   date-time "for the sake of readability".
-- **Leap seconds.** A seconds field of `60` is accepted in any time, date-time or local date-time, with no table of leap
-  seconds: the assertion checks the grammar and not the restriction of RFC 3339, section 5.7, on where a leap second may fall.
-  Validators differ here. Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC (the `time` check in
-  [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), and Python's `jsonschema` checks
+- **Leap seconds.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as Ajv's `ajv-formats`
+  accepts it, so `23:59:60Z` and `01:59:60+02:00` are valid and `12:30:60Z` is not. A local date-time has no offset and is taken
+  as UTC, as `ajv-formats` takes a time without one, so `23:59:60` is valid there. There is no table of leap seconds: the
+  check does not ask whether a leap second was in fact inserted on that day. For comparison, `23:59:60` falls after
+  `23:59:59` and before the next midnight. Validators differ here. Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC (the
+  `time` check in [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), and Python's `jsonschema` checks
   `date-time` only when `rfc3339-validator` is installed, which then rejects `:60` altogether
   ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)), both read on
   2026-10-10. `ajv-formats` also departs from the rules above the other way: its `date-time` splits on `t` or any white space,
@@ -332,7 +334,20 @@ whole file: there is at most one, at byte 0. JSON allows this (RFC 8259, section
 order mark rather than treating it as an error"), and so does YAML (YAML 1.2.2, section 5.2). A U+FEFF anywhere else is not a
 byte order mark but an ordinary character, where the format allows a character: in Markdown text, or in a JSON or quoted YAML
 string. It is Default_Ignorable, so a derived anchor drops it (§6.3), and in Markdown it does not restart the detection of front
-matter. Offsets into the file count from its first byte, the byte order mark included (§5.9).
+matter. Offsets into the file count from its first byte, the byte order mark included, but a byte order mark is not a column, so
+the first character of line 1 is column 1 (§5.9). The rule covers every file vmd reads: records, `.vmd/config.yaml` and schemas.
+A write keeps a file's byte order mark, and a file vmd creates has none (§13.3).
+
+**U+FEFF in YAML.** In YAML, a U+FEFF is a `syntax-error` wherever YAML does not allow the character, as in a plain scalar, and
+also at the start of front matter or of a `yaml data` block. YAML would read one there as a byte order mark at the start of a
+document (YAML 1.2.2, section 5.2), but vmd allows a byte order mark only at byte 0 of the file. A U+FEFF inside a quoted scalar
+is an ordinary character. A reader cannot leave this to the `yaml` package (2.9.1), which strips a leading U+FEFF from any text
+it is given and accepts one in a plain scalar (measured on 2026-10-10).
+
+**Lone CR.** A carriage return alone is a line break in Markdown and YAML (CommonMark 0.31.2, section 2.1; YAML 1.2.2, section
+5.4, production `b-break`), and the value view reads it as `\n` too. The `yaml` package (2.9.1) does not treat a lone CR as a
+line break and fails on a mapping written with CR line endings (measured on 2026-10-10), so a reader that uses it converts lone
+CRs before parsing and maps offsets back.
 
 ### 5.2 Sections
 
@@ -577,7 +592,8 @@ ranges of whole files remain part of the storage contract (`read`, §11.2).
 
 **Units.** Every position in vmd uses the same units: source maps, offsets into a `$body` or `$title`, block anchor ranges (§6.2),
 the `refs` and `issues` tables (§14.2), and error locations (§12.3). Offsets count UTF-8 bytes from 0, and a range is half-open,
-`[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1. An offset into a `$body` or `$title`
+`[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1; a byte order mark is not a column
+(§5.1). An offset into a `$body` or `$title`
 counts the bytes of the value, after line breaks are read as `\n` (§5.1); a source map range counts the bytes of the file, from
 its first byte, a byte order mark included (§5.1). Clients that need other units, such as JavaScript's UTF-16 string indexes,
 convert.
@@ -691,12 +707,13 @@ for selection. The two follow HTML's `id` (unique, `#id` selects one element) an
   of the `$body` text, in UTF-8 bytes (§5.9), which `get` returns and which body edits change. Which bytes the range covers is
   specified with the Markdown parser, in implementation task I1.4, as the spans of source maps are (§5.9). An issue on a block
   anchor is attached to the `$body` that holds it. A block cannot carry tags.
-- **Where a block anchor goes.** An anchor element is a block anchor at the start of any list item, at any depth, and at the start
-  of a paragraph only at the top level of the `$body`. Two anchor elements at the start of one block are a structural error
+- **Where a block anchor goes.** An anchor element is a block anchor at the start of any list item outside block quotes, at any
+  depth of list nesting, and at the start of a paragraph only at the top level of the `$body`. Block quotes stay prose (§5.3), so
+  a list item inside one carries no block anchor. Two anchor elements at the start of one block are a structural error
   (`anchor-element-invalid`), as in a heading. An `<a id>` anywhere else in a `$body` is plain inline HTML and anchors nothing: in
-  the middle of a paragraph, at the start of a paragraph inside a block quote or a list item (a list item's second paragraph,
-  for example), or in an HTML block. `vmd check` warns about it (`anchor-element-ignored`), since its author probably meant an
-  anchor.
+  the middle of a paragraph, at the start of a paragraph or a list item inside a block quote, at the start of a paragraph inside a
+  list item (a list item's second paragraph, for example), or in an HTML block. `vmd check` warns about it
+  (`anchor-element-ignored`), since its author probably meant an anchor.
 
 ### 6.3 Derived anchors
 
@@ -919,13 +936,13 @@ target (as vampiredb's section numbers are), are deferred; their syntax is open 
 
 ### 8.5 Status
 
-Each reference inside the store into a readable record resolves to one of `ok`, `dangling` (no target, `ref-dangling`),
-`ambiguous` (several targets for a singular reference, `ref-ambiguous`), or `aliased` (resolved through an alias, §13.6,
-`ref-aliased`). A reference declared
+Each reference inside the store resolves to one of `ok`, `dangling` (no target, `ref-dangling`), `ambiguous` (several targets for
+a singular reference, `ref-ambiguous`), `aliased` (resolved through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
+record that has a structural error, `ref-target-unreadable`). A reference declared
 `cardinality: many` whose selector matches nothing, in a record that exists, is valid. It is `ok`, with no targets. A reference
-into a record that has a structural error cannot be resolved, since that record has no value view. It is not dangling: `vmd
-check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what to fix. Its status in `refs`
-results and in the index (§14.2) is open (§20, open question 7).
+into a record that has a structural error, with a fragment, cannot be resolved, since that record has no value view. It is
+not dangling but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors say
+what to fix. A reference with no fragment to such a record names the record, which exists, so it is `ok`.
 
 ---
 
@@ -1034,7 +1051,7 @@ Parsing and checking report every error they can find, not only the first, so th
 | Keyword | Where | Meaning |
 |---|---|---|
 | `x-vmd-list` | an array | a keyed list (§5.6, below) |
-| `x-vmd-ref` | a `$ref` object, or a `uri-reference` string | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any node in the store is allowed |
+| `x-vmd-ref` | a `$ref` object, or a `uri-reference` string | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any target is allowed: a node, a record, an asset or a directory |
 | `x-vmd-summary` | any property | included in default listings and query results |
 | `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries |
 
@@ -1456,8 +1473,9 @@ can make its next edit without reading again.
 These rules apply where a backend stores the original file. They keep diffs small; they do not make member order meaningful
 (§4.1).
 
-- Bytes outside an edited node's source do not change. Line endings, encoding (UTF-8) and the trailing newline are kept as found,
-  and new text is written with the file's own line endings. New files use LF. A backend is not required to keep `\r\n`, and may
+- Bytes outside an edited node's source do not change. Line endings, encoding (UTF-8), a byte order mark and the trailing newline
+  are kept as found, and new text is written with the file's own line endings. New files use LF and have no byte order mark
+  (§5.1). A backend is not required to keep `\r\n`, and may
   store or return a file with its line endings converted. Values and node versions do not change with it, since the value view
   reads every line break as `\n` (§5.1).
 - YAML is written with a round-trip writer that keeps comments, key order and quoting, and only for the nodes an edit changes.
@@ -1540,8 +1558,7 @@ The index is derived. It can be rebuilt from the files at any time, and nothing 
 | `issues` | path, exact path, line and column if known, severity, code (Appendix D), message |
 
 Offsets, lines and columns use the units of §5.9. A record with a structural error is listed in `records` with its issues and has
-no nodes. A reference's `status` is one of those of §8.5; for a reference into a record with a structural error it is open (§20,
-open question 7).
+no nodes. A reference's `status` is one of those of §8.5, `unreadable` included.
 
 ### 14.3 Local index
 
@@ -1788,9 +1805,6 @@ A backend conforms to the storage contract (§11) separately, and states whether
 6. **Explicit-only links in Markdown.** In YAML and JSON a schema can require references to use explicit anchors (§9.3), while a
    Markdown link stays a plain link (§6.3). Whether a Markdown link can carry an attribute that a reader does not see and that
    says the same is open.
-7. **The status of a reference into an unreadable record** (§8.5). `vmd check` reports it as `ref-target-unreadable`, a warning,
-   in the meantime. Which status `refs` results and the index's `refs` table (§14.2) give it, beside `ok`, `dangling`,
-   `ambiguous` and `aliased`, is open.
 
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
@@ -2116,7 +2130,7 @@ The columns:
 | `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case; each path after the first in byte order |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
 | `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
-| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that has a structural error, so that its target cannot be resolved; the reference |
+| `ref-target-unreadable` | warning | validation | §8.5 | a reference with a fragment into a record that has a structural error, so that its target cannot be resolved (status `unreadable`); the reference |
 | `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets; the reference |
 | `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step; the reference |
 | `not-representable` | warning in `check`; error when the serializer refuses a value | validation; operation | §5.8 | a value the Markdown serializer cannot write; the offending node |

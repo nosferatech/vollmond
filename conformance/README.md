@@ -326,8 +326,8 @@ error (§9.2), and its issues are that record's structural errors:
 - `refs` with `record` fails when that record has one;
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
-  that could not be read is not compared. A reference into an unreadable record is not dangling; `check` reports it as
-  `ref-target-unreadable`, a warning (§8.5);
+  that could not be read is not compared. A reference with a fragment into an unreadable record is not dangling but
+  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5);
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
@@ -423,9 +423,9 @@ objects with these members:
   For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5), for a reference into a readable record. The status of a
-  reference into a record with a structural error is open (§20); `check` reports it as `ref-target-unreadable`, and no `refs`
-  case expects one yet. Reading aliases belongs to the Validate profile (§13.6,
+- **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference with a fragment
+  into a record that has a structural error, whose `targets` list is empty; one with no fragment is `ok`, with the record's root
+  as its target. Reading aliases belongs to the Validate profile (§13.6,
   decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
@@ -617,7 +617,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.6.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.7.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -680,13 +680,13 @@ case pairs two values that one specific wrong comparison would misjudge.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.6.0-dev", "case_format": 1 }
+{ "version": "0.7.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.6 gives `0.6`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.7 gives `0.7`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.6.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.7.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel

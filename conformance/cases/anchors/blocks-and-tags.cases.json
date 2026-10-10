@@ -39,6 +39,15 @@
       "description": "Each repeat after the first gets one duplicate-tag warning, at the node that holds the array: one for open at the root and one for a at /item (§6.2, Appendix D, decision I1.5).",
       "input": {"records": ["repeated-tags.yaml"]},
       "expect": {"issues": [{"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": ""}, {"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": "/item"}]}
+    },
+    {
+      "id": "block-quote-list-item",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "A list item inside a block quote carries no block anchor, since block quotes stay prose and \"at any depth\" means list nesting; its <a id> is plain HTML with anchor-element-ignored (§6.2, decision J2).",
+      "input": {"records": ["block-quote-list.md"]},
+      "expect": {"issues": [{"code": "anchor-element-ignored", "severity": "warning", "path": "block-quote-list.md", "at": "/$body"}]}
     }
   ]
 }

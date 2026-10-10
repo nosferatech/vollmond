@@ -18,7 +18,7 @@
     {
       "id": "no-targets-allows-any-node",
       "spec": ["9.3"],
-      "description": "An x-vmd-ref without targets allows any node in the store (§9.3, decision I1.11).",
+      "description": "An x-vmd-ref without targets allows any target: a record, a node, an asset and a directory (§9.3, decisions I1.11 and J6).",
       "input": {"records": ["refs/any.yaml"]},
       "expect": {}
     },
@@ -28,6 +28,29 @@
       "description": "With targets, a reference outside them is ref-target-not-allowed, for contrast (§9.3).",
       "input": {"records": ["refs/limited.yaml"]},
       "expect": {"issues": [{"code": "ref-target-not-allowed", "severity": "error", "path": "refs/limited.yaml", "at": "/outside"}]}
+    },
+    {
+      "id": "refs-unreadable-status",
+      "spec": ["8.5"],
+      "operation": "refs",
+      "description": "In refs, a reference with a fragment into a record with a structural error has the status unreadable and no targets (§8.5, decision J3).",
+      "input": {"record": "refs/unreadable.md"},
+      "expect": {"result": [{"from": {"path": "refs/unreadable.md", "at": "/$body", "offset": 4}, "raw": "../data/broken.json#a", "status": "unreadable", "targets": []}]}
+    },
+    {
+      "id": "refs-unreadable-record-without-fragment",
+      "spec": ["8.5"],
+      "operation": "refs",
+      "description": "A reference with no fragment to a record with a structural error names the record, which exists, so it is ok with the record's root as its target (§8.5, decision J3).",
+      "input": {"record": "refs/unreadable-root.md"},
+      "expect": {"result": [{"from": {"path": "refs/unreadable-root.md", "at": "/$body", "offset": 4}, "raw": "../data/broken.json", "status": "ok", "targets": [{"path": "data/broken.json", "at": "", "address": ""}]}]}
+    },
+    {
+      "id": "unreadable-record-without-fragment-no-warning",
+      "spec": ["8.5", "D"],
+      "description": "The same reference raises no ref-target-unreadable warning in check, since its status is ok (§8.5, decision J3).",
+      "input": {"records": ["refs/unreadable-root.md"]},
+      "expect": {}
     }
   ]
 }

@@ -1,0 +1,5 @@
+﻿vmd: 1
+collections:
+  tickets:
+    match: ["*.json"]
+    schema: ticket.schema.yaml

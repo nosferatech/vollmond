@@ -35,6 +35,13 @@
       "description": "A raw U+FEFF inside a quoted YAML scalar, where YAML allows it, is an ordinary character and stays (§5.1).",
       "input": {"record": "feff-in-quoted-yaml.yaml"},
       "expect": {"result": {"s": "x\ufeffy"}}
+    },
+    {
+      "id": "yaml-feff-in-plain-scalar",
+      "spec": ["5.1", "YAML 1.2.2 5.1", "D"],
+      "description": "YAML does not allow U+FEFF in a plain scalar (nb-char excludes it), so the record is a syntax error, although the yaml package accepts it (§5.1, decision J4).",
+      "input": {"record": "feff-in-plain-scalar.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-in-plain-scalar.yaml", "at": ""}]}
     }
   ]
 }

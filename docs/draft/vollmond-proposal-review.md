@@ -711,3 +711,34 @@ tasks are written "task I1.4" here.
   `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which rejects `:60`. `ajv-formats` also accepts a
   space separator and the offsets `+02` and `+0200`, which §4.3 rejects. §4.3 states the measured behavior, and vmd needs its
   own date and time checks (Appendix C, task I2.2). The decision stands as the owner's; its reason is corrected.
+
+## Follow-ups of Draft v0.6 (J)
+
+Recorded 2026-10-10, and applied to Draft v0.7. The review of Draft v0.6 sent its open readings and follow-ups to the project
+owner, who accepted every recommendation on card J. Section numbers refer to Draft v0.7.
+
+- **J1. Leap seconds, replacing I1.13.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as
+  Ajv's `ajv-formats` does, with no table of leap seconds. For ordering, `23:59:60` falls between `23:59:59` and the next
+  midnight (§4.3). I1.13 accepted `:60` anywhere for the reason that JSON Schema validators commonly do; that reason, given by the
+  session that drafted the card, was wrong, since `ajv-formats` restricts it to 23:59 UTC and `rfc3339-validator` rejects it.
+  That a local date-time, which has no offset, is taken as UTC for this check, as `ajv-formats` takes a time without an offset,
+  is the agent's reading.
+- **J2. A list item inside a block quote carries no block anchor.** Block quotes stay prose (H3.11), and "at any depth" in I1.7
+  means list nesting. This closes the open I1.7 reading (§6.2).
+- **J3. `refs` gets the status `unreadable`** for a reference with a fragment into a record that has a structural error, which
+  `check` still reports as `ref-target-unreadable`. A reference with no fragment to such a record is `ok`. This closes §20's
+  open question 7 and the I1.9 reading (§8.5, §14.2, §20, Appendix D, suite README). That the `ok` reference's target is the
+  record's root, `{"path": ..., "at": "", "address": ""}`, as for any record, and that it raises no warning, is the agent's
+  reading.
+- **J4. U+FEFF in YAML** is a `syntax-error` wherever YAML does not allow the character, including the start of front matter or
+  of a `yaml data` block (§5.1). YAML itself would read a U+FEFF at the start of a document as a byte order mark (YAML 1.2.2,
+  section 5.2); vmd allows one only at byte 0 of the file. §5.1 notes the trap of the `yaml` package, which strips a leading
+  U+FEFF from any text it is given and accepts one in a plain scalar (measured with 2.9.1).
+- **J5. A byte order mark is not a column**, so line 1's first character is column 1, while offsets count its bytes (§5.1,
+  §5.9). A write keeps a file's byte order mark, and files vmd creates have none (§13.3). The rule covers every file vmd reads,
+  `.vmd/config.yaml` and schemas included (§5.1).
+- **J6. An `x-vmd-ref` without `targets`** allows any target: nodes, records, assets and directories (§9.3).
+
+Applying J4 also found that the `yaml` package (2.9.1) does not treat a lone CR as a line break, which YAML 1.2.2 (section 5.4)
+does, and fails on a mapping with CR line endings. §5.1 notes it next to the U+FEFF trap; the agent added the note as a fact
+measured on 2026-10-10, not as a decision.
