@@ -811,7 +811,15 @@ checked. A collection whose schema file is missing, or is not a valid schema, is
     whose message says that the construct may come from a newer version, and names the store's declared version when the store
     declares one.
   - **Major versions.** A client that supports the store's major version, as a compatibility level it can be configured with,
-    reads and writes the store at that level. Otherwise it refuses the store, older or newer (`format-version-unsupported`).
+    reads and writes the store at that level. Otherwise:
+    - **A client older than the store** refuses it (`format-version-unsupported`).
+    - **A client newer than the store** reads it with a warning (`format-version-older`) when no change between the two versions
+      alters the meaning of existing syntax, and refuses it otherwise (`format-version-unsupported`). Each major version lists
+      the changes in meaning it makes, so a client knows which case applies. Removing a feature does not alter meaning, since a
+      newer reader fails on a feature it no longer knows, while a new slug rule or new number parsing does: data valid under
+      both rules would be read silently differently, and validation cannot catch it.
+    - **Writes from a newer client** use only the store's level. A validating backend rejects newer features. For a backend that
+      does not validate, the writers' compatibility level (§20) keeps a writer at the store's level.
 
   Room is reserved for a client to declare the version it is built for, in the repository's settings or in a connection string.
   The rest is a design topic of its own ([#46](https://github.com/nosferatech/vollmond/issues/46)), with the proposals that §20
@@ -943,7 +951,8 @@ Each part of vmd has one role towards data that may not be valid:
    dangling references, undeclared duplicates or warnings, do not affect it. It is for uses where correctness matters
    more than availability, and for backends that do not validate.
 5. **A reader on another format version** than the store's reads by the features the data uses (§9.1). It fails on a feature
-   it does not know rather than misread it, and refuses a store whose major version it does not support.
+   it does not know rather than misread it. For a major version it does not support, it refuses a newer store, and reads an older
+   one with a warning only when no change in between alters the meaning of existing syntax.
 
 ---
 
@@ -1611,7 +1620,13 @@ Larger design topics are tracked as issues instead: format and protocol versioni
 ([#48](https://github.com/nosferatech/vollmond/issues/48), §13.6).
 
 Versioning starts from the rule of §9.1 (minor versions only add, every addition is detectable, a reader decides from the
-features the data uses, and a client refuses a major version it does not support). These proposals are left to #46:
+features the data uses, and a client refuses a major version it does not support, except that a newer client reads an older
+store with a warning when no change in between alters meaning). These proposals are left to #46:
+
+- **Safeguards that keep the rule true**: a compatibility class for every specification change, recording whether it alters the
+  meaning of existing syntax; downlevel cases in the conformance suite; cross-version CI against vmd's previous release; and
+  pinned output of vmd's own writer. They cover vmd's own specification and implementations, not third-party serializers. If
+  they become too heavy a burden, the issue is raised and the versioning rules are revisited.
 
 - **A compatibility level for writers**, a store setting that keeps a 2.2 writer from using 2.2 features until the store's owner
   raises it. Without it, old readers fail the moment one writer upgrades.
@@ -1932,7 +1947,8 @@ The columns:
 | `config-invalid` | error | operation | §9.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`; none |
 | `schema-invalid` | error | operation | §9.1, §9.2 | a collection whose schema file is missing or is not a valid schema; none |
 | `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
-| `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support, for reads and writes; none |
+| `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
+| `format-version-older` | warning | operation | §9.1 | a client newer than the store reads a major version it does not support, with no change in between that alters meaning; none |
 | `address-malformed` | error | operation | §7.1 | an address that does not match the grammar; none |
 | `address-not-singular` | error | operation | §7.4 | a singular address the checker cannot prove singular; none |
 | `address-not-found` | error | operation | §7.4 | a singular address that matches no node; none |
