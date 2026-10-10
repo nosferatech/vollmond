@@ -12,16 +12,22 @@
       "expect": { "result": true }
     },
     {
-      "id": "integer-beyond-2-53",
-      "description": "Two integers that round to the same double differ; a runner that reads numbers as doubles sees them equal.",
-      "input": { "a": 9007199254740993, "b": 9007199254740992 },
+      "id": "decimal-nearest-double",
+      "description": "A number means its nearest double, so two decimals with the same nearest double are one number; a runner that compares decimal text sees them differ.",
+      "input": { "a": 0.1, "b": 0.10000000000000001 },
+      "expect": { "result": true }
+    },
+    {
+      "id": "decimal-next-double",
+      "description": "Two decimals whose nearest doubles are neighbors differ; a runner that compares with a tolerance sees them equal.",
+      "input": { "a": 0.1, "b": 0.10000000000000002 },
       "expect": { "result": false }
     },
     {
-      "id": "decimal-beyond-double",
-      "description": "Two decimals that round to the same double differ.",
-      "input": { "a": 0.1, "b": 0.10000000000000001 },
-      "expect": { "result": false }
+      "id": "negative-zero",
+      "description": "-0 is 0; a runner that tells the two apart, as JavaScript's Object.is does, sees them differ.",
+      "input": { "a": -0, "b": 0 },
+      "expect": { "result": true }
     },
     {
       "id": "number-against-string",

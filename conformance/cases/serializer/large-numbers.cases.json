@@ -1,0 +1,33 @@
+{
+  "defaults": {
+    "spec": ["4.2", "5.8"],
+    "profiles": ["write"],
+    "operation": "round_trip"
+  },
+  "cases": [
+    {
+      "id": "two-to-the-60-yaml",
+      "description": "2^60, a double beyond 2^53, written as YAML parses back to the same double rather than to an error.",
+      "input": { "value": { "n": 1152921504606846976 }, "format": "yaml" },
+      "expect": {}
+    },
+    {
+      "id": "two-to-the-60-json",
+      "description": "2^60 written as JSON parses back to the same double rather than to an error.",
+      "input": { "value": { "n": 1152921504606846976 }, "format": "json" },
+      "expect": {}
+    },
+    {
+      "id": "two-to-the-60-md",
+      "description": "2^60 as a front-matter field of a Markdown record parses back to the same double rather than to an error.",
+      "input": { "value": { "n": 1152921504606846976 }, "format": "md" },
+      "expect": {}
+    },
+    {
+      "id": "double-of-1e23-yaml",
+      "description": "The nearest double of 1e23, an integer-valued double beyond 2^53 that is not exactly 10^23, round-trips through YAML.",
+      "input": { "value": { "n": 1e23 }, "format": "yaml" },
+      "expect": {}
+    }
+  ]
+}
