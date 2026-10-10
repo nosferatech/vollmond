@@ -107,6 +107,46 @@
           "$body": "Root text with *emphasis*, `code` and a [link](https://example.com).\n\n- [x] done\n- [ ] open\n\n| a | b |\n|---|---|\n| 1 | 2 |"
         }
       }
+    },
+    {
+      "id": "empty-body-is-absent",
+      "description": "Neither the root nor the section has text, so neither has a $body: an empty $body is absent, never the empty string.",
+      "input": { "record": "empty-bodies.md" },
+      "expect": { "result": { "$title": "Record", "$sections": [{ "$title": "Part" }] } }
+    },
+    {
+      "id": "data-block-only-has-no-body",
+      "description": "A section holding only a data block has its fields and no $body.",
+      "input": { "record": "data-block-only.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.", "$sections": [{ "$title": "Part", "owner": "ana" }] } }
+    },
+    {
+      "id": "front-matter-only-has-no-body",
+      "description": "A file holding only front matter gives the root its fields and no $body.",
+      "input": { "record": "front-matter-only.md" },
+      "expect": { "result": { "status": "Open" } }
+    },
+    {
+      "id": "blank-lines-only-body-is-absent",
+      "description": "Text of blank lines only, one of them holding spaces (CommonMark 0.31.2, 2.1), leaves nothing once leading blank lines are removed, so the root has no $body.",
+      "input": { "record": "blank-lines-only.md" },
+      "expect": { "result": { "$title": "Record", "$sections": [{ "$title": "Part", "$body": "Part text." }] } }
+    },
+    {
+      "id": "trailing-unicode-space-kept",
+      "description": "Trailing whitespace means spaces, tabs and line breaks only, so a no-break space (U+00A0), an ideographic space (U+3000) or a form feed at the end of a body is content and stays.",
+      "input": { "record": "trailing-unicode-space.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            { "$title": "No-break", "$body": "Text. " },
+            { "$title": "Ideographic", "$body": "Text.　" },
+            { "$title": "Form feed", "$body": "Text.\f" }
+          ]
+        }
+      }
     }
   ]
 }

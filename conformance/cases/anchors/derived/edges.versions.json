@@ -3,6 +3,6 @@
   "line-separator.md": "e626fb64551161dfb77cb0fceb80dd95af0c5243",
   "paragraph-separator.md": "6fc04b4aa3082f988118e69d607016ef54f86ddc",
   "ogham-space-mark.md": "66e3b237610c53e2659d79a078696bda081fe055",
-  "nfc-before-ignorable-removal.md": "c764194a01fd4ae0587482069c38896f132aff08",
+  "ignorable-removal-before-nfc.md": "c764194a01fd4ae0587482069c38896f132aff08",
   "section-6-3-grosse.md": "0301e4ed8cbb5f14593c097eb3710251f0c5f65d"
 }

@@ -223,6 +223,43 @@
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "front-matter.md", "at": "/published" }
         ]
       }
+    },
+    {
+      "id": "boolean-casings-warned",
+      "description": "check warns about Yes, YES, Off, N and Y, which are strings in YAML 1.2 and booleans in exactly these casings to YAML 1.1 (the regular expression of yaml.org/type/bool.html, §4.4).",
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["boolean-casings.yaml"] },
+      "expect": {
+        "issues": [
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "boolean-casings.yaml", "at": "/title-yes" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "boolean-casings.yaml", "at": "/upper-yes" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "boolean-casings.yaml", "at": "/title-off" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "boolean-casings.yaml", "at": "/upper-n" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "boolean-casings.yaml", "at": "/upper-y" }
+        ]
+      }
+    },
+    {
+      "id": "mixed-casings-not-warned",
+      "description": "tRuE, yEs, nO and oFf are strings to YAML 1.1 readers too, since its bool type matches only lower case, an initial capital or upper case (§4.4), so check reports nothing.",
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["mixed-casings.yaml"] },
+      "expect": {}
+    },
+    {
+      "id": "ambiguous-key-warned-at-its-mapping",
+      "description": "A plain key that a YAML 1.1 reader reads otherwise is warned about at the mapping that holds it (§4.4, Appendix D): yes at the root, and the date key at /m.",
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["ambiguous-keys.yaml"] },
+      "expect": {
+        "issues": [
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-keys.yaml", "at": "" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-keys.yaml", "at": "/m" }
+        ]
+      }
     }
   ]
 }

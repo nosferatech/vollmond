@@ -1,0 +1,8 @@
+by_anchor: ../docs/target.md#done
+by_member: ../docs/target.md#done/$body
+by_field: ../docs/target.md#status
+by_exact_field: ../docs/target.md#/status
+by_index: ../docs/target.md#links/1
+by_exact_index: ../docs/target.md#/links/1
+by_section_index: ../docs/target.md#/$sections/1
+by_section_member_index: ../docs/target.md#/$sections/1/$body

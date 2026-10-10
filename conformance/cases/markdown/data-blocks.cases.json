@@ -75,7 +75,7 @@
     },
     {
       "id": "level-1-section",
-      "description": "A level-1 heading that is not the title heading is a section, so the data block after it holds that section's fields and is not misplaced. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "description": "A level-1 heading that is not the title heading is a section, so the data block after it holds that section's fields and is not misplaced, and the root's $body is the text before the first heading.",
       "input": { "record": "h1-section.md" },
       "expect": {
         "result": {
@@ -195,6 +195,162 @@
       "expect": {
         "fails": true,
         "issues": [{ "code": "data-block-misplaced", "severity": "error", "path": "after-title.md", "at": "" }]
+      }
+    },
+    {
+      "id": "empty-yaml-data-block",
+      "description": "An empty yaml data block gives the section no fields.",
+      "input": { "record": "empty-yaml.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.", "$sections": [{ "$title": "Part", "$body": "Part text." }] } }
+    },
+    {
+      "id": "empty-json-data-block",
+      "spec": ["5.3", "5.4"],
+      "description": "An empty json data block gives the section no fields, as an empty data block does.",
+      "pending": "H3.5 makes an empty data block give no fields, while H3.11 reads a json data block as JSON and §5.4 makes empty JSON a syntax error; the case expects H3.5's reading",
+      "input": { "record": "empty-json.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text.", "$sections": [{ "$title": "Part", "$body": "Part text." }] } }
+    },
+    {
+      "id": "second-data-block",
+      "description": "A second data block right after the first is data-block-misplaced at its section, rather than prose whose fields would vanish.",
+      "input": { "record": "second-block.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "data-block-misplaced", "severity": "error", "path": "second-block.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "first-block-after-front-matter",
+      "description": "A data fence as the first block after the front matter of a record without a title heading is data-block-misplaced at the root, since the root's fields come only from the front matter.",
+      "input": { "record": "first-block-after-front-matter.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "data-block-misplaced", "severity": "error", "path": "first-block-after-front-matter.md", "at": "" }]
+      }
+    },
+    {
+      "id": "first-block-of-the-file",
+      "description": "A data fence as the first block of a file without front matter or a title heading is data-block-misplaced at the root.",
+      "input": { "record": "first-block.md" },
+      "expect": { "fails": true, "issues": [{ "code": "data-block-misplaced", "severity": "error", "path": "first-block.md", "at": "" }] }
+    },
+    {
+      "id": "info-string-two-spaces",
+      "spec": ["5.3", "CommonMark 0.31.2 4.5"],
+      "description": "The info string is split into words on spaces and tabs, so yaml and data separated by two spaces make a data block.",
+      "input": { "record": "info-two-spaces.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "info-string-tab",
+      "spec": ["5.3", "CommonMark 0.31.2 4.5"],
+      "description": "A tab between yaml and data separates words as a space does, so the fence is a data block.",
+      "input": { "record": "info-tab.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "$body": "Part text." }]
+        }
+      }
+    },
+    {
+      "id": "info-string-third-word",
+      "spec": ["5.3", "9.1"],
+      "description": "A third word after yaml data may be an option of a newer minor version, so the fence is feature-unsupported at its section.",
+      "input": { "record": "info-third-word.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "feature-unsupported", "severity": "error", "path": "info-third-word.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "info-string-letter-case",
+      "description": "Words are compared case-sensitively, so Data is not the marker data, and the fence is prose.",
+      "input": { "record": "info-letter-case.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "```Yaml Data\nowner: ana\n```\n\nPart text." }]
+        }
+      }
+    },
+    {
+      "id": "info-string-entity-reference",
+      "spec": ["5.3", "CommonMark 0.31.2 4.5"],
+      "description": "Words are compared on the source text, before CommonMark decodes the entity reference, so yaml&#32;data is one word and the fence is prose.",
+      "input": { "record": "info-entity.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "```yaml&#32;data\nowner: ana\n```\n\nPart text." }]
+        }
+      }
+    },
+    {
+      "id": "json-unquoted-key",
+      "spec": ["5.3", "9.2"],
+      "description": "A json data block is read as JSON, so an unquoted key, which YAML would read, is a syntax error at the section.",
+      "input": { "record": "json-unquoted-key.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "syntax-error", "severity": "error", "path": "json-unquoted-key.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "json-trailing-comma",
+      "spec": ["5.3", "9.2"],
+      "description": "A trailing comma, which YAML's flow mappings allow and JSON does not, is a syntax error in a json data block.",
+      "input": { "record": "json-trailing-comma.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "syntax-error", "severity": "error", "path": "json-trailing-comma.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "json-comment",
+      "spec": ["5.3", "9.2"],
+      "description": "A # comment, which YAML allows and JSON does not, is a syntax error in a json data block.",
+      "input": { "record": "json-comment.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "syntax-error", "severity": "error", "path": "json-comment.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "dollar-section-members",
+      "spec": ["5.3", "5.4"],
+      "description": "The section members $title, $anchor, $tags, $body and $sections at the top of a data block are each dollar-member, and so is $schema, which is allowed only at the root.",
+      "input": { "record": "dollar-section-members.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$title" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$anchor" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$tags" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$body" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$sections" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections/0/$schema" }
+        ]
+      }
+    },
+    {
+      "id": "dollar-unknown",
+      "spec": ["5.3", "9.1"],
+      "description": "Another $ member at the top of a data block may be a section member of a newer minor version, so it is feature-unsupported at the member.",
+      "input": { "record": "dollar-unknown.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "feature-unsupported", "severity": "error", "path": "dollar-unknown.md", "at": "/$sections/0/$foo" }]
       }
     }
   ]

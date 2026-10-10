@@ -1,11 +1,10 @@
 # Conformance suite
 
-Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
-the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1, G1 to G9), as the
+Status: the format of issue #4 (I0.3), approved by the project owner. The owner's decisions of phase I0 answered the questions
+it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1, G1 to G9), as the
 [decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them, together with the decisions from the
-fixtures (H1 to H5, G10). Until the format is approved, the
-suite holds only the five sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
-runner (#19) follow the format once it is approved.
+fixtures (H1 to H5, G10). The suite holds the fixtures of tasks I0.4 to I0.7 (#5 to #8), by topic under `cases/`, besides the
+samples listed under [Samples](#samples). The TypeScript runner (#19) follows this format.
 
 The suite checks that an implementation of vmd behaves as [the proposal](../docs/draft/vollmond-proposal.md) specifies
 (§19.1). It is language-neutral. It holds data files only, and each implementation brings a runner in its own language that

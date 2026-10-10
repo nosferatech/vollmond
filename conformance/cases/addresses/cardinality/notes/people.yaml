@@ -1,0 +1,5 @@
+people:
+  - $anchor: person
+    name: Ada
+  - $anchor: person
+    name: Grace

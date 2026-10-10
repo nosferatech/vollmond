@@ -289,6 +289,78 @@
         "fails": true,
         "issues": [{ "code": "number-not-representable", "severity": "error", "path": "front-matter.md", "at": "/n" }]
       }
+    },
+    {
+      "id": "json-plus-sign",
+      "description": "+1 is not JSON, whose number grammar allows only a leading minus (RFC 8259, section 6), although YAML reads it as 1; the record is a syntax error at its root (Appendix D).",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-plus-sign.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-plus-sign.json", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "json-leading-zero",
+      "description": "01 is not JSON, whose integer part has no leading zero (RFC 8259, section 6), although YAML reads it as 1; the record is a syntax error at its root.",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-leading-zero.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-leading-zero.json", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "json-leading-dot",
+      "description": ".5 is not JSON, which needs a digit before the decimal point (RFC 8259, section 6); the record is a syntax error at its root.",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-leading-dot.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-leading-dot.json", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "json-trailing-dot",
+      "description": "1. is not JSON, which needs a digit after the decimal point (RFC 8259, section 6); the record is a syntax error at its root.",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-trailing-dot.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-trailing-dot.json", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "json-nan",
+      "description": "NaN is not JSON (RFC 8259, section 6: \"Numeric values that cannot be represented ... (such as Infinity and NaN) are not permitted\"), although Python's json reads it; the record is a syntax error at its root.",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-nan.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-nan.json", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "json-infinity",
+      "description": "Infinity is not JSON (RFC 8259, section 6), although Python's json reads it; the record is a syntax error at its root.",
+      "spec": ["4.2", "5.4", "D", "RFC 8259 6"],
+      "input": { "record": "json-infinity.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "json-infinity.json", "at": "" }
+        ]
+      }
     }
   ]
 }

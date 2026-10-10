@@ -147,6 +147,114 @@
         "fails": true,
         "issues": [{ "code": "duplicate-member", "severity": "error", "path": "front-matter-duplicate.md", "at": "/status" }]
       }
+    },
+    {
+      "id": "duplicate-member-three-times",
+      "description": "A name given three times is reported once for each occurrence after the first (Appendix D), so the record has two duplicate-member issues at /a.",
+      "spec": ["4.1", "D"],
+      "input": { "record": "duplicate-member-three-times.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "duplicate-member", "severity": "error", "path": "duplicate-member-three-times.json", "at": "/a" },
+          { "code": "duplicate-member", "severity": "error", "path": "duplicate-member-three-times.json", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-duplicate-key-three-times",
+      "description": "A YAML key given three times gives two duplicate-member issues, one per occurrence after the first (Appendix D).",
+      "spec": ["4.1", "D"],
+      "input": { "record": "duplicate-key-three-times.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "duplicate-member", "severity": "error", "path": "duplicate-key-three-times.yaml", "at": "/a" },
+          { "code": "duplicate-member", "severity": "error", "path": "duplicate-key-three-times.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "unpaired-surrogates-once-per-string",
+      "description": "\"\\udc00\\ud800\" is a low surrogate followed by a high one, so neither is part of a pair; unpaired-surrogate is reported once per string, however many it holds (Appendix D).",
+      "spec": ["4.1", "D"],
+      "input": { "record": "unpaired-surrogates-reversed.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "unpaired-surrogate", "severity": "error", "path": "unpaired-surrogates-reversed.json", "at": "/s" }
+        ]
+      }
+    },
+    {
+      "id": "unpaired-surrogate-in-a-member-name",
+      "description": "An unpaired surrogate in a member name is reported at the object that holds the member (Appendix D), since the member's own exact path would hold the lone surrogate.",
+      "spec": ["4.1", "D"],
+      "input": { "record": "unpaired-surrogate-in-name.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "unpaired-surrogate", "severity": "error", "path": "unpaired-surrogate-in-name.json", "at": "/m" }
+        ]
+      }
+    },
+    {
+      "id": "noncharacters-escaped-valid",
+      "description": "Noncharacters are valid (§4.1), where I-JSON forbids them (RFC 7493, section 2.1): U+FFFF, U+FDD0 and U+1FFFE, the last written as a surrogate pair, are read as written.",
+      "spec": ["4.1", "RFC 7493 2.1"],
+      "input": { "record": "noncharacters-escaped.json" },
+      "expect": { "result": { "a": "\uffff", "b": "\ufdd0", "c": "\ud83f\udffe" } }
+    },
+    {
+      "id": "noncharacters-raw-in-json-valid",
+      "description": "Raw noncharacters U+FFFF and U+FDD0 in a JSON file are valid, as escaped ones are.",
+      "input": { "record": "noncharacters-raw.json" },
+      "expect": { "result": { "a": "\uffff", "b": "\ufdd0" } }
+    },
+    {
+      "id": "yaml-escaped-surrogate-pair",
+      "description": "Two \\u escapes that form a surrogate pair read as the one character U+1F600, as in JSON (§4.1). YAML 1.2.2 calls \\u a 16-bit escape and does not say that two combine; the yaml package (2.9.1) combines them, and a reader that does not must combine them itself.",
+      "spec": ["4.1", "YAML 1.2.2 5.7"],
+      "input": { "record": "yaml-surrogate-pair-escaped.yaml" },
+      "expect": { "result": { "s": "\ud83d\ude00" } }
+    },
+    {
+      "id": "yaml-escaped-noncharacter-valid",
+      "description": "U+FFFE is outside YAML's character set, so YAML writes it as an escape, \"\\uFFFE\", which reads as the noncharacter, a valid string (§4.1).",
+      "spec": ["4.1", "YAML 1.2.2 5.1"],
+      "input": { "record": "yaml-noncharacter-escaped.yaml" },
+      "expect": { "result": { "s": "\ufffe" } }
+    },
+    {
+      "id": "yaml-raw-noncharacter-fdd0-valid",
+      "description": "U+FDD0 is a noncharacter inside YAML's character set (c-printable includes xE000 to xFFFD), so it may appear raw in a plain scalar.",
+      "spec": ["4.1", "YAML 1.2.2 5.1"],
+      "input": { "record": "yaml-raw-noncharacter-fdd0.yaml" },
+      "expect": { "result": { "s": "a\ufdd0b" } }
+    },
+    {
+      "id": "yaml-raw-noncharacter-fffe",
+      "description": "A raw U+FFFE is outside YAML's character set (YAML 1.2.2, section 5.1), so the file is a YAML syntax error, reported at the root (§4.1); the yaml package (2.9.1) accepts it.",
+      "spec": ["4.1", "YAML 1.2.2 5.1"],
+      "input": { "record": "yaml-raw-noncharacter-fffe.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "yaml-raw-noncharacter-fffe.yaml", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "front-matter-raw-noncharacter-fffe",
+      "description": "Front matter is YAML, so a raw U+FFFE in it is a syntax error too, which Appendix D attaches to the record, at its root.",
+      "spec": ["4.1", "5.3", "YAML 1.2.2 5.1"],
+      "input": { "record": "front-matter-raw-noncharacter.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "syntax-error", "severity": "error", "path": "front-matter-raw-noncharacter.md", "at": "" }
+        ]
+      }
     }
   ]
 }

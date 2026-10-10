@@ -214,6 +214,146 @@
       "description": "A file with one document between the markers --- and ... is a single document, so it is read; only several documents are an error.",
       "input": { "record": "explicit-document.yaml" },
       "expect": { "result": { "a": 1 } }
+    },
+    {
+      "id": "core-schema-tag-str",
+      "description": "Every explicit tag is an error, core schema tags included (§4.1): !!str 12 is yaml-tag at the tagged node, although the yaml package reads it as the string \"12\" and quoting already gives a string.",
+      "input": { "record": "core-tag-str.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-tag", "severity": "error", "path": "core-tag-str.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "core-schema-tag-int",
+      "description": "!!int on a quoted scalar is an explicit core schema tag, an error; the yaml package reads it as the number 1.",
+      "input": { "record": "core-tag-int.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-tag", "severity": "error", "path": "core-tag-int.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "core-schema-tag-binary",
+      "description": "!!binary is an explicit tag, an error; the yaml package resolves it to bytes even in its core schema (parser survey, section 4.2).",
+      "input": { "record": "core-tag-binary.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-tag", "severity": "error", "path": "core-tag-binary.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "core-schema-tag-set",
+      "description": "!!set on a flow mapping is an explicit tag, an error at that mapping; the yaml package resolves it even in its core schema (parser survey, section 4.2).",
+      "input": { "record": "core-tag-set.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-tag", "severity": "error", "path": "core-tag-set.yaml", "at": "/s" }
+        ]
+      }
+    },
+    {
+      "id": "non-specific-tag",
+      "description": "The non-specific tag ! (YAML 1.2.2, section 6.9.1) is an explicit tag too, so ! 12 is yaml-tag; the yaml package reads it as the string \"12\".",
+      "spec": ["4.1", "YAML 1.2.2 6.9.1"],
+      "input": { "record": "non-specific-tag.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-tag", "severity": "error", "path": "non-specific-tag.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "quoted-merge-key-is-a-member",
+      "description": "A quoted \"<<\" key is an ordinary member, not a merge key, since YAML 1.1 resolves its merge type only on a plain scalar (§4.1); the yaml package reads it the same way.",
+      "input": { "record": "quoted-merge-key.yaml" },
+      "expect": { "result": { "<<": { "a": 1 }, "b": 2 } }
+    },
+    {
+      "id": "merge-key-with-a-scalar-value",
+      "description": "A plain << key is a merge key whatever its value, so << with the value 1, which merges nothing, is still yaml-merge-key at the mapping (§4.1).",
+      "input": { "record": "merge-key-scalar.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-merge-key", "severity": "error", "path": "merge-key-scalar.yaml", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "alias-to-an-undefined-anchor",
+      "description": "An alias to an anchor that is not defined, an error under YAML 1.2.2, section 7.1, is yaml-alias at the alias (Appendix D), not syntax-error; the yaml package throws ReferenceError from toJS.",
+      "spec": ["4.1", "D", "YAML 1.2.2 7.1"],
+      "input": { "record": "undefined-alias.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-alias", "severity": "error", "path": "undefined-alias.yaml", "at": "/a" }
+        ]
+      }
+    },
+    {
+      "id": "several-documents",
+      "description": "A file with two YAML documents is yaml-multiple-documents, which Appendix D attaches to the record, at its root.",
+      "spec": ["4.1", "D"],
+      "input": { "record": "several-documents.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-multiple-documents", "severity": "error", "path": "several-documents.yaml", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-directive-1-1",
+      "description": "A %YAML 1.1 directive is yaml-version-unsupported at the root (§4.4): the yaml package honors it and reads a: yes as true, so reading the file as 1.2 would change the value its author meant.",
+      "spec": ["4.4", "D", "YAML 1.2.2 6.8.1"],
+      "input": { "record": "yaml-directive-1-1.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-version-unsupported", "severity": "error", "path": "yaml-directive-1-1.yaml", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-directive-1-3",
+      "description": "A directive naming a higher minor version, %YAML 1.3, is rejected too (§4.4), although YAML 1.2.2, section 6.8.1, says to process it with a warning, as the yaml package does.",
+      "spec": ["4.4", "D", "YAML 1.2.2 6.8.1"],
+      "input": { "record": "yaml-directive-1-3.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-version-unsupported", "severity": "error", "path": "yaml-directive-1-3.yaml", "at": "" }
+        ]
+      }
+    },
+    {
+      "id": "yaml-directive-1-2-accepted",
+      "description": "A %YAML 1.2 directive is allowed, and the document is read with the core schema, so yes stays a string.",
+      "spec": ["4.4"],
+      "input": { "record": "yaml-directive-1-2.yaml" },
+      "expect": { "result": { "a": "yes" } }
+    },
+    {
+      "id": "yaml-directive-in-a-data-block",
+      "description": "The rule holds in a yaml data block, whose %YAML 1.1 directive is yaml-version-unsupported at the data block's section (Appendix D).",
+      "spec": ["4.4", "5.3", "D"],
+      "input": { "record": "data-block-yaml-directive.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "yaml-version-unsupported", "severity": "error", "path": "data-block-yaml-directive.md", "at": "/$sections/0" }
+        ]
+      }
     }
   ]
 }

@@ -31,10 +31,10 @@
       "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
     },
     {
-      "id": "nfc-before-ignorable-removal",
-      "description": "Step 2 normalizes to NFC before it removes default-ignorable code points, so in `e`, U+FE0F, U+0301 the variation selector keeps the accent from composing, and the slug is `e\u0301` rather than `é`; not in GitHub’s capture.",
-      "input": { "record": "nfc-before-ignorable-removal.md" },
-      "expect": { "result": { "anchors": [{ "name": "e\u0301", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+      "id": "ignorable-removal-before-nfc",
+      "description": "Step 2 removes default-ignorable code points before it normalizes to NFC (decision H5.2), so in `e`, U+FE0F, U+0301 the variation selector goes first and the accent then composes, giving `é` (U+00E9), as a heading written `é` does; normalizing first would leave `e\u0301`, since the selector blocks composition; not in GitHub’s capture.",
+      "input": { "record": "ignorable-removal-before-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "\u00e9", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
     },
     {
       "id": "section-6-3-link-and-entity",

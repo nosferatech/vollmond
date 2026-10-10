@@ -215,6 +215,82 @@
           }
         ]
       }
+    },
+    {
+      "id": "front-matter-anchor-and-tags",
+      "description": "$anchor and $tags at the top of front matter are section members out of their place, dollar-member, since the title heading carries the root's anchor and tags (§5.3, decision H3).",
+      "spec": ["5.3", "9.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/front-matter-anchor.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "dollar-member", "severity": "error", "path": "invalid/front-matter-anchor.md", "at": "/$anchor" },
+          { "code": "dollar-member", "severity": "error", "path": "invalid/front-matter-anchor.md", "at": "/$tags" }
+        ]
+      }
+    },
+    {
+      "id": "anchor-element-ignored",
+      "description": "An <a id> in the middle of a paragraph and one inside a block quote are plain HTML, each with an anchor-element-ignored warning on the $body (decision H4).",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["ignored.md"] },
+      "expect": {
+        "issues": [
+          { "code": "anchor-element-ignored", "severity": "warning", "path": "ignored.md", "at": "/$body" },
+          { "code": "anchor-element-ignored", "severity": "warning", "path": "ignored.md", "at": "/$body" }
+        ]
+      }
+    },
+    {
+      "id": "anchor-element-ignored-anchors",
+      "description": "The ignored elements anchor nothing, so the record's only anchor is the title heading's derived one.",
+      "spec": ["6.2", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "ignored.md" },
+      "expect": { "result": { "anchors": [{ "name": "ignored", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "anchor-element-ignored-not-an-address",
+      "description": "An ignored element's id is no anchor, so as a selector it matches nothing.",
+      "spec": ["6.2", "7.4"],
+      "profiles": ["read"],
+      "operation": "resolve",
+      "input": { "address": "ignored.md#room", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "block-anchors",
+      "description": "An anchor element at the start of a top-level list item and one at the start of a paragraph are block anchors, each with the byte range of its CommonMark block in the $body, without the trailing line break (the recommendation of #53 question 2).",
+      "spec": ["5.9", "6.2"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "pending": "#53 question 2: block anchor ranges",
+      "input": { "record": "blocks.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "minimal-log", "kind": "derived", "at": "" },
+            { "name": "room", "kind": "block", "at": "/$body", "range": [0, 39] },
+            { "name": "hall", "kind": "block", "at": "/$body", "range": [55, 94] }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "block-anchor-resolve",
+      "description": "A block anchor resolves to its range in the $body that holds it, and is its own canonical address.",
+      "spec": ["6.2", "7.3", "7.5"],
+      "profiles": ["read"],
+      "operation": "resolve",
+      "pending": "#53 question 2: block anchor ranges",
+      "input": { "address": "blocks.md#hall", "as": "singular" },
+      "expect": { "result": [{ "path": "blocks.md", "at": "/$body", "address": "#hall", "range": [55, 94] }] }
     }
   ]
 }
