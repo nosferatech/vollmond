@@ -1,0 +1,229 @@
+{
+  "defaults": { "spec": ["6.1"], "input": { "store": "duplicates" } },
+  "cases": [
+    {
+      "id": "explicit-anchors-nested-strict",
+      "description": "Under the strict default, the same explicit anchor on a section and on its child is a duplicate-anchor error on the child, and no duplicate key, since the two keys sit at different levels.",
+      "spec": ["5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["nested.md"] },
+      "expect": {
+        "issues": [{ "code": "duplicate-anchor", "severity": "error", "path": "nested.md", "at": "/$sections/0/$sections/0" }]
+      }
+    },
+    {
+      "id": "explicit-anchors-nested-lenient",
+      "description": "Under lenient uniqueness, the same explicit anchor on a section and on its child is a duplicate-anchor warning on the child, and no duplicate key, since the two keys sit at different levels.",
+      "spec": ["5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["nested.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [{ "code": "duplicate-anchor", "severity": "warning", "path": "nested.md", "at": "/$sections/0/$sections/0" }]
+      }
+    },
+    {
+      "id": "explicit-anchors-siblings-strict",
+      "description": "Under the strict default, the same explicit anchor on two sibling sections is a duplicate anchor and, since each section's key is its anchor (§5.5), a duplicate key, both errors on the second.",
+      "spec": ["5.5", "5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["siblings.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-key", "severity": "error", "path": "siblings.md", "at": "/$sections/1" },
+          { "code": "duplicate-anchor", "severity": "error", "path": "siblings.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "explicit-anchors-siblings-lenient",
+      "description": "Under lenient uniqueness, the same explicit anchor on two sibling sections is a duplicate anchor and, since each section's key is its anchor (§5.5), a duplicate key, both warnings on the second.",
+      "spec": ["5.5", "5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["siblings.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-key", "severity": "warning", "path": "siblings.md", "at": "/$sections/1" },
+          { "code": "duplicate-anchor", "severity": "warning", "path": "siblings.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "explicit-after-derived-strict",
+      "description": "Under the strict default, an explicit anchor equal to an earlier heading's derived anchor is a duplicate-anchor error on the later node (decision C16).",
+      "spec": ["5.7", "6.1", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["derived-first.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "error", "path": "derived-first.md", "at": "/$sections/1/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "explicit-after-derived-lenient",
+      "description": "Under lenient uniqueness, an explicit anchor equal to an earlier heading's derived anchor is a duplicate-anchor warning on the later node (decision C16).",
+      "spec": ["5.7", "6.1", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["derived-first.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "warning", "path": "derived-first.md", "at": "/$sections/1/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "derived-after-explicit-strict",
+      "description": "Under the strict default, a derived anchor equal to an earlier node's explicit anchor is a duplicate-anchor error on the later heading, whose derived anchor stays unsuffixed, since explicit anchors take no part in the numbering (§6.3 step 7).",
+      "spec": ["5.7", "6.1", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["explicit-first.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "error", "path": "explicit-first.md", "at": "/$sections/1/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "derived-after-explicit-lenient",
+      "description": "Under lenient uniqueness, a derived anchor equal to an earlier node's explicit anchor is a duplicate-anchor warning on the later heading, whose derived anchor stays unsuffixed, since explicit anchors take no part in the numbering (§6.3 step 7).",
+      "spec": ["5.7", "6.1", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["explicit-first.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "warning", "path": "explicit-first.md", "at": "/$sections/1/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "block-anchors-strict",
+      "description": "Under the strict default, a heading whose derived or explicit anchor equals an earlier block anchor is a duplicate-anchor error on that heading, reading a block anchor as an explicit anchor of §6.2, which a first step matches (§7.3), and so as part of the record's one namespace.",
+      "spec": ["5.7", "6.1", "6.2", "7.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["blocks.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "error", "path": "blocks.md", "at": "/$sections/0" },
+          { "code": "duplicate-anchor", "severity": "error", "path": "blocks.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "block-anchors-lenient",
+      "description": "Under lenient uniqueness, a heading whose derived or explicit anchor equals an earlier block anchor is a duplicate-anchor warning on that heading, reading a block anchor as an explicit anchor of §6.2, which a first step matches (§7.3), and so as part of the record's one namespace.",
+      "spec": ["5.7", "6.1", "6.2", "7.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["blocks.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "warning", "path": "blocks.md", "at": "/$sections/0" },
+          { "code": "duplicate-anchor", "severity": "warning", "path": "blocks.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "data-objects-strict",
+      "description": "Under the strict default, two array items with the same $anchor are a duplicate-anchor error on the second.",
+      "spec": ["5.7", "6.1", "6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["people.yaml"] },
+      "expect": { "issues": [{ "code": "duplicate-anchor", "severity": "error", "path": "people.yaml", "at": "/people/1" }] }
+    },
+    {
+      "id": "data-objects-lenient",
+      "description": "Under lenient uniqueness, two array items with the same $anchor are a duplicate-anchor warning on the second.",
+      "spec": ["5.7", "6.1", "6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["people.yaml"], "config": "config-lenient.yaml" },
+      "expect": { "issues": [{ "code": "duplicate-anchor", "severity": "warning", "path": "people.yaml", "at": "/people/1" }] }
+    },
+    {
+      "id": "front-matter-and-heading-strict",
+      "description": "Under the strict default, an anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate-anchor error.",
+      "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["mixed.md"] },
+      "expect": { "issues": [{ "code": "duplicate-anchor", "severity": "error", "path": "mixed.md", "at": "/$sections/0" }] }
+    },
+    {
+      "id": "front-matter-and-heading-lenient",
+      "description": "Under lenient uniqueness, an anchor on a front-matter object and a heading's derived anchor share the record's namespace, so the heading's is a duplicate-anchor warning.",
+      "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["mixed.md"], "config": "config-lenient.yaml" },
+      "expect": { "issues": [{ "code": "duplicate-anchor", "severity": "warning", "path": "mixed.md", "at": "/$sections/0" }] }
+    },
+    {
+      "id": "same-node-no-duplicate",
+      "description": "An explicit and a derived anchor of the same name on one node are not a duplicate, since a duplicate names two different nodes (§6.1).",
+      "spec": ["6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["same-node.md"] },
+      "expect": {}
+    },
+    {
+      "id": "letter-case-no-duplicate",
+      "description": "An explicit anchor Done and the derived anchor done of another heading differ in letter case, so they are no duplicate, since names are compared by code point (§4.1, §6.1).",
+      "spec": ["4.1", "6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["letter-case.md"] },
+      "expect": {}
+    },
+    {
+      "id": "anchors-explicit-after-derived",
+      "description": "The record's anchor list holds both nodes named alpha; the explicit anchor does not suffix the earlier derived one.",
+      "spec": ["6.1", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "derived-first.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "derived-first", "kind": "derived", "at": "" },
+            { "name": "alpha", "kind": "derived", "at": "/$sections/0" },
+            { "name": "beta", "kind": "derived", "at": "/$sections/1" },
+            { "name": "alpha", "kind": "explicit", "at": "/$sections/1/$sections/0" },
+            { "name": "gamma", "kind": "derived", "at": "/$sections/1/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchors-derived-after-explicit",
+      "description": "The record's anchor list holds both nodes named summary; the later heading's derived anchor is summary, not summary-1.",
+      "spec": ["6.1", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "explicit-first.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "explicit-first", "kind": "derived", "at": "" },
+            { "name": "summary", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "intro", "kind": "derived", "at": "/$sections/0" },
+            { "name": "details", "kind": "derived", "at": "/$sections/1" },
+            { "name": "summary", "kind": "derived", "at": "/$sections/1/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

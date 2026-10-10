@@ -1,0 +1,7 @@
+first:
+  $anchor: "1st"
+second:
+  $tags: [ok, "-x"]
+third:
+  $anchor: fine_name-2
+  $tags: [Also-ok]

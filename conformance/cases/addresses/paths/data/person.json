@@ -1,0 +1,8 @@
+{
+  "name": "Grace",
+  "contact": { "$anchor": "contact", "$tags": ["private"], "email": "grace@example.com" },
+  "projects": [
+    { "$anchor": "cobol", "title": "COBOL" },
+    { "title": "FLOW-MATIC" }
+  ]
+}

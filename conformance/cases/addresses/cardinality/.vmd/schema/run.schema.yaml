@@ -1,0 +1,5 @@
+type: object
+properties:
+  benchmarks:
+    type: array
+    x-vmd-list: { type: map, keys: [name] }

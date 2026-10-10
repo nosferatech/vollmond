@@ -703,7 +703,8 @@ Alternatives that lost:
 - **`cases/addresses/appendix-a.cases.json`** applies `resolve` to the ticket of Appendix A, with the results of its address
   table. It covers every row of the table but the last, which is a VQL query. One case is a section reached by a key and a
   derived anchor that are the same node, which must not be ambiguous (§7.3). Another reaches the second section by its derived
-  anchor, `what-was-done`, which the space before its `<a>` element does not change (§6.3, decision C13).
+  anchor, `what-was-done`, which the space before its `<a>` element does not change (§6.3, decision C13). It also applies
+  `meta` and `anchors` to the ticket, for its section keys, canonical addresses, anchors and tag (§5.10).
 - **`cases/serializer/large-numbers.cases.json`** round-trips 2^60, an integer-valued double beyond ±(2^53−1), through each
   format, the nearest double of `1e23`, `1.2345678901234568e20` and the largest double. A round trip checks that the written
   bytes parse back to the same value, not an error, which is what writing such numbers as integers would give (§4.2, decision

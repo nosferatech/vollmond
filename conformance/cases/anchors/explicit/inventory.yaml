@@ -1,0 +1,17 @@
+title: Inventory
+$tags: [stock]
+shelf:
+  $anchor: Shelf_A-1
+  $tags: [front, cold]
+  items:
+    - $anchor: milk
+      name: Milk
+    - name: Eggs
+      $tags: [fragile]
+$sections:
+  - $title: Notes
+    $anchor: notes
+    $tags: [review]
+    $body: Check weekly.
+  - $title: Suppliers
+    $body: Local farms.

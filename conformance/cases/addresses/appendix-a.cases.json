@@ -3,13 +3,13 @@
     "spec": ["7.1", "7.3", "7.5", "A"],
     "profiles": ["read"],
     "operation": "resolve",
-    "input": { "store": "appendix-a", "as": "singular" }
+    "input": { "store": "appendix-a" }
   },
   "cases": [
     {
       "id": "no-fragment",
       "description": "A record path without a fragment is the record's root; its canonical address is taken as no fragment (open question 1).",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]
       }
@@ -17,7 +17,7 @@
     {
       "id": "empty-fragment",
       "description": "An empty fragment is the record's root too.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]
       }
@@ -25,7 +25,7 @@
     {
       "id": "front-matter-field",
       "description": "A semantic path of one step reaches a front-matter field.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#status" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#status", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status", "address": "#status" }]
       }
@@ -33,7 +33,7 @@
     {
       "id": "front-matter-field-exact",
       "description": "The exact path of the same field reaches the same node, with the same canonical address.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/status" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/status", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/status", "address": "#status" }]
       }
@@ -41,7 +41,7 @@
     {
       "id": "section-key-and-derived-anchor",
       "description": "The first section's key and its derived anchor are both what-is-confirmed; they name the same node, so the address is not ambiguous.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed", "as": "singular" },
       "expect": {
         "result": [
           { "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/0", "address": "#what-is-confirmed" }
@@ -51,7 +51,7 @@
     {
       "id": "section-body",
       "description": "A section's key followed by $body reaches its prose.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed/$body" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-is-confirmed/$body", "as": "singular" },
       "expect": {
         "result": [
           {
@@ -65,7 +65,7 @@
     {
       "id": "section-body-exact",
       "description": "The exact path of the same prose reaches the same node, with the same canonical address.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/$sections/0/$body" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#/$sections/0/$body", "as": "singular" },
       "expect": {
         "result": [
           {
@@ -79,7 +79,7 @@
     {
       "id": "explicit-anchor",
       "description": "An explicit anchor on a heading reaches its section, and is its canonical address.",
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1", "address": "#done" }]
       }
@@ -88,9 +88,75 @@
       "id": "derived-anchor-beside-explicit-anchor",
       "description": "The same section's derived anchor is what-was-done, without a trailing hyphen, although a space precedes its <a> element; the canonical address stays the explicit anchor.",
       "spec": ["6.3", "7.3", "7.5", "A"],
-      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-was-done" },
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-was-done", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1", "address": "#done" }]
+      }
+    },
+    {
+      "id": "explicit-anchor-then-tags",
+      "description": "A step after an explicit anchor reaches that node's $tags, as in the table of §7.3.",
+      "spec": ["5.2", "7.3", "7.5", "A"],
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done/$tags", "as": "singular" },
+      "expect": {
+        "result": [
+          { "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1/$tags", "address": "#done/$tags" }
+        ]
+      }
+    },
+    {
+      "id": "derived-anchor-then-body",
+      "description": "A derived anchor as the first step, then $body; the canonical address starts at the section's explicit anchor.",
+      "spec": ["6.3", "7.3", "7.5", "A"],
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-was-done/$body", "as": "singular" },
+      "expect": {
+        "result": [
+          { "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1/$body", "address": "#done/$body" }
+        ]
+      }
+    },
+    {
+      "id": "front-matter-array-item",
+      "description": "A front-matter array is not a keyed list, so the step after it is an index.",
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#component/0", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/component/0", "address": "#component/0" }]
+      }
+    },
+    {
+      "id": "meta",
+      "description": "The section keys are what-is-confirmed and done, as Appendix A states, and the second section's canonical address is #done, as in the example of §5.10.",
+      "spec": ["5.5", "5.10", "7.5", "A"],
+      "operation": "meta",
+      "input": { "record": "tickets/0171-clean-root-in-scattered-record.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "what-is-confirmed", "@address": "#what-is-confirmed" },
+          "/$sections/1": { "@key": "done", "@address": "#done" }
+        }
+      }
+    },
+    {
+      "id": "anchors",
+      "description": "The title heading and both sections have derived anchors, and the second section also has the explicit anchor done and the tag decision, as the @anchors of §5.10 show.",
+      "spec": ["5.10", "6.2", "6.3", "A"],
+      "operation": "anchors",
+      "input": { "record": "tickets/0171-clean-root-in-scattered-record.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            {
+              "name": "a-crash-inside-a-contiguous-transition-can-leave-a-clean-root-in-a-scattered-record",
+              "kind": "derived",
+              "at": ""
+            },
+            { "name": "what-is-confirmed", "kind": "derived", "at": "/$sections/0" },
+            { "name": "done", "kind": "explicit", "at": "/$sections/1" },
+            { "name": "what-was-done", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": [{ "tag": "decision", "at": "/$sections/1" }]
+        }
       }
     }
   ]
