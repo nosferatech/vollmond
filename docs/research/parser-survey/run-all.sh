@@ -15,6 +15,7 @@ export TZ=UTC
 node js-json.mjs > results/js-json.txt
 node js-yaml.mjs > results/js-yaml.txt
 node --expose-gc js-number-representations.mjs > results/js-number-representations.txt
+node js-lossless-json.mjs > results/js-lossless-json.txt
 .venv/bin/python py_json.py > results/py-json.txt
 .venv/bin/python py_yaml.py > results/py-yaml.txt
 (cd serde-json-check && cargo run --quiet) > results/serde-json-default.txt

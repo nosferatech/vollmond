@@ -492,6 +492,13 @@ top-level sequence: "- 1\n- 2\n"
   after set(a, 2): "a: 2.0\nb: 12345678901234567000\nc: 0x1f\nd: 1e+3\ne: -0\nf: 0o17\ng: .inf\nh: 1\ni: 17\n"
   after set(a, Scalar(bigint)): "a: 12345678901234567890"
 
+## yaml: a splice by Scalar.range changes one value and leaves every other byte alone
+  edited text: "# front matter\na: 2   # keep this comment\nb: 12345678901234567890\nc: 0x1F\nlist: [1e3, 0o17, \"x\"]\nd: 1e400\n"
+  the output is the input with the 3 bytes "1.0" replaced by "2": true
+  reparsed value of a: num(2)
+  Document.toString() after the same edit: "# front matter\na: 2.0 # keep this comment\nb: 12345678901234567000\nc: 0x1f\nlist: [ 1e+3, 0o17, \"x\" ]\nd: .inf\n"
+  splice inside a flow sequence: "list: [5, 0o17, \"x\"]"
+
 ## yaml: parse() (the convenience function) on a multi-document source and on aliases
   YAML.parse multi-doc throws: MULTIPLE_DOCS Source contains multiple documents; please use YAML.parseAllDocuments() at line 2, column 1:
   alias nodes visible in the AST: 1

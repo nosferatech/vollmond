@@ -4,60 +4,30 @@ import { createHash } from 'node:crypto';
 import Ajv from 'ajv';
 import { canonicalize } from 'json-canonicalize';
 import * as jsonc from 'jsonc-parser';
+import { parse as parseLossless } from 'lossless-json';
+import { canonicalDecimal, compareDecimal, isDoubleSafe } from './decimal.mjs';
 
 const section = (t) => console.log(`\n== ${t}`);
 const row = (label, value) => console.log(`${label.padEnd(60)} ${value}`);
 
-// ---- exact decimal helpers (the minimum any exact alternative needs) ------------------------------
-/** Splits a JSON or YAML 1.2 number lexeme into sign, significant digits and a power of ten, with no leading or trailing zeros. */
-function decimalParts(lexeme) {
-  const m = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(lexeme);
-  if (!m || (m[2] === '' && (m[3] ?? '') === '')) throw new Error(`not a decimal: ${lexeme}`);
-  const [, sign, int, frac = '', exp = '0'] = m;
-  let digits = int + frac;
-  let exponent = Number(exp) - frac.length;
-  const lead = digits.length - digits.replace(/^0+/, '').length;
-  digits = digits.slice(lead);
-  const trailing = digits.length - digits.replace(/0+$/, '').length;
-  digits = digits.slice(0, digits.length - trailing);
-  exponent += trailing;
-  if (digits === '') return { neg: false, digits: '', exp: 0 }; // zero, negative zero is not a different number
-  return { neg: sign === '-', digits, exp: exponent };
-}
-/** Compares two decimal lexemes exactly. Returns -1, 0 or 1. */
-function compareDecimal(a, b) {
-  const x = decimalParts(a);
-  const y = decimalParts(b);
-  if (x.digits === '' && y.digits === '') return 0;
-  if (x.digits === '') return y.neg ? 1 : -1;
-  if (y.digits === '') return x.neg ? -1 : 1;
-  if (x.neg !== y.neg) return x.neg ? -1 : 1;
-  const sign = x.neg ? -1 : 1;
-  const magX = x.digits.length + x.exp;
-  const magY = y.digits.length + y.exp;
-  if (magX !== magY) return sign * (magX < magY ? -1 : 1);
-  const n = Math.max(x.digits.length, y.digits.length);
-  const dx = x.digits.padEnd(n, '0');
-  const dy = y.digits.padEnd(n, '0');
-  return dx === dy ? 0 : sign * (dx < dy ? -1 : 1);
-}
-/** A canonical text for a decimal value: the same text for 1, 1.0 and 10e-1. */
-function canonicalDecimal(lexeme) {
-  const { neg, digits, exp } = decimalParts(lexeme);
-  if (digits === '') return '0';
-  const body = exp >= 0 && exp <= 20 ? digits + '0'.repeat(exp) : exp < 0 && digits.length + exp > 0 ? `${digits.slice(0, digits.length + exp)}.${digits.slice(digits.length + exp)}` : exp < 0 && exp >= -20 ? `0.${'0'.repeat(-exp - digits.length)}${digits}` : `${digits}e${exp}`;
-  return (neg ? '-' : '') + body;
-}
-/** True when the lexeme's decimal value survives a trip through an IEEE 754 double printed as its shortest decimal. */
-const isDoubleSafe = (lexeme) => {
-  const d = Number(lexeme);
-  return Number.isFinite(d) && compareDecimal(lexeme, String(d)) === 0;
-};
-
 section('Which lexemes survive a double? (the cases an "exact only when needed" representation would wrap)');
 for (const s of ['1', '1.0', '10e-1', '0.1', '9007199254740991', '9007199254740993', '12345678901234567890', '1e400', '1e-400',
-  '5e-324', '0.30000000000000004', '0.3000000000000000444089209850062616169452667236328125', '123456789.123456789123456789', '-0', '2.50', '1e21', '100000000000000000000000']) {
+  '5e-324', '0.30000000000000004', '0.3000000000000000444089209850062616169452667236328125', '123456789.123456789123456789', '-0', '2.50', '1e21', '100000000000000000000000',
+  '0.10000000000000001', '1.00000000000000000000', '100000000000000000000', '0.1000000000000000055511151231257827']) {
   row(s, `${isDoubleSafe(s) ? 'double-safe' : 'NEEDS EXACT'}   canonical=${canonicalDecimal(s)}   Number()=${Number(s)}`);
+}
+
+section('How often does a tool that prints doubles with 17 significant digits produce an exact-only number?');
+{
+  // The rule is the number's own shortest round-trip form, so a non-shortest 17 digit print of a double is exact-only.
+  let seed = 12345;
+  const next = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const samples = Array.from({ length: 20000 }, () => (next() * 1000) * (next() < 0.5 ? 1 : 0.001));
+  const exactOnly = (print) => samples.filter((d) => !isDoubleSafe(print(d))).length;
+  row('doubles drawn (pseudo-random, fixed seed)', samples.length);
+  row('printed with String(d) (shortest round trip)', `${exactOnly((d) => String(d))} exact-only`);
+  row('printed with d.toPrecision(17) (like printf %.17g)', `${exactOnly((d) => d.toPrecision(17))} exact-only`);
+  row('printed with d.toPrecision(15)', `${exactOnly((d) => d.toPrecision(15))} exact-only`);
 }
 
 section('Plain doubles: equality and ordering silently lose information');
@@ -105,9 +75,12 @@ const lexemes = ['9007199254740993', '9007199254740992', '12345678901234567891',
 row('sort with Number()', [...lexemes].sort((a, b) => Number(a) - Number(b)).join(' '));
 row('sort with exact compare', [...lexemes].sort(compareDecimal).join(' '));
 
-section('Cost of the shapes: time and heap for 300000 numbers (document of the numbers 1 to 300000 with a few fractions)');
+section('Cost of the shapes, single run: 300000 numbers, 1 percent of them exact-only, 1 in 7 with a fraction');
+console.log('  Each row builds the named shape with the stated class. Timings and heap are one run on one machine; compare orders of magnitude.');
 const N = 300000;
-const doc = '[' + Array.from({ length: N }, (_, i) => (i % 7 === 0 ? `${i}.25` : `${i}`)).join(',') + ']';
+const doc = '[' + Array.from({ length: N }, (_, i) => (i % 100 === 0 ? `${9007199254740993n + BigInt(i)}` : i % 7 === 0 ? `${i}.25` : `${i}`)).join(',') + ']';
+class VmdNumber { constructor(text) { this.text = text; } }
+class ExactNumber { constructor(text) { this.text = text; } }
 const time = (label, fn) => {
   globalThis.gc?.();
   const before = process.memoryUsage().heapUsed;
@@ -120,11 +93,23 @@ const time = (label, fn) => {
   return keep;
 };
 const keep = [];
-keep.push(time('JSON.parse (plain doubles)', () => JSON.parse(doc)));
-keep.push(time('JSON.parse with reviver reading context.source', () => JSON.parse(doc, (k, v, ctx) => (typeof v === 'number' ? { text: ctx.source } : v))));
-keep.push(time('JSON.parse with reviver, wrapper only if not double-safe', () => JSON.parse(doc, (k, v, ctx) => (typeof v === 'number' && !(Number.isSafeInteger(v) || isDoubleSafe(ctx.source)) ? { text: ctx.source } : v))));
-keep.push(time('jsonc-parser parse (plain doubles)', () => jsonc.parse(doc)));
-keep.push(time('jsonc-parser parseTree (offsets kept for every node)', () => jsonc.parseTree(doc)));
-keep.push(time('jsonc-parser visit, wrapper for every number', () => { const out = []; jsonc.visit(doc, { onLiteralValue: (v, off, len) => out.push({ off, len }) }); return out; }));
-keep.push(time('jsonc-parser visit, hybrid (number or wrapper)', () => { const out = []; jsonc.visit(doc, { onLiteralValue: (v, off, len) => out.push(Number.isSafeInteger(v) ? v : isDoubleSafe(doc.slice(off, off + len)) ? v : { off, len }) }); return out; }));
+const lexemeOf = (off, len) => doc.slice(off, off + len);
+keep.push(time('JSON.parse, plain doubles (rounds the exact-only numbers)', () => JSON.parse(doc)));
+keep.push(time('JSON.parse with reviver, a {text} stand-in object for every number', () => JSON.parse(doc, (k, v, ctx) => (typeof v === 'number' ? { text: ctx.source } : v))));
+keep.push(time('lossless-json 4.3.1 parse, a LosslessNumber for every number', () => parseLossless(doc)));
+keep.push(time('jsonc-parser visit, B: a VmdNumber{text} for every number', () => { const out = []; jsonc.visit(doc, { onLiteralValue: (v, off, len) => out.push(new VmdNumber(lexemeOf(off, len))) }); return out; }));
+keep.push(time('jsonc-parser visit, A: number, or ExactNumber{text} if not double-safe', () => {
+  const out = [];
+  jsonc.visit(doc, { onLiteralValue: (v, off, len) => { const t = lexemeOf(off, len); out.push(Number.isSafeInteger(v) || isDoubleSafe(t) ? v : new ExactNumber(t)); } });
+  return out;
+}));
+keep.push(time('jsonc-parser visit, C: plain numbers plus a Map index to text for exact-only', () => {
+  const out = [];
+  const table = new Map();
+  jsonc.visit(doc, { onLiteralValue: (v, off, len) => { const t = lexemeOf(off, len); if (!(Number.isSafeInteger(v) || isDoubleSafe(t))) table.set(out.length, t); out.push(v); } });
+  return [out, table];
+}));
+keep.push(time('jsonc-parser parse, plain doubles (for comparison)', () => jsonc.parse(doc)));
+keep.push(time('jsonc-parser parseTree, offsets kept for every node (for comparison)', () => jsonc.parseTree(doc)));
 void keep;
+

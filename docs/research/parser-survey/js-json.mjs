@@ -6,7 +6,7 @@ const show = (label, fn) => {
   let out;
   try {
     const v = fn();
-    out = typeof v === 'string' ? v : JSON.stringify(v, (k, x) => (typeof x === 'bigint' ? `${x}n` : Object.is(x, -0) ? '-0' : x));
+    out = typeof v === 'string' ? v : JSON.stringify(v, (k, x) => (typeof x === 'bigint' ? `${x}n` : Object.is(x, -0) ? '-0' : typeof x === 'number' && !Number.isFinite(x) ? String(x) : x));
   } catch (e) {
     out = `THROWS ${e.constructor.name}: ${e.message}`;
   }

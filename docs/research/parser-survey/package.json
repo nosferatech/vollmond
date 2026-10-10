@@ -9,6 +9,7 @@
     "js-yaml4": "npm:js-yaml@4.3.2",
     "json-canonicalize": "3.0.1",
     "jsonc-parser": "3.3.1",
+    "lossless-json": "4.3.1",
     "yaml": "2.9.1"
   }
 }
