@@ -81,8 +81,10 @@ that possible before vampiredb migrates:
 Two repositories hold demonstration stores (project owner, 2026-10-09):
 
 - **`nosferatech/eternal-circle`**, created by the project owner on 2026-10-09, internal to the organization, cloned at
-  `~/eternal-circle`: tickets kept with vmd, starting with vampiredb's, converted by the importer of I3.7, and iterated on through
-  I3 to I7. It is also where rollout step R3 can end up.
+  `~/eternal-circle`: tickets kept with vmd, iterated on through I3 to I7. On 2026-10-10 the project owner moved vampiredb's
+  tickets there, with Belfry's, and gave every ticket id a project prefix (`VDB-0158`, `BELFRY-0003`, files named
+  `PREFIX-NNNN-slug.md`). They still use the header-table format, which the importer of I3.7 converts. It is also where rollout
+  step R3 can end up.
 - **`nosferatech/vollmond-practice`, public**, created once the private store has matured: a demonstration and test store for
   GitHub as a backend (I6, I7), with data that can be public.
 
@@ -143,7 +145,7 @@ on.
 | **I2.4** References | extraction from Markdown links and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
 | **I2.5** Local index | the four tables of §14.2 in `.vmd/cache/`, keyed by file version; re-parsing only changed files and re-resolving only the references into them | I2.4 |
 | **I2.6** Commands | `check` (with `--changed REV`), `refs` (`--to`, `--from`, `--context`), `schema` | I2.3, I2.5 |
-| **I2.7** vampiredb trial | `examples/vampiredb/`: a configuration and minimal schemas for vampiredb's docs and tickets | I2.6 |
+| **I2.7** vampiredb trial | `examples/vampiredb/`: a configuration and minimal schemas for vampiredb's docs, and for the tickets in eternal-circle | I2.6 |
 | **I2.8** Demonstration | `vmd check` against vampiredb compared with `scripts/docs.sh`: every broken link `docs.sh` reports, `vmd` reports too; differences explained | I2.7 |
 
 Exit: the I0 fixtures for §8 and §9 pass; a warm `vmd check` over vampiredb's docs and tickets takes under two seconds.
@@ -162,8 +164,8 @@ Goal: VQL works over a store, in both targets, with the output of §10.5 and §1
 | **I3.4** Parameters | `fields` with `@match` and `@record`, a stable `sort`, `limit`, opaque cursors bound to the query and the head, `per_record`, `show`, `max_chars`, totals | I3.3 |
 | **I3.5** Output | `vmd query` with the grouped output of §12.2, excerpts, `-l` | I3.4, I1.8 |
 | **I3.6** Fixtures and properties | VQL fixtures in the suite; a property test that printing an AST and parsing it again gives the same AST | I3.1 |
-| **I3.7** Header-table importer | a one-off converter from vampiredb's ticket header tables to front matter, run on a copy. It is also the migration tool of rollout step R3 | I1.4 |
-| **I3.8** Demonstration | the views of vampiredb's `tickets/+index.md` and `index.html` (by status, severity, component, text search) reproduced with `vmd query` on the converted copy; node queries over the docs | I3.5, I3.7 |
+| **I3.7** Header-table importer | a one-off converter from the ticket header tables in eternal-circle to front matter, run on a copy. It is also the migration tool of rollout step R3 | I1.4 |
+| **I3.8** Demonstration | the views of eternal-circle's `tickets/+index.md` and `index.html` (by status, severity, component, text search) reproduced with `vmd query` on the converted copy; node queries over the docs | I3.5, I3.7 |
 
 Exit: the VQL fixtures pass; a query over two hundred tickets answers in under 200 ms.
 
