@@ -272,3 +272,15 @@ Recorded 2026-10-09.
 - **Package and command names.** The npm packages are named `vollmond`: `@vollmond/core` and `@vollmond/cli` (both free, as is the
   unscoped `vollmond`). The command is `vmd`, although the unrelated npm package `vmd`, a Markdown previewer unmaintained for eight
   years, installs a command of the same name.
+- **What `@vollmond/core` may assume.** Only the APIs every target runtime provides (Node, Lambda, browsers, Deno): the browser
+  library is removed from its type check, and the small set of cross-runtime globals it may use (`console`, `URL`, `TextEncoder`,
+  `crypto.subtle` and the like, after WinterTC's minimum common web API) is declared explicitly. Using `document` in `core` then fails
+  the type check. Consequence for I1.1: hashing (§11.3) is either asynchronous (`crypto.subtle`) or a small pure-TypeScript
+  implementation.
+- **Native development tools are allowed** (TypeScript 7, Biome, Vitest's bundler ship platform binaries), provided the runtime
+  dependencies of the shipped packages stay pure JavaScript.
+- **TypeScript 7, Vitest 5 and the extra strict compiler flags** (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+  `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`) are approved.
+- **Repository settings.** `main` accepts only pull requests (no required approvals, since the project owner cannot approve their
+  own; squash merges only) that pass the CI check, with no deletion, no force push and linear history. Merged branches are deleted,
+  the wiki is off, Dependabot security updates are on, and `SECURITY.md` and `CONTRIBUTING.md` describe reporting and contributing.
