@@ -461,8 +461,8 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
   uses, not from the declared number (`feature-unsupported`), and a client refuses a major version it does not support (§9.1).
   Left to #46, as proposals with their precedents (§20), are a store setting for the writers' compatibility level, feature
   classes after ext4's compat, ro_compat and incompat flags, ZFS feature flags and git's `extensions.*`, and how a store writes a
-  minor version. Refusing an older major version that the client does not support, rather than reading it with a warning, is
-  pending the owner's confirmation; the draft refuses it for now.
+  minor version. The owner then confirmed that a client refuses an older major version as well as a newer one, rather than
+  reading it with a warning, unless the client can be configured to work at that version's compatibility level.
 - **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
 - **G5. An empty many-reference is valid** (§8.5).
 - **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax

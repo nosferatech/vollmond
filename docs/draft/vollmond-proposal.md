@@ -810,8 +810,8 @@ checked. A collection whose schema file is missing, or is not a valid schema, is
     newer minor version gives no warning. Data that uses a feature the reader does not know is an error (`feature-unsupported`),
     whose message says that the construct may come from a newer version, and names the store's declared version when the store
     declares one.
-  - **Major versions.** A client that supports the store's major version reads and writes the store at that version's level.
-    Otherwise it refuses the store (`format-version-unsupported`).
+  - **Major versions.** A client that supports the store's major version, as a compatibility level it can be configured with,
+    reads and writes the store at that level. Otherwise it refuses the store, older or newer (`format-version-unsupported`).
 
   Room is reserved for a client to declare the version it is built for, in the repository's settings or in a connection string.
   The rest is a design topic of its own ([#46](https://github.com/nosferatech/vollmond/issues/46)), with the proposals that §20
