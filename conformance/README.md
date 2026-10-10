@@ -1,8 +1,10 @@
 # Conformance suite
 
-Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. Until it is approved, the suite holds only
-the three sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript runner (#19)
-follow the format once it is approved.
+Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
+the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1), as the
+[decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them. Until the format is approved, the
+suite holds only the three sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
+runner (#19) follow the format once it is approved.
 
 The suite checks that an implementation of vmd behaves as [the proposal](../docs/draft/vollmond-proposal.md) specifies
 (§19.1). It is language-neutral. It holds data files only, and each implementation brings a runner in its own language that
@@ -63,8 +65,9 @@ The topics to start with, each a directory under `cases/`:
 | `edits` | §13.3 | edits with expected bytes (I4) |
 | `selftest` | §5.8 | the runner's own comparison ([Runner self-test](#runner-self-test)) |
 
-A fixture task adds a topic when none of these fits. The capture of GitHub's heading slugs under `docs/research/` (#37) is
-converted into `anchors` cases later, by #8, once this format is approved.
+A fixture task adds a topic when none of these fits. The headings of the capture under `docs/research/` (#37) become `anchors`
+cases later, by #8, once this format is approved. Their expected anchors are those of vmd's own rule (§6.3, decisions C12 and F5),
+not GitHub's, although the two agree for most headings.
 
 ### Rules
 
@@ -75,7 +78,9 @@ converted into `anchors` cases later, by #8, once this format is approved.
   several use sits under `stores/`.
 - **Every path in the suite follows §3.2**, so that the suite checks out unchanged on macOS, Windows and Linux. The exceptions
   are segments beginning with `.`, such as `.vmd`, `.gitattributes`, `.editorconfig` and the dotfiles that §3.3 cases need.
-  Cases that need a path §3.2 forbids cannot be written as files ([open question 16](#open-questions)).
+  Cases that need a path §3.2 forbids cannot be written as files, and are left out for now (decision C26, §19.1). A later case
+  format may add a manifest store, a JSON file from store paths to contents that the runner gives its implementation through an
+  in-memory backend, used only for such cases.
 - **Nothing may rewrite the suite's bytes.** `.gitattributes` turns off git's line-ending conversion for every file under
   `conformance/`, and `.editorconfig` asks editors that follow the EditorConfig specification (editorconfig.org) to leave
   whitespace and final newlines alone. Formatters and linters (Biome in this repository) must exclude `conformance/`, since
@@ -110,17 +115,16 @@ rejected too. The fixture tasks #5 to #7 run in parallel and would conflict in i
 the shape of the JSON-Schema-Test-Suite (github.com/json-schema-org/JSON-Schema-Test-Suite), whose files each hold an array of
 test groups that share one schema.
 
-**Runners live with their implementations, not in the suite.** The TypeScript runner belongs to the TypeScript workspace, and
-a Python runner to the Python implementation. `conformance/` then holds data only, and another implementation can copy the
-directory without taking any code. (A git submodule would bring the whole repository with it.) The JSON-Schema-Test-Suite
-works this way, leaving the runner to each implementer. The alternative is a single shared runner that drives each
-implementation through a process protocol, as toml-test (github.com/toml-lang/toml-test) does. Its runner sends TOML to an
-implementation's decoder on standard input and compares the JSON that comes back, with every value tagged by type and written
-as a string. That keeps the comparison in one place. It was rejected because every implementation would have to build and
-maintain an adapter program, numbers and bytes would cross one more serialization boundary that needs its own exactness rules,
+**Runners live with their implementations, not in the suite** (decisions C29 and L1). The TypeScript runner belongs to the
+TypeScript implementation in `js/`, and a Python runner to the Python implementation in `python/`. `conformance/` then holds data
+only, and another implementation can copy the directory without taking any code. (A git submodule would bring the whole repository
+with it.) The JSON-Schema-Test-Suite works this way, leaving the runner to each implementer. The alternative is a single shared
+runner that drives each implementation through a process protocol, as toml-test (github.com/toml-lang/toml-test) does. Its runner
+sends TOML to an implementation's decoder on standard input and compares the JSON that comes back, with every value tagged by type
+and written as a string. That keeps the comparison in one place. It was rejected because every implementation would have to build
+and maintain an adapter program, numbers and bytes would cross one more serialization boundary that needs its own exactness rules,
 and checking a Python implementation would need the runner's language as well. The comparison rules here are short, and the
-[self-test](#runner-self-test) checks each runner's copy of them. This differs from the plan's §1.1, which places a TypeScript
-runner in `conformance/` ([open question 20](#open-questions)).
+[self-test](#runner-self-test) checks each runner's copy of them. `conformance/` therefore needs no `package.json`.
 
 ---
 
@@ -240,16 +244,17 @@ For an operation that returns a result, `expect` has exactly one of `result` and
 
 ### Reading case files
 
-Case files are UTF-8 JSON as RFC 8259 defines it. They are not I-JSON (RFC 7493), which says numbers beyond the precision of a
-double should not appear, while the suite uses them on purpose. A runner reads case files with two rules:
+Case files are UTF-8 JSON as RFC 8259 defines it. A runner reads case files with two rules:
 
 - **Duplicate member names are rejected.**
-- **Every number is kept exactly**, as its decimal source text or as an arbitrary-precision decimal.
+- **Every number is read as §4.2 reads one** (decision F2). It means its nearest double, and `-0` is `0`. A number that §4.2
+  makes an error (an integer whose double differs from it, a number too large for a double, or a non-zero number that a double
+  rounds to zero) makes the case an `error`, since no value view can hold it.
 
-A runner that reads numbers into doubles turns `9007199254740993` into `9007199254740992`, and every case about §4.2 then
-passes or fails by accident. The self-test cases catch it. In JavaScript, `JSON.parse` alone is not enough, and a reviver that
-reads each number's source text is one way. How `@vollmond/core` keeps exact numbers is the subject of the parser survey (#3),
-and the TypeScript runner can use the same means.
+The check in the second rule needs each number's source text, since a plain double has already lost the difference between
+`9007199254740993` and `9007199254740992`. In JavaScript, a `JSON.parse` reviver gets it from `context.source` (the proposal's
+Appendix B). Without the check, a case written with such a number would expect a value that no implementation can produce, and
+could pass against the rounded one.
 
 A case file the runner cannot read, or a case that breaks the rules of this section, gives `error` for each case concerned, or
 for every case of the file when the file cannot be read at all.
@@ -260,8 +265,8 @@ purpose. Exact numbers are also harder to get from YAML readers than from JSON o
 outputs are JSON. A case's `description` does the work of a comment.
 
 **Typed values, as in toml-test, were rejected.** Writing every expected value as `{"type": ..., "value": "<text>"}` would
-spare runners the exact reading of numbers. It would also make every expected value view unreadable and unlike the value views
-the spec shows, while an exact JSON reader is a small requirement.
+spare runners the reading of number text. It would also make every expected value view unreadable and unlike the value views
+the spec shows, while reading each number's text is a small requirement.
 
 ---
 
@@ -275,21 +280,22 @@ A **target** is `{"path": <store path>, "at": <exact path>, "address": <canonica
 - `at` is an RFC 6901 JSON Pointer over the record's value view, written raw rather than percent-encoded, and `""` for the
   root.
 - `address` is the node's canonical address (§7.5) as a fragment with its `#`, such as `"#done"`. For the root it is `""`,
-  read from §7.1 and §7.5 as the shortest form ([open question 10](#open-questions)).
-- A block anchor's target adds `"range": [start, end]`, a range of offsets into the `$body` that `at` names
-  ([open question 6](#open-questions)).
+  read from §7.1 and §7.5 as the shortest form ([open question 1](#open-questions)).
+- A block anchor's target adds `"range": [start, end]`, zero-based UTF-8 byte offsets into the `$body` that `at` names, with the
+  end exclusive (§5.9, decision C10).
 - A target that is an asset or a directory has `path` only.
 
 | Operation | Profiles | Spec | Input | Result |
 |---|---|---|---|---|
 | `parse` | `read` | §4, §5 | `store`, `record` | the value view |
+| `meta` | `read` | §5.5, §5.10 | `store`, `record` | each section's key and canonical address |
 | `source_map` | `read` | §5.9 | `store`, `record` | a byte range per node |
 | `anchors` | `read` | §6 | `store`, `record` | the record's anchors and tags |
 | `resolve` | `read`, or more | §7 | `store`, `address`, `as` | the targets |
 | `check` | `validate` | §5.7, §9 | `store`, optional `records` | none, the issues being the outcome |
 | `refs` | `validate` | §8 | `store`, optional `record` | the references |
 | `query` | `query` | §10 | `store`, `query`, parameters | the matches |
-| `round_trip` | [question 14](#open-questions) | §5.8 | `value`, `format` | none |
+| `round_trip` | `write` | §5.8 | `value`, `format` | none |
 | `compare` | none | §5.8 | `a`, `b`, optional `unordered` | a boolean |
 | `serialize`, `edit` | `write` | §5.8, §13 | reserved for I4 | bytes |
 
@@ -297,8 +303,8 @@ Every operation that takes `store` also takes `config` ([Inputs](#configuration-
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
 every severity. Every other operation reports only the issues that make it fail, so when it succeeds its issues are empty, and
-warnings are tested through `check`. A `parse` case about one construct then does not have to list every warning its record
-also raises.
+warnings and validation errors are tested through `check`. A `parse` case about one construct then does not have to list every
+warning its record also raises. Both `parse` and `check` report every error they can find, not only the first (decision C2).
 
 **Failing is not crashing.** An operation fails when the implementation reports failure through its normal error channel with
 issues, as an error result or as the error type its API documents. Anything else is a crash, such as an unexpected exception,
@@ -306,34 +312,46 @@ a panic, or a hang that the runner stops after a time of its choosing. A crash i
 `fails`.
 
 `outline` and `get`, which the Read profile also requires (§19.2), have no operation yet. §19.1 does not list them, and the
-source form of `get` depends on the spans of [open question 5](#open-questions).
+source form of `get` depends on the spans that the Markdown parser task fixes (I1.4, #13; decision C11).
 
 ### parse
 
-The result is the record's value view (§5.1), including the computed `$key` members (§5.5). The operation fails when the
-record has no value view, and its issues are the errors that prevent one. Which errors those are is
-[open question 2](#open-questions). An input that fails should contain exactly one error, so that the case does not depend on
-whether an implementation reports every error or stops at the first.
+The result is the record's value view (§5.1). It holds stored data only, so it has no `$key` members, and section keys are
+tested through `meta` (decision F9). The operation fails when the record has a structural error (§9.2, decision F1), and its
+issues are those errors, the codes whose class is structural in the proposal's Appendix D. Validation errors and warnings leave
+the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing case
+may expect several. A syntax error can hide what follows it, though, so a case with a syntax error expects that error alone.
 
 ### source_map
 
 The result is an object whose member names are exact paths of nodes in the value view, and whose values are `[start, end]`,
-zero-based byte offsets into the file with the end exclusive. Lines and columns follow from the offsets and the file, so they
-are not compared. Which nodes have an entry and which bytes each one covers is not specified yet
-([open question 5](#open-questions)), and `source_map` cases wait for that answer.
+zero-based UTF-8 byte offsets into the file with the end exclusive (§5.9, decision C10). Lines and columns follow from the
+offsets and the file, so they are not compared. Which nodes have an entry and which bytes each one covers is fixed by the Markdown
+parser task (I1.4, #13; decision C11), and `source_map` cases wait for it. Source maps are an option of the Read profile that an
+implementation declares (§19.2), so an implementation without them skips these cases by declaration.
+
+### meta
+
+The result is the record's metadata (§5.10) in a fixed shape, an object whose member names are the exact paths of the record's
+sections, the root's being `""`, and whose values are `{"key": ..., "address": ...}`. `key` is the section key (§5.5), and `null`
+for the root, and `address` is the canonical address, as in a target. The other members of the metadata envelope are left out.
+Anchors have their own operation, source locations wait for the spans of I1.4, and node versions belong to the cases of the
+Write profile.
 
 ### anchors
 
 The result is `{"anchors": [...], "tags": [...]}`, both compared unordered:
 
 - Each item of `anchors` is `{"name": ..., "kind": "explicit" | "derived" | "block", "at": ...}`, with `"range"` for a block
-  anchor as in a target. `explicit` is an anchor written on a heading or an object (§6.2), `derived` a heading's GitHub slug
-  with its repeat suffix (§6.3), and `block` an anchor on a paragraph or list item (§6.2).
+  anchor as in a target. `explicit` is an anchor written on a heading or an object (§6.2), `derived` a heading's derived anchor
+  by vmd's rule, with its repeat suffix (§6.3), and `block` an anchor on a paragraph or list item (§6.2). A heading whose slug is
+  empty has no `derived` item (decision C14).
 - Each item of `tags` is `{"tag": ..., "at": ...}`, one per tag and node.
 
-A list rather than an object keyed by name, so that it can hold an explicit and a derived anchor of the same name, and
-duplicates, whatever the spec decides about them ([open question 11](#open-questions)). The record is implied, so the items
-have no `path`.
+A list rather than an object keyed by name, so that it can hold an explicit and a derived anchor of the same name on one node,
+as `## Done<a id="done"></a>` has, and the duplicates that `lenient` mode allows. Explicit and derived anchors share one
+namespace (§6.1, decision C16), so an anchor that names two different nodes is also a `duplicate-anchor` issue, which `check`
+reports. The record is implied, so the items have no `path`.
 
 ### resolve
 
@@ -345,8 +363,11 @@ percent-encoded. `as` says how the address is used, since being singular is a pr
   fails when the address is malformed, when its record does not exist, when the checker cannot prove it singular before
   evaluating (§7.4), when no node matches, and when more than one node matches (§7.3, §7.4).
 - With **`"as": "selector"`**, as for a query or a reference declared `cardinality: many`, the result is the list of every
-  matching target, compared unordered. The operation fails when the address is malformed or its record does not exist. Whether
-  a selector that matches nothing fails is [open question 9](#open-questions).
+  matching target, compared unordered. The operation fails when the address is malformed or its record does not exist. A
+  selector that matches nothing gives an empty list (§7.4, decision C19).
+
+A singular address can fail as ambiguous only at evaluation in two cases, which §7.4 names (decision C18), so a case for either
+expects `address-ambiguous` from `resolve`, not `address-not-singular`.
 
 A case that needs a schema to resolve, through a keyed list (§5.6) for example, lists `validate` among its profiles.
 
@@ -356,7 +377,7 @@ case checks it too, and one operation fewer is to be implemented.
 ### check
 
 `records` optionally limits the check to some records of the store. There is no result. The issues are every issue the
-implementation reports for the store or for those records (§9.2).
+implementation reports for the store or for those records, structural and validation alike (§9.2, decisions C2 and F1).
 
 ### refs
 
@@ -364,9 +385,11 @@ implementation reports for the store or for those records (§9.2).
 objects with these members:
 
 - **`from`** locates the reference as `{"path": ..., "at": ...}`. For a `$ref` object or a typed string, `at` is that node.
-  For a Markdown link it is the `$body` that holds the link, and `offset` gives the link's position in that `$body` (§5.9).
+  For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
+  the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5).
+- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5). Reading aliases belongs to the Validate profile (§13.6,
+  decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list.
 
 Links that leave the store are not listed (§8.2).
@@ -380,20 +403,24 @@ Links that leave the store are not listed (§8.2).
 The result is `{"matches": [...], "more": true | false}`:
 
 - Each match is a target. It also has `fields` when the case gives `fields`, an object from each projection path to its value.
-  Matches are compared in order, since the sort order is specified (§10.5).
+  Matches are compared in order, since the sort order is specified (§10.5). Ties are ordered by store path as exact UTF-8 bytes,
+  then by document order within a record (decisions C25 and F10).
 - `more` says whether the implementation returned a next cursor.
 
 The other members of a result in §10.5 are left out. Titles and sizes are tested by other operations, token counts and
 excerpts are approximate by definition, cursors are opaque, and what matched may be added by the VQL fixtures. Totals, the
 default projection and paging past the first page are settled by the VQL fixtures (#34), with the questions of
-[open question 17](#open-questions), in a revision of the case format if they need one.
+[open question 2](#open-questions), in a revision of the case format if they need one.
 
 ### round_trip
 
-`value` is a JSON value in the case file, and `format` is `md`, `yaml` or `json`. The runner has its implementation serialize
-the value to the format and parse the bytes back, then compares the value view it gets with `value`. There is no result to
-expect. The operation succeeds when the two are equal, and a difference is a `fail`. The operation fails when the serializer
-rejects the value as not representable (§5.8), and its issues then have `path` null and name the offending node in `at`.
+`value` is a JSON value in the case file, and `format` is `md`, `yaml` or `json`. The cases need the Write profile, since the
+canonical serializer arrives with I4, and they are examples, while each implementation tests the round trip as a property in its
+own tests (§5.8, decision C24). The runner has its implementation serialize the value to the format and parse the bytes back, then
+compares the value view it gets with `value`. A value holds stored data only, so a `$key` member in it is an error like any
+misplaced `$` member (§5.4, decision F9). There is no result to expect. The operation succeeds when the two are equal, and a
+difference is a `fail`. The operation fails when the serializer rejects the value as not representable (§5.8), and its issue is
+then `not-representable`, with `path` null and the offending node in `at`.
 
 ### compare
 
@@ -416,9 +443,9 @@ where its language does not. In Python, `True == 1`, `True == Decimal(1)` and `[
 here.
 
 - `null` equals only `null`, and `true` and `false` equal only themselves.
-- Numbers are equal when their decimal values are equal, so `1`, `1.0`, `10e-1` and `1E0` are one number (§4.2). A number the
-  implementation holds as a binary floating-point value is first written as its shortest round-trip decimal, which is the
-  canonical form of §4.2, and that decimal is compared. For integers beyond ±(2^53−1), see [open question 4](#open-questions).
+- Numbers are equal when they are the same double, since a number means its nearest double (§4.2, decision F2). So `1`, `1.0`,
+  `10e-1` and `1E0` are one number, `0.1` and `0.10000000000000001` are one number, and `-0` equals `0`, while `0.1` and
+  `0.10000000000000002` differ. A runner compares the doubles, never the decimal text.
 - Strings are equal when they are the same sequence of Unicode code points, without normalization (§4.1).
 - Arrays are equal when they have the same length and equal items in the same order.
 - Objects are equal when they have the same member names and equal values for each, in any member order (§4.1). A member that
@@ -442,34 +469,36 @@ what matters, and an extra wrong member or an extra query match would pass unsee
 An expected issue has four members:
 
 - **`code`** is the issue's code, as the CLI prints it and the index stores it (§12.3, §14.2).
-- **`severity`** is `error` or `warning` ([open question 1](#open-questions)).
+- **`severity`** is `error` or `warning` (decision C1). A case expects the default severity that the proposal's Appendix D gives,
+  under the store's uniqueness mode, unless the store's configuration sets the code's severity (`issues`, §9.1).
 - **`path`** is the store path of the record the issue is about. It is `null` for an issue that belongs to no record, such as
   a query that does not parse or a value given to the serializer.
-- **`at`** is the exact path of the node the issue is about, or `null` when there is none, as for a syntax error that leaves
-  no value view. For a reference in prose, `at` is the `$body` that holds it, as §12.3's example locates `ref-ambiguous` in
-  `#what-was-done/$body`.
+- **`at`** is the exact path of the node the issue is about, which Appendix D names for each code, or `null` when there is none,
+  as for a syntax error that leaves no value view. For a reference in prose, `at` is the `$body` or `$title` that holds it, as
+  §12.3's example locates `ref-ambiguous` in `#what-was-done/$body`.
 
-For example, with a placeholder code:
+For example, a YAML record `aliases.yaml` holding `b: *a`, an alias, which is a structural error:
 
 ```json
 "expect": {
   "fails": true,
-  "issues": [{ "code": "placeholder-yaml-alias", "severity": "error", "path": "aliases.yaml", "at": "/b" }]
+  "issues": [{ "code": "yaml-alias", "severity": "error", "path": "aliases.yaml", "at": "/b" }]
 }
 ```
 
 The reported issues are mapped to these four members and compared with the expected ones as an unordered list. Every expected
 issue must be reported, and every reported issue must be expected. Messages, hints, candidates, semantic paths, offsets and
-`line:col` are not compared. Messages and hints are prose that is improved over time, and lines and columns wait for
-[open question 6](#open-questions).
+`line:col` are not compared. Messages and hints are prose that is improved over time. Decision C10 fixed the units of positions
+(UTF-8 byte offsets, lines from 1, columns in code points, §5.9), so a later case format may compare them.
 
 These four are the stable part of what §12.3 and the `issues` table of §14.2 give each issue. Severity is needed because the
 same duplicate is an error in strict mode and a warning in lenient mode (§5.7). The location is needed so that an error found
 at the wrong node does not pass.
 
-**Codes.** The spec has no list of issue codes yet, and §12.3 shows `ref-ambiguous` only as an example. The suite needs a
-fixed vocabulary, and the vocabulary belongs to the spec, since the CLI and the index print the same codes. Until the spec has
-one, no case that expects an issue can be written in its final form ([open question 1](#open-questions)).
+**Codes.** The codes are those of the proposal's Appendix D, which gives each one's severity, its class (structural,
+validation or operation) and the node it is attached to (decision C1). The vocabulary belongs to the spec, since the CLI and the
+index print the same codes. A fixture task that needs a code the appendix lacks proposes it in its pull request, and the next
+round of decisions adopts it into the appendix.
 
 Alternatives that lost:
 
@@ -540,7 +569,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.3.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.4.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -591,10 +620,10 @@ is as easy to write in any language, and its members are defined here once.
 ## Runner self-test
 
 The `selftest` cases check the runner's comparison, not the implementation. They use the `compare` operation, need no profile,
-and are always selected. They exist because the likeliest runner bugs make every case pass. A comparison that reads
-`9007199254740993` as a double, that lets `true` equal `1`, that ignores a member whose value is `null`, or that compares
-unordered lists as sets accepts wrong results without complaint. Each self-test case pairs two values that one specific wrong
-comparison would confuse.
+and are always selected. They exist because the likeliest runner bugs make every case pass, or fail, without complaint. A
+comparison that compares the decimal text of numbers rather than their doubles, that tells `-0` from `0`, that lets `true` equal
+`1`, that ignores a member whose value is `null`, or that compares unordered lists as sets gives wrong verdicts. Each self-test
+case pairs two values that one specific wrong comparison would misjudge.
 
 ---
 
@@ -603,11 +632,13 @@ comparison would confuse.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.3.0-dev", "case_format": 1 }
+{ "version": "0.4.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.3 gives `0.3`), and the release counts the suite's releases under that version, from 0. A release
+  the suite tests (Draft v0.4 gives `0.4`), and the release counts the suite's releases under that version, from 0. The spec's
+  minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
+  the rules, and `version` moves to the new spec version, as `0.4.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -651,15 +682,18 @@ Alternatives that lost:
 ## Samples
 
 - **`cases/selftest/compare.cases.json`** is the runner self-test. It writes the equality rules of §5.8 as data, including
-  types, missing members, Unicode normalization and unordered multisets.
+  numbers as doubles, types, missing members, Unicode normalization and unordered multisets.
 - **`cases/markdown/line-endings.cases.json`** shows byte-exact inputs. The example of §5.3, once with LF and a final newline
-  and once with CRLF and none, gives the value view §5.3 shows. The store sits next to its case file, with its versions
-  manifest.
+  and once with CRLF and none, gives the value view §5.3 shows, which holds no `$key` (decision F9). The value view reads CRLF as
+  `\n` (§5.1, decision C9); the sample's bodies are single lines, so multi-line bodies are left to the Markdown fixtures (#6). The
+  store sits next to its case file, with its versions manifest.
 - **`cases/addresses/appendix-a.cases.json`** applies `resolve` to the ticket of Appendix A, with the results of its address
   table. It covers every row of the table but the last, which is a VQL query. One case is a section reached by a key and a
-  derived anchor that are the same node, which must not be ambiguous (§7.3).
+  derived anchor that are the same node, which must not be ambiguous (§7.3). Another reaches the second section by its derived
+  anchor, `what-was-done`, which the space before its `<a>` element does not change (§6.3, decision C13).
 
-None of them expects an issue, since no issue code is defined yet ([open question 1](#open-questions)).
+None of them expects an issue. The proposal's Appendix D now defines the codes, and the fixture tasks write the first cases that
+expect one.
 
 ---
 
@@ -668,96 +702,36 @@ None of them expects an issue, since no issue code is defined yet ([open questio
 These are for the project owner. Where the spec is silent on something the suite needs, this README does not decide it. Each
 question carries a recommendation where there is one.
 
-1. **Issue codes.** The suite compares issues by code, and the spec defines none (§12.3 shows `ref-ambiguous` as an example).
-   The addition this implies is a normative list of codes, each with its severity in each uniqueness mode, the section that
-   raises it, the node it is attached to (for a duplicate key, the object or the second member, for example), and whether it
-   prevents a value view. The severities need fixing too, `error` and `warning` or more. *Recommendation.* the list goes in a
-   new appendix of the spec, cited from §12.3 and §14.2. The fixture tasks propose codes as they need them, and I0.8 (#9)
-   adopts them into the spec.
-2. **When `parse` fails.** §5.8 says that Markdown to the value view is total, yet §5.3 (a data block right after the title
-   heading, a data block that is not an object), §5.4 (`$` members outside the allowed places) and §8.1 (a `$ref` object with
-   other members) define errors. Does such a record have a value view with an issue, or none? *Recommendation.* `parse` fails
-   only where no value view can be built (syntax errors, values outside the data model of §4.1). Every other error is an issue
-   on a value view, and the code list of question 1 marks which codes are which.
-3. **When `check` fails, and complete reporting.** Does "validation failed" (exit code 4, §12.3) mean at least one issue of
-   severity `error`? Must an implementation report every error, or may it stop at the first? The suite compares the whole set
-   of `check` issues, so it needs every one. *Recommendation.* `check` reports every issue it can find and fails on any error,
-   while `parse` may stop at its first error, which is why failing `parse` inputs hold one error each.
-4. **Numbers outside the exact range.** §4.2 requires integers within ±(2^53−1) exactly, and every other number "at least as
-   an IEEE 754 double". Is an implementation that parses `12345678901234567890` into the double `12345678901234567168`
-   conformant for `parse`? The same holds for decimals with more digits than a double holds. §4.1 also adopts I-JSON, whose
-   RFC says such numbers should not appear, while §4.2 keeps them. *Recommendation.* value views keep every number exactly, as
-   `@vollmond/core` will. §4.1 then adopts I-JSON's restrictions except its limit on numbers. Otherwise the suite needs a
-   second accepted value for every such case.
-5. **Source map spans.** Which bytes does each node's range cover? Does a section run from its heading line to the next
-   heading, with or without trailing blank lines? Is a front-matter or data-block field its value, or its key and its value?
-   Do `$key` and the root have entries? And does the Read profile require source maps at all? §5.9 calls them optional, and
-   §19.1 lists them in the suite. *Recommendation.* decide the spans with the Markdown parser (I1.4, #13), and make source
-   maps a stated option of the Read profile rather than a requirement, since a backend without files has none (§5.9).
-6. **Offsets and positions.** What is the unit of an offset into `$body`, for block anchors (§6.2) and references in prose
-   (§5.9, §14.2), and the base and unit of an issue's line and column (§12.3)? *Recommendation.* offsets in UTF-8 bytes, like
-   the byte ranges of source maps and of `read` (§11.2). Lines and columns from 1, with columns in code points. The suite
-   compares no lines or columns until this is settled.
-7. **Line endings in the value view.** Does the `$body` of a CRLF Markdown record keep `\r\n`, or read as `\n`? The answer
-   decides whether the LF and CRLF forms of one record have the same value view and node versions (§11.3). The sample avoids
-   the question with single-line bodies. *Recommendation.* the value view reads line breaks as `\n`, while edits keep the
-   file's own line endings (§13.3). Otherwise a Windows checkout with git's line-ending conversion would change every
-   multi-line value and node version.
-8. **Singular addresses that fail at evaluation.** §7.4 says a singular address is valid only if each step crosses a level
-   whose keys are unique, and that the checker proves this before evaluating. Two cases escape the proof. In lenient mode,
-   §5.7 says a singular address fails as `ambiguous` where it hits a duplicate, so the proof cannot reject it in advance. And
-   in any mode, §7.3's first step can match both a root member and the anchor of another node, which only evaluation finds.
-   *Recommendation.* §7.4 states that the proof covers the levels an address crosses, and that a singular address can still
-   fail as `ambiguous` at evaluation, in those two cases.
-9. **A selector that matches nothing.** Is it an empty result or a failure? *Recommendation.* an empty result, as for a query
-   with no matches.
-10. **The canonical address of the root.** §7.5 gives none for the root. *Recommendation.* no fragment, the shortest form that
-    §7.1 makes the root. The `address` of the root's target is then `""`, which the Appendix A sample assumes.
-11. **Explicit and derived anchors.** Do they share one namespace, so that an explicit anchor equal to another heading's
-    derived anchor is a duplicate (§9.2)? Which wins in resolution if not? And which text is a heading's derived anchor
-    computed from? The capture of #37 shows GitHub deriving `what-was-done-`, with a trailing hyphen, from Appendix A's
-    heading `## What was done <a id="done" class="decision"></a>`, while §6.3 applied to `$title` gives `what-was-done`. The
-    `anchors` operation returns a list so that it can express any answer. *Recommendation.* one namespace per record, with a
-    collision a duplicate-anchor error, and derived anchors computed as GitHub computes them, with §6.3 corrected in I0.8 from
-    #37's findings.
-12. **`$key` in round trips.** The value view holds the computed `$key` (§5.5), which must never be written (§5.4). Does the
-    value `v` of §5.8's guarantee include `$key`, and what does the serializer do with a `$key` that disagrees with the title
-    or the anchor? *Recommendation.* the serializer ignores `$key` on input, and the guarantee compares against `v` with its
-    `$key` members recomputed.
-13. **Where the round-trip property test lives.** §5.8 says the conformance suite tests the round trip as a property, but a
-    property test generates values and is code, which the suite does not hold. *Recommendation.* each implementation runs the
-    property test in its own tests (fast-check in TypeScript, plan §1.2), the suite holds example round trips and the values
-    that are not representable, and §5.8 says so.
-14. **The serializer's profile.** §19.2 names the serializer of §5.8 in no profile. The Read profile parses, and the Write
-    profile names span-preserving edits. Which profile do `round_trip` cases need? *Recommendation.* Write, since the
-    canonical serializer arrives with I4 (§21).
-15. **The minimal configuration.** §5.7 makes `strict` the default and §9.1 makes a record in no collection valid. What
-    remains open is whether `collections` and `ignore` may be absent, and whether `vmd: 1` is required. *Recommendation.* a
-    `.vmd/config.yaml` holding only `vmd: 1` is valid, which the samples assume.
-16. **Cases that cannot be files.** The path rules of §3.2 forbid names that cannot be checked out everywhere, such as two
-    names differing only by case (one file on macOS and Windows file systems), Windows reserved names, and paths that a
-    Windows checkout cannot hold. Windows limits paths to 260 characters unless long paths are enabled, which is less than
-    §3.2's 1024 bytes once the checkout's own directory is added. Cases for these rules cannot be fixture files.
-    *Recommendation.* leave them out for now. A later case format can add a manifest store, a JSON file from store paths to
-    contents that the runner gives its implementation through an in-memory backend, used only for such cases.
-17. **Query details.** Several points of §10 need an answer before VQL cases can be written. They are how the default `fields`
-    of the `records` target are represented, whether totals that an implementation may estimate can be compared, the order of
-    results with equal sort keys and across records ("by address" in §10.5, as a byte order of store paths and then of exact
-    paths?), which case-insensitive comparison applies to non-ASCII strings (Unicode simple case folding?), and how full text
-    is cut into tokens. *Recommendation.* settle them in the VQL fixtures task (#34) with additions to §10, ties ordered by
-    store path and then by document order in bytes, and Unicode simple case folding.
-18. **Gaps in addresses and references.**
-    - §7.3's steps match "a field", and fields are the members not beginning with `$` (§5.2), yet `#what-is-confirmed/$body`
-      is used throughout. *Recommendation.* a step also matches the reserved members `$title`, `$body` and `$sections`.
-    - Is a link in a `$title`, or in the `$body` of a YAML or JSON record, a reference (§8.1)? *Recommendation.* yes for both,
-      since both are Markdown.
-    - §6.4 and §9.3 let tags feed references declared `cardinality: many`, and §7.4 counts a tag as a selector, but the
-      address grammar of §7.1 has no syntax for a tag. *Recommendation.* add one, or say that only VQL selects by tag.
-    - The `aliased` status (§8.5) needs aliases, which are in the Refactor profile, while references are in Validate (§19.2).
-      *Recommendation.* reading `.vmd/aliases.jsonl` moves into Validate, and writing it stays in Refactor.
-19. **When the spec's version changes.** The suite's version follows the spec's. The draft changes under one version number as
-    decisions are applied (Draft v0.3 took several rounds). *Recommendation.* raise the spec's minor version at each round of
-    decisions applied to it, so that a suite release always names one state of the rules.
-20. **Where the TypeScript runner lives.** The plan's §1.1 places a TypeScript runner in `conformance/`. This README keeps
-    runners with their implementations, so that `conformance/` stays data only. *Recommendation.* the runner goes in the
-    workspace (#19), §1.1 changes accordingly, and `conformance/` needs no `package.json` (#2).
+The earlier version of this README asked twenty questions. The decisions of phase I0 answered all of them except the tenth
+and part of the seventeenth, which remain below as questions 1 and 2. The answered ones, with the decisions that answered them:
+
+| Earlier question | Decisions |
+|---|---|
+| 1. Issue codes | C1 |
+| 2. When `parse` fails | C2, F1 |
+| 3. When `check` fails, and complete reporting | C2, F1 |
+| 4. Numbers outside the exact range | C4, C5, C6, F2 |
+| 5. Source map spans | C11 |
+| 6. Offsets and positions | C10 |
+| 7. Line endings in the value view | C9 |
+| 8. Singular addresses that fail at evaluation | C18 |
+| 9. A selector that matches nothing | C19 |
+| 11. Explicit and derived anchors | C12 to C16, F5 |
+| 12. `$key` in round trips | F9, which took `$key` out of the value view |
+| 13. Where the round-trip property test lives | C24 |
+| 14. The serializer's profile | C24 |
+| 15. The minimal configuration | C3 |
+| 16. Cases that cannot be files | C26 |
+| 17. Query details, for the order of ties and case folding | C25, F10 |
+| 18. Gaps in addresses and references | C17, C20 with F7, C21, C22 |
+| 19. When the spec's version changes | C27 |
+| 20. Where the TypeScript runner lives | C29, L1 |
+
+The two that remain:
+
+1. **The canonical address of the root.** §7.5 gives none for the root. *Recommendation.* no fragment, the shortest form that
+   §7.1 makes the root. The `address` of the root's target is then `""`, which the Appendix A sample assumes.
+2. **Query details.** Before VQL cases can be written, three points of §10 still need an answer. They are how the default
+   `fields` of the `records` target are represented, whether totals that an implementation may estimate can be compared, and how
+   full text is cut into tokens. *Recommendation.* settle them in the VQL fixtures task (#34), as decision C25 assigns them, with
+   additions to §10.

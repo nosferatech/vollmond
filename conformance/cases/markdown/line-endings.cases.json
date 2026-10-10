@@ -8,7 +8,7 @@
   "cases": [
     {
       "id": "lf",
-      "description": "The example of §5.3 with LF line endings and a final newline gives the value view §5.3 shows.",
+      "description": "The example of §5.3 with LF line endings and a final newline gives the value view §5.3 shows, which holds no section keys.",
       "input": { "record": "lf.md" },
       "expect": {
         "result": {
@@ -17,7 +17,6 @@
           "$body": "Seen twice on the perf box.",
           "$sections": [
             {
-              "$key": "what-is-confirmed",
               "$title": "What is confirmed",
               "runs": ["R0007", "R0009"],
               "$body": "The flusher waits on a barrier that never completes."
@@ -28,7 +27,7 @@
     },
     {
       "id": "crlf-no-final-newline",
-      "description": "The same record with CRLF line endings and no final newline gives the same value view.",
+      "description": "The same record with CRLF line endings and no final newline gives the same value view, since line breaks read as LF.",
       "input": { "record": "crlf.md" },
       "expect": {
         "result": {
@@ -37,7 +36,6 @@
           "$body": "Seen twice on the perf box.",
           "$sections": [
             {
-              "$key": "what-is-confirmed",
               "$title": "What is confirmed",
               "runs": ["R0007", "R0009"],
               "$body": "The flusher waits on a barrier that never completes."

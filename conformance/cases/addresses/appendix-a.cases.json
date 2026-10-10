@@ -8,7 +8,7 @@
   "cases": [
     {
       "id": "no-fragment",
-      "description": "A record path without a fragment is the record's root; its canonical address is taken as no fragment (open question 10).",
+      "description": "A record path without a fragment is the record's root; its canonical address is taken as no fragment (open question 1).",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]
@@ -80,6 +80,15 @@
       "id": "explicit-anchor",
       "description": "An explicit anchor on a heading reaches its section, and is its canonical address.",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#done" },
+      "expect": {
+        "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1", "address": "#done" }]
+      }
+    },
+    {
+      "id": "derived-anchor-beside-explicit-anchor",
+      "description": "The same section's derived anchor is what-was-done, without a trailing hyphen, although a space precedes its <a> element; the canonical address stays the explicit anchor.",
+      "spec": ["6.3", "7.3", "7.5", "A"],
+      "input": { "address": "tickets/0171-clean-root-in-scattered-record.md#what-was-done" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "/$sections/1", "address": "#done" }]
       }
