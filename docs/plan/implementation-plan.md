@@ -16,13 +16,19 @@ Decided for this plan (project owner, 2026-10-09):
 
 ### 1.1 Packages
 
-An npm workspace with two packages to start, split further only when a consumer needs a part without the rest:
+One top-level directory per language (project owner, 2026-10-10), the model being Apache Arrow's layout of `cpp/`, `python/` and
+`js/` around a shared specification and integration tests. The TypeScript implementation lives in `js/`; a Python implementation
+will go in `python/` later. `docs/` and `conformance/` stay at the root and are shared by all languages. Each language's
+conformance runner lives next to its implementation (decision C29), not in `conformance/`.
 
-| Package | Contents | Runs in |
+The TypeScript workspace in `js/` is an npm workspace with two packages to start, split further only when a consumer needs a part
+without the rest:
+
+| Location | Contents | Runs in |
 |---|---|---|
-| `@vollmond/core` | the data model, the three parsers and serializers, addresses, references, schemas, VQL, the index tables, the storage contract's types. No Node APIs | Node, browsers, Lambda |
-| `@vollmond/cli` | the `vmd` command, the local filesystem and git working-copy backends, the local index cache | Node |
-| `conformance/` | the language-neutral conformance suite (§19.1 of the proposal): fixtures and the runner contract, no code beyond a TypeScript runner | any implementation |
+| `js/packages/core` (`@vollmond/core`) | the data model, the three parsers and serializers, addresses, references, schemas, VQL, the index tables, the storage contract's types. No Node APIs | Node, browsers, Lambda |
+| `js/packages/cli` (`@vollmond/cli`) | the `vmd` command, the local filesystem and git working-copy backends, the local index cache | Node |
+| `conformance/` | the language-neutral conformance suite (§19.1 of the proposal): fixtures and the runner contract, no code. Each language's runner is in that language's directory | any implementation |
 
 `core` stays free of Node APIs so that the website and the Lambda functions of I6 and I7 use the same code. Anything that needs the
 filesystem, `git` or a process goes in `cli`, behind the storage contract's interface.
@@ -33,13 +39,14 @@ filesystem, `git` or a process goes in `cli`, behind the storage contract's inte
 |---|---|---|
 | Runtime | Node 24 LTS | current LTS; built-in `util.parseArgs` covers the CLI's argument parsing. Node is not installed on the development machine yet |
 | Language | TypeScript, `strict`, ESM only | |
-| Package manager | npm workspaces | no extra tool to install |
+| Package manager | npm workspaces, in `js/` | no extra tool to install |
 | Tests | Vitest, with fast-check for property tests | fast, TypeScript without a build step; fast-check drives the round-trip properties of §5.8 |
 | Lint and format | Biome | one tool for both, no plugin set to maintain |
 | Build | `tsc` for the packages | no bundler until the browser build of I7 |
-| CI | GitHub Actions on pull requests: type check, lint, tests, conformance | free for a public repository; runner start-up time does not matter for code CI |
+| CI | GitHub Actions on pull requests: type check, lint, tests, conformance. One job per language directory (`js`, later `python`), and a `check` job that reports their combined result | free for a public repository; runner start-up time does not matter for code CI |
 
-Exact dependency versions are pinned when the workspace is created. The libraries are those of the proposal's Appendix C:
+This tooling is for the TypeScript implementation and is configured in `js/`; the Python tooling will be chosen when `python/`
+starts. Exact dependency versions are pinned when the workspace is created. The libraries are those of the proposal's Appendix C:
 `micromark` and `mdast-util-from-markdown` with the GFM and front-matter extensions, `yaml`, `jsonc-parser`, Ajv with
 `ajv-formats`, `github-slugger`.
 
