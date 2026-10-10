@@ -46,7 +46,7 @@
     },
     {
       "id": "parent-is-nearest-lower-level",
-      "description": "A section's parent is the nearest preceding heading of a lower level, or the root, so a level-3 heading before any level-2 one and the level-2 heading after it are both children of the root.",
+      "description": "A section's parent is the nearest preceding heading of a lower level, or the root, so a level-3 heading before any level-2 one and the level-2 heading after it are both children of the root. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "deeper-first.md" },
       "expect": {
         "result": {
@@ -64,7 +64,7 @@
     },
     {
       "id": "level-1-sections",
-      "description": "Without a title heading, level-1 headings are sections like any other, and a level-2 heading nests under the level-1 heading before it.",
+      "description": "Without a title heading, level-1 headings are sections like any other, and a level-2 heading nests under the level-1 heading before it. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "h1-sections.md" },
       "expect": {
         "result": {
@@ -82,7 +82,7 @@
     },
     {
       "id": "repeats-kept-in-order",
-      "spec": ["5.3", "5.8", "9.2"],
+      "spec": ["5.3", "5.7", "5.8", "9.2"],
       "description": "Two sections with the same title are two items in document order; the duplicate is a validation issue for check, not a structural error, so parse succeeds.",
       "input": { "record": "repeats.md" },
       "expect": {

@@ -26,7 +26,7 @@
     },
     {
       "id": "root-without-title",
-      "description": "Without a title heading the root's fields still come from the front matter, and the root's $body is the text between the front matter and the first heading.",
+      "description": "Without a title heading the root's fields still come from the front matter, and the root's $body is the text between the front matter and the first heading, which rests on a reading of §5.3, since it defines $body only after a heading.",
       "input": { "record": "no-title.md" },
       "expect": {
         "result": {
@@ -38,7 +38,7 @@
     },
     {
       "id": "not-at-the-start",
-      "description": "A --- line after a blank line is not at the very start of the file, so it is a thematic break, and the next --- line makes 'status: Open' a setext heading (CommonMark 0.31.2, 4.1 and 4.3); the record has no fields.",
+      "description": "A --- line after a blank line is not at the very start of the file, so it is a thematic break, and the next --- line makes 'status: Open' a setext heading (CommonMark 0.31.2, 4.1 and 4.3); the record has no fields. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "not-at-start.md" },
       "expect": {
         "result": {

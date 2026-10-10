@@ -75,7 +75,7 @@
     },
     {
       "id": "level-1-section",
-      "description": "A level-1 heading that is not the title heading is a section, so the data block after it holds that section's fields and is not misplaced.",
+      "description": "A level-1 heading that is not the title heading is a section, so the data block after it holds that section's fields and is not misplaced. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "h1-section.md" },
       "expect": {
         "result": {

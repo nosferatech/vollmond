@@ -20,7 +20,7 @@
     },
     {
       "id": "h1-not-first-is-a-section",
-      "description": "A level-1 heading after a paragraph is not the first block, so the root has no $title and the heading starts a section.",
+      "description": "A level-1 heading after a paragraph is not the first block, so the root has no $title and the heading starts a section. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "h1-not-first.md" },
       "expect": {
         "result": {
@@ -31,7 +31,7 @@
     },
     {
       "id": "several-h1-are-sections",
-      "description": "With several level-1 headings the root has no $title, and every heading is a section of the root.",
+      "description": "The first block is a paragraph, so the root has no $title, and each level-1 heading is a section of the root; the case does not test the only-level-1-heading clause, whose input needs a root without text. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
       "input": { "record": "several-h1.md" },
       "expect": {
         "result": {
@@ -64,7 +64,7 @@
     {
       "id": "anchor-and-tags",
       "spec": ["5.3", "6.2"],
-      "description": "The title heading's anchor element gives the root's $anchor and $tags, and is not part of its $title.",
+      "description": "The title heading's anchor element gives the root's $anchor and $tags, and is not part of its $title; $tags as the class tokens in source order is a reading, since the draft states neither the order nor what a repeated token gives.",
       "input": { "record": "anchor-and-tags.md" },
       "expect": {
         "result": { "$title": "Record", "$anchor": "top", "$tags": ["incident", "open"], "$body": "Root text." }

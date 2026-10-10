@@ -33,6 +33,18 @@
       }
     },
     {
+      "id": "lone-cr",
+      "description": "A lone CR is a line ending (CommonMark 0.31.2, 2.1), so a file with CR line endings reads every line break as \\n.",
+      "input": { "record": "lone-cr.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Line one\nline two." }]
+        }
+      }
+    },
+    {
       "id": "setext-headings",
       "description": "Setext underlines followed by CRLF make headings as with LF (CommonMark 0.31.2, 2.1 and 4.3), and the last body ends without a final newline.",
       "input": { "record": "setext.md" },
