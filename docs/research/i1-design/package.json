@@ -1,0 +1,23 @@
+{
+  "name": "vollmond-i1-design-measurements",
+  "private": true,
+  "type": "module",
+  "description": "Measurements for docs/design/i1-read.md: parser behavior, position units and Markdown parse time",
+  "dependencies": {
+    "jsonc-parser": "3.3.1",
+    "markdown-it": "15.0.2",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm": "3.1.0",
+    "mdast-util-gfm-autolink-literal": "2.0.1",
+    "mdast-util-gfm-strikethrough": "2.0.1",
+    "mdast-util-gfm-table": "2.0.0",
+    "mdast-util-gfm-task-list-item": "2.0.0",
+    "micromark": "4.0.3",
+    "micromark-extension-gfm": "3.0.0",
+    "micromark-extension-gfm-autolink-literal": "2.1.0",
+    "micromark-extension-gfm-strikethrough": "2.1.0",
+    "micromark-extension-gfm-table": "2.1.2",
+    "micromark-extension-gfm-task-list-item": "2.1.0",
+    "yaml": "2.9.1"
+  }
+}

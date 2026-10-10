@@ -1,0 +1,12 @@
+input: synthetic (the proposal, repeated), 748910 bytes, 5100 non-ASCII bytes
+node 24.21.0, v8 13.6.233.17-node.53
+mdast, gfm() bundle (adds footnotes)         min  302 ms   median  337 ms
+mdast, GFM 0.29 extensions                   min  280 ms   median  291 ms
+mdast, GFM 0.29 without autolink literals    min  183 ms   median  188 ms
+mdast, CommonMark only                       min  131 ms   median  141 ms
+markdown-it, CommonMark preset               min   13 ms   median   14 ms
+markdown-it, block rules only                min    4 ms   median    4 ms
+TextEncoder.encode of the whole text         min    1 ms   median    1 ms
+top-level blocks 1975, top-level headings 535
+"[^1]: target.md": GFM 0.29 set gives definition, heading; gfm() bundle gives footnoteDefinition, heading
+heading children [type, offset, column]: [["text",8,3],["html",13,8],["html",23,18]] (code points would give the html node column 7, UTF-16 gives 8)

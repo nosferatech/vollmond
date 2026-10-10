@@ -1,0 +1,12 @@
+input: Minimal_Log.md, 672894 bytes, 2307 non-ASCII bytes
+node 24.21.0, v8 13.6.233.17-node.53
+mdast, gfm() bundle (adds footnotes)         min  209 ms   median  223 ms
+mdast, GFM 0.29 extensions                   min  199 ms   median  209 ms
+mdast, GFM 0.29 without autolink literals    min  134 ms   median  139 ms
+mdast, CommonMark only                       min  108 ms   median  120 ms
+markdown-it, CommonMark preset               min   12 ms   median   13 ms
+markdown-it, block rules only                min    3 ms   median    3 ms
+TextEncoder.encode of the whole text         min    1 ms   median    1 ms
+top-level blocks 225, top-level headings 49
+"[^1]: target.md": GFM 0.29 set gives definition, heading; gfm() bundle gives footnoteDefinition, heading
+heading children [type, offset, column]: [["text",8,3],["html",13,8],["html",23,18]] (code points would give the html node column 7, UTF-16 gives 8)
