@@ -351,16 +351,18 @@ issues are those errors, the codes whose class is structural in the proposal's A
 the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing case
 may expect several.
 
-**A rule for case authors.** An input with a syntax error holds that one error and no other, and its case expects only it. A
-syntax error can hide what follows it, so an implementation that stops there and one that recovers would otherwise report
-different sets.
+**A rule for case authors.** A syntax error is reported once per parse unit (a file, its front matter or one data block, §9.2,
+decision K2), so a case expects one `syntax-error` for each unit that has one, however many the unit holds, and the other units
+of the record are still parsed. A unit with a syntax error holds no other structural error, since a syntax error can hide what
+follows it, and an implementation that stops there and one that recovers would otherwise report different sets.
 
 ### source_map
 
 The result is an object whose member names are exact paths of nodes in the value view, and whose values are `[start, end]`,
 zero-based UTF-8 byte offsets into the file with the end exclusive (§5.9, decision C10). Lines and columns follow from the
-offsets and the file, so they are not compared. Which nodes have an entry and which bytes each one covers is fixed by the Markdown
-parser task (I1.4, #13; decision C11), and `source_map` cases wait for it. Source maps are an option of the Read profile that an
+offsets and the file, so they are not compared. Which bytes each node's range covers is §5.9's table (decision K1), with a
+member's range being its value; the `memberRange` of a member is not part of this result. Which nodes have an entry is fixed by
+the Markdown parser task (I1.4, #13), and `source_map` cases wait for it. Source maps are an option of the Read profile that an
 implementation declares (§19.2), so an implementation without them skips these cases by declaration.
 
 ### meta

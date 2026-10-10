@@ -1,0 +1,23 @@
+{
+  "defaults": {"spec": ["5.1", "D"], "profiles": ["read"], "operation": "parse", "input": {"store": "utf-8"}},
+  "cases": [
+    {
+      "id": "invalid-utf-8-json",
+      "description": "A JSON record holding the byte 0xFF, which is not valid UTF-8, is a syntax error at the root (§5.1, decision K5).",
+      "input": {"record": "invalid.json"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "invalid.json", "at": ""}]}
+    },
+    {
+      "id": "invalid-utf-8-yaml",
+      "description": "A YAML record holding the byte 0xFF, which is not valid UTF-8, is a syntax error at the root (§5.1, decision K5).",
+      "input": {"record": "invalid.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "invalid.yaml", "at": ""}]}
+    },
+    {
+      "id": "invalid-utf-8-md",
+      "description": "A Markdown record holding the byte 0xFF, which is not valid UTF-8, is a syntax error at the root (§5.1, decision K5).",
+      "input": {"record": "invalid.md"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "invalid.md", "at": ""}]}
+    }
+  ]
+}

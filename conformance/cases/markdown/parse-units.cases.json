@@ -1,0 +1,11 @@
+{
+  "defaults": {"spec": ["9.2", "D"], "profiles": ["read"], "operation": "parse", "input": {"store": "parse-units"}},
+  "cases": [
+    {
+      "id": "one-syntax-error-per-unit",
+      "description": "A syntax error in the front matter does not stop the data blocks from being parsed, and each unit with a syntax error gives one syntax-error: the front matter at the root, and each data block at its section (§9.2, decision K2).",
+      "input": {"record": "two-units.md"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "two-units.md", "at": ""}, {"code": "syntax-error", "severity": "error", "path": "two-units.md", "at": "/$sections/0"}, {"code": "syntax-error", "severity": "error", "path": "two-units.md", "at": "/$sections/1"}]}
+    }
+  ]
+}

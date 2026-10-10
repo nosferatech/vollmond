@@ -87,6 +87,34 @@
         "fails": true,
         "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$title" }]
       }
+    },
+    {
+      "id": "title-closing-sequence-refused",
+      "spec": ["5.8", "6.3"],
+      "description": "A $title ending in a space and #, which an ATX heading reads as a closing sequence, does not read back as itself from ## and the title, so the Markdown serializer refuses it (§5.8, decision K8).",
+      "input": {"value": {"$sections": [{"$title": "Title #"}]}, "format": "md"},
+      "expect": {"fails": true, "issues": [{"code": "not-representable", "severity": "error", "path": null, "at": "/$sections/0/$title"}]}
+    },
+    {
+      "id": "title-outer-space-refused",
+      "spec": ["5.8", "6.3"],
+      "description": "A $title with white space at its start, which an ATX heading trims, does not read back as itself from ## and the title, so the Markdown serializer refuses it (§5.8, decision K8).",
+      "input": {"value": {"$sections": [{"$title": " Spaced"}]}, "format": "md"},
+      "expect": {"fails": true, "issues": [{"code": "not-representable", "severity": "error", "path": null, "at": "/$sections/0/$title"}]}
+    },
+    {
+      "id": "title-anchor-element-refused",
+      "spec": ["5.8", "6.3"],
+      "description": "A $title holding an anchor element, which a heading reads as its anchor, does not read back as itself from ## and the title, so the Markdown serializer refuses it (§5.8, decision K8).",
+      "input": {"value": {"$sections": [{"$title": "With <a id=\"x\"></a> anchor"}]}, "format": "md"},
+      "expect": {"fails": true, "issues": [{"code": "not-representable", "severity": "error", "path": null, "at": "/$sections/0/$title"}]}
+    },
+    {
+      "id": "title-ending-in-hash-kept",
+      "spec": ["5.8", "6.3"],
+      "description": "A $title ending in # without a space before it, as C#, is no closing sequence and round-trips (§5.8).",
+      "input": {"value": {"$sections": [{"$title": "C#"}]}, "format": "md"},
+      "expect": {}
     }
   ]
 }

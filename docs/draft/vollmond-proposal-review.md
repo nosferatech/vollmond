@@ -744,3 +744,34 @@ owner, who accepted every recommendation on card J. Section numbers refer to Dra
 Applying J4 also found that the `yaml` package (2.9.1) does not treat a lone CR as a line break, which YAML 1.2.2 (section 5.4)
 does, and fails on a mapping with CR line endings. §5.1 notes it next to the U+FEFF trap; the agent added the note as a fact
 measured on 2026-10-10, not as a decision.
+
+## Answers from the phase I1 design (K)
+
+Recorded 2026-10-10, and applied to Draft v0.7. The design of phase I1 ([docs/design/i1-read.md](../design/i1-read.md), #59)
+ended with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation. The
+answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that the design records, and
+K14 is decision J2.
+
+- **K1. Spans** (the design's section 3.6) go into §5.9 and §6.2. A section's range, from its heading line to the next heading or
+  the end of the file with its trailing blank lines, serves `get`, `set` and `delete`, so sections tile the file. An object member
+  has a `range`, its value, which `set` replaces, and a `memberRange`, from its key to its value, which `delete` removes (§5.10's
+  `@source`). A block anchor's range is its CommonMark block in the `$body` without the trailing line break. This settles the
+  block-anchor ranges that C11 and I1.1 had left to task I1.4: the two suite cases that waited on them lose `pending`, and #7
+  closes.
+- **K2. One `syntax-error` per parse unit**, a file, its front matter or one data block, while the other units are still parsed
+  (§9.2, Appendix D). This refines C2's "every error": a recovering parser's later errors after a syntax error are mostly
+  cascades, and the suite expects one issue for one. The suite README's rule for case authors now speaks of parse units.
+- **K4. Lenient mode in §7.5.** Lenient mode makes form 2 non-singular only where evaluation meets a duplicate, as §7.4 lists it
+  among the cases that fail at evaluation; §7.5's wording is fixed.
+- **K5. Invalid UTF-8** is a `syntax-error` at `""`, in every format (§5.1), with a case in each.
+- **K7. Leading zeros in an index step**, as in `#links/01`, match nothing, in a semantic path as RFC 6901 requires of an exact
+  one (§7.3), with cases for both kinds of path.
+- **K8. The slug of a JSON or YAML section's `$title`** is computed as if the title were the content of an ATX heading, `## `
+  followed by the title, so a section keeps its key across formats (§5.5). A title that would not read back that way, ending in a
+  closing sequence such as ` #`, with white space at either end, or holding an anchor element, is not representable as Markdown
+  (§5.8).
+- **K12. `storage-failed`**, a new operation code, for a read that the backend cannot complete, such as one refused by a
+  permission error, which is not `address-not-found` (§11.2, Appendix D).
+- **K13. The portable regex** (§11.4). The claim that excluding backreferences and lookaround makes matching linear everywhere is
+  corrected: it holds for RE2, while JavaScript's and Python's engines backtrack, and `(a+)+$` needs neither feature. The service
+  backend will use an RE2 engine (`re2js`, unreviewed); the local CLI runs the user's own patterns.
