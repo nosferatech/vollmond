@@ -26,7 +26,7 @@
     },
     {
       "id": "root-without-title",
-      "description": "Without a title heading the root's fields still come from the front matter, and the root's $body is the text between the front matter and the first heading, which rests on a reading of §5.3, since it defines $body only after a heading.",
+      "description": "Without a title heading the root's fields still come from the front matter, and the root's $body is the text between the front matter and the first heading.",
       "input": { "record": "no-title.md" },
       "expect": {
         "result": {
@@ -38,7 +38,7 @@
     },
     {
       "id": "not-at-the-start",
-      "description": "A --- line after a blank line is not at the very start of the file, so it is a thematic break, and the next --- line makes 'status: Open' a setext heading (CommonMark 0.31.2, 4.1 and 4.3); the record has no fields. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "description": "A --- line after a blank line is not at the very start of the file, so it is a thematic break, and the next --- line makes 'status: Open' a setext heading (CommonMark 0.31.2, 4.1 and 4.3); the record has no fields, and the root's $body is the text before the first heading.",
       "input": { "record": "not-at-start.md" },
       "expect": {
         "result": {
@@ -55,6 +55,100 @@
       "expect": {
         "fails": true,
         "issues": [{ "code": "dollar-member", "severity": "error", "path": "dollar-key.md", "at": "/$key" }]
+      }
+    },
+    {
+      "id": "unclosed",
+      "description": "Front matter without a closing delimiter is a structural error at the root, rather than a thematic break followed by prose.",
+      "input": { "record": "unclosed.md" },
+      "expect": { "fails": true, "issues": [{ "code": "syntax-error", "severity": "error", "path": "unclosed.md", "at": "" }] }
+    },
+    {
+      "id": "dots-do-not-close",
+      "description": "A ... line is not a delimiter, although Jekyll accepts it, so front matter closed only by ... is unclosed.",
+      "input": { "record": "dots-do-not-close.md" },
+      "expect": { "fails": true, "issues": [{ "code": "syntax-error", "severity": "error", "path": "dots-do-not-close.md", "at": "" }] }
+    },
+    {
+      "id": "delimiter-with-trailing-whitespace",
+      "description": "A delimiter line is --- optionally followed by spaces or tabs, so both lines delimit.",
+      "input": { "record": "delimiter-trailing-space.md" },
+      "expect": { "result": { "$title": "Record", "status": "Open", "$body": "Root text." } }
+    },
+    {
+      "id": "indented-dashes-do-not-close",
+      "description": "A delimiter is --- at the start of a line, so an indented --- inside a block scalar is part of the value.",
+      "input": { "record": "indented-dashes.md" },
+      "expect": { "result": { "$title": "Record", "notes": "---\nmore\n", "$body": "Root text." } }
+    },
+    {
+      "id": "empty",
+      "description": "Empty front matter gives the root no fields.",
+      "input": { "record": "empty.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text." } }
+    },
+    {
+      "id": "comments-only",
+      "description": "Front matter holding only a YAML comment is empty, and gives the root no fields.",
+      "input": { "record": "comments-only.md" },
+      "expect": { "result": { "$title": "Record", "$body": "Root text." } }
+    },
+    {
+      "id": "sequence-not-an-object",
+      "description": "Front matter holding a YAML sequence is not an object, which is data-block-not-object at the root.",
+      "input": { "record": "sequence.md" },
+      "expect": { "fails": true, "issues": [{ "code": "data-block-not-object", "severity": "error", "path": "sequence.md", "at": "" }] }
+    },
+    {
+      "id": "scalar-not-an-object",
+      "description": "Front matter holding a plain scalar is not an object, which is data-block-not-object at the root.",
+      "input": { "record": "scalar.md" },
+      "expect": { "fails": true, "issues": [{ "code": "data-block-not-object", "severity": "error", "path": "scalar.md", "at": "" }] }
+    },
+    {
+      "id": "syntax-error",
+      "spec": ["5.3", "9.2"],
+      "description": "Front matter holding an unclosed flow sequence does not parse, which is a syntax error about the whole record, so at the root.",
+      "input": { "record": "syntax-error.md" },
+      "expect": { "fails": true, "issues": [{ "code": "syntax-error", "severity": "error", "path": "syntax-error.md", "at": "" }] }
+    },
+    {
+      "id": "byte-order-mark-skipped",
+      "description": "A UTF-8 byte order mark at the start of the file is skipped, so the front matter after it still starts the file.",
+      "input": { "record": "byte-order-mark.md" },
+      "expect": { "result": { "$title": "Record", "status": "Open", "$body": "Root text." } }
+    },
+    {
+      "id": "dollar-section-members",
+      "spec": ["5.3", "5.4"],
+      "description": "The section members $title, $anchor, $tags, $body and $sections at the top of front matter are each dollar-member, since a Markdown root's title, anchor, tags, body and sections have their own syntax.",
+      "input": { "record": "dollar-section-members.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$title" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$anchor" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$tags" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$body" },
+          { "code": "dollar-member", "severity": "error", "path": "dollar-section-members.md", "at": "/$sections" }
+        ]
+      }
+    },
+    {
+      "id": "dollar-schema-allowed",
+      "spec": ["5.3", "5.4"],
+      "description": "$schema at the top of front matter is the root's $schema, stored data that vmd does not interpret.",
+      "input": { "record": "dollar-schema.md" },
+      "expect": { "result": { "$schema": "https://example.com/s.json", "$title": "Record", "status": "Open", "$body": "Root text." } }
+    },
+    {
+      "id": "dollar-unknown",
+      "spec": ["5.3", "9.1"],
+      "description": "Another $ member at the top of front matter may be a section member of a newer minor version, so it is feature-unsupported at the member.",
+      "input": { "record": "dollar-unknown.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "feature-unsupported", "severity": "error", "path": "dollar-unknown.md", "at": "/$foo" }]
       }
     }
   ]

@@ -1,0 +1,92 @@
+{
+  "defaults": {
+    "spec": ["5.8"],
+    "profiles": ["write"],
+    "operation": "round_trip"
+  },
+  "cases": [
+    {
+      "id": "body-is-a-delimiter-line",
+      "description": "A root with no fields and no title whose $body is a --- line is written with empty front matter first, so the body is not read as front matter (§5.8); it parses back to the same value.",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$body": "---" }, "format": "md" },
+      "expect": {}
+    },
+    {
+      "id": "body-starts-with-a-delimiter-line",
+      "description": "The same for a $body whose first line is --- followed by more text; the --- after the empty front matter is a thematic break.",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$body": "---\n\nAfter the break." }, "format": "md" },
+      "expect": {}
+    },
+    {
+      "id": "body-delimiter-with-a-field",
+      "description": "A root with a field already has front matter, so a $body that starts with --- follows it and round-trips.",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "status": "Open", "$body": "---" }, "format": "md" },
+      "expect": {}
+    },
+    {
+      "id": "empty-root-body-refused",
+      "description": "An empty $body is refused by the Markdown serializer, since Markdown cannot tell it from an absent one (§5.3, §5.8).",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$title": "Record", "$body": "" }, "format": "md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$body" }]
+      }
+    },
+    {
+      "id": "empty-section-body-refused",
+      "description": "An empty $body on a section is refused too, at that section's $body.",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$sections": [{ "$title": "Part", "$body": "" }] }, "format": "md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$sections/0/$body" }]
+      }
+    },
+    {
+      "id": "empty-body-yaml",
+      "description": "An empty $body converts to YAML, which every value does (§5.8).",
+      "input": { "value": { "$title": "Record", "$body": "" }, "format": "yaml" },
+      "expect": {}
+    },
+    {
+      "id": "trailing-no-break-space-kept",
+      "description": "Trailing whitespace means spaces, tabs and line breaks only, so a $body ending in U+00A0 is representable and round-trips (§5.3, §5.8).",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$title": "Record", "$body": "Text.\u00a0" }, "format": "md" },
+      "expect": {}
+    },
+    {
+      "id": "trailing-space-refused",
+      "description": "A $body ending in a space has trailing whitespace, which Markdown cannot keep, so the serializer refuses it.",
+      "input": { "value": { "$title": "Record", "$body": "Text. " }, "format": "md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$body" }]
+      }
+    },
+    {
+      "id": "multi-line-section-title-refused",
+      "description": "A $title of two lines, which a multi-line setext heading parses to, cannot be written back (§5.3, §5.8).",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$sections": [{ "$title": "First line\nsecond line" }] }, "format": "md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$sections/0/$title" }]
+      }
+    },
+    {
+      "id": "multi-line-root-title-refused",
+      "description": "The single-line rule covers the root's $title too, which a multi-line setext title heading parses to (§5.8).",
+      "spec": ["5.3", "5.8"],
+      "input": { "value": { "$title": "First line\nsecond line" }, "format": "md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "not-representable", "severity": "error", "path": null, "at": "/$title" }]
+      }
+    }
+  ]
+}

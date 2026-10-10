@@ -187,6 +187,108 @@
       "description": "Without a schema, values are plain strings and numbers, so a record in no collection holding an impossible date and strings that no int64 or decimal reads reports nothing.",
       "input": { "records": ["unschematized/plain-values.json"] },
       "expect": {}
+    },
+    {
+      "id": "date-time-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6", "RFC 5234 2.3"],
+      "description": "The assertion accepts the lexical space of RFC 3339's date-time production, not only the canonical form (§4.3): the offset +00:00, lower-case t and z (ABNF strings are case-insensitive, RFC 5234, section 2.3), a fraction of a second and the offset -00:00.",
+      "input": { "records": ["date-time-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "date-time-space-separator-invalid",
+      "description": "A space between date and time, which a NOTE of RFC 3339, section 5.6, lets applications use, is not part of the date-time production, so it is a schema violation (§4.3).",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6"],
+      "input": { "records": ["date-time-space-separator.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "date-time-space-separator.json", "at": "/date-time/0" }
+        ]
+      }
+    },
+    {
+      "id": "time-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6", "RFC 3339 4.3"],
+      "description": "RFC 3339 full-times with a fraction of a second, a leap second, the offset -00:00 and a lower-case z are valid times (§4.3).",
+      "input": { "records": ["time-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "local-date-time-lexical-forms-valid",
+      "description": "TOML 1.0.0's local date-time accepts a space or a lower-case t between date and time, and any number of fractional digits (§4.3), so these are valid although only the T form is canonical.",
+      "input": { "records": ["local-date-time-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "duration-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 A", "RFC 5234 2.3"],
+      "description": "pt10m (ABNF strings are case-insensitive), PT0S, P2W and a duration with every unit match the duration of RFC 3339, Appendix A (§4.3).",
+      "input": { "records": ["duration-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "duration-iso-only-forms-invalid",
+      "description": "PT1.5S (a fraction), P1Y3D and PT1H30S (a skipped unit) and P1W2D (weeks with days) are ISO 8601 durations but not RFC 3339, Appendix A ones, to which §4.3 pins duration.",
+      "spec": ["4.3", "9.2", "RFC 3339 A"],
+      "input": { "records": ["duration-iso-only.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "duration-iso-only.json", "at": "/duration/0" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-iso-only.json", "at": "/duration/1" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-iso-only.json", "at": "/duration/2" },
+          { "code": "schema-violation", "severity": "error", "path": "duration-iso-only.json", "at": "/duration/3" }
+        ]
+      }
+    },
+    {
+      "id": "int64-lexical-forms-valid",
+      "description": "int64 accepts both forms throughout its range (§4.3): the string \"42\", the number 2^53, the numbers 1e3 and 1.0, whose values are integers, and the string \"-0\", which matches -?(0|[1-9][0-9]*).",
+      "input": { "records": ["int64-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "int64-lexical-forms-invalid",
+      "description": "An int64 string has no leading zero, no +, no white space and no exponent (§4.3), so \"007\", \"+5\", \" 42\" and \"1e3\" are schema violations.",
+      "input": { "records": ["int64-lexical-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "int64-lexical-invalid.json", "at": "/int64/0" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-lexical-invalid.json", "at": "/int64/1" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-lexical-invalid.json", "at": "/int64/2" },
+          { "code": "schema-violation", "severity": "error", "path": "int64-lexical-invalid.json", "at": "/int64/3" }
+        ]
+      }
+    },
+    {
+      "id": "bigint-lexical-forms-invalid",
+      "description": "bigint has int64's lexical space without its bounds (§4.3), so \"007\" and \"+5\" are schema violations.",
+      "input": { "records": ["bigint-lexical-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "bigint-lexical-invalid.json", "at": "/bigint/0" },
+          { "code": "schema-violation", "severity": "error", "path": "bigint-lexical-invalid.json", "at": "/bigint/1" }
+        ]
+      }
+    },
+    {
+      "id": "decimal-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "XSD 1.1 Part 2 3.3.3.1"],
+      "description": "decimal accepts the lexical space of XML Schema 1.1's decimal (§4.3; XSD 1.1 Part 2, section 3.3.3.1), so \".5\", \"+1\", \"1.\", \"01\", \"1.50\" and \"-0\" are valid, although only some are in vmd's canonical form.",
+      "input": { "records": ["decimal-lexical-valid.json"] },
+      "expect": {}
+    },
+    {
+      "id": "decimal-lexical-forms-invalid",
+      "description": "An exponent (\"1e3\"), white space (\" 1\", since vmd does not collapse whitespace as XML does), a lone point and the empty string are outside XML Schema 1.1's decimal lexical space, so each is a schema violation (§4.3).",
+      "input": { "records": ["decimal-lexical-invalid.json"] },
+      "expect": {
+        "issues": [
+          { "code": "schema-violation", "severity": "error", "path": "decimal-lexical-invalid.json", "at": "/decimal/0" },
+          { "code": "schema-violation", "severity": "error", "path": "decimal-lexical-invalid.json", "at": "/decimal/1" },
+          { "code": "schema-violation", "severity": "error", "path": "decimal-lexical-invalid.json", "at": "/decimal/2" },
+          { "code": "schema-violation", "severity": "error", "path": "decimal-lexical-invalid.json", "at": "/decimal/3" }
+        ]
+      }
     }
   ]
 }

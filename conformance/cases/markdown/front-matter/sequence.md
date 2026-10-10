@@ -1,0 +1,7 @@
+---
+- a
+---
+
+# Record
+
+Root text.

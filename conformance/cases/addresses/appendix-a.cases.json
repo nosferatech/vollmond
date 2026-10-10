@@ -8,7 +8,7 @@
   "cases": [
     {
       "id": "no-fragment",
-      "description": "A record path without a fragment is the record's root; its canonical address is taken as no fragment (open question 1).",
+      "description": "A record path without a fragment is the record's root; its canonical address is always no fragment (§7.5).",
       "input": { "address": "tickets/0171-clean-root-in-scattered-record.md", "as": "singular" },
       "expect": {
         "result": [{ "path": "tickets/0171-clean-root-in-scattered-record.md", "at": "", "address": "" }]

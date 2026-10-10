@@ -3,7 +3,7 @@
   "cases": [
     {
       "id": "multimap-selector",
-      "description": "A selector through a level the schema declares multimap takes every match, and since log/entry is then ambiguous, each entry's canonical address is its unique derived anchor (§7.5 rule 3).",
+      "description": "A selector through a level the schema declares multimap takes every match, and since log/entry is then ambiguous, each entry's canonical address is its unique derived anchor (§7.5 form 3).",
       "spec": ["5.7", "7.4", "7.5"],
       "input": { "address": "journal/week-41.md#log/entry", "as": "selector" },
       "expect": {
@@ -50,7 +50,7 @@
     },
     {
       "id": "multimap-meta",
-      "description": "Repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "Repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "journal/week-41.md" },
@@ -95,7 +95,7 @@
     },
     {
       "id": "lenient-derived-anchor-not-unique",
-      "description": "The second entry's derived anchor entry-1 is also the explicit anchor of another section, so it is not unique, and the canonical address falls back to the exact path (§7.5 rule 3).",
+      "description": "The second entry's derived anchor entry-1 is also the explicit anchor of another section, so it is not unique, and the canonical address falls back to the exact path (§7.5 form 4).",
       "spec": ["6.1", "6.3", "7.5"],
       "profiles": ["read"],
       "input": { "address": "notes/week-43.md#log/entry", "as": "selector", "config": "config-lenient.yaml" },
@@ -108,7 +108,7 @@
     },
     {
       "id": "lenient-meta",
-      "description": "In lenient mode repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "In lenient mode repeated sections share their key, and each has its derived anchor as its canonical address, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.7", "5.10", "7.5"],
       "profiles": ["read"],
       "operation": "meta",
@@ -161,6 +161,224 @@
       "input": { "records": ["perf/runs/R0008.yaml"], "config": "config-lenient.yaml" },
       "expect": {
         "issues": [{ "code": "duplicate-key", "severity": "error", "path": "perf/runs/R0008.yaml", "at": "/benchmarks/1" }]
+      }
+    },
+    {
+      "id": "lenient-ambiguous",
+      "description": "In lenient mode, a singular address that hits a duplicate fails as ambiguous where it is used (§5.7, §7.4).",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "notes/week-42.md#log/entry", "as": "singular", "config": "config-lenient.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/week-42.md", "at": null }]
+      }
+    },
+    {
+      "id": "multimap-not-singular",
+      "description": "A singular address through a level the schema declares multimap cannot be proved singular before evaluation, so it fails as address-not-singular.",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "journal/week-41.md#log/entry", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "journal/week-41.md", "at": null }]
+      }
+    },
+    {
+      "id": "multimap-suffix-not-singular",
+      "description": "Through a level the schema declares multimap, even a step that names no key cannot be proved singular, and the proof runs before evaluation, so log/entry-1 fails as address-not-singular, not as address-not-found (§7.4).",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "journal/week-41.md#log/entry-1", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "journal/week-41.md", "at": null }]
+      }
+    },
+    {
+      "id": "suffix-not-a-key",
+      "description": "Section keys carry no repeat suffix (§5.5), so in an unschematized strict record entry-1 is no key below log, and the singular address matches nothing.",
+      "spec": ["5.5", "7.3", "7.4", "D"],
+      "input": { "address": "notes/week-42.md#log/entry-1", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "notes/week-42.md", "at": null }]
+      }
+    },
+    {
+      "id": "strict-duplicate-ambiguous",
+      "description": "A strict, unschematized record with two Entry sections still reads, and a singular address through the duplicate fails as ambiguous, the third case of §7.4 (decision H4).",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "notes/week-42.md#log/entry", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/week-42.md", "at": null }]
+      }
+    },
+    {
+      "id": "strict-duplicate-selector",
+      "description": "In strict mode a selector through the duplicate returns every match, each with its derived anchor as canonical address (§7.4, §7.5 form 3).",
+      "spec": ["5.7", "7.4", "7.5"],
+      "input": { "address": "notes/week-42.md#log/entry", "as": "selector" },
+      "expect": {
+        "result": [
+          { "path": "notes/week-42.md", "at": "/$sections/0/$sections/0", "address": "#entry" },
+          { "path": "notes/week-42.md", "at": "/$sections/0/$sections/1", "address": "#entry-1" }
+        ]
+      }
+    },
+    {
+      "id": "strict-duplicate-meta",
+      "description": "In strict mode the repeated sections of a record that holds them anyway get their derived anchors as canonical addresses, as in lenient mode (§7.5).",
+      "spec": ["5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/week-42.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "log", "@address": "#log" },
+          "/$sections/0/$sections/0": { "@key": "entry", "@address": "#entry" },
+          "/$sections/0/$sections/1": { "@key": "entry", "@address": "#entry-1" },
+          "/$sections/1": { "@key": "summary", "@address": "#summary" }
+        }
+      }
+    },
+    {
+      "id": "strict-duplicate-check",
+      "description": "Under the strict default the second Entry is a duplicate-key error, which leaves the record readable (§5.7).",
+      "spec": ["5.7", "D"],
+      "operation": "check",
+      "input": { "records": ["notes/week-42.md"] },
+      "expect": {
+        "issues": [{ "code": "duplicate-key", "severity": "error", "path": "notes/week-42.md", "at": "/$sections/0/$sections/1" }]
+      }
+    },
+    {
+      "id": "twin-meta-lenient",
+      "description": "Two root-level Notes sections in lenient mode: the first's derived anchor #notes also matches both section keys, so its canonical address is its exact path; the second's is #notes-1 (§7.5).",
+      "spec": ["5.10", "7.3", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/twin.md", "config": "config-lenient.yaml" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "notes", "@address": "#/$sections/0" },
+          "/$sections/1": { "@key": "notes", "@address": "#notes-1" }
+        }
+      }
+    },
+    {
+      "id": "twin-meta-strict",
+      "description": "In strict mode the same record reads with a duplicate-key error, and the canonical addresses are those of lenient mode (§7.4, §7.5).",
+      "spec": ["5.10", "7.4", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/twin.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "notes", "@address": "#/$sections/0" },
+          "/$sections/1": { "@key": "notes", "@address": "#notes-1" }
+        }
+      }
+    },
+    {
+      "id": "twin-ambiguous",
+      "description": "The address #notes matches both section keys, so as a singular address it fails as ambiguous.",
+      "spec": ["7.3", "7.4", "D"],
+      "input": { "address": "notes/twin.md#notes", "as": "singular", "config": "config-lenient.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/twin.md", "at": null }]
+      }
+    },
+    {
+      "id": "twin-selector",
+      "description": "As a selector, #notes returns both sections.",
+      "spec": ["7.4", "7.5"],
+      "input": { "address": "notes/twin.md#notes", "as": "selector", "config": "config-lenient.yaml" },
+      "expect": {
+        "result": [
+          { "path": "notes/twin.md", "at": "/$sections/0", "address": "#/$sections/0" },
+          { "path": "notes/twin.md", "at": "/$sections/1", "address": "#notes-1" }
+        ]
+      }
+    },
+    {
+      "id": "same-anchor-ambiguous",
+      "description": "An explicit anchor on two sibling sections names two nodes, and no other node is named same (the title heading is Shared anchor); the record still reads, and a singular #same fails as ambiguous (§7.4).",
+      "spec": ["6.1", "7.4", "D"],
+      "input": { "address": "notes/same.md#same", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/same.md", "at": null }]
+      }
+    },
+    {
+      "id": "same-anchor-selector",
+      "description": "As a selector, #same returns both sections; neither the anchor nor the key, both same, is singular, so each canonical address is its derived anchor (§7.5 form 3).",
+      "spec": ["6.1", "7.4", "7.5"],
+      "input": { "address": "notes/same.md#same", "as": "selector" },
+      "expect": {
+        "result": [
+          { "path": "notes/same.md", "at": "/$sections/0", "address": "#alpha" },
+          { "path": "notes/same.md", "at": "/$sections/1", "address": "#beta" }
+        ]
+      }
+    },
+    {
+      "id": "same-anchor-nested-meta",
+      "description": "A section and its child with the same explicit anchor: neither the anchor nor a path from it is singular, so both fall to their derived anchors (§7.5 form 3).",
+      "spec": ["5.10", "6.1", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/same-nested.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "same", "@address": "#alpha" },
+          "/$sections/0/$sections/0": { "@key": "same", "@address": "#beta" }
+        }
+      }
+    },
+    {
+      "id": "same-data-anchor-ambiguous",
+      "description": "Two array items with the same $anchor: a singular #person fails as ambiguous.",
+      "spec": ["6.1", "7.4", "D"],
+      "input": { "address": "notes/people.yaml#person", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/people.yaml", "at": null }]
+      }
+    },
+    {
+      "id": "same-data-anchor-selector",
+      "description": "As a selector, #person returns both items; the anchor is not singular, so each falls to its path from the root (§7.5 form 2).",
+      "spec": ["6.1", "7.4", "7.5"],
+      "input": { "address": "notes/people.yaml#person", "as": "selector" },
+      "expect": {
+        "result": [
+          { "path": "notes/people.yaml", "at": "/people/0", "address": "#people/0" },
+          { "path": "notes/people.yaml", "at": "/people/1", "address": "#people/1" }
+        ]
+      }
+    },
+    {
+      "id": "lenient-anchor-and-derived-selector",
+      "description": "entry-1 is the second entry's derived anchor and another section's explicit anchor; as a selector it returns both, and the section falls to its own derived anchor, other (§7.5 form 3).",
+      "spec": ["6.1", "7.4", "7.5"],
+      "input": { "address": "notes/week-43.md#entry-1", "as": "selector", "config": "config-lenient.yaml" },
+      "expect": {
+        "result": [
+          { "path": "notes/week-43.md", "at": "/$sections/0/$sections/1", "address": "#/$sections/0/$sections/1" },
+          { "path": "notes/week-43.md", "at": "/$sections/1", "address": "#other" }
+        ]
+      }
+    },
+    {
+      "id": "lenient-anchor-and-derived-ambiguous",
+      "description": "As a singular address, the same entry-1 fails as ambiguous.",
+      "spec": ["6.1", "7.4", "D"],
+      "input": { "address": "notes/week-43.md#entry-1", "as": "singular", "config": "config-lenient.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/week-43.md", "at": null }]
       }
     }
   ]

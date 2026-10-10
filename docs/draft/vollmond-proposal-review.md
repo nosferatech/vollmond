@@ -360,8 +360,9 @@ trouble. An adversarial audit after I3 (#45) tries to break vmd by combining the
   marks, decimal digits, connector punctuation and `-`, turns white space into `-`, and numbers repeats by skipping used
   candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 528 (78 percent),
   and on 602 (89 percent) under the rule as it stood before C13 and C14. (A correction of fact, made by the derived-anchor fixtures
-  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5 kept the captured handling of rendered text and of Unicode, so that most
-  links copied from GitHub still work, and made the rule vmd's own and versioned.
+  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5
+  kept the captured handling of rendered text and of Unicode, so that most links copied from GitHub still work, and made the
+  rule vmd's own and versioned.
 - **The `<a id>` element (C13).** It is not part of the heading's title and is stripped before trimming, so
   `## What was done <a id="done"></a>` gives `what-was-done` with or without the space, never a trailing hyphen. The serializer
   writes the element without a space. GitHub's behavior, which keeps the hyphen, is ignored.
@@ -490,3 +491,180 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
   with `@issues` added and `@nodes` only on request. The computed fields have the names of VQL's pseudo-fields, so requesting
   them and selecting `@key` in a query are one concept. Writes return the new version token, so editing needs no extra round trip
   (§5.10, §10.3, §13.2).
+
+## Decisions from the fixtures (H1 to H5, G10)
+
+Recorded 2026-10-10, and applied to Draft v0.5. The four fixture tasks, I0.4 values (#52), I0.6 anchors and addresses (#53), I0.5
+Markdown (#54) and I0.7 derived anchors (#55), left out every case that depended on a question the draft did not answer, and
+asked the questions in their pull requests. The project owner accepted every recommendation on cards H1 to H5, and card G10.
+Each bullet cites the pull request and its question, as "#52 Q1". Section numbers refer to Draft v0.5.
+
+### H1. Where issues are reported
+
+- **H1.1. An issue about the whole record is at the root (#52 Q1, #54 Q12).** Its `at` is `""`, not null, also for a syntax
+  error that leaves no value view. `null` is only for an issue with no node. The suite's README said null and is fixed
+  (Appendix D, conformance README).
+- **H1.2. Address errors (#53 Q1).** For `address-malformed`, `address-not-singular`, `address-not-found` and `address-ambiguous`,
+  `path` is the record the address names, and `at` is null. An address whose record does not exist is `address-not-found`, as a
+  singular address and as a selector (§7.4, Appendix D).
+- **H1.3. One issue per occurrence after the first (#52 Q4, #53 Q13).** A name given three times gives two `duplicate-member`,
+  and three nodes with one anchor give two `duplicate-anchor`, one per node, so a heading whose explicit and derived anchors both
+  collide with an earlier block anchor gets one. `unpaired-surrogate` is reported once per string, at the string, and for a
+  surrogate in a member name at the object that holds the member. Appendix D now states the counting rule once, in its
+  introduction, and applies it also to `duplicate-key` and `path-case-conflict`, whose "the second" had the same gap; that
+  extension is the agent's reading of H1.3's general wording.
+
+### H2. Values and YAML
+
+- **H2.1. Noncharacters are valid (#52 Q2).** §4.1 records the departure from I-JSON (RFC 7493, section 2.1), citing Unicode
+  Corrigendum #9.
+- **H2.2. A YAML surrogate-pair escape is one character (#52 Q3)**, as in JSON, so a reader whose YAML library does not combine
+  the two `\u` escapes must combine them itself (§4.1).
+- **H2.3. Every explicit YAML tag is an error (#52 Q5)**, core schema tags such as `!!str` and the non-specific tag `!` included
+  (`yaml-tag`). **This changes the rule.** Draft v0.4 rejected "custom tags", which read literally left `!!str 12` and `! 12`
+  valid as the strings the `yaml` package makes of them. Quoting already forces a string, and the value view cannot keep a tag
+  (§4.1, Appendix D).
+- **H2.4. Merge keys (#52 Q6).** A plain `<<` key is always a merge key, whatever its value, and so `yaml-merge-key`. A quoted
+  `"<<"` is an ordinary member (§4.1).
+- **H2.5. An alias to an undefined anchor (#52 Q7)** is `yaml-alias` at the alias's location (Appendix D).
+- **H2.6. `%YAML` directives (#52 Q8).** `%YAML 1.2` is allowed, and any other version is a structural error with a new code,
+  `yaml-version-unsupported`. Reading a `%YAML 1.1` record as 1.2 would silently change what `yes` or `017` mean to its author.
+  §4.4 notes that this departs from YAML 1.2.2, section 6.8.1, twice: a 1.2 processor must accept a 1.1 document, and should
+  process a higher minor version such as `%YAML 1.3` with a warning.
+- **H2.7. Logical types accept their full lexical space (#52 Q9).** A `format` assertion accepts every form of the standard the
+  type refers to, not only the canonical form, and the writer emits the canonical form. §4.3 gives each type's lexical space,
+  spells out those of int64, bigint, decimal and local-date-time, and pins duration to RFC 3339 Appendix A. One consequence is
+  the agent's: local date-times now compare chronologically rather than as strings, since `T`, `t` and a space give the same
+  value. Two follow-up questions from the review of this round went to the owner, who answered them:
+  - **Decimal.** The first version of Draft v0.5 claimed that decimal had no external standard and gave it vmd's own lexical
+    space. The owner chose XML Schema 1.1 Part 2's `decimal` (section 3.3.3.1, regular expression
+    `(\+|-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)`), so `.5`, `+1`, `1.`, `01` and `1.50` are accepted. vmd's
+    `-?(0|[1-9][0-9]*)(\.[0-9]+)?` stays as the canonical form the writer emits. Two points are the agent's reading: that vmd
+    applies no whitespace collapsing before the lexical space, as XML does; and the mapping §4.3 gives from an accepted form to
+    the written one (drop `+`, drop leading zeros, add `0` before a leading point, drop a bare trailing point, keep trailing
+    zeros since they can carry precision, write `-0` as `0`).
+  - **A space between date and time.** A NOTE in RFC 3339, section 5.6, lets applications separate the date and the time with a
+    space, which is why it was asked. The owner confirmed that `date-time` follows the RFC's `date-time` production, which JSON
+    Schema validators check, so the space is rejected there, while local-date-time keeps accepting it, as TOML 1.0.0 does.
+- **H2.8. YAML 1.1 casings (#52 Q10, first point).** The boolean and null entries of §4.4's list cover exactly the casings YAML 1.1
+  reads (`yes`, `Yes`, `YES` and the like, from the regular expression of its bool type), so `tRuE` gets no warning. "In any
+  case" is gone. The list also drives compatibility quoting, which therefore no longer quotes `tRuE`; no reader misreads it.
+  The null entry gains `Null` and `NULL`, which is the agent's reading and not on the card: YAML 1.2's core schema and YAML 1.1
+  both read them as null, so Draft v0.4's list missed strings that the serializer must quote.
+- **H2.9. A key's ambiguity warning goes on its mapping (#52 Q10, second point)** (§4.4, Appendix D).
+- **H2.10. int64 is the signed 64-bit range (#52 Q9)**, [−2^63, 2^63−1], per the OpenAPI format registry (§4.3).
+
+### H3. Markdown
+
+- **H3.1. An empty `$body` is absent (#54 Q1)**, never `""`. §5.8 now refuses `$body: ""`, which Markdown cannot write apart from
+  an absent body, as the recommendation proposed.
+- **H3.2. Trailing whitespace is spaces, tabs and line breaks only (#54 Q2)**, so a trailing no-break space is content (§5.3,
+  §5.8).
+- **H3.3. A multi-line setext heading (#54 Q3)** has as `$title` its lines without their indentation, joined by `\n`, and
+  `vmd check` warns `not-representable`. For the warning to hold at the root too, §5.8's single-line rule now covers every
+  `$title`, the root's included, where it named only the items of `$sections`.
+- **H3.4. Front matter delimiters (#54 Q4).** A delimiter is exactly `---` at the start of a line, optionally followed by spaces
+  or tabs. Unclosed front matter is a structural error; the answer named no code, so the draft uses `syntax-error` at the root,
+  the first of the two the recommendation offered. The claim that front matter works "as Jekyll uses it" was checked: Jekyll's
+  `YAML_FRONT_MATTER_REGEXP` also accepts `...` as the closing line, so §5.3 now says that vmd's form is narrower, and cites
+  Jekyll's source and GitHub's announcement of front matter tables.
+- **H3.5. Empty and non-object front matter (#54 Q5).** Empty front matter, or an empty data block, gives no fields. Front matter
+  that is not an object is `data-block-not-object` at `""`; `root-not-object` stays for JSON and YAML files (§5.3, Appendix D).
+- **H3.6. A root whose `$body` starts with `---` (#54 Q4 and Q5)** is written with empty front matter first (§5.8).
+- **H3.7. `$` keys in front matter and data blocks (#54 Q6, #53 Q11).** Section members (`$title`, `$anchor`, `$tags`, `$body`,
+  `$sections`) and `$key` are `dollar-member`; `$schema` is allowed in front matter only, as the root's; any other `$` name is
+  `feature-unsupported`. §5.3 now agrees with Appendix D. Card H3.7 merged #54 Q6 and #53 Q11; its recommendation allows
+  `$schema` in front matter, unlike #54 Q6's.
+- **H3.8. A second data block (#54 Q7)** right after the first is `data-block-misplaced` at its section.
+- **H3.9. A data fence as the first block of a record without a title heading (#54 Q8)** is `data-block-misplaced` at the root.
+- **H3.10. Info strings (#54 Q9)** are split on spaces and tabs and compared case-sensitively on the source text, before
+  CommonMark's decoding (CommonMark 0.31.2, section 4.5). A third word is `feature-unsupported`.
+- **H3.11. `json data` is parsed as JSON (#54 Q10)**, and `yaml data` as YAML (§5.3).
+- **H3.12. Level-1 headings inside container blocks (#54 Q11)** count neither for the title rule nor for `multiple-h1`.
+- **H3.13. A leading UTF-8 byte order mark is skipped (#54 Q13)** before front matter is detected. The answer is about Markdown,
+  and §5.3 applies it there only; JSON and YAML records are not covered.
+- **H3.14. Versions (#54 Q14).** §5.3 pins CommonMark 0.31.2 and GFM 0.29, the GFM specification's latest version (0.29-gfm,
+  2019-04-06, checked on 2026-10-10).
+- **H3.15. The root's `$body` without a title heading (#54 Q15)** is the text after the front matter, or from the start of the
+  file, up to the first heading.
+- **H3.16. `$tags` from `<a class>` (#54 Q16)** are the class tokens in source order. A repeated token is dropped, with a warning
+  under a new code, `duplicate-tag` (§6.2).
+
+### H4. Addresses and anchors
+
+- **H4.1. Canonical addresses are tried in order (#53 Q3, Q4, Q6, Q7).** The first form that gives a singular address for the
+  node wins, not the shortest. The root's canonical address is always `""`, even when its title heading has an anchor, so a root
+  field is `#status`. On the owner's question, "We will prefer the strictest most precise first, right?", §7.5 makes the order
+  explicit and gives the reason: the most stable form comes first (an explicit anchor), and the exact path, the most precise
+  form but the one an insertion breaks, is the last resort. Trying forms in order also settles the three recommendations of
+  #53: an anchor longer than the root path wins (Q4), a derived anchor whose address is ambiguous falls through to the exact
+  path (Q6), and so does a duplicated explicit anchor (Q7). §7.5 now lists four forms (explicit anchor, path from the nearest
+  anchored ancestor or the root, derived anchor, exact path) where Draft v0.4 had three rules, with the derived anchor and the
+  exact path in one. The conformance README's open question 1 is closed. Asked again after the review of this round, the owner
+  confirmed the order: most stable first, an explicit anchor, then the semantic path, with the exact path as the last resort,
+  since an insertion breaks it.
+- **H4.2. Duplicates in strict mode (#53 Q5).** An unschematized record in strict mode whose sibling keys repeat still reads, with
+  a `duplicate-key` validation error, and a singular address through the duplicate is `address-ambiguous`, a third case in §7.4.
+  The draft states the case for any data that breaks the uniqueness the proof relies on, so also for a level declared
+  `type: map`, which is the same mechanism; that extension is the agent's. §5.7's "unique by construction" is corrected with it.
+- **H4.3. Selectors over an ambiguous name return every match (#53 Q8)** (§7.4).
+- **H4.4. A node that no step can name (#53 Q9, second part)**, such as a member with the empty name or a section with the empty
+  key, has its exact path as its canonical address (§7.5). The first part of Q9, how a canonical address percent-encodes
+  characters outside `step`, is not answered by H4.
+- **H4.5. `<a id>` elsewhere in a body (#53 Q14).** An anchor element that is not at the start of a paragraph or list item outside
+  container blocks is plain HTML and anchors nothing, with a warning under a new code, `anchor-element-ignored` (§6.2).
+- **H4.6. Two anchor elements in one heading (#55 Q6)** are a structural error, `anchor-element-invalid` (§6.2).
+
+### H5. The slug rule
+
+- **H5.1. Line breaks in a heading (#55 Q1).** A soft or hard line break counts as white space, so it becomes a hyphen. `<br>`
+  gives nothing, as §5.3 already said (§6.3 step 1).
+- **H5.2. Step 2 removes Default_Ignorable characters first, then normalizes to NFC (#55 Q7).** **This changes the rule** that
+  Draft v0.4 stated and the I0.7 fixtures pin: `e`, U+FE0F, U+0301 now gives `é` (U+00E9), so that an invisible character cannot
+  keep two headings that look the same apart. The fixture case (`edges.cases.json` of #55) is updated after #55 merges.
+
+### G10. Positional steps under `anchors: explicit`
+
+- **G10.** Under `anchors: explicit` (§9.3), a reference may not use positional steps, section or list indexes, in a semantic
+  path or an exact path. Explicit anchors, field names and keyed-list keys are allowed. In the owner's words: "When using a strict
+  reference we should prohibit index paths. But regular anchors can use them at their own risk." Draft v0.4 allowed every exact
+  path under `anchors: explicit`; G10 narrows that (§9.3, Appendix D `ref-target-not-allowed`).
+
+### Corrections from reviewing the fixtures
+
+The reviews of the fixture pull requests found places where the draft's intent was clear but its wording was not. They were
+corrected in this round without decisions:
+
+- §7.5: the reason a semantic path is not singular now reads "a level that allows repeats by `multimap` or `lenient`, or a first
+  step that also matches another node's anchor", with H4.2's duplicates in strict data added. Draft v0.4's parenthetical named
+  only lenient mode, and predates C18. A reference through the derived anchor that form 3 gives gets `ref-derived-repeat` or,
+  where the slug is not repeated, `ref-derived-anchor`; Draft v0.4 named only the first.
+- §7.3: in a keyed list an index never matches an item; the exact path reaches it by position.
+- §5.6: unschematized data items are also reachable by index steps (§7.3), as in `#links/1`.
+- §6.1: explicit anchors on headings, objects and blocks share the one namespace with derived anchors.
+- §7.3: `$schema`, at the root, is among the members a step may name.
+- §8.1 already says that a link inside an HTML comment is not a reference. It was checked against H3 and agrees, and is
+  unchanged.
+- The conformance README: a case may carry an optional `pending` member, which the runner reports as `skip` with that reason, and
+  `spec` entries may cite other specifications, by name, version and section, as `"CommonMark 0.31.2 4.3"`. The README allowed
+  neither before (unknown members were
+  errors, and `spec` held proposal sections only). The case format stays 1, under the exception that no runner has been
+  released. The README also states, per operation, what happens on a structural error: `anchors`, like `meta`, `source_map`,
+  `resolve` and `refs` for one record, fails like `parse`, while `check` reports it and `query` leaves the record out (§9.5).
+
+An independent review of this round, before merging, found further gaps, corrected in the same round:
+
+- §7.4: the third ambiguity case also covers an anchor that names more than one node, which a record holds readably in either
+  uniqueness mode and which §7.5 form 1's fall-through relies on. Form 3's parenthetical names the same cases.
+- Appendix D: the counting rule applies "unless its row says otherwise", since `unpaired-surrogate` (once per string) and
+  `duplicate-anchor` (once per node) count differently.
+- §4.4: rejecting `%YAML 1.3` is a second departure from YAML 1.2.2, section 6.8.1, besides rejecting `%YAML 1.1`.
+- §4.1: YAML's character set leaves out raw U+FFFE and U+FFFF (YAML 1.2.2, section 5.1), so in YAML and front matter those two
+  noncharacters must be escaped, and a raw one is a syntax error.
+- §9.3: section-member steps (`#done/$body`) are among the steps allowed under `anchors: explicit`, and keyed-list keys are
+  usable only in a semantic path, since an exact path reaches a list item by position. The sentence recommending
+  `anchors: explicit` had come to follow the one about `anchors: any`, and is back in its place.
+- §6.3 step 1: a line break becomes a hyphen through steps 5 and 6, not step 5 alone.
+- The conformance README: an external `spec` entry is the specification's name, its version where it has one, and the section,
+  as `"CommonMark 0.31.2 4.3"`. The case-format bullet attributes `pending` and external citations to these corrections, not to
+  the owner's decisions.

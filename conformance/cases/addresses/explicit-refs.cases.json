@@ -1,0 +1,26 @@
+{
+  "defaults": { "spec": ["9.3"], "profiles": ["validate"], "operation": "check", "input": { "store": "explicit-refs" } },
+  "cases": [
+    {
+      "id": "positional-steps-not-allowed",
+      "description": "Under x-vmd-ref anchors: explicit, an index step, in a semantic path or an exact path, is ref-target-not-allowed; an explicit anchor, a section member after it and a field name, in either form, are allowed (decision G10).",
+      "spec": ["9.3", "D"],
+      "input": { "records": ["refs/strict.yaml"] },
+      "expect": {
+        "issues": [
+          { "code": "ref-target-not-allowed", "severity": "error", "path": "refs/strict.yaml", "at": "/by_index" },
+          { "code": "ref-target-not-allowed", "severity": "error", "path": "refs/strict.yaml", "at": "/by_exact_index" },
+          { "code": "ref-target-not-allowed", "severity": "error", "path": "refs/strict.yaml", "at": "/by_section_index" },
+          { "code": "ref-target-not-allowed", "severity": "error", "path": "refs/strict.yaml", "at": "/by_section_member_index" }
+        ]
+      }
+    },
+    {
+      "id": "positional-steps-allowed-by-default",
+      "description": "Under the default anchors: any, the same positional references are allowed (§9.3).",
+      "spec": ["9.3"],
+      "input": { "records": ["refs/loose.yaml"] },
+      "expect": {}
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+vmd: 1
+collections:
+  strict-refs:
+    match: ["refs/strict.yaml"]
+    schema: strict-refs.schema.yaml
+  loose-refs:
+    match: ["refs/loose.yaml"]
+    schema: loose-refs.schema.yaml

@@ -20,7 +20,7 @@
     },
     {
       "id": "h1-not-first-is-a-section",
-      "description": "A level-1 heading after a paragraph is not the first block, so the root has no $title and the heading starts a section. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "description": "A level-1 heading after a paragraph is not the first block, so the root has no $title and the heading starts a section, and the root's $body is the text before the first heading.",
       "input": { "record": "h1-not-first.md" },
       "expect": {
         "result": {
@@ -31,7 +31,7 @@
     },
     {
       "id": "several-h1-are-sections",
-      "description": "The first block is a paragraph, so the root has no $title, and each level-1 heading is a section of the root; the case does not test the only-level-1-heading clause, whose input needs a root without text. The root's $body as the text before the first heading rests on a reading of §5.3, which defines $body only after a heading.",
+      "description": "The first block is a paragraph, so the root has no $title, each level-1 heading is a section of the root, and the root's $body is the text before the first heading.",
       "input": { "record": "several-h1.md" },
       "expect": {
         "result": {
@@ -64,7 +64,7 @@
     {
       "id": "anchor-and-tags",
       "spec": ["5.3", "6.2"],
-      "description": "The title heading's anchor element gives the root's $anchor and $tags, and is not part of its $title; $tags as the class tokens in source order is a reading, since the draft states neither the order nor what a repeated token gives.",
+      "description": "The title heading's anchor element gives the root's $anchor and $tags, the class tokens in source order, and is not part of its $title.",
       "input": { "record": "anchor-and-tags.md" },
       "expect": {
         "result": { "$title": "Record", "$anchor": "top", "$tags": ["incident", "open"], "$body": "Root text." }
@@ -87,6 +87,95 @@
           "$sections": [{ "$title": "Part", "$body": "Part text." }]
         }
       }
+    },
+    {
+      "id": "several-h1-first-block",
+      "description": "The first block is a level-1 heading but not the record's only one, so the root has no $title and no text, and each level-1 heading is a section.",
+      "input": { "record": "several-h1-first.md" },
+      "expect": { "result": { "$sections": [{ "$title": "One", "$body": "First text." }, { "$title": "Two", "$body": "Second text." }] } }
+    },
+    {
+      "id": "setext-multi-line-title",
+      "spec": ["5.3", "CommonMark 0.31.2 4.3"],
+      "description": "A setext heading of two lines is one heading, whose $title is its lines without their indentation, joined by \\n.",
+      "input": { "record": "setext-multi-line.md" },
+      "expect": {
+        "result": { "$title": "Record", "$body": "Root text.", "$sections": [{ "$title": "First line\nsecond line", "$body": "Text." }] }
+      }
+    },
+    {
+      "id": "setext-multi-line-root-title",
+      "spec": ["5.3", "CommonMark 0.31.2 4.3"],
+      "description": "A setext level-1 heading of two lines that is the first and only level-1 heading is the title heading, and the root's $title is its two lines joined by \\n.",
+      "input": { "record": "setext-multi-line-root.md" },
+      "expect": { "result": { "$title": "Record line one\nline two", "$body": "Root text." } }
+    },
+    {
+      "id": "setext-multi-line-not-representable",
+      "spec": ["5.3", "5.8"],
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "The serializer cannot write a $title of several lines, so check warns not-representable and the record stays readable.",
+      "input": { "records": ["setext-multi-line.md"] },
+      "expect": {
+        "issues": [{ "code": "not-representable", "severity": "warning", "path": "setext-multi-line.md", "at": "/$sections/0/$title" }]
+      }
+    },
+    {
+      "id": "setext-multi-line-root-not-representable",
+      "spec": ["5.3", "5.8"],
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "The single-line rule of §5.8 covers the root's $title too, so check warns not-representable for a title heading of two lines.",
+      "input": { "records": ["setext-multi-line-root.md"] },
+      "expect": {
+        "issues": [{ "code": "not-representable", "severity": "warning", "path": "setext-multi-line-root.md", "at": "/$title" }]
+      }
+    },
+    {
+      "id": "h1-in-block-quote-does-not-count",
+      "spec": ["5.3", "CommonMark 0.31.2 5.1"],
+      "description": "A level-1 heading inside a block quote is prose and does not count for the title rule, so the first heading is still the record's only level-1 heading and its title.",
+      "input": { "record": "h1-in-block-quote.md" },
+      "expect": { "result": { "$title": "Record", "$body": "> # Quoted\n\nRoot text." } }
+    },
+    {
+      "id": "h1-in-list-item-does-not-count",
+      "spec": ["5.3", "CommonMark 0.31.2 5.2"],
+      "description": "A level-1 heading inside a list item is prose and does not count for the title rule.",
+      "input": { "record": "h1-in-list-item.md" },
+      "expect": { "result": { "$title": "Record", "$body": "- # Listed\n\nRoot text." } }
+    },
+    {
+      "id": "h1-in-html-block-does-not-count",
+      "spec": ["5.3", "CommonMark 0.31.2 4.6"],
+      "description": "A level-1 heading line inside an HTML block is prose and does not count for the title rule.",
+      "input": { "record": "h1-in-html-block.md" },
+      "expect": { "result": { "$title": "Record", "$body": "<div>\n# Inside\n</div>\n\nRoot text." } }
+    },
+    {
+      "id": "h1-in-containers-no-warning",
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "Level-1 headings inside a block quote, a list item or an HTML block do not count for multiple-h1, so check does not warn.",
+      "input": { "records": ["h1-in-block-quote.md", "h1-in-html-block.md", "h1-in-list-item.md"] },
+      "expect": {}
+    },
+    {
+      "id": "repeated-class-token",
+      "spec": ["5.3", "6.2"],
+      "description": "$tags are the class tokens in source order, and a repeated token is kept once, at its first place.",
+      "input": { "record": "repeated-class-token.md" },
+      "expect": { "result": { "$title": "Record", "$anchor": "top", "$tags": ["open", "incident"], "$body": "Root text." } }
+    },
+    {
+      "id": "repeated-class-token-warning",
+      "spec": ["6.2"],
+      "profiles": ["read", "validate"],
+      "operation": "check",
+      "description": "check warns about a class token repeated in the title heading's anchor element, at the root it labels.",
+      "input": { "records": ["repeated-class-token.md"] },
+      "expect": { "issues": [{ "code": "duplicate-tag", "severity": "warning", "path": "repeated-class-token.md", "at": "" }] }
     }
   ]
 }

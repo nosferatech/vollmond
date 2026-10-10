@@ -1,5 +1,7 @@
 {
   "inner-trailing-spaces.md": "fb2f7589f0593f41dd41cbbfa847b1dc7db252f7",
   "trailing-whitespace.md": "502b2359d8f1709d7d3bc3d5cead84b730810ad6",
-  "whitespace-only-lines.md": "abdab2e6c4419e09028d6275a314be49f18323c8"
+  "whitespace-only-lines.md": "abdab2e6c4419e09028d6275a314be49f18323c8",
+  "blank-lines-only.md": "e4908b6b80b09cba5416fcd4ea4e377166956fff",
+  "trailing-unicode-space.md": "c67ccdb22ecba9efd8777bb874c711c8d0a5c8ba"
 }

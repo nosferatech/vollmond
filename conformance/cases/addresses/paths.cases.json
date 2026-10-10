@@ -241,7 +241,7 @@
     },
     {
       "id": "shadowed-field-exact",
-      "description": "The root field notes and the deep heading Notes share a name, so #notes is ambiguous (§7.3); the field has no derived anchor, so its canonical address is its exact path (§7.5 rule 3).",
+      "description": "The root field notes and the deep heading Notes share a name, so #notes is ambiguous (§7.3); the field has no derived anchor, so its canonical address is its exact path (§7.5 form 4).",
       "spec": ["7.3", "7.5"],
       "input": { "address": "notes/shadow.md#/notes", "as": "singular" },
       "expect": { "result": [{ "path": "notes/shadow.md", "at": "/notes", "address": "#/notes" }] }
@@ -362,7 +362,7 @@
     },
     {
       "id": "meta-markdown",
-      "description": "Each section's key is its explicit anchor or the slug of its title, and its canonical address starts at the nearest explicit anchor or at the root, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "Each section's key is its explicit anchor or the slug of its title, and its canonical address starts at the nearest explicit anchor or at the root, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "notes/design.md" },
@@ -379,7 +379,7 @@
     },
     {
       "id": "meta-shadowed-name",
-      "description": "A section that shares its key with a root field elsewhere in the record keeps the path from the root as its canonical address, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "A section that shares its key with a root field elsewhere in the record keeps the path from the root as its canonical address, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "notes/shadow.md" },
@@ -393,7 +393,7 @@
     },
     {
       "id": "meta-yaml",
-      "description": "A YAML section's key is its $anchor or the slug of its title, as in Markdown, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "A YAML section's key is its $anchor or the slug of its title, as in Markdown, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "data/run.yaml" },
@@ -408,11 +408,211 @@
     },
     {
       "id": "meta-no-sections",
-      "description": "A record without sections has only its root, which has no key, with the root's canonical address taken as \"\" (README open question 1).",
+      "description": "A record without sections has only its root, which has no key, with the root's canonical address \"\" (§7.5).",
       "spec": ["5.5", "5.10", "7.5"],
       "operation": "meta",
       "input": { "record": "data/person.json" },
       "expect": { "result": { "": { "@key": null, "@address": "" } } }
+    },
+    {
+      "id": "not-found-singular",
+      "description": "A singular address that matches no node fails; the issue is about the record the address names, and has no node (decision H1).",
+      "spec": ["7.4", "D"],
+      "input": { "address": "notes/design.md#nothing", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "notes/design.md", "at": null }]
+      }
+    },
+    {
+      "id": "not-found-sections-by-index",
+      "description": "An index never matches an item of the keyed list $sections (§7.3), so a singular #$sections/0 matches nothing and fails.",
+      "spec": ["5.6", "7.3", "7.4", "D"],
+      "input": { "address": "notes/design.md#$sections/0", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "notes/design.md", "at": null }]
+      }
+    },
+    {
+      "id": "not-found-no-derived-anchor-in-yaml",
+      "description": "YAML sections have no derived anchors (§6.3), so a singular address by a nested title's slug fails.",
+      "spec": ["6.3", "7.4", "D"],
+      "input": { "address": "data/run.yaml#details", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "data/run.yaml", "at": null }]
+      }
+    },
+    {
+      "id": "malformed-empty-step-singular",
+      "description": "An empty step between two slashes does not match the grammar of §7.1, so the address fails as malformed.",
+      "spec": ["7.1", "D"],
+      "input": { "address": "notes/design.md#config//retries", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-malformed", "severity": "error", "path": "notes/design.md", "at": null }]
+      }
+    },
+    {
+      "id": "malformed-empty-step-selector",
+      "description": "A malformed address fails as a selector too, rather than matching nothing.",
+      "spec": ["7.1", "7.4", "D"],
+      "input": { "address": "notes/design.md#config//retries", "as": "selector" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-malformed", "severity": "error", "path": "notes/design.md", "at": null }]
+      }
+    },
+    {
+      "id": "missing-record-selector",
+      "description": "A selector whose record does not exist fails with address-not-found, whose path is the record the address names (decision H1).",
+      "spec": ["7.4", "D"],
+      "input": { "address": "notes/missing.md#x", "as": "selector" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "notes/missing.md", "at": null }]
+      }
+    },
+    {
+      "id": "missing-record-singular",
+      "description": "A singular address whose record does not exist fails with address-not-found, whose path is the record the address names.",
+      "spec": ["7.4", "D"],
+      "input": { "address": "notes/missing.md#x", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "notes/missing.md", "at": null }]
+      }
+    },
+    {
+      "id": "ambiguous-root-member-and-anchor",
+      "description": "The first step matches the root field notes and the derived anchor of a deep heading, a different node, so a singular #notes fails as ambiguous (§7.3, §7.4).",
+      "spec": ["7.3", "7.4", "D"],
+      "input": { "address": "notes/shadow.md#notes", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/shadow.md", "at": null }]
+      }
+    },
+    {
+      "id": "selector-root-member-and-anchor",
+      "description": "As a selector, the same address returns every match: the root field and the deep section (§7.4).",
+      "spec": ["7.3", "7.4", "7.5"],
+      "input": { "address": "notes/shadow.md#notes", "as": "selector" },
+      "expect": {
+        "result": [
+          { "path": "notes/shadow.md", "at": "/notes", "address": "#/notes" },
+          { "path": "notes/shadow.md", "at": "/$sections/0/$sections/0", "address": "#background/notes" }
+        ]
+      }
+    },
+    {
+      "id": "root-schema-step",
+      "description": "$schema is a step at the root (§7.3), and reaches the stored member.",
+      "spec": ["5.4", "7.3", "7.5"],
+      "input": { "address": "data/schema.json#$schema", "as": "singular" },
+      "expect": { "result": [{ "path": "data/schema.json", "at": "/$schema", "address": "#$schema" }] }
+    },
+    {
+      "id": "root-schema-exact",
+      "description": "The exact path of the root's $schema has the step as its canonical address.",
+      "spec": ["5.4", "7.2", "7.5"],
+      "input": { "address": "data/schema.json#/$schema", "as": "singular" },
+      "expect": { "result": [{ "path": "data/schema.json", "at": "/$schema", "address": "#$schema" }] }
+    },
+    {
+      "id": "anchored-root-by-anchor",
+      "description": "The title heading's explicit anchor names the root, whose canonical address is still \"\" (§7.5).",
+      "spec": ["6.2", "7.3", "7.5"],
+      "input": { "address": "notes/release.md#release", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/release.md", "at": "", "address": "" }] }
+    },
+    {
+      "id": "anchored-root-field",
+      "description": "A front-matter field of a root whose title heading has an anchor is #status, since the root never counts as an anchored ancestor (§7.5).",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/release.md#status", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/release.md", "at": "/status", "address": "#status" }] }
+    },
+    {
+      "id": "anchored-root-field-through-anchor",
+      "description": "A path that starts at the root's anchor reaches the field, whose canonical address does not use the anchor.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/release.md#release/status", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/release.md", "at": "/status", "address": "#status" }] }
+    },
+    {
+      "id": "anchored-root-section",
+      "description": "A section of a root whose title heading has an anchor has its key from the root as its canonical address.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "notes/release.md#/$sections/0", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/release.md", "at": "/$sections/0", "address": "#prepare" }] }
+    },
+    {
+      "id": "meta-anchored-root",
+      "description": "The root's canonical address is \"\" even when its title heading has an explicit anchor, and its section is addressed from the root (§7.5).",
+      "spec": ["5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/release.md" },
+      "expect": {
+        "result": { "": { "@key": null, "@address": "" }, "/$sections/0": { "@key": "prepare", "@address": "#prepare" } }
+      }
+    },
+    {
+      "id": "anchor-longer-than-path",
+      "description": "A field below an anchored object is addressed from the anchor, although #o/name is shorter: the forms of §7.5 are tried in order, not by length.",
+      "spec": ["7.5"],
+      "input": { "address": "data/owner.yaml#o/name", "as": "singular" },
+      "expect": { "result": [{ "path": "data/owner.yaml", "at": "/o/name", "address": "#owner-of-record/name" }] }
+    },
+    {
+      "id": "anchor-longer-than-path-object",
+      "description": "An anchored object's canonical address is its explicit anchor, although its member name is shorter (§7.5 form 1).",
+      "spec": ["7.5"],
+      "input": { "address": "data/owner.yaml#/o", "as": "singular" },
+      "expect": { "result": [{ "path": "data/owner.yaml", "at": "/o", "address": "#owner-of-record" }] }
+    },
+    {
+      "id": "empty-member-name",
+      "description": "No step can name the member whose name is empty, so its canonical address is its exact path, #/ (§7.1, §7.5 form 4).",
+      "spec": ["7.1", "7.2", "7.5"],
+      "input": { "address": "data/empty-name.json#/", "as": "singular" },
+      "expect": { "result": [{ "path": "data/empty-name.json", "at": "/", "address": "#/" }] }
+    },
+    {
+      "id": "below-empty-member-name",
+      "description": "A member below the one with the empty name can be named by no path from the root either, so its canonical address is its exact path.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "data/empty-name.json#//a", "as": "singular" },
+      "expect": { "result": [{ "path": "data/empty-name.json", "at": "//a", "address": "#//a" }] }
+    },
+    {
+      "id": "empty-section-key",
+      "description": "A heading whose slug is empty has the empty key and no derived anchor (§5.5, §6.3), so its canonical address is its exact path.",
+      "spec": ["5.5", "6.3", "7.5"],
+      "input": { "address": "notes/empty-key.md#/$sections/0", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/empty-key.md", "at": "/$sections/0", "address": "#/$sections/0" }] }
+    },
+    {
+      "id": "below-empty-section-key",
+      "description": "A section below one with the empty key cannot be reached by a path from the root, so its canonical address is its derived anchor (§7.5 form 3).",
+      "spec": ["6.3", "7.5"],
+      "input": { "address": "notes/empty-key.md#/$sections/0/$sections/0", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/empty-key.md", "at": "/$sections/0/$sections/0", "address": "#child" }] }
+    },
+    {
+      "id": "meta-empty-section-key",
+      "description": "The section with the empty key has the key \"\" and its exact path as canonical address; its child has its derived anchor (§7.5).",
+      "spec": ["5.5", "5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/empty-key.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "", "@address": "#/$sections/0" },
+          "/$sections/0/$sections/0": { "@key": "child", "@address": "#child" }
+        }
+      }
     }
   ]
 }

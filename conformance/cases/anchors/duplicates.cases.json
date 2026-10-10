@@ -224,6 +224,64 @@
           "tags": []
         }
       }
+    },
+    {
+      "id": "three-nodes-strict",
+      "description": "Under the strict default, one explicit anchor on three nested sections gives a duplicate-anchor error for each node after the first, two in all (decision H1).",
+      "spec": ["5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["three-nodes.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "error", "path": "three-nodes.md", "at": "/$sections/0/$sections/0" },
+          {
+            "code": "duplicate-anchor",
+            "severity": "error",
+            "path": "three-nodes.md",
+            "at": "/$sections/0/$sections/0/$sections/0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "three-nodes-lenient",
+      "description": "Under lenient uniqueness, one explicit anchor on three nested sections gives a duplicate-anchor warning for each node after the first, two in all (decision H1).",
+      "spec": ["5.7", "6.1", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["three-nodes.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-anchor", "severity": "warning", "path": "three-nodes.md", "at": "/$sections/0/$sections/0" },
+          {
+            "code": "duplicate-anchor",
+            "severity": "warning",
+            "path": "three-nodes.md",
+            "at": "/$sections/0/$sections/0/$sections/0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "block-and-heading-anchors-strict",
+      "description": "Under the strict default, a heading whose explicit and derived anchors both equal an earlier block anchor gets one duplicate-anchor error, since issues count nodes (decision H1).",
+      "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["room-twice.md"] },
+      "expect": { "issues": [{ "code": "duplicate-anchor", "severity": "error", "path": "room-twice.md", "at": "/$sections/0" }] }
+    },
+    {
+      "id": "block-and-heading-anchors-lenient",
+      "description": "Under lenient uniqueness, a heading whose explicit and derived anchors both equal an earlier block anchor gets one duplicate-anchor warning, since issues count nodes (decision H1).",
+      "spec": ["5.7", "6.1", "6.2", "6.3", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["room-twice.md"], "config": "config-lenient.yaml" },
+      "expect": {
+        "issues": [{ "code": "duplicate-anchor", "severity": "warning", "path": "room-twice.md", "at": "/$sections/0" }]
+      }
     }
   ]
 }

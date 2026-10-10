@@ -1,0 +1,5 @@
+type: object
+additionalProperties:
+  type: string
+  format: uri-reference
+  x-vmd-ref: { targets: ["docs/**"] }

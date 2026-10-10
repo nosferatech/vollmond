@@ -146,6 +146,16 @@
       }
     },
     {
+      "id": "two-anchors",
+      "description": "A heading holds at most one anchor element, so a second one is a structural error and `anchors` fails as `parse` does, with `anchor-element-invalid` on the section (§5.1, §6.2, decision H4.6); GitHub gives the heading `title-fifteen-` and keeps both ids, `a15` and `b15`.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "two-anchors.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "anchor-element-invalid", "severity": "error", "path": "two-anchors.md", "at": "/$sections/0" }]
+      }
+    },
+    {
       "id": "anchor-href",
       "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title eleven <a href=\"#q\">link text</a>` gives `title-eleven-link-text`.",
       "input": { "record": "anchor-href.md" },
