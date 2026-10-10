@@ -3,13 +3,17 @@
     "spec": ["4.4"],
     "profiles": ["read"],
     "operation": "parse",
-    "input": { "store": "yaml-scalars" }
+    "input": {
+      "store": "yaml-scalars"
+    }
   },
   "cases": [
     {
       "id": "core-schema-strings",
       "description": "Plain scalars that YAML 1.1 readers take for dates, booleans or numbers are strings in the YAML 1.2 core schema (YAML 1.2.2, section 10.3.2), and so are 0X1F, -0x1F and -0o17, since the core schema's hexadecimal and octal forms have a lower-case prefix and no sign, and tRuE, which is none of its boolean spellings.",
-      "input": { "record": "core-schema-strings.yaml" },
+      "input": {
+        "record": "core-schema-strings.yaml"
+      },
       "expect": {
         "result": {
           "date": "2026-10-09",
@@ -33,7 +37,9 @@
     {
       "id": "core-schema-booleans-and-nulls",
       "description": "true, True, TRUE and false are booleans, and null, Null, NULL, ~ and an empty value are null, as the core schema resolves them (YAML 1.2.2, section 10.3.2).",
-      "input": { "record": "core-schema-values.yaml" },
+      "input": {
+        "record": "core-schema-values.yaml"
+      },
       "expect": {
         "result": {
           "true-lower": true,
@@ -50,18 +56,23 @@
     },
     {
       "id": "ambiguous-strings-warned",
-      "description": "check warns about each plain scalar that vmd reads as a string and that is on the compatibility quoting list: dates and date-times, yes, OFF and y, 0b101, 1_000 and 1:30, << and =.",
+      "description": "check warns about each plain scalar that vmd reads as a string and that is on the compatibility quoting list: dates and date-times, yes, no, on, OFF, y and n, 0b101, 1_000 and 1:30, << and =.",
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "records": ["ambiguous-strings.yaml"] },
+      "input": {
+        "records": ["ambiguous-strings.yaml"]
+      },
       "expect": {
         "issues": [
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date-time" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date-time-spaced" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/yes-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/no-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/on-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/off-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/y-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/n-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/binary" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/underscored" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/sexagesimal" },
@@ -75,15 +86,19 @@
       "description": "The same strings quoted are not plain scalars, so check reports nothing.",
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "records": ["quoted-strings.yaml"] },
+      "input": {
+        "records": ["quoted-strings.yaml"]
+      },
       "expect": {}
     },
     {
       "id": "ambiguous-numbers-warned",
-      "description": "check warns about each plain scalar that vmd reads as a number and a YAML 1.1 reader reads otherwise: 1e3, 1e+3, 1.0e3 and 1E3, which PyYAML and Psych read as strings, 017 (octal 15 there), 0o17 (a string there) and 08 (a string in PyYAML and Psych, parser survey, section 4.1).",
+      "description": "check warns about each plain scalar that vmd reads as a number and a YAML 1.1 reader reads otherwise, one such reader being enough, as §4.4's 1e3 shows, which js-yaml's default before version 5 reads as a number: 1e3, 1e+3, 1.0e3 and 1E3, which PyYAML and Psych read as strings, 017 (octal 15 there), 0o17 (a string there), 08 (a string in PyYAML and Psych) and -.5 (a string in PyYAML and js-yaml 4, parser survey, section 4.1).",
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "records": ["ambiguous-numbers.yaml"] },
+      "input": {
+        "records": ["ambiguous-numbers.yaml"]
+      },
       "expect": {
         "issues": [
           { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/a" },
@@ -92,7 +107,8 @@
           { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/d" },
           { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/e" },
           { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/f" },
-          { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/g" }
+          { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/g" },
+          { "code": "yaml-ambiguous-number", "severity": "warning", "path": "ambiguous-numbers.yaml", "at": "/h" }
         ]
       }
     },
@@ -102,7 +118,9 @@
       "spec": ["4.2", "4.4"],
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "records": ["unambiguous-numbers.yaml"] },
+      "input": {
+        "records": ["unambiguous-numbers.yaml"]
+      },
       "expect": {}
     },
     {
@@ -111,24 +129,33 @@
       "spec": ["4.4", "9.1"],
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "config": "config-minimal.yaml", "records": ["ambiguous-strings.yaml", "ambiguous-numbers.yaml"] },
+      "input": {
+        "config": "config-minimal.yaml",
+        "records": ["ambiguous-strings.yaml", "ambiguous-numbers.yaml"]
+      },
       "expect": {}
     },
     {
       "id": "issues-entry-wins-over-minimal-quoting",
       "description": "An issues entry wins over the severity that yaml_quoting: minimal implies, so yaml-ambiguous-string: warning keeps the string warnings while the number warnings stay off (§9.1).",
-      "spec": ["4.4", "9.1"],
+      "spec": ["4.4", "9.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "config": "config-minimal-string-warning.yaml", "records": ["ambiguous-strings.yaml", "ambiguous-numbers.yaml"] },
+      "input": {
+        "config": "config-minimal-string-warning.yaml",
+        "records": ["ambiguous-strings.yaml", "ambiguous-numbers.yaml"]
+      },
       "expect": {
         "issues": [
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date-time" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/date-time-spaced" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/yes-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/no-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/on-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/off-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/y-word" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/n-word" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/binary" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/underscored" },
           { "code": "yaml-ambiguous-string", "severity": "warning", "path": "ambiguous-strings.yaml", "at": "/sexagesimal" },
@@ -140,10 +167,13 @@
     {
       "id": "number-warning-raised-to-error",
       "description": "The configuration may raise the warning to an error (Appendix D), and check then reports each one with severity error.",
-      "spec": ["4.4", "9.1"],
+      "spec": ["4.4", "9.1", "D"],
       "profiles": ["validate"],
       "operation": "check",
-      "input": { "config": "config-number-error.yaml", "records": ["ambiguous-numbers.yaml"] },
+      "input": {
+        "config": "config-number-error.yaml",
+        "records": ["ambiguous-numbers.yaml"]
+      },
       "expect": {
         "issues": [
           { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/a" },
@@ -152,7 +182,45 @@
           { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/d" },
           { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/e" },
           { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/f" },
-          { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/g" }
+          { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/g" },
+          { "code": "yaml-ambiguous-number", "severity": "error", "path": "ambiguous-numbers.yaml", "at": "/h" }
+        ]
+      }
+    },
+    {
+      "id": "number-warning-raised-to-error-still-reads",
+      "description": "A warning raised to an error does not make the record unreadable (§9.1, Appendix D), so parse succeeds under the same configuration and gives the numbers.",
+      "spec": ["4.4", "9.1", "D"],
+      "input": {
+        "config": "config-number-error.yaml",
+        "record": "ambiguous-numbers.yaml"
+      },
+      "expect": {
+        "result": {
+          "a": 1000,
+          "b": 1000,
+          "c": 17,
+          "d": 15,
+          "e": 1000,
+          "f": 1000,
+          "g": 8,
+          "h": -0.5
+        }
+      }
+    },
+    {
+      "id": "ambiguous-strings-in-front-matter",
+      "description": "Front matter is YAML, so check warns about the plain date and yes in it as in a YAML record.",
+      "spec": ["4.4", "5.3"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": {
+        "records": ["front-matter.md"]
+      },
+      "expect": {
+        "issues": [
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "front-matter.md", "at": "/date" },
+          { "code": "yaml-ambiguous-string", "severity": "warning", "path": "front-matter.md", "at": "/published" }
         ]
       }
     }

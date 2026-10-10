@@ -120,7 +120,7 @@
     },
     {
       "id": "yaml-unpaired-surrogate-16-bit-escape",
-      "description": "The YAML escape \\ud800 in a double-quoted scalar gives an unpaired surrogate, which every YAML reader surveyed accepts (parser survey, section 4.2) and vmd rejects in any format.",
+      "description": "The YAML escape \\ud800 in a double-quoted scalar gives an unpaired surrogate, which every reader in the columns of the parser survey's section 4.2 accepts; libyaml's scanner, which Psych and PyYAML's CSafeLoader use, rejects it, and a reader built on libyaml must still report unpaired-surrogate, not syntax-error.",
       "input": { "record": "yaml-unpaired-surrogate.yaml" },
       "expect": {
         "fails": true,
@@ -129,7 +129,7 @@
     },
     {
       "id": "yaml-unpaired-surrogate-32-bit-escape",
-      "description": "The 32-bit YAML escape \\U0000DC00 (YAML 1.2.2, section 5.7) names a lone low surrogate too.",
+      "description": "The 32-bit YAML escape \\U0000DC00 (YAML 1.2.2, section 5.7) names a lone low surrogate too, and a reader built on libyaml, whose scanner rejects it, must report unpaired-surrogate, not syntax-error.",
       "input": { "record": "yaml-unpaired-surrogate-32-bit.yaml" },
       "expect": {
         "fails": true,

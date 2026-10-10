@@ -90,7 +90,7 @@
     },
     {
       "id": "duration-valid",
-      "description": "PT10M and P3D, the examples of §4.3, and P1Y2M, P1DT12H, PT0S and P2W are durations under both ISO 8601 and the ABNF of RFC 3339, Appendix A, which JSON Schema uses.",
+      "description": "PT10M and P3D, the examples of §4.3, and P1Y2M and P1DT12H are durations under both ISO 8601 and the ABNF of RFC 3339, Appendix A, which JSON Schema uses.",
       "input": { "records": ["duration-valid.json"] },
       "expect": {}
     },
@@ -110,13 +110,13 @@
     },
     {
       "id": "int64-canonical-forms-valid",
-      "description": "Numbers within ±(2^53 - 1) and decimal strings beyond it, up to the 64-bit limits, are int64 values in their canonical form (§4.3).",
+      "description": "Numbers within ±(2^53 - 1) and decimal strings beyond it, up to the limits of a signed 64-bit integer, -9223372036854775808 to 9223372036854775807 as the OpenAPI format registry defines int64, are int64 values in their canonical form (§4.3).",
       "input": { "records": ["int64-valid.json"] },
       "expect": {}
     },
     {
       "id": "int64-invalid",
-      "description": "Decimal strings just beyond the signed 64-bit range, which bigint and not int64 holds, and strings that are not integers are schema violations.",
+      "description": "Decimal strings just beyond the range of a signed 64-bit integer, which the OpenAPI format registry gives as int64's, and which bigint and not int64 holds, and strings that are not integers are schema violations.",
       "input": { "records": ["int64-invalid.json"] },
       "expect": {
         "issues": [
@@ -170,11 +170,12 @@
     },
     {
       "id": "json-schema-formats-invalid",
-      "description": "A relative reference is not a uri (RFC 3986), an address without @ is not an email, and a UUID without hyphens or with a non-hexadecimal digit is not an RFC 4122 string form, so each is a schema violation, since vmd asserts format where JSON Schema only annotates by default.",
+      "description": "A relative reference is not a uri and %zz, a percent sign without two hexadecimal digits, is not a uri-reference (RFC 3986, section 2.1), an address without @ is not an email, and a UUID without hyphens or with a non-hexadecimal digit is not an RFC 4122 string form, so each is a schema violation, since vmd asserts format where JSON Schema only annotates by default.",
       "input": { "records": ["identifiers-invalid.json"] },
       "expect": {
         "issues": [
           { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uri/0" },
+          { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uri-reference/0" },
           { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/email/0" },
           { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uuid/0" },
           { "code": "schema-violation", "severity": "error", "path": "identifiers-invalid.json", "at": "/uuid/1" }

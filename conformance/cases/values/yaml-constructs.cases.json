@@ -200,6 +200,16 @@
       }
     },
     {
+      "id": "front-matter-infinity",
+      "description": "Front matter is YAML, so .inf in it is outside the data model as in a YAML record, and the Markdown record fails parse at that field.",
+      "spec": ["4.1", "5.3"],
+      "input": { "record": "front-matter-infinity.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "yaml-non-finite", "severity": "error", "path": "front-matter-infinity.md", "at": "/ratio" }]
+      }
+    },
+    {
       "id": "one-document-with-markers",
       "description": "A file with one document between the markers --- and ... is a single document, so it is read; only several documents are an error.",
       "input": { "record": "explicit-document.yaml" },

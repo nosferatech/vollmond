@@ -709,10 +709,11 @@ Alternatives that lost:
   bytes parse back to the same value, not an error, which is what writing such numbers as integers would give (§4.2, decision
   G1). It does not check which form the writer chose; that is left to the `serialize` cases of I4, which compare bytes. These
   cases need the Write profile and wait for the serializer of I4.
-- **`cases/values/numbers.cases.json`** parses five YAML records with the Read profile (decision G1). `1152921504606847000`,
-  `-9007199254740993` and the hexadecimal `0x20000000000001` are integers by form that a double cannot hold, so each fails with
-  `number-not-representable`, while `1e23` and `9007199254740993.0` are not integers by form and give their nearest doubles.
-  The value fixtures (I0.4, #5) extend it and add the other case files of `cases/values/`.
+- **`cases/values/numbers.cases.json`** parses JSON, YAML and Markdown records with the Read profile (§4.2, decisions F2 and
+  G1). Integers by form that a double cannot hold, in decimal, with a leading `+`, in octal and in hexadecimal, fail with
+  `number-not-representable`, and so do numbers that overflow or that underflow to zero, at the exact double boundaries. Exact
+  integers up to 2^60, numbers in exponent or fraction form, which mean their nearest doubles with ties to even, and `-0` are
+  read without an issue. The other case files of `cases/values/` cover the rest of §4.
 
 Only the last sample expects issues, with the codes of the proposal's Appendix D.
 
