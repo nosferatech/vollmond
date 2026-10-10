@@ -284,3 +284,137 @@ Recorded 2026-10-09.
 - **Repository settings.** `main` accepts only pull requests (no required approvals, since the project owner cannot approve their
   own; squash merges only) that pass the CI check, with no deletion, no force push and linear history. Merged branches are deleted,
   the wiki is off, Dependabot security updates are on, and `SECURITY.md` and `CONTRIBUTING.md` describe reporting and contributing.
+
+## Decisions of phase I0
+
+Recorded 2026-10-10, from the project owner's answers to the I0 decision cards (C1 to C29) and their follow-ups (F1 to F10), and
+applied to Draft v0.4. Where a follow-up refined a card, the follow-up's answer is the decision. The cards took up the open
+questions of the conformance suite's README and the proposals of the parser survey. Section numbers here refer to Draft v0.4.
+
+**Stance.** In the owner's words, "Some of the problems are nasty. We can see how far we can go with the proposed answers; if we
+get into trouble we may need to revisit them." These decisions may therefore be revisited when the implementation runs into
+trouble. An adversarial audit after I3 (#45) tries to break vmd by combining them.
+
+### Errors, parsing and validation
+
+- **Issue codes (C1).** A normative appendix of issue codes and severities (Appendix D), grown by the fixture tasks and adopted
+  into the spec in I0.8 and later rounds. The severities are `error` and `warning`.
+- **Which errors make a record unreadable (C2, F1).** Structural errors fail parse. They are syntax errors, values outside the data
+  model, misplaced data blocks, `$` members where none are allowed, malformed `$ref` objects, and numbers a double cannot hold.
+  Validation errors (schema violations, dangling references, escalated warnings) attach to a readable record, fail `check` with
+  exit code 4 and are refused by gate-mode writes. `vmd query` and `ls` report how many records they could not read, so none
+  vanish silently. Parse and check report every error they find, not only the first, "so that less roundtrips to fix them are
+  needed". The owner first chose that any error fails parse (C2). F1 narrowed it to structural errors, so that a well-formed but
+  wrong record stays visible and can be found and fixed with vmd itself.
+- **Roles (F1, the owner's elaboration, written into §9.5).** A reader opened on data that is not validated reads it as long as its
+  syntax is proper. A validator reports all errors and fails according to the configured strictness. A backend rejects any update
+  that does not validate. Queries default to best effort and assume the backend is correct, and a strict read mode, configurable
+  per client or connection, makes records that fail validation errors rather than results, for cases where correctness matters
+  more than availability. A reader using an incompatible format version must fail loudly. The owner calls this "quite important"
+  and expects it to need "a good systematic solution", which belongs to the versioning design (#46).
+- **Minimal configuration (C3).** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness and no
+  collections.
+- **Empty files (C8).** An empty YAML file is the empty record, and an empty JSON file is an error.
+
+### Numbers
+
+- **A number means its nearest double (C4, C5, C6, F2).** Values in the value view are plain doubles (survey option D). A number
+  is a structural error when its value is an integer and the double differs from it (`9007199254740993`), when it overflows
+  (`1e400`), or when a non-zero value underflows to zero (`1e-400`). A fractional number with more digits than a double holds is
+  accepted and means its nearest double, so `0.10000000000000001` equals `0.1` with no issue. `-0` is `0`. Integers stay exact up
+  to ±(2^53−1), and vmd writes larger int64 and bigint values as strings, as decided earlier. A fractional decimal has no true
+  value to protect, while integers do. On underflow, the owner holds that an error is justified because no reasonable serializer
+  writes a non-zero double as a literal that underflows to zero. (The smallest positive double is about 4.9e-324, and
+  shortest-form serializers print it as `5e-324`.)
+- **No rewriting.** Under every option, an edit never rewrites a number it did not change. Edits splice only the changed bytes,
+  because the `yaml` library's writer rewrites numbers, and §13.3 gets that qualifier.
+
+### YAML
+
+- **Compatibility quoting (C7, F3).** On by default. The serializer quotes every string a common YAML 1.1 reader takes for
+  something else (the survey's full list), and `vmd check` warns about unquoted ones. C7 was first read as being about older
+  versions of vmd, and F3 clarified that it concerns other YAML tools (PyYAML, Jekyll's Psych, old js-yaml). It is a setting. A
+  user who controls their tools may turn it off explicitly, and that also turns the warning off.
+- **Severities by issue code (the owner's note on C7).** A user can disable or change warnings by type. This generalizes, so the
+  configuration can set the severity of an issue code (off, warning, error) within limits that the issue-code appendix defines.
+- **Format and protocol versioning (F4).** A design issue (#46), discussed before I4. The interim rule is that a store declares its
+  format version (`vmd: 1`), that a client refuses to write to a store whose version it does not support and warns when it reads
+  one, and that the spec reserves room for client-declared versions, in the repository's settings or in a connection string. The
+  owner's model for the design is that a client declares its version, its payload is validated against that version and
+  transcoded to the store's, and reads are transcoded back.
+
+### Line endings, offsets and source maps
+
+- **Line endings (C9).** The value view reads CRLF as `\n`. Edits keep the file's own line endings where the backend keeps the
+  file, and a backend is not required to preserve `\r\n`, since some may not and some could even convert `\n` to `\r\n`.
+- **Units (C10).** Offsets are UTF-8 bytes, lines count from 1, and columns count code points. Clients that need other units
+  convert.
+- **Source maps (C11).** Spans are decided by the Markdown parser task (I1.4), and source maps are optional for the Read profile.
+  A node's span covers exactly the UTF-8 bytes that `get` returns for it.
+
+### Anchors and headings
+
+- **Derived anchors use vmd's own rule (C12, F5).** Agreement with GitHub is a bonus, not a goal. vmd does not follow later GitHub
+  changes, and changing vmd's rule requires a spec version, warnings first and a migration. The rule (§6.3) takes the text a
+  reader sees, normalizes it to NFC, removes default-ignorable code points, lower-cases per code point, trims, keeps letters,
+  marks, decimal digits, connector punctuation and `-`, turns white space into `-`, and numbers repeats by skipping used
+  candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 89 percent. The
+  owner first chose a simpler rule of vmd's own (C12). F5 kept the captured handling of rendered text and of Unicode, so that most
+  links copied from GitHub still work, and made the rule vmd's own and versioned.
+- **The `<a id>` element (C13).** It is not part of the heading's title and is stripped before trimming, so
+  `## What was done <a id="done"></a>` gives `what-was-done` with or without the space, never a trailing hyphen. The serializer
+  writes the element without a space. GitHub's behavior, which keeps the hyphen, is ignored.
+- **Empty slugs (C14).** A heading whose slug is empty has no derived anchor, but its candidate still counts as used.
+- **HTML in headings (C15).** A heading may contain the anchor element plus a short list of inline elements (`span`, `b`, `i`,
+  `em`, `strong`, `code`, `kbd`, `sup`, `sub`). Other tags are undefined behavior. They are a warning, or an error in the strictest
+  configuration, which under F1 is a validation error, so the record stays readable, and they may be stripped from the derived
+  anchor.
+- **One anchor namespace (C16).** Explicit and derived anchors share one namespace, and a collision is a duplicate anchor. The
+  owner added that an escape hatch making a link match explicit anchors only would be good practice.
+- **Explicit-only references (F6).** No store setting and no normalization command. In YAML and JSON, a reference's schema can
+  require an explicit anchor as its target (`x-vmd-ref` with `anchors: explicit`), which the owner calls best practice for stores
+  used as databases. In Markdown a link stays plain, and `vmd check` warns about references through derived anchors, as a lint
+  only ("if user want to pass linter, they can fix their data themselves"). Whether a Markdown link can carry an invisible
+  attribute that says the same is open question 6 of Draft v0.4.
+
+### Addresses and selectors
+
+- **Section members as steps (C17).** Address steps may name the members of the section shape, `$title`, `$body`, `$sections`,
+  `$anchor` and `$tags`. Read-only computed fields would be acceptable in principle, with writes to them refused. Under F9 no such
+  member remains, since `$key` is no longer one.
+- **`$key` leaves the value view (F9, superseding C23).** Readers return the stored data as the value, and what vmd derives (the
+  key, the canonical address, anchors, the node version, the source location) in a metadata envelope next to it (§5.10). A `$key`
+  in a write is an error, which is safe because reads never contain one. Schemas key sections with `x-vmd-list`
+  `keys: ["@key"]`, which the validator computes internally, and VQL gains an `@key` pseudo-field. Node versions hash stored data
+  only. The owner's escaped-identifier idea, as SQL tells `rowid` from a quoted `` `rowid` ``, is recorded for VQL (#29), so that a
+  quoted field name reaches a member literally named like a reserved word or a pseudo-field.
+- **Ambiguity at evaluation (C18).** A singular address may still fail as ambiguous when evaluated, in exactly two cases, lenient
+  mode duplicates and a first step that matches both a root member and another node's anchor. §7.4 says so.
+- **Empty selectors (C19).** A selector that matches nothing returns an empty result, not a failure.
+- **Tag selection is deferred (C20, F7)** to a selector-language design issue (#47), to run before I4. It covers and, or and not,
+  filtering versus projection with descent, and a final projection, and starts from CSS selectors, JSONPath (RFC 9535), XPath and
+  jq. Until then addresses do not select by tag, VQL's `@tags` does, and a many-reference lists its targets.
+
+### References and aliases
+
+- **Links in titles and in YAML or JSON prose (C21)** are tracked references.
+- **Reading the alias file (C22)** moves to the Validate profile, and writing aliases stays in Refactor.
+- **Aliases on every move (F8).** `mv` and `rename` record an alias on every move, and `vmd alias prune` removes those no open
+  branch can still need. The owner's caveat is to be resolved in the design (#48). A reference to `old-anchor` committed before
+  the rename is meant for the renamed node, but one committed after the rename may mean a new anchor that reuses the name, and a
+  client synced before the rename that pushes after it is indistinguishable from one that intends the new meaning.
+
+### Round trips, queries, the suite and process
+
+- **Round trips (C24).** Each implementation has its own round-trip property tests, and the suite holds example cases under the
+  Write profile.
+- **Sort ties and letter case (C25, F10).** Sort ties are ordered by store path, compared as exact UTF-8 bytes, then by document
+  order within a record, never across records. Case-insensitive matching uses Unicode simple case folding.
+- **Paths that cannot be files (C26)** are left out of the suite for now.
+- **Spec versions (C27).** The spec's minor version rises with each decision round. This round gives Draft v0.4.
+- **Local index (C28).** The local index uses JSONL, as the implementation plan chose, and §14.3 no longer names SQLite as the
+  reference.
+- **Conformance runners (C29).** Each language's conformance runner lives next to that language's implementation, and the
+  conformance data stays language-neutral and shared.
+- **Repository layout (L1).** One top-level directory per language. The TypeScript workspace moves to `js/` (a separate pull
+  request), and Python later goes to `python/`. `docs/` and `conformance/` stay shared at the root.
