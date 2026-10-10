@@ -2,7 +2,8 @@
 
 Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
 the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1, G1 to G9), as the
-[decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them. Until the format is approved, the
+[decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them, together with the decisions from the
+fixtures (H1 to H5, G10). Until the format is approved, the
 suite holds only the five sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
 runner (#19) follow the format once it is approved.
 
@@ -210,7 +211,7 @@ are these seven:
 |---|---|
 | `id` | the case's local id, `[a-z0-9][a-z0-9-]*`, unique within its file |
 | `description` | one sentence on what the case checks, and why when that is not obvious |
-| `spec` | the sections the case checks, as strings without `§`, such as `"5.3"` or `"A"` for Appendix A |
+| `spec` | the sections the case checks, as strings without `§`, such as `"5.3"` or `"A"` for Appendix A, and the sections of other specifications it relies on (below) |
 | `profiles` | every profile the case needs (below) |
 | `operation` | what the runner asks its implementation to do ([Operations](#operations)) |
 | `input` | the operation's inputs |
@@ -219,9 +220,19 @@ are these seven:
 `profiles` lists profiles of §19.2 in lower case, from `read`, `validate`, `query`, `write`, `refactor` and `publish`. It is
 empty for the runner's self-test.
 
-All seven members are required once defaults are applied. `defaults` may give `spec`, `profiles`, `operation` and `input`. A
-case's own member replaces the default one, except `input`, whose members are merged one level deep, so that a member of the
-case's `input` replaces the default member of the same name.
+An entry of `spec` that cites another specification is its name, as the proposal cites it, then a space and the section number,
+which is the entry's last word, such as `"CommonMark 4.3"`, `"YAML 1.2.2 6.8.1"` or `"RFC 3339 5.6"`. Its version is the one
+the proposal pins, such as CommonMark 0.31.2 (§5.3). A case cites the external sections that decide its outcome here rather than
+only in its description, so that they can be selected ([Selecting](#selecting)).
+
+A case may also have an eighth member, **`pending`**, a string naming the open question or issue that blocks it, such as
+`"#53 question 2"`. A pending case is written in full, with the outcome its question's recommendation gives, and is not run: the
+runner reports it as `skip`, with `pending: ` and the string as its reason. A pending case keeps its input in the suite until
+the question is answered, when the member is removed, or the case changed to the answer.
+
+All seven members are required once defaults are applied, and `pending` is optional. `defaults` may give `spec`, `profiles`,
+`operation` and `input`. A case's own member replaces the default one, except `input`, whose members are merged one level deep,
+so that a member of the case's `input` replaces the default member of the same name.
 
 **Unknown members are errors.** A member this README does not define, in a case or its `input` or `expect`, makes that case an
 `error`. One at the top of a case file or in `defaults` makes every case of the file an `error`. An unknown member may come
@@ -281,8 +292,8 @@ A **target** is `{"path": <store path>, "at": <exact path>, "address": <canonica
 
 - `at` is an RFC 6901 JSON Pointer over the record's value view, written raw rather than percent-encoded, and `""` for the
   root.
-- `address` is the node's canonical address (§7.5) as a fragment with its `#`, such as `"#done"`. For the root it is `""`,
-  read from §7.1 and §7.5 as the shortest form ([open question 1](#open-questions)).
+- `address` is the node's canonical address (§7.5) as a fragment with its `#`, such as `"#done"`. For the root it is `""`, the
+  record with no fragment, which §7.5 makes the root's canonical address (decision H4).
 - A block anchor's target adds `"range": [start, end]`, zero-based UTF-8 byte offsets into the `$body` that `at` names, with the
   end exclusive (§5.9, decision C10).
 - A target that is an asset or a directory has `path` only.
@@ -302,6 +313,17 @@ A **target** is `{"path": <store path>, "at": <exact path>, "address": <canonica
 | `serialize`, `edit` | `write` | §5.8, §13 | reserved for I4 | bytes |
 
 Every operation that takes `store` also takes `config` ([Inputs](#configuration-override)).
+
+**On a structural error.** An operation that needs a record's value view fails like `parse` when that record has a structural
+error (§9.2), and its issues are that record's structural errors:
+
+- `parse`, `meta`, `source_map` and `anchors` fail for their record;
+- `resolve` fails when the record its address names has a structural error;
+- `refs` with `record` fails when that record has one;
+- `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
+- `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
+  that could not be read is not compared;
+- `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
 every severity. Every other operation reports only the issues that make it fail, so when it succeeds its issues are empty, and
@@ -373,8 +395,9 @@ percent-encoded. `as` says how the address is used, since being singular is a pr
   matching target, compared unordered. The operation fails when the address is malformed or its record does not exist. A
   selector that matches nothing gives an empty list (§7.4, decision C19).
 
-A singular address can fail as ambiguous only at evaluation in two cases, which §7.4 names (decision C18), so a case for either
-expects `address-ambiguous` from `resolve`, not `address-not-singular`.
+A singular address can fail as ambiguous only at evaluation in three cases, which §7.4 names (decisions C18 and H4), so a case for
+any of them expects `address-ambiguous` from `resolve`, not `address-not-singular`. An address whose record does not exist fails
+with `address-not-found`, as a singular address and as a selector.
 
 A case that needs a schema to resolve, through a keyed list (§5.6) for example, lists `validate` among its profiles.
 
@@ -418,7 +441,7 @@ The result is `{"matches": [...], "more": true | false}`:
 The other members of a result in §10.5 are left out. Titles and sizes are tested by other operations, token counts and
 excerpts are approximate by definition, cursors are opaque, and what matched may be added by the VQL fixtures. Totals, the
 default projection and paging past the first page are settled by the VQL fixtures (#34), with the questions of
-[open question 2](#open-questions), in a revision of the case format if they need one.
+[open question 1](#open-questions), in a revision of the case format if they need one.
 
 ### round_trip
 
@@ -480,10 +503,14 @@ An expected issue has four members:
 - **`severity`** is `error` or `warning` (decision C1). A case expects the default severity that the proposal's Appendix D gives,
   under the store's uniqueness mode, unless the store's configuration sets the code's severity (`issues`, §9.1).
 - **`path`** is the store path of the record the issue is about. It is `null` for an issue that belongs to no record, such as
-  a query that does not parse or a value given to the serializer.
-- **`at`** is the exact path of the node the issue is about, which Appendix D names for each code, or `null` when there is none,
-  as for a syntax error that leaves no value view. For a reference in prose, `at` is the `$body` or `$title` that holds it, as
-  §12.3's example locates `ref-ambiguous` in `#what-was-done/$body`.
+  a query that does not parse or a value given to the serializer. For an address issue (`address-malformed`,
+  `address-not-singular`, `address-not-found`, `address-ambiguous`) it is the record the address names, also when that record
+  does not exist (decision H1).
+- **`at`** is the exact path of the node the issue is about, which Appendix D names for each code. An issue about the whole
+  record, such as a syntax error or several YAML documents, is attached to the root, `""`, even when the record has no value
+  view. `at` is `null` only for an issue that Appendix D attaches to no node, such as the address issues and `config-invalid`
+  (decision H1). For a reference in prose, `at` is the `$body` or `$title` that holds it, as §12.3's example locates
+  `ref-ambiguous` in `#what-was-done/$body`.
 
 For example, a YAML record `aliases.yaml` holding the two lines `a: &x 1` and `b: *x`, an anchor and an alias, each of which
 is a structural error:
@@ -555,7 +582,8 @@ A run can be narrowed by three criteria, each a list:
 - **Profiles.** A case is selected when its `profiles` contain at least one of the listed profiles. Selecting `query`
   therefore selects the query cases, although they also need `read`.
 - **Sections.** A case is selected when its `spec` lists one of the sections or a section below it, so `7` selects `7`, `7.3`
-  and `7.3.1`, while `7.3` does not select `7.31`.
+  and `7.3.1`, while `7.3` does not select `7.31`. Citations of other specifications are selected the same way, after their name,
+  so `CommonMark 4` selects `CommonMark 4.3`.
 - **Ids.** A case is selected when its global id equals one of the entries, or starts with one that ends in `/`.
 
 A case must meet every criterion given, and any one entry of a criterion is enough. The [self-test](#runner-self-test) cases
@@ -581,7 +609,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.4.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.5.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -644,13 +672,13 @@ case pairs two values that one specific wrong comparison would misjudge.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.4.0-dev", "case_format": 1 }
+{ "version": "0.5.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.4 gives `0.4`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.5 gives `0.5`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.4.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.5.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -660,8 +688,9 @@ case pairs two values that one specific wrong comparison would misjudge.
   suite correctly, through a new member it has to understand or a changed meaning. A runner refuses a case format it does not
   know rather than misread it. A new operation does not change the case format, since a runner that lacks it reports its cases
   as `error` until it implements them or skips them by declaration. The phase I0 decisions changed the meaning of numbers in case
-  files (decision F2) and the `parse` result (decision F9), which would raise the case format, but it stays 1 as an exception,
-  because no runner had been released.
+  files (decision F2) and the `parse` result (decision F9), and the fixture decisions added the `pending` member and citations of
+  other specifications in `spec`. Each would raise the case format, but it stays 1 as an exception, because no runner had been
+  released.
 - **Unicode version.** Expected values that depend on Unicode data, such as derived anchors (§6.3), follow Unicode 17.0.0.
   Changing it changes derived anchors, which §6.3 allows only with a new version of the spec, so `version` moves with it.
 - **Section citations.** Cases cite sections in `spec`. A change that renumbers the proposal updates them as well, as
@@ -684,8 +713,8 @@ Alternatives that lost:
 2. Read the implementation's declaration and the selection, and exit with 2 if either is invalid.
 3. Walk `cases/` for files named `*.cases.json`, without descending into fixture stores. Read each one as
    [Reading case files](#reading-case-files) requires, apply its `defaults`, reject unknown members, and form the global ids.
-4. Take the selected cases in the byte order of their global ids. Skip a case if it needs an undeclared profile, or else if a
-   skip entry matches it.
+4. Take the selected cases in the byte order of their global ids. Skip a case if it is `pending`, or else if it needs an
+   undeclared profile, or else if a skip entry matches it.
 5. Check each store's versions manifest, and report `error` for the cases on a store with a mismatch.
 6. Perform the operation with the implementation's library. A crash is a `fail`.
 7. Map the outcome to the operation's shape, which gives the result, whether the operation failed, and the issues as `code`,
@@ -729,7 +758,8 @@ These are for the project owner. Where the spec is silent on something the suite
 question carries a recommendation where there is one.
 
 The earlier version of this README asked twenty questions. The decisions of phase I0 answered all of them except the tenth
-and part of the seventeenth, which remain below as questions 1 and 2. The answered ones, with the decisions that answered them:
+and part of the seventeenth. The decisions from the fixtures answered the tenth (decision H4), and part of the seventeenth remains
+below. The answered ones, with the decisions that answered them:
 
 | Earlier question | Decisions |
 |---|---|
@@ -742,6 +772,7 @@ and part of the seventeenth, which remain below as questions 1 and 2. The answer
 | 7. Line endings in the value view | C9 |
 | 8. Singular addresses that fail at evaluation | C18 |
 | 9. A selector that matches nothing | C19 |
+| 10. The canonical address of the root | H4: `""`, even when the title heading has an anchor |
 | 11. Explicit and derived anchors | C12 to C16, F5 |
 | 12. `$key` in round trips | F9, which took `$key` out of the value view |
 | 13. Where the round-trip property test lives | C24 |
@@ -753,11 +784,9 @@ and part of the seventeenth, which remain below as questions 1 and 2. The answer
 | 19. When the spec's version changes | C27 |
 | 20. Where the TypeScript runner lives | C29, L1 |
 
-The two that remain:
+The one that remains:
 
-1. **The canonical address of the root.** §7.5 gives none for the root. *Recommendation.* no fragment, the shortest form that
-   §7.1 makes the root. The `address` of the root's target is then `""`, which the Appendix A sample assumes.
-2. **Query details.** Before VQL cases can be written, three points of §10 still need an answer. They are how the default
+1. **Query details.** Before VQL cases can be written, three points of §10 still need an answer. They are how the default
    `fields` of the `records` target are represented, whether totals that an implementation may estimate can be compared, and how
    full text is cut into tokens. *Recommendation.* settle them in the VQL fixtures task (#34), as decision C25 assigns them, with
    additions to §10.
