@@ -81,7 +81,7 @@ JSON.parse with a reviver sees only the last duplicate     [["a","2"],["",null]]
 parse(12345678901234567890)                                {"value":12345678901234567000,"errors":[]}
 parse(1.0)                                                 {"value":1,"errors":[]}
 parse(-0)                                                  {"value":"-0","errors":[]}
-parse(1e400)                                               {"value":null,"errors":[]}
+parse(1e400)                                               {"value":"Infinity","errors":[]}
 parse(1e-400)                                              {"value":0,"errors":[]}
 parse({"a":1,"a":2})                                       {"value":{"a":2},"errors":[]}
 parse([1,])                                                {"value":[1],"errors":["ValueExpected@3"]}
@@ -92,7 +92,7 @@ parse(.5)                                                  {"errors":["InvalidSy
 parse(NaN)                                                 {"errors":["InvalidSymbol@0","ValueExpected@3"]}
 
 == jsonc-parser: parseTree() gives offsets and length for every node, so the lexeme is s.slice(offset, offset+length)
-{"a":12345678901234567890,"b":1.0,"c":[-0,1e400,0.10]}     {"lexemes":[["a","12345678901234567890",12345678901234567000],["b","1.0",1],["c.0","-0","-0"],["c.1","1e400",null],["c.2","0.10",0.1]],"errors":[]}
+{"a":12345678901234567890,"b":1.0,"c":[-0,1e400,0.10]}     {"lexemes":[["a","12345678901234567890",12345678901234567000],["b","1.0",1],["c.0","-0","-0"],["c.1","1e400","Infinity"],["c.2","0.10",0.1]],"errors":[]}
 node.value for 12345678901234567890 is a double            {"value":"12345678901234567000","lexeme":"12345678901234567890"}
 node.value for 1e400                                       Infinity
 

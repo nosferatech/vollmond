@@ -1,0 +1,43 @@
+
+== lossless-json 4.3.1: parse() returns a LosslessNumber for every number
+1                                                              class=LosslessNumber text=1 unsafeReason=undefined valueOf()=1
+1.0                                                            class=LosslessNumber text=1.0 unsafeReason=undefined valueOf()=1
+-0                                                             class=LosslessNumber text=-0 unsafeReason=undefined valueOf()=0
+9007199254740993                                               class=LosslessNumber text=9007199254740993 unsafeReason=truncate_integer valueOf()=9007199254740993n
+12345678901234567890                                           class=LosslessNumber text=12345678901234567890 unsafeReason=truncate_integer valueOf()=12345678901234567890n
+1e400                                                          class=LosslessNumber text=1e400 unsafeReason=overflow valueOf()=THROWS Cannot safely convert to number: the value '1e400' would overflow and become Infinity
+1e-400                                                         class=LosslessNumber text=1e-400 unsafeReason=underflow valueOf()=THROWS Cannot safely convert to number: the value '1e-400' would underflow and become 0
+0.3000000000000000444089209850062616169452667236328125         class=LosslessNumber text=0.3000000000000000444089209850062616169452667236328125 unsafeReason=truncate_float valueOf()=0.30000000000000004
+parse of {"a":1,"a":2}                                         THROWS Duplicate key 'a' encountered at position 8
+stringify(parse("[1.0,12345678901234567890,1e400]"))           [1.0,12345678901234567890,1e400]
+parse("[1,]") (strictness)                                     THROWS Array item expected but got ']' at position 3
+
+== Using a LosslessNumber where code expects a number
+big + 1 (valueOf returns a bigint)                             THROWS Cannot mix BigInt and other types, use explicit conversions
+big == 9007199254740993 (loose equality)                       false
+parse("1") === parse("1") (object identity)                    false
+small + 1                                                      2
+parse("1e400") + 1                                             THROWS Cannot safely convert to number: the value '1e400' would overflow and become Infinity
+Ajv type number on LosslessNumber(1)                           invalid (type)
+Ajv type integer on LosslessNumber(1)                          invalid (type)
+canonicalize({id: LosslessNumber(1)})                          {"id":{"isLosslessNumber":true,"value":"1"}}
+
+== An exact object that stands in for a number, by what its valueOf does
+no valueOf: x + 1                                              [object Object]1
+no valueOf: x > 9007199254740992                               false
+no valueOf: Math.max(x, 1)                                     NaN
+no valueOf: JSON.stringify({x})                                {"x":{"text":"9007199254740993"}}
+valueOf returns Number(text): x + 1                            9007199254740992
+valueOf returns Number(text): x > 9007199254740992             false
+valueOf returns Number(text): Math.max(x, 1)                   9007199254740992
+valueOf returns Number(text): JSON.stringify({x})              {"x":{"text":"9007199254740993"}}
+valueOf throws: x + 1                                          THROWS exact number 9007199254740993 has no double
+valueOf throws: x > 9007199254740992                           THROWS exact number 9007199254740993 has no double
+valueOf throws: Math.max(x, 1)                                 THROWS exact number 9007199254740993 has no double
+valueOf throws: JSON.stringify({x})                            {"x":{"text":"9007199254740993"}}
+
+== Restrict option: keep plain doubles, and report a number that is not double-safe (offsets from jsonc-parser)
+  offset 6: 9007199254740993 is not double-safe, write it as the string "9007199254740993"
+  offset 57: 12345678901234567890 is not double-safe, write it as the string "12345678901234567890"
+  offset 85: 1e400 is not double-safe, write it as the string "1e400"
+RFC 8785 canonicalization of the double view, with the flagged numbers made strings {"big":"12345678901234567890","fine":[1,1,2.5,1e+21],"huge":"1e400","id":"9007199254740993","ratio":0.30000000000000004}

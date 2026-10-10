@@ -117,6 +117,25 @@ const edited2 = YAML.parseDocument(src);
 edited2.set('a', new Scalar(12345678901234567890n));
 console.log('  after set(a, Scalar(bigint)):', JSON.stringify(edited2.toString().split('\n')[0]));
 
+console.log('\n## yaml: a splice by Scalar.range changes one value and leaves every other byte alone');
+{
+  const text = '# front matter\na: 1.0   # keep this comment\nb: 12345678901234567890\nc: 0x1F\nlist: [1e3, 0o17, "x"]\nd: 1e400\n';
+  const d = YAML.parseDocument(text);
+  // range is [start of the value, end of the value, end of the node including trailing space]
+  const splice = (path, replacement) => {
+    const [start, valueEnd] = d.getIn(path, true).range;
+    return text.slice(0, start) + replacement + text.slice(valueEnd);
+  };
+  const out = splice(['a'], '2');
+  console.log('  edited text:', JSON.stringify(out));
+  console.log('  the output is the input with the 3 bytes "1.0" replaced by "2":', out === text.replace('a: 1.0', 'a: 2'));
+  console.log('  reparsed value of a:', fmt(YAML.parse(out).a));
+  const rewritten = YAML.parseDocument(text);
+  rewritten.set('a', 2);
+  console.log('  Document.toString() after the same edit:', JSON.stringify(rewritten.toString()));
+  console.log('  splice inside a flow sequence:', JSON.stringify(splice(['list', 0], '5').split('\n')[4]));
+}
+
 console.log('\n## yaml: parse() (the convenience function) on a multi-document source and on aliases');
 try { YAML.parse('a: 1\n---\nb: 2\n'); } catch (e) { console.log('  YAML.parse multi-doc throws:', e.code, e.message.split('\n')[0]); }
 const aliasDoc = YAML.parseDocument('a: &x [1]\nb: *x\n');

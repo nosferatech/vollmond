@@ -17,6 +17,16 @@
 2.50                                                         double-safe   canonical=2.5   Number()=2.5
 1e21                                                         double-safe   canonical=1e21   Number()=1e+21
 100000000000000000000000                                     double-safe   canonical=1e23   Number()=1e+23
+0.10000000000000001                                          NEEDS EXACT   canonical=0.10000000000000001   Number()=0.1
+1.00000000000000000000                                       double-safe   canonical=1   Number()=1
+100000000000000000000                                        double-safe   canonical=100000000000000000000   Number()=100000000000000000000
+0.1000000000000000055511151231257827                         NEEDS EXACT   canonical=1000000000000000055511151231257827e-34   Number()=0.1
+
+== How often does a tool that prints doubles with 17 significant digits produce an exact-only number?
+doubles drawn (pseudo-random, fixed seed)                    20000
+printed with String(d) (shortest round trip)                 0 exact-only
+printed with d.toPrecision(17) (like printf %.17g)           12688 exact-only
+printed with d.toPrecision(15)                               0 exact-only
 
 == Plain doubles: equality and ordering silently lose information
 9007199254740993 vs 9007199254740992                         double equal=true   exact compare=1
@@ -55,11 +65,13 @@ plain number 1.0 (parsed), type integer                      valid
 sort with Number()                                           -0 0 2 10 1.5e1 9007199254740993 9007199254740992 12345678901234567891 12345678901234567890
 sort with exact compare                                      -0 0 2 10 1.5e1 9007199254740992 9007199254740993 12345678901234567890 12345678901234567891
 
-== Cost of the shapes: time and heap for 300000 numbers (document of the numbers 1 to 300000 with a few fractions)
-JSON.parse (plain doubles)                                       6 ms   retained    2.5 MB
-JSON.parse with reviver reading context.source                 107 ms   retained   19.4 MB
-JSON.parse with reviver, wrapper only if not double-safe       130 ms   retained    2.4 MB
-jsonc-parser parse (plain doubles)                              19 ms   retained    3.2 MB
-jsonc-parser parseTree (offsets kept for every node)            23 ms   retained   27.1 MB
-jsonc-parser visit, wrapper for every number                    21 ms   retained   15.1 MB
-jsonc-parser visit, hybrid (number or wrapper)                  33 ms   retained    3.1 MB
+== Cost of the shapes, single run: 300000 numbers, 1 percent of them exact-only, 1 in 7 with a fraction
+  Each row builds the named shape with the stated class. Timings and heap are one run on one machine; compare orders of magnitude.
+JSON.parse, plain doubles (rounds the exact-only numbers)        3 ms   retained    2.5 MB
+JSON.parse with reviver, a {text} stand-in object for every number    91 ms   retained   19.4 MB
+lossless-json 4.3.1 parse, a LosslessNumber for every number    19 ms   retained   22.6 MB
+jsonc-parser visit, B: a VmdNumber{text} for every number       26 ms   retained   20.2 MB
+jsonc-parser visit, A: number, or ExactNumber{text} if not double-safe    39 ms   retained    4.0 MB
+jsonc-parser visit, C: plain numbers plus a Map index to text for exact-only    34 ms   retained    3.3 MB
+jsonc-parser parse, plain doubles (for comparison)              22 ms   retained    3.1 MB
+jsonc-parser parseTree, offsets kept for every node (for comparison)    24 ms   retained   27.1 MB
