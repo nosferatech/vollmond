@@ -145,7 +145,10 @@ own (§4.4).
   from I-JSON, whose section 2.1 says that member names and string values "MUST NOT include code points that identify Surrogates
   or Noncharacters". Noncharacters are Unicode scalar values, and Unicode Corrigendum #9 says that they "are not illegal in
   interchange nor do they cause ill-formed Unicode text" ([unicode.org/versions/corrigendum9.html](https://www.unicode.org/versions/corrigendum9.html),
-  read on 2026-10-10), while a surrogate that is not part of a pair is not a character at all.
+  read on 2026-10-10), while a surrogate that is not part of a pair is not a character at all. YAML's character set leaves out
+  U+FFFE and U+FFFF (YAML 1.2.2, section 5.1, production `c-printable`), so in a YAML file and in front matter those two must be
+  written as escapes in a double-quoted string, and a raw one is a YAML syntax error (`syntax-error`). The other noncharacters may
+  appear raw in YAML.
 - **Merge keys.** A plain `<<` key is a merge key, whatever its value, and so an error. A quoted `"<<"` key is an ordinary
   member. YAML 1.1's merge type is recognized by its regular expression, `<<` ([yaml.org/type/merge.html](https://yaml.org/type/merge.html)),
   and implicit resolution by regular expression applies to plain scalars only, so a quoted `"<<"` is a string to YAML 1.1 readers
@@ -251,8 +254,10 @@ false, `2026-10-09` a date and `1:30` the number 90.
 matter or a `yaml data` block, is a structural error (`yaml-version-unsupported`). Under `%YAML 1.1` the `yaml` package reads
 `a: yes` as `true`, `017` as 15 and `2026-10-09` as a date (measured for the value fixtures, #52, with `yaml` 2.9.1), so reading
 the record as 1.2 would silently change what those values mean to its author, and honoring the directive would make the value
-view depend on YAML 1.1. This departs from YAML 1.2.2, whose section 6.8.1 says that a 1.2 processor "must also accept documents
-with an explicit `%YAML 1.1` directive" and process them as 1.2 with warnings.
+view depend on YAML 1.1. This departs from YAML 1.2.2 twice. Its section 6.8.1 says that a 1.2 processor "must also accept
+documents with an explicit `%YAML 1.1` directive" and process them as 1.2 with warnings, and that a document naming a higher
+minor version, such as `%YAML 1.3`, should be processed with a warning. vmd rejects both, since it cannot know what a later
+minor version changes.
 
 **Compatibility quoting** is on by default. The serializer then quotes every string that a common YAML 1.1 or 1.2 reader takes for
 something else:
@@ -673,7 +678,7 @@ The derived anchor is computed in seven steps. Steps 1 to 6 give the heading's *
    URL, the content of a code span, character references decoded, backslash escapes resolved, emphasis delimiters removed, the text
    inside HTML elements without their tags, whether supported or not (§5.3), nothing from an HTML comment, and nothing from an
    image. A soft or a hard line break, as in a setext heading of several lines, contributes a line feed, which is white space, so
-   step 5 turns it into a hyphen. A `<br>` element contributes nothing, as every tag does.
+   steps 5 and 6 turn it into a hyphen. A `<br>` element contributes nothing, as every tag does.
 2. **Normalize.** Remove every Default_Ignorable_Code_Point character (zero-width joiners, variation selectors, soft hyphens and
    the like), then normalize to NFC. Removing first means that an invisible character cannot keep two headings that look the
    same apart: `e`, U+FE0F, U+0301 gives `é` (U+00E9), as `é` does.
@@ -774,9 +779,10 @@ The proof cannot cover three cases, so a singular address can still fail as ambi
 
 - in `lenient` mode, where a level the schema does not declare may hold duplicates (§5.7);
 - when its first step matches both a root member and the anchor of a different node (§7.3);
-- when the data breaks the uniqueness that the proof relies on: a record whose sibling keys repeat although the strict default,
-  or a level declared `type: map`, forbids it. Such a record still reads, with a `duplicate-key` validation error (§5.7), and
-  an address through the duplicate is ambiguous.
+- when the data breaks a uniqueness the proof relies on: repeated sibling keys that the strict default forbids, a duplicate at
+  a level declared `type: map`, or an anchor that names more than one node (§6.1). Such a record still reads, with a
+  `duplicate-key` or `duplicate-anchor` validation error, in either uniqueness mode (§5.7), and an address through the
+  duplicate is ambiguous.
 
 A **selector** may resolve to several nodes: a semantic path through a `multimap` level, or a query. Selectors are used by
 queries and by references declared `cardinality: many`, and never as write targets. A selector returns every match, also in the
@@ -801,8 +807,9 @@ ambiguous.
    when no ancestor has one: `#done/notes`, `#what-is-confirmed`. The root never counts as an anchored ancestor, so a root field
    is `#status` whatever the title heading carries.
 3. The node's derived anchor (§6.3), such as `#notes-1`. It is reached when the path of form 2 is not singular (§7.4: a level that
-   allows repeats by `multimap` or `lenient`, or a first step that also matches another node's anchor, or a duplicate that data
-   in strict mode holds anyway). It identifies the node today, but a reference written with it gets
+   allows repeats by `multimap` or `lenient`, a first step that also matches another node's anchor, or data that breaks a
+   uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level, or an anchor that names more than
+   one node). It identifies the node today, but a reference written with it gets
    `ref-derived-repeat` or `ref-derived-anchor` (§6.3).
 4. The exact path (§7.2), such as `#/$sections/2`. It is also the canonical address of a node that no step can name, such as a
    member whose name is empty or a section whose key is empty (§5.5).
@@ -1024,10 +1031,11 @@ validator can check the rest of a section schema but not that list.
 `anchors: explicit` in `x-vmd-ref` requires that no step of a reference's address resolve through a title-derived name, which is
 either a derived anchor (§6.3) or the key of a section that has no explicit anchor (§5.5), and that no step be positional: an
 index into `$sections` or into any other array, in a semantic path (`#links/1`) or in an exact path (`#/$sections/1`). Steps
-through explicit anchors, field names and keyed-list keys are allowed, in either form. A reference that breaks this is an error
-(`ref-target-not-allowed`). Under the default, `anchors: any`, positional steps are allowed, at the risk that an insertion
-retargets the reference (§13.5). This is the
-recommended setting for stores used as databases, whose references should not change meaning when a title changes.
+through explicit anchors, field names and section members (`#done/$body`) are allowed, in a semantic path or an exact path, and
+so are keyed-list keys, which only a semantic path can use, since an exact path reaches a list item by its position. A reference
+that breaks this is an error (`ref-target-not-allowed`). `anchors: explicit` is the recommended setting for stores used as
+databases, whose references should not change meaning when a title changes or an item is inserted. Under the default,
+`anchors: any`, positional steps are allowed, at the risk that an insertion retargets the reference (§13.5).
 
 ### 9.4 Validation modes
 
@@ -2021,8 +2029,8 @@ The columns:
 - **At** is the node the issue is attached to, by exact path (§7.2). A structural error is still attached where it sits, as far as
   the parser can tell. An issue about "the record" is attached to its root, whose exact path is `""`, and "none" means that the
   issue has no node.
-- **How many.** An issue is reported once per occurrence. A repeat is reported for each occurrence after the first, so a name
-  given three times gives two issues.
+- **How many.** An issue is reported once per occurrence, unless its row says otherwise. A repeat is reported for each
+  occurrence after the first, so a name given three times gives two issues.
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|

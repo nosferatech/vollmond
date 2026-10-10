@@ -220,10 +220,12 @@ are these seven:
 `profiles` lists profiles of §19.2 in lower case, from `read`, `validate`, `query`, `write`, `refactor` and `publish`. It is
 empty for the runner's self-test.
 
-An entry of `spec` that cites another specification is its name, as the proposal cites it, then a space and the section number,
-which is the entry's last word, such as `"CommonMark 4.3"`, `"YAML 1.2.2 6.8.1"` or `"RFC 3339 5.6"`. Its version is the one
-the proposal pins, such as CommonMark 0.31.2 (§5.3). A case cites the external sections that decide its outcome here rather than
-only in its description, so that they can be selected ([Selecting](#selecting)).
+An entry of `spec` that cites another specification is written as three parts separated by single spaces: the specification's
+name as its title gives it, its version, and the section number, which is the entry's last word. A specification without
+versions, such as an RFC, has no version part, its number being its name. So `"CommonMark 0.31.2 4.3"`, `"YAML 1.2.2 6.8.1"`
+and `"RFC 3339 5.6"`. The version is the one the proposal pins or cites (CommonMark 0.31.2 in §5.3). A case cites the external
+sections that decide its outcome here rather than only in its description, so that they can be selected
+([Selecting](#selecting)).
 
 A case may also have an eighth member, **`pending`**, a string naming the open question or issue that blocks it, such as
 `"#53 question 2"`. A pending case is written in full, with the outcome its question's recommendation gives, and is not run: the
@@ -583,7 +585,7 @@ A run can be narrowed by three criteria, each a list:
   therefore selects the query cases, although they also need `read`.
 - **Sections.** A case is selected when its `spec` lists one of the sections or a section below it, so `7` selects `7`, `7.3`
   and `7.3.1`, while `7.3` does not select `7.31`. Citations of other specifications are selected the same way, after their name,
-  so `CommonMark 4` selects `CommonMark 4.3`.
+  so `CommonMark 0.31.2 4` selects `CommonMark 0.31.2 4.3`.
 - **Ids.** A case is selected when its global id equals one of the entries, or starts with one that ends in `/`.
 
 A case must meet every criterion given, and any one entry of a criterion is enough. The [self-test](#runner-self-test) cases
@@ -688,9 +690,9 @@ case pairs two values that one specific wrong comparison would misjudge.
   suite correctly, through a new member it has to understand or a changed meaning. A runner refuses a case format it does not
   know rather than misread it. A new operation does not change the case format, since a runner that lacks it reports its cases
   as `error` until it implements them or skips them by declaration. The phase I0 decisions changed the meaning of numbers in case
-  files (decision F2) and the `parse` result (decision F9), and the fixture decisions added the `pending` member and citations of
-  other specifications in `spec`. Each would raise the case format, but it stays 1 as an exception, because no runner had been
-  released.
+  files (decision F2) and the `parse` result (decision F9), and the corrections that followed the fixture tasks added the
+  `pending` member and citations of other specifications in `spec`. Each would raise the case format, but it stays 1 as an
+  exception, because no runner had been released.
 - **Unicode version.** Expected values that depend on Unicode data, such as derived anchors (§6.3), follow Unicode 17.0.0.
   Changing it changes derived anchors, which §6.3 allows only with a new version of the spec, so `version` moves with it.
 - **Section citations.** Cases cite sections in `spec`. A change that renumbers the proposal updates them as well, as

@@ -528,7 +528,8 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
 - **H2.5. An alias to an undefined anchor (#52 Q7)** is `yaml-alias` at the alias's location (Appendix D).
 - **H2.6. `%YAML` directives (#52 Q8).** `%YAML 1.2` is allowed, and any other version is a structural error with a new code,
   `yaml-version-unsupported`. Reading a `%YAML 1.1` record as 1.2 would silently change what `yes` or `017` mean to its author.
-  §4.4 notes that this departs from YAML 1.2.2, section 6.8.1, under which a 1.2 processor must accept a 1.1 document.
+  §4.4 notes that this departs from YAML 1.2.2, section 6.8.1, twice: a 1.2 processor must accept a 1.1 document, and should
+  process a higher minor version such as `%YAML 1.3` with a warning.
 - **H2.7. Logical types accept their full lexical space (#52 Q9).** A `format` assertion accepts every form of the standard the
   type refers to, not only the canonical form, and the writer emits the canonical form. §4.3 gives each type's lexical space,
   spells out those of int64, bigint, decimal and local-date-time, and pins duration to RFC 3339 Appendix A. Two consequences
@@ -536,8 +537,9 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
   value; and decimal, which has no external standard, gets vmd's own lexical space, `-?(0|[1-9][0-9]*)(\.[0-9]+)?`.
 - **H2.8. YAML 1.1 casings (#52 Q10, first point).** The boolean and null entries of §4.4's list cover exactly the casings YAML 1.1
   reads (`yes`, `Yes`, `YES` and the like, from the regular expression of its bool type), so `tRuE` gets no warning. "In any
-  case" is gone, and the null entry gains `Null` and `NULL` by the same rule. The list also drives compatibility quoting, which
-  therefore no longer quotes `tRuE`; no reader misreads it.
+  case" is gone. The list also drives compatibility quoting, which therefore no longer quotes `tRuE`; no reader misreads it.
+  The null entry gains `Null` and `NULL`, which is the agent's reading and not on the card: YAML 1.2's core schema and YAML 1.1
+  both read them as null, so Draft v0.4's list missed strings that the serializer must quote.
 - **H2.9. A key's ambiguity warning goes on its mapping (#52 Q10, second point)** (§4.4, Appendix D).
 - **H2.10. int64 is the signed 64-bit range (#52 Q9)**, [−2^63, 2^63−1], per the OpenAPI format registry (§4.3).
 
@@ -560,8 +562,8 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
 - **H3.6. A root whose `$body` starts with `---` (#54 Q4 and Q5)** is written with empty front matter first (§5.8).
 - **H3.7. `$` keys in front matter and data blocks (#54 Q6, #53 Q11).** Section members (`$title`, `$anchor`, `$tags`, `$body`,
   `$sections`) and `$key` are `dollar-member`; `$schema` is allowed in front matter only, as the root's; any other `$` name is
-  `feature-unsupported`. §5.3 now agrees with Appendix D. The answer differs from the recommendation, which made `$schema` in
-  front matter `dollar-member` too.
+  `feature-unsupported`. §5.3 now agrees with Appendix D. Card H3.7 merged #54 Q6 and #53 Q11; its recommendation allows
+  `$schema` in front matter, unlike #54 Q6's.
 - **H3.8. A second data block (#54 Q7)** right after the first is `data-block-misplaced` at its section.
 - **H3.9. A data fence as the first block of a record without a title heading (#54 Q8)** is `data-block-misplaced` at the root.
 - **H3.10. Info strings (#54 Q9)** are split on spaces and tabs and compared case-sensitively on the source text, before
@@ -631,7 +633,25 @@ corrected in this round without decisions:
 - §8.1 already says that a link inside an HTML comment is not a reference. It was checked against H3 and agrees, and is
   unchanged.
 - The conformance README: a case may carry an optional `pending` member, which the runner reports as `skip` with that reason, and
-  `spec` entries may cite other specifications, as `"CommonMark 4.3"`. The README allowed neither before (unknown members were
+  `spec` entries may cite other specifications, by name, version and section, as `"CommonMark 0.31.2 4.3"`. The README allowed
+  neither before (unknown members were
   errors, and `spec` held proposal sections only). The case format stays 1, under the exception that no runner has been
   released. The README also states, per operation, what happens on a structural error: `anchors`, like `meta`, `source_map`,
   `resolve` and `refs` for one record, fails like `parse`, while `check` reports it and `query` leaves the record out (§9.5).
+
+An independent review of this round, before merging, found further gaps, corrected in the same round:
+
+- §7.4: the third ambiguity case also covers an anchor that names more than one node, which a record holds readably in either
+  uniqueness mode and which §7.5 form 1's fall-through relies on. Form 3's parenthetical names the same cases.
+- Appendix D: the counting rule applies "unless its row says otherwise", since `unpaired-surrogate` (once per string) and
+  `duplicate-anchor` (once per node) count differently.
+- §4.4: rejecting `%YAML 1.3` is a second departure from YAML 1.2.2, section 6.8.1, besides rejecting `%YAML 1.1`.
+- §4.1: YAML's character set leaves out raw U+FFFE and U+FFFF (YAML 1.2.2, section 5.1), so in YAML and front matter those two
+  noncharacters must be escaped, and a raw one is a syntax error.
+- §9.3: section-member steps (`#done/$body`) are among the steps allowed under `anchors: explicit`, and keyed-list keys are
+  usable only in a semantic path, since an exact path reaches a list item by position. The sentence recommending
+  `anchors: explicit` had come to follow the one about `anchors: any`, and is back in its place.
+- §6.3 step 1: a line break becomes a hyphen through steps 5 and 6, not step 5 alone.
+- The conformance README: an external `spec` entry is the specification's name, its version where it has one, and the section,
+  as `"CommonMark 0.31.2 4.3"`. The case-format bullet attributes `pending` and external citations to these corrections, not to
+  the owner's decisions.
