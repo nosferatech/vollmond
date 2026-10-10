@@ -1,10 +1,11 @@
 # AGENTS.md
 
 Vollmond MD (vmd) is a record format and an access framework over Markdown, YAML and JSON, for agents, humans and programs. The
-specification is a draft and the implementation is in progress: a TypeScript npm workspace in `packages/` (`core` and `cli`). Node
-24 or later is required.
+specification is a draft and the implementation is in progress: a TypeScript npm workspace in `js/packages/` (`core` and `cli`).
+A Python implementation will go in `python/`. `docs/` and `conformance/` are shared by all languages. Node 24 or later is
+required for the TypeScript code.
 
-Commands, from the repository root (details in `README.md`):
+Commands for the TypeScript code, run in `js/` (details in `README.md`):
 
 - `npm ci`: install the pinned dependencies.
 - `npm run build`: compile the packages to `dist/`.
