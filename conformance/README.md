@@ -66,8 +66,9 @@ The topics to start with, each a directory under `cases/`:
 | `selftest` | §5.8 | the runner's own comparison ([Runner self-test](#runner-self-test)) |
 
 A fixture task adds a topic when none of these fits. The headings of the capture under `docs/research/` (#37) are the `anchors`
-cases in `cases/anchors/derived/` (#8), one case file per captured document. Their expected anchors are those of vmd's own rule
-(§6.3, decisions C12 and F5), not GitHub's, and a case whose anchors differ from GitHub's gives GitHub's in its description.
+cases in `cases/anchors/derived/` (#8), one case file per captured document, and `edges.cases.json` holds cases the capture
+lacks. Their expected anchors are those of vmd's own rule (§6.3, decisions C12 and F5), not GitHub's, and a case whose anchors
+differ from GitHub's gives GitHub's in its description.
 
 ### Rules
 

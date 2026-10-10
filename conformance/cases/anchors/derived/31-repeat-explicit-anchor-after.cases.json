@@ -23,6 +23,21 @@
           "tags": []
         }
       }
+    },
+    {
+      "id": "check-document",
+      "description": "`check` reports the explicit `grault` of the second heading as a duplicate of the first heading’s derived `grault` (§6.1, decision C16), and the section keys `grault` of the second heading, its anchor, and of the third heading as duplicate keys (§5.5, §5.7).",
+      "spec": ["5.7", "6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["document.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-key", "severity": "error", "path": "document.md", "at": "/$sections/1" },
+          { "code": "duplicate-anchor", "severity": "error", "path": "document.md", "at": "/$sections/1" },
+          { "code": "duplicate-key", "severity": "error", "path": "document.md", "at": "/$sections/2" }
+        ]
+      }
     }
   ]
 }

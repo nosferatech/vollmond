@@ -41,6 +41,12 @@
       "expect": { "result": { "anchors": [], "tags": [] } }
     },
     {
+      "id": "details-block",
+      "description": "CommonMark ends the `<details>` HTML block at the first blank line, so the `## Inside details` after it is a top-level heading, a section, and gives `inside-details` (§5.3).",
+      "input": { "record": "details-block.md" },
+      "expect": { "result": { "anchors": [{ "name": "inside-details", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
       "id": "html-h2",
       "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `<h2>Raw html heading</h2>` has no derived anchor; GitHub gives `raw-html-heading`, since it numbers headings in containers and HTML blocks too.",
       "spec": ["5.3", "6.3"],

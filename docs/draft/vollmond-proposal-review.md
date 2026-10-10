@@ -358,8 +358,9 @@ trouble. An adversarial audit after I3 (#45) tries to break vmd by combining the
   changes, and changing vmd's rule requires a spec version, warnings first and a migration. The rule (§6.3) takes the text a
   reader sees, normalizes it to NFC, removes default-ignorable code points, lower-cases per code point, trims, keeps letters,
   marks, decimal digits, connector punctuation and `-`, turns white space into `-`, and numbers repeats by skipping used
-  candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 89 percent. The
-  owner first chose a simpler rule of vmd's own (C12). F5 kept the captured handling of rendered text and of Unicode, so that most
+  candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 528 (78 percent),
+  and on 602 (89 percent) under the rule as it stood before C13 and C14. (A correction of fact, made by the derived-anchor fixtures
+  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5 kept the captured handling of rendered text and of Unicode, so that most
   links copied from GitHub still work, and made the rule vmd's own and versioned.
 - **The `<a id>` element (C13).** It is not part of the heading's title and is stripped before trimming, so
   `## What was done <a id="done"></a>` gives `what-was-done` with or without the space, never a trailing hyphen. The serializer

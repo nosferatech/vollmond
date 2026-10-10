@@ -8,14 +8,15 @@
   "cases": [
     {
       "id": "document",
-      "description": "Headings in a block quote and in a list item are not sections (§5.3), so of `> ## Quill`, `## Quill`, `- ## Quill` and `## Quill` the second gives `quill` and the fourth `quill-1`; GitHub numbers the headings in containers too, and gave the two `quill-1` and `quill-4` in the captured document, which also held a heading inside `<details>` that is left out here.",
+      "description": "Headings in a block quote and in a list item are not sections, while a heading between `<details>` lines, after the blank line that ends the HTML block, is one (§5.3); so of `> ## Quill`, `## Quill`, `- ## Quill`, the `## Quill` between `<details>` lines and the last `## Quill`, the second gives `quill`, the fourth `quill-1` and the fifth `quill-2`, and GitHub, which numbers the headings in containers too, gives them `quill-1`, `quill-3` and `quill-4`.",
       "spec": ["5.3", "6.3"],
       "input": { "record": "document.md" },
       "expect": {
         "result": {
           "anchors": [
             { "name": "quill", "kind": "derived", "at": "/$sections/0" },
-            { "name": "quill-1", "kind": "derived", "at": "/$sections/1" }
+            { "name": "quill-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "quill-2", "kind": "derived", "at": "/$sections/2" }
           ],
           "tags": []
         }

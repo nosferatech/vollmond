@@ -1,0 +1,82 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "edges" }
+  },
+  "cases": [
+    {
+      "id": "next-line",
+      "description": "U+0085 (next line) is White_Space, so the one between `a` and `b` becomes a hyphen and the one at the end is trimmed, giving `a-b` (steps 4 to 6), although JavaScript’s `String.prototype.trim` would leave it; not in GitHub’s capture.",
+      "input": { "record": "next-line.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "line-separator",
+      "description": "U+2028 (line separator) is White_Space, so the one between `a` and `b` becomes a hyphen and the one at the end is trimmed, giving `a-b` (steps 4 to 6); not in GitHub’s capture.",
+      "input": { "record": "line-separator.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "paragraph-separator",
+      "description": "U+2029 (paragraph separator) is White_Space, so the one between `a` and `b` becomes a hyphen and the one at the end is trimmed, giving `a-b` (steps 4 to 6); not in GitHub’s capture.",
+      "input": { "record": "paragraph-separator.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ogham-space-mark",
+      "description": "U+1680 (ogham space mark) is White_Space, so the one between `a` and `b` becomes a hyphen and the one at the end is trimmed, giving `a-b` (steps 4 to 6); not in GitHub’s capture.",
+      "input": { "record": "ogham-space-mark.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "nfc-before-ignorable-removal",
+      "description": "Step 2 normalizes to NFC before it removes default-ignorable code points, so in `e`, U+FE0F, U+0301 the variation selector keeps the accent from composing, and the slug is `e\u0301` rather than `é`; not in GitHub’s capture.",
+      "input": { "record": "nfc-before-ignorable-removal.md" },
+      "expect": { "result": { "anchors": [{ "name": "e\u0301", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "section-6-3-link-and-entity",
+      "description": "The example of §6.3: `## A [link](x.md) &amp; more` gives `a-link--more`; not in GitHub’s capture.",
+      "input": { "record": "section-6-3-link-and-entity.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-link--more", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "section-6-3-grosse",
+      "description": "The example of §6.3: `## Größe` gives `größe`, since lower-casing leaves `ß` alone; not in GitHub’s capture.",
+      "input": { "record": "section-6-3-grosse.md" },
+      "expect": { "result": { "anchors": [{ "name": "größe", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "section-6-3-anchor-with-space",
+      "description": "The example of §6.3: `## What was done <a id=\"done\"></a>` gives `what-was-done`, with the explicit anchor `done` (decision C13); not in GitHub’s capture.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "section-6-3-anchor-with-space.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "done", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "what-was-done", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "section-6-3-anchor-without-space",
+      "description": "The example of §6.3 without the space: `## What was done<a id=\"done\"></a>` gives `what-was-done` too, with the explicit anchor `done` (decision C13); not in GitHub’s capture.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "section-6-3-anchor-without-space.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "done", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "what-was-done", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}
