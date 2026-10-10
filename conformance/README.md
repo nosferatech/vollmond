@@ -54,7 +54,7 @@ The topics to start with, each a directory under `cases/`:
 |---|---|---|
 | `values` | §4 | the I-JSON subset, constructs outside the data model, numbers, logical types |
 | `markdown` | §5.3 | front matter, the title heading, sections, data blocks, `$body`, container blocks |
-| `data` | §5.4 | JSON and YAML records |
+| `data` | §5.2, §5.4 | JSON and YAML records, the section shape, `$` members |
 | `uniqueness` | §5.7 | strict and lenient modes |
 | `anchors` | §6 | explicit, derived and block anchors, and tags |
 | `addresses` | §7 | exact and semantic paths, cardinality, canonical addresses |
@@ -326,7 +326,7 @@ error (§9.2), and its issues are that record's structural errors:
 - `refs` with `record` fails when that record has one;
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
-  that could not be read is not compared. A reference with a fragment into an unreadable record is not dangling but
+  that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but
   `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5);
 - `round_trip` and `compare` read no record.
 
@@ -423,10 +423,10 @@ objects with these members:
   For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference with a fragment
-  into a record that has a structural error, whose `targets` list is empty; one with no fragment is `ok`, with the record's root
-  as its target. Reading aliases belongs to the Validate profile (§13.6,
-  decision C22), so `aliased` cases need no more than `validate`.
+- **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference into a record
+  that has a structural error, whose `targets` list is empty. A reference whose address is that record's root (no fragment, or
+  `#` alone, §7.1) is `ok`, with the record's root as its target, although `resolve` of the same address fails. Reading
+  aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
   `ok` (§8.5).

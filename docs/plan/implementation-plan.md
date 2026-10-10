@@ -140,7 +140,7 @@ on.
 | Task | Deliverable | Depends on |
 |---|---|---|
 | **I2.1** Configuration | `.vmd/config.yaml` and `--config PATH`; collections, globs, `ignore`, the uniqueness mode; the path rules of §3.2 | I1.7 |
-| **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats, with vmd's own date and time checks, since `ajv-formats` differs from §4.3 on leap seconds, separators and offsets; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
+| **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats, with vmd's own date and time checks, since `ajv-formats` differs from §4.3 on separators and offsets; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
 | **I2.3** Keyed lists and uniqueness | semantic resolution through schema-declared keys; strict and lenient modes; cardinality checked for every address before evaluation | I1.6, I2.2 |
 | **I2.4** References | extraction from Markdown links and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
 | **I2.5** Local index | the four tables of §14.2 in `.vmd/cache/`, keyed by file version; re-parsing only changed files and re-resolving only the references into them | I2.4 |

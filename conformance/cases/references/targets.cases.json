@@ -11,12 +11,12 @@
     {
       "id": "reference-into-unreadable-record",
       "spec": ["8.5", "D"],
-      "description": "A reference into a record with a structural error cannot be resolved; it is not dangling but a ref-target-unreadable warning, at the $body that holds the link (§8.5, decision I1.9).",
+      "description": "A reference with a fragment into a record with a structural error cannot be resolved; it is not dangling but a ref-target-unreadable warning, at the $body that holds the link (§8.5, decisions I1.9 and J3).",
       "input": {"records": ["refs/unreadable.md"]},
       "expect": {"issues": [{"code": "ref-target-unreadable", "severity": "warning", "path": "refs/unreadable.md", "at": "/$body"}]}
     },
     {
-      "id": "no-targets-allows-any-node",
+      "id": "no-targets-allows-any-target",
       "spec": ["9.3"],
       "description": "An x-vmd-ref without targets allows any target: a record, a node, an asset and a directory (§9.3, decisions I1.11 and J6).",
       "input": {"records": ["refs/any.yaml"]},
@@ -51,6 +51,23 @@
       "description": "The same reference raises no ref-target-unreadable warning in check, since its status is ok (§8.5, decision J3).",
       "input": {"records": ["refs/unreadable-root.md"]},
       "expect": {}
+    },
+    {
+      "id": "refs-unreadable-record-empty-fragment",
+      "spec": ["7.1", "8.5"],
+      "operation": "refs",
+      "description": "A reference with # alone also addresses the record's root (§7.1), so into a record with a structural error it is ok with the root as its target, like one with no fragment (§8.5, decision J3).",
+      "input": {"record": "refs/unreadable-hash.md"},
+      "expect": {"result": [{"from": {"path": "refs/unreadable-hash.md", "at": "/$body", "offset": 4}, "raw": "../data/broken.json#", "status": "ok", "targets": [{"path": "data/broken.json", "at": "", "address": ""}]}]}
+    },
+    {
+      "id": "resolve-root-of-unreadable-record",
+      "spec": ["7.4", "8.5", "9.5"],
+      "profiles": ["read"],
+      "operation": "resolve",
+      "description": "Resolving the root of a record with a structural error still fails, since a resolve returns the node's value, while refs gives a reference to that root the status ok (§8.5); the record's structural error is the issue, as for every operation that needs a value view.",
+      "input": {"address": "data/broken.json", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "duplicate-member", "severity": "error", "path": "data/broken.json", "at": "/a"}]}
     }
   ]
 }

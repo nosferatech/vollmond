@@ -727,9 +727,10 @@ owner, who accepted every recommendation on card J. Section numbers refer to Dra
   means list nesting. This closes the open I1.7 reading (§6.2).
 - **J3. `refs` gets the status `unreadable`** for a reference with a fragment into a record that has a structural error, which
   `check` still reports as `ref-target-unreadable`. A reference with no fragment to such a record is `ok`. This closes §20's
-  open question 7 and the I1.9 reading (§8.5, §14.2, §20, Appendix D, suite README). That the `ok` reference's target is the
-  record's root, `{"path": ..., "at": "", "address": ""}`, as for any record, and that it raises no warning, is the agent's
-  reading.
+  open question 7 and the I1.9 reading (§8.5, §14.2, §20, Appendix D, suite README). "No fragment" covers `#` alone, which §7.1
+  makes the root too. Three points are the agent's reading: the `ok` reference's target is the record's root,
+  `{"path": ..., "at": "", "address": ""}`, as for any record; it raises no warning; and `resolve` of the same root address still
+  fails, which is intended, since a reference's status says only that its target exists, while a resolve returns its value.
 - **J4. U+FEFF in YAML** is a `syntax-error` wherever YAML does not allow the character, including the start of front matter or
   of a `yaml data` block (§5.1). YAML itself would read a U+FEFF at the start of a document as a byte order mark (YAML 1.2.2,
   section 5.2); vmd allows one only at byte 0 of the file. §5.1 notes the trap of the `yaml` package, which strips a leading
@@ -737,7 +738,8 @@ owner, who accepted every recommendation on card J. Section numbers refer to Dra
 - **J5. A byte order mark is not a column**, so line 1's first character is column 1, while offsets count its bytes (§5.1,
   §5.9). A write keeps a file's byte order mark, and files vmd creates have none (§13.3). The rule covers every file vmd reads,
   `.vmd/config.yaml` and schemas included (§5.1).
-- **J6. An `x-vmd-ref` without `targets`** allows any target: nodes, records, assets and directories (§9.3).
+- **J6. An `x-vmd-ref` without `targets`** allows any target: nodes, records, assets and directories (§9.3). This widens I1.11,
+  which allowed any node.
 
 Applying J4 also found that the `yaml` package (2.9.1) does not treat a lone CR as a line break, which YAML 1.2.2 (section 5.4)
 does, and fails on a mapping with CR line endings. §5.1 notes it next to the U+FEFF trap; the agent added the note as a fact

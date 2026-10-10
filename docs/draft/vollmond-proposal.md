@@ -228,15 +228,17 @@ is not an error.
   date-time "for the sake of readability".
 - **Leap seconds.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as Ajv's `ajv-formats`
   accepts it, so `23:59:60Z` and `01:59:60+02:00` are valid and `12:30:60Z` is not. A local date-time has no offset and is taken
-  as UTC, as `ajv-formats` takes a time without one, so `23:59:60` is valid there. There is no table of leap seconds: the
-  check does not ask whether a leap second was in fact inserted on that day. For comparison, `23:59:60` falls after
-  `23:59:59` and before the next midnight. Validators differ here. Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC (the
-  `time` check in [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), and Python's `jsonschema` checks
-  `date-time` only when `rfc3339-validator` is installed, which then rejects `:60` altogether
-  ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)), both read on
-  2026-10-10. `ajv-formats` also departs from the rules above the other way: its `date-time` splits on `t` or any white space,
-  so it accepts a space separator, and its `time` pattern accepts the offsets `+02` and `+0200`. Neither library's check can
-  therefore be used unchanged, and vmd needs its own date and time checks (Appendix C).
+  as UTC, as `ajv-formats`' lenient formats `iso-time` and `iso-date-time` take a missing offset as zero, so `23:59:60` is
+  valid there. There is no table of leap seconds: the check does not ask whether a leap second was in fact inserted on that day.
+  For comparison, `23:59:60` falls after `23:59:59` and before the next midnight.
+
+  Ajv's `ajv-formats` agrees with this on leap seconds (the `time` check in
+  [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), but it departs elsewhere: its
+  `date-time` splits on `t` or any white space, so it accepts a space separator, and its `time` pattern accepts the offsets `+02`
+  and `+0200`. Python's `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which then rejects `:60`
+  altogether ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)). Both
+  were read on 2026-10-10. Neither library's check can therefore be used unchanged, and vmd needs its own date and time checks
+  (Appendix C).
 - **Durations** are pinned to RFC 3339 Appendix A, the grammar JSON Schema's `duration` uses, rather than to the whole of ISO 8601.
   So `PT1.5S` (a fraction), `P1Y3D` and `PT1H30S` (a skipped unit) and `P1W2D` (weeks with days) are not durations, although ISO
   8601 allows them.
@@ -329,7 +331,7 @@ caller selects by name (§5.10).
 have the same value view and the same node versions (§11.3). A `\r` written as an escape in a JSON or quoted YAML string is
 content and stays. Edits keep the file's own line endings where the backend keeps the file (§13.3).
 
-**Byte order marks.** A UTF-8 byte order mark at the first byte of a record is skipped, in every format, and it applies to the
+**Byte order marks.** A UTF-8 byte order mark at the first byte of a file is skipped, in every format, and it applies to the
 whole file: there is at most one, at byte 0. JSON allows this (RFC 8259, section 8.1: parsers "MAY ignore the presence of a byte
 order mark rather than treating it as an error"), and so does YAML (YAML 1.2.2, section 5.2). A U+FEFF anywhere else is not a
 byte order mark but an ordinary character, where the format allows a character: in Markdown text, or in a JSON or quoted YAML
@@ -338,11 +340,12 @@ matter. Offsets into the file count from its first byte, the byte order mark inc
 the first character of line 1 is column 1 (§5.9). The rule covers every file vmd reads: records, `.vmd/config.yaml` and schemas.
 A write keeps a file's byte order mark, and a file vmd creates has none (§13.3).
 
-**U+FEFF in YAML.** In YAML, a U+FEFF is a `syntax-error` wherever YAML does not allow the character, as in a plain scalar, and
-also at the start of front matter or of a `yaml data` block. YAML would read one there as a byte order mark at the start of a
-document (YAML 1.2.2, section 5.2), but vmd allows a byte order mark only at byte 0 of the file. A U+FEFF inside a quoted scalar
-is an ordinary character. A reader cannot leave this to the `yaml` package (2.9.1), which strips a leading U+FEFF from any text
-it is given and accepts one in a plain scalar (measured on 2026-10-10).
+**U+FEFF in YAML.** In YAML, a U+FEFF is a `syntax-error` wherever YAML does not allow the character (outside quoted scalars:
+in a plain or block scalar, a comment, or between tokens; YAML 1.2.2, section 5.4, where `nb-char` excludes it), and wherever
+YAML would read it as a byte order mark other than at byte 0 of the file: at the start of front matter or of a `yaml data` block,
+or at the start of a document (section 5.2). A U+FEFF inside a quoted scalar is an ordinary character. A reader cannot leave this
+to the `yaml` package (2.9.1), which strips a leading U+FEFF from any text it is given and accepts one in a plain or block scalar,
+in a comment, and at the start of a line after a comment line (measured on 2026-10-10).
 
 **Lone CR.** A carriage return alone is a line break in Markdown and YAML (CommonMark 0.31.2, section 2.1; YAML 1.2.2, section
 5.4, production `b-break`), and the value view reads it as `\n` too. The `yaml` package (2.9.1) does not treat a lone CR as a
@@ -686,7 +689,7 @@ for selection. The two follow HTML's `id` (unique, `#id` selects one element) an
 | Where | Syntax | Labels |
 |---|---|---|
 | Markdown heading | `## What was done<a id="done" class="decision review"></a>` | the section (or the root, on the title heading) |
-| Markdown block | `- <a id="room"></a>**Room.** ...`, at the start of a list item, or of a paragraph at the top level of the `$body` | the block |
+| Markdown block | `- <a id="room"></a>**Room.** ...`, at the start of a list item outside block quotes, or of a paragraph at the top level of the `$body` | the block |
 | JSON / YAML object | `"$anchor": "done"`, `"$tags": ["decision", "review"]` | the object |
 
 - An anchor name matches `[A-Za-z][A-Za-z0-9_-]*`; so does a tag. Another name is a validation error (`anchor-invalid`).
@@ -940,9 +943,11 @@ Each reference inside the store resolves to one of `ok`, `dangling` (no target, 
 a singular reference, `ref-ambiguous`), `aliased` (resolved through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
 record that has a structural error, `ref-target-unreadable`). A reference declared
 `cardinality: many` whose selector matches nothing, in a record that exists, is valid. It is `ok`, with no targets. A reference
-into a record that has a structural error, with a fragment, cannot be resolved, since that record has no value view. It is
-not dangling but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors say
-what to fix. A reference with no fragment to such a record names the record, which exists, so it is `ok`.
+into a record that has a structural error cannot be resolved below the root, since that record has no value view. It is not
+dangling but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what
+to fix. A reference whose address is the record's root (no fragment, or `#` alone, §7.1) names the record, which exists, so it is
+`ok`. Resolving that same root address as an address (§7.4) still fails, since a resolve returns the node's value, while a
+reference's status only says whether its target exists.
 
 ---
 
@@ -2123,14 +2128,14 @@ The columns:
 | `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; each node after the first |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names more than one node; each node after the first in document order, once per node even when two of its anchors collide |
 | `duplicate-tag` | warning | validation | §6.2 | a token repeated in the `class` attribute of an anchor element, which `$tags` holds once, or a tag repeated in a data `$tags` array, which keeps it as written; the node |
-| `anchor-element-ignored` | warning | validation | §6.2 | an `<a id>` element in a `$body` that is not at the start of a list item or of a paragraph at the top level, and so is plain HTML; the `$body` |
+| `anchor-element-ignored` | warning | validation | §6.2 | an `<a id>` element in a `$body` that is not at the start of a list item outside block quotes or of a paragraph at the top level, and so is plain HTML; the `$body` |
 | `anchor-invalid` | error | validation | §6.2 | an anchor or tag name that does not match `[A-Za-z][A-Za-z0-9_-]*`; the node |
 | `schema-violation` | error | validation | §9.2 | a value the collection's schema rejects, logical types included; the value |
 | `path-invalid` | error; warning for an asset outside collections | validation | §3.2 | a path that breaks a rule of §3.2 other than case; the record (`at` is null for an asset) |
 | `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case; each path after the first in byte order |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
 | `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
-| `ref-target-unreadable` | warning | validation | §8.5 | a reference with a fragment into a record that has a structural error, so that its target cannot be resolved (status `unreadable`); the reference |
+| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that has a structural error, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); the reference |
 | `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets; the reference |
 | `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step; the reference |
 | `not-representable` | warning in `check`; error when the serializer refuses a value | validation; operation | §5.8 | a value the Markdown serializer cannot write; the offending node |
