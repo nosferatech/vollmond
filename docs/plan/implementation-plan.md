@@ -116,7 +116,7 @@ Goal: an agent can list, outline and read any record by address, with the output
 | **I1.1** Values | the value model: I-JSON checks, numbers that keep their source text, equality as §5.8 defines it, RFC 8785 canonical JSON, node version tokens, git blob ids | I0.2, I0.4 |
 | **I1.2** JSON parser | value view and source map from `jsonc-parser` in strict mode, duplicate keys rejected | I1.1 |
 | **I1.3** YAML parser | value view and source map from `yaml` with the core schema; every construct outside the data model rejected with its location | I1.1 |
-| **I1.4** Markdown parser | the section tree of §5.3 from `mdast-util-from-markdown` positions: front matter, title heading, outline by heading level, data blocks, `$body` sliced from the source rather than re-serialized, the `<a>` element on headings and blocks, container blocks left as prose | I1.1, I0.5 |
+| **I1.4** Markdown parser | the section tree of §5.3 from `mdast-util-from-markdown` positions: front matter, title heading, outline by heading level, data blocks, `$body` sliced from the source rather than re-serialized, the `<a>` element on headings and blocks, the byte ranges of block anchors (proposal §6.2), container blocks left as prose | I1.1, I0.5 |
 | **I1.5** Keys and anchors | section keys as metadata (`@key`), derived anchors by vmd's rule with its repeat suffixes (proposal §6.3), the record's anchor table, tags, block anchors | I1.4, I0.7 |
 | **I1.6** Addresses | the §7 grammar; exact resolution; semantic resolution over fields and `$sections` (schema-declared keys come in I2.3); canonical addresses (§7.5) | I1.5, I0.6 |
 | **I1.7** Storage contract and local backend | the contract's TypeScript interface (§11.2); the filesystem backend's read operations; the portable regex checker for `grep`; file versions from `git ls-files -s` in a git working copy, hashing otherwise | I1.1 |
@@ -138,7 +138,7 @@ on.
 | Task | Deliverable | Depends on |
 |---|---|---|
 | **I2.1** Configuration | `.vmd/config.yaml` and `--config PATH`; collections, globs, `ignore`, the uniqueness mode; the path rules of §3.2 | I1.7 |
-| **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
+| **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats, with vmd's own date and time checks, since `ajv-formats` differs from §4.3 on leap seconds, separators and offsets; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
 | **I2.3** Keyed lists and uniqueness | semantic resolution through schema-declared keys; strict and lenient modes; cardinality checked for every address before evaluation | I1.6, I2.2 |
 | **I2.4** References | extraction from Markdown links and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
 | **I2.5** Local index | the four tables of §14.2 in `.vmd/cache/`, keyed by file version; re-parsing only changed files and re-resolving only the references into them | I2.4 |

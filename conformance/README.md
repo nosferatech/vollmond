@@ -238,7 +238,9 @@ so that a member of the case's `input` replaces the default member of the same n
 
 **Unknown members are errors.** A member this README does not define, in a case or its `input` or `expect`, makes that case an
 `error`. One at the top of a case file or in `defaults` makes every case of the file an `error`. An unknown member may come
-from a newer case format and change a case's meaning, so it is never ignored.
+from a newer case format and change a case's meaning, so it is never ignored. An `input` member that the case's operation does
+not take, such as `as` on a `meta` case, is a mistake in the suite rather than a newer format, and the runner stops on it: it
+writes no report and exits with 2 ([Reporting results](#reporting-results)).
 
 A case's **global id** is the case file's path under `cases/` without `.cases.json`, then `/`, then the local id, as in
 `markdown/line-endings/crlf-no-final-newline`. Reports and skip lists use global ids. Moving a case file changes the ids of
@@ -324,7 +326,8 @@ error (§9.2), and its issues are that record's structural errors:
 - `refs` with `record` fails when that record has one;
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
-  that could not be read is not compared;
+  that could not be read is not compared. A reference into an unreadable record is not dangling; `check` reports it as
+  `ref-target-unreadable`, a warning (§8.5);
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
@@ -420,10 +423,13 @@ objects with these members:
   For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5). Reading aliases belongs to the Validate profile (§13.6,
+- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5), for a reference into a readable record. The status of a
+  reference into a record with a structural error is open (§20); `check` reports it as `ref-target-unreadable`, and no `refs`
+  case expects one yet. Reading aliases belongs to the Validate profile (§13.6,
   decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
-  reference declared `cardinality: many` whose selector matches nothing, which is valid with the status `ok` (§8.5).
+  reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
+  `ok` (§8.5).
 
 Links that leave the store are not listed (§8.2).
 
@@ -611,7 +617,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.5.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.6.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -649,8 +655,8 @@ implementation.
 
 **Exit status.** The runner exits with 0 when no result is `fail` or `error`, and with 1 otherwise. It writes no report and
 exits with 2 when it cannot start, which happens when `suite.json` or the declaration cannot be read or has an unknown member,
-when the `case_format` is unknown, or when the selection is invalid. Besides the report, a runner may print progress, TAP or
-JUnit XML for its own test framework.
+when the `case_format` is unknown, when the selection is invalid, or when a case's `input` has a member that its operation does
+not take. Besides the report, a runner may print progress, TAP or JUnit XML for its own test framework.
 
 **TAP or JUnit XML as the contract were rejected.** CI tools read both, and JUnit XML can carry a skip message and free-form
 `<properties>`. But neither defines where the suite's version, the declared profiles or the selection go, so the suite would
@@ -674,13 +680,13 @@ case pairs two values that one specific wrong comparison would misjudge.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.5.0-dev", "case_format": 1 }
+{ "version": "0.6.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.5 gives `0.5`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.6 gives `0.6`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.5.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.6.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -715,6 +721,8 @@ Alternatives that lost:
 2. Read the implementation's declaration and the selection, and exit with 2 if either is invalid.
 3. Walk `cases/` for files named `*.cases.json`, without descending into fixture stores. Read each one as
    [Reading case files](#reading-case-files) requires, apply its `defaults`, reject unknown members, and form the global ids.
+   If any case has an `input` member that its operation does not take, exit with 2 without a report. This applies to every case,
+   selected or not, since this step runs before the selection.
 4. Take the selected cases in the byte order of their global ids. Skip a case if it is `pending`, or else if it needs an
    undeclared profile, or else if a skip entry matches it.
 5. Check each store's versions manifest, and report `error` for the cases on a store with a mismatch.

@@ -289,6 +289,13 @@
           { "code": "schema-violation", "severity": "error", "path": "decimal-lexical-invalid.json", "at": "/decimal/3" }
         ]
       }
+    },
+    {
+      "id": "leap-seconds-anywhere-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6", "RFC 3339 5.7"],
+      "description": "A seconds field of 60 is accepted in any time, date-time or local date-time, with no table of leap seconds and without the restriction of RFC 3339 section 5.7 (§4.3, decision I1.13).",
+      "input": {"records": ["leap-seconds-valid.json"]},
+      "expect": {}
     }
   ]
 }

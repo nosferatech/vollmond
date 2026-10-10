@@ -1,0 +1,33 @@
+{
+  "defaults": {"spec": ["8.2", "8.5"], "profiles": ["validate"], "operation": "check", "input": {"store": "targets"}},
+  "cases": [
+    {
+      "id": "many-reference-to-missing-record",
+      "spec": ["8.2", "8.5", "D"],
+      "description": "The record part of a reference is always singular, so a reference declared cardinality: many whose record does not exist is ref-dangling, while one into a record that exists and matches nothing is ok with no targets (§8.2, §8.5, decision I1.8).",
+      "input": {"records": ["refs/many.yaml"]},
+      "expect": {"issues": [{"code": "ref-dangling", "severity": "error", "path": "refs/many.yaml", "at": "/missing"}]}
+    },
+    {
+      "id": "reference-into-unreadable-record",
+      "spec": ["8.5", "D"],
+      "description": "A reference into a record with a structural error cannot be resolved; it is not dangling but a ref-target-unreadable warning, at the $body that holds the link (§8.5, decision I1.9).",
+      "input": {"records": ["refs/unreadable.md"]},
+      "expect": {"issues": [{"code": "ref-target-unreadable", "severity": "warning", "path": "refs/unreadable.md", "at": "/$body"}]}
+    },
+    {
+      "id": "no-targets-allows-any-node",
+      "spec": ["9.3"],
+      "description": "An x-vmd-ref without targets allows any node in the store (§9.3, decision I1.11).",
+      "input": {"records": ["refs/any.yaml"]},
+      "expect": {}
+    },
+    {
+      "id": "targets-restrict",
+      "spec": ["9.3", "D"],
+      "description": "With targets, a reference outside them is ref-target-not-allowed, for contrast (§9.3).",
+      "input": {"records": ["refs/limited.yaml"]},
+      "expect": {"issues": [{"code": "ref-target-not-allowed", "severity": "error", "path": "refs/limited.yaml", "at": "/outside"}]}
+    }
+  ]
+}

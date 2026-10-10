@@ -1,0 +1,75 @@
+{
+  "defaults": {"spec": ["7.1", "7.5"], "profiles": ["read"], "operation": "resolve", "input": {"store": "encoding"}},
+  "cases": [
+    {
+      "id": "space",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A space is outside the fragment characters, so the canonical address writes it as %20. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/name%20with%20space", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/name with space", "address": "#name%20with%20space"}]}
+    },
+    {
+      "id": "slash",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A / inside a member name is percent-encoded in a semantic step, as %2F, since / separates steps. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/a~1b", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/a~1b", "address": "#a%2Fb"}]}
+    },
+    {
+      "id": "colon-stays",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A : is a fragment character (RFC 3986 pchar), so it stays raw. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/x:y", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/x:y", "address": "#x:y"}]}
+    },
+    {
+      "id": "non-ascii",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A non-ASCII character is written as its UTF-8 bytes in upper-case hexadecimal. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/%C3%A9t%C3%A9", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/été", "address": "#%C3%A9t%C3%A9"}]}
+    },
+    {
+      "id": "percent",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A % is always encoded, as %25. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/100%25", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/100%", "address": "#100%25"}]}
+    },
+    {
+      "id": "question-mark-stays",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "A ? is a fragment character, so it stays raw. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/q?", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/q?", "address": "#q?"}]}
+    },
+    {
+      "id": "array-item",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5", "RFC 6901 6"],
+      "description": "The encoding applies step by step; the index step needs none. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#/arr%20x/0", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/arr x/0", "address": "#arr%20x/0"}]}
+    },
+    {
+      "id": "semantic-colon",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5"],
+      "description": "Since step takes every fragment character but /, a semantic path with a raw : resolves. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#x:y", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/x:y", "address": "#x:y"}]}
+    },
+    {
+      "id": "semantic-encoded-slash",
+      "spec": ["7.1", "7.5", "RFC 3986 3.5"],
+      "description": "A semantic step with %2F names the member a/b. (§7.1, decision I1.2)",
+      "input": {"address": "data.json#a%2Fb", "as": "singular"},
+      "expect": {"result": [{"path": "data.json", "at": "/a~1b", "address": "#a%2Fb"}]}
+    },
+    {
+      "id": "exact-encoded-slash-splits",
+      "spec": ["7.1", "7.4", "RFC 6901 6"],
+      "description": "An exact path is percent-decoded before it is split, so #/a%2Fb is the pointer /a/b, member b of a member a that the record does not have; the member a/b is reached as #/a~1b (§7.1).",
+      "input": {"address": "data.json#/a%2Fb", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "data.json", "at": null}]}
+    }
+  ]
+}

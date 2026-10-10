@@ -1,0 +1,11 @@
+vmd: 1
+collections:
+  many-refs:
+    match: ["refs/many.yaml"]
+    schema: many.schema.yaml
+  any-refs:
+    match: ["refs/any.yaml"]
+    schema: any.schema.yaml
+  limited-refs:
+    match: ["refs/limited.yaml"]
+    schema: limited.schema.yaml
