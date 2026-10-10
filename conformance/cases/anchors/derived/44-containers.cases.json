@@ -1,0 +1,120 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "44-containers" }
+  },
+  "cases": [
+    {
+      "id": "top-level",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `## Top level` gives `top-level`.",
+      "input": { "record": "top-level.md" },
+      "expect": { "result": { "anchors": [{ "name": "top-level", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "blockquote",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `> ## Quoted heading` has no derived anchor; GitHub gives `quoted-heading`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "blockquote.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "blockquote-nested",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `> > ### Nested quoted heading` has no derived anchor; GitHub gives `nested-quoted-heading`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "blockquote-nested.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "list-item",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `- ## List item heading` has no derived anchor; GitHub gives `list-item-heading`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "list-item.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "ordered-list-item",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `1. ## Ordered item heading` has no derived anchor; GitHub gives `ordered-item-heading`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "ordered-list-item.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "details-block",
+      "description": "CommonMark ends the `<details>` HTML block at the first blank line, so the `## Inside details` after it is a top-level heading, a section, and gives `inside-details` (§5.3).",
+      "input": { "record": "details-block.md" },
+      "expect": { "result": { "anchors": [{ "name": "inside-details", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "html-h2",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `<h2>Raw html heading</h2>` has no derived anchor; GitHub gives `raw-html-heading`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "html-h2.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "html-h3-with-id",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `<h3 id=\"rawid\">Raw html heading with id</h3>` has no derived anchor; GitHub gives `raw-html-heading-with-id`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "html-h3-with-id.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "html-h1-attrs",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `<h1 class=\"c\" align=\"center\">Raw html with attrs</h1>` has no derived anchor; GitHub gives `raw-html-with-attrs`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "html-h1-attrs.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "html-h2-nested-markup",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `<h2><em>Raw</em> <code>nested</code> markup</h2>` has no derived anchor; GitHub gives `raw-nested-markup`, since it numbers headings in containers and HTML blocks too.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "html-h2-nested-markup.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "fenced-code",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): the record holds no heading, so it has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "fenced-code.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "indented-code",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): `    ## Not a heading indented` is not a heading, so the record has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "indented-code.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "html-comment-block",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): the record holds no heading, so it has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "html-comment-block.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "table-cell",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): the record holds no heading, so it has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "table-cell.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "paragraph-continuation",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): the heading gives `heading-ends-paragraph`.",
+      "input": { "record": "paragraph-continuation.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "heading-ends-paragraph", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "thematic-then-heading",
+      "description": "Only headings outside container blocks and HTML blocks are sections with derived anchors (§5.3): the heading gives `after-thematic`.",
+      "input": { "record": "thematic-then-heading.md" },
+      "expect": { "result": { "anchors": [{ "name": "after-thematic", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

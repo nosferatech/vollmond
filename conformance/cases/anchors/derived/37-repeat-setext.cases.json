@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "37-repeat-setext" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Setext and ATX headings share the numbering, so `Plugh` underlined with `=`, `## Plugh` and `Plugh` underlined with `-` give `plugh`, on the title heading, then `plugh-1` and `plugh-2` (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "plugh", "kind": "derived", "at": "" },
+            { "name": "plugh-1", "kind": "derived", "at": "/$sections/0" },
+            { "name": "plugh-2", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

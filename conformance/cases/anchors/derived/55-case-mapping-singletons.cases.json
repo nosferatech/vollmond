@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "55-case-mapping-singletons" }
+  },
+  "cases": [
+    {
+      "id": "kelvin-sign",
+      "description": "A case-mapping singleton is normalized by NFC before it is lower-cased (steps 2 and 3): `## K kelvin` gives `k-kelvin`.",
+      "input": { "record": "kelvin-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "k-kelvin", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "angstrom-sign",
+      "description": "A case-mapping singleton is normalized by NFC before it is lower-cased (steps 2 and 3): `## Å angstrom` gives `å-angstrom`.",
+      "input": { "record": "angstrom-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "å-angstrom", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ohm-sign",
+      "description": "A case-mapping singleton is normalized by NFC before it is lower-cased (steps 2 and 3): `## Ω ohm` gives `ω-ohm`.",
+      "input": { "record": "ohm-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "ω-ohm", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "unicode17-beria-erfe",
+      "description": "A case-mapping singleton is normalized by NFC before it is lower-cased (steps 2 and 3): `## 𖺠 unicode17` gives `𖺻-unicode17`.",
+      "input": { "record": "unicode17-beria-erfe.md" },
+      "expect": { "result": { "anchors": [{ "name": "𖺻-unicode17", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "47-empty-slug-alone" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Three empty headings have empty slugs and no derived anchor (decision C14); GitHub gives them no permalink either.",
+      "input": { "record": "document.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    }
+  ]
+}

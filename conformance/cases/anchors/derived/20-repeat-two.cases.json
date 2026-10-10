@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "20-repeat-two" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "A repeated heading takes the suffix `-1`, so two `## Notes` give `notes` and `notes-1` (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "notes", "kind": "derived", "at": "/$sections/0" },
+            { "name": "notes-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

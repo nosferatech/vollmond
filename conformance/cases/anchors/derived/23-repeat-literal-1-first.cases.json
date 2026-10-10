@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "23-repeat-literal-1-first" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Foo-1` and three `## Foo` give `foo-1`, `foo`, `foo-2` and `foo-3`, since `foo-1` is already used (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "foo-1", "kind": "derived", "at": "/$sections/0" },
+            { "name": "foo", "kind": "derived", "at": "/$sections/1" },
+            { "name": "foo-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "foo-3", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

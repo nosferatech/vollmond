@@ -1,0 +1,144 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "06-numbers" }
+  },
+  "cases": [
+    {
+      "id": "section-number",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 11.4 The tail` gives `114-the-tail`.",
+      "input": { "record": "section-number.md" },
+      "expect": { "result": { "anchors": [{ "name": "114-the-tail", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "section-number-3",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `### 1.2.3 Deep` gives `123-deep`.",
+      "input": { "record": "section-number-3.md" },
+      "expect": { "result": { "anchors": [{ "name": "123-deep", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "numbered-list-style",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 1. Intro` gives `1-intro`.",
+      "input": { "record": "numbered-list-style.md" },
+      "expect": { "result": { "anchors": [{ "name": "1-intro", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "paren-number",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 2) Item` gives `2-item`.",
+      "input": { "record": "paren-number.md" },
+      "expect": { "result": { "anchors": [{ "name": "2-item", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "date",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 2024-01-05 release` gives `2024-01-05-release`.",
+      "input": { "record": "date.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "2024-01-05-release", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "decimal",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 3.14 pi` gives `314-pi`.",
+      "input": { "record": "decimal.md" },
+      "expect": { "result": { "anchors": [{ "name": "314-pi", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "version",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## v1.0.0` gives `v100`.",
+      "input": { "record": "version.md" },
+      "expect": { "result": { "anchors": [{ "name": "v100", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "version-pre",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## v2.0.0-rc.1+build.5` gives `v200-rc1build5`.",
+      "input": { "record": "version-pre.md" },
+      "expect": { "result": { "anchors": [{ "name": "v200-rc1build5", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "only-digits",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 4` gives `4`.",
+      "input": { "record": "only-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "4", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "zero",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 0` gives `0`.",
+      "input": { "record": "zero.md" },
+      "expect": { "result": { "anchors": [{ "name": "0", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "leading-zero",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 007` gives `007`.",
+      "input": { "record": "leading-zero.md" },
+      "expect": { "result": { "anchors": [{ "name": "007", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hash-number",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## #1 priority` gives `1-priority`.",
+      "input": { "record": "hash-number.md" },
+      "expect": { "result": { "anchors": [{ "name": "1-priority", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "percent-number",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 100%` gives `100`.",
+      "input": { "record": "percent-number.md" },
+      "expect": { "result": { "anchors": [{ "name": "100", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "currency",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## $5.00 price` gives `500-price`.",
+      "input": { "record": "currency.md" },
+      "expect": { "result": { "anchors": [{ "name": "500-price", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "thousands",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 1,000 items` gives `1000-items`.",
+      "input": { "record": "thousands.md" },
+      "expect": { "result": { "anchors": [{ "name": "1000-items", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "number-word",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 5 words here` gives `5-words-here`.",
+      "input": { "record": "number-word.md" },
+      "expect": { "result": { "anchors": [{ "name": "5-words-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "fraction-ascii",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 1/2 cup` gives `12-cup`.",
+      "input": { "record": "fraction-ascii.md" },
+      "expect": { "result": { "anchors": [{ "name": "12-cup", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "range",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 10-20 range` gives `10-20-range`.",
+      "input": { "record": "range.md" },
+      "expect": { "result": { "anchors": [{ "name": "10-20-range", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "time",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 12:30 PM` gives `1230-pm`.",
+      "input": { "record": "time.md" },
+      "expect": { "result": { "anchors": [{ "name": "1230-pm", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ordinal",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## 1st place` gives `1st-place`.",
+      "input": { "record": "ordinal.md" },
+      "expect": { "result": { "anchors": [{ "name": "1st-place", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "negative",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## -5 degrees` gives `-5-degrees`.",
+      "input": { "record": "negative.md" },
+      "expect": { "result": { "anchors": [{ "name": "-5-degrees", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "plus-number",
+      "description": "Decimal digits are kept and the punctuation around them is removed (step 5): `## +5 degrees` gives `5-degrees`.",
+      "input": { "record": "plus-number.md" },
+      "expect": { "result": { "anchors": [{ "name": "5-degrees", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

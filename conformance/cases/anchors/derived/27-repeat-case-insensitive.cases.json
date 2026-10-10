@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "27-repeat-case-insensitive" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## qux`, `## Qux` and `## QUX` lower-case to one slug and give `qux`, `qux-1` and `qux-2` (steps 3 and 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "qux", "kind": "derived", "at": "/$sections/0" },
+            { "name": "qux-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "qux-2", "kind": "derived", "at": "/$sections/2" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

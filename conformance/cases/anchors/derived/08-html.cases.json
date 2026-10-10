@@ -1,0 +1,371 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "08-html" }
+  },
+  "cases": [
+    {
+      "id": "anchor-end",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title one <a id=\"x\"></a>` gives `title-one`; GitHub gives `title-one-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-end.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "x", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-one", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-end-class",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title two <a id=\"y\" class=\"a b\"></a>` gives `title-two`; GitHub gives `title-two-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-end-class.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "y", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-two", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": [{ "tag": "a", "at": "/$sections/0" }, { "tag": "b", "at": "/$sections/0" }]
+        }
+      }
+    },
+    {
+      "id": "anchor-end-no-space",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title three<a id=\"y3\"></a>` gives `title-three`.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-end-no-space.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "y3", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-three", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-end-trailing-space",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title four <a id=\"z\"></a> ` gives `title-four`; GitHub gives `title-four-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-end-trailing-space.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "z", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-four", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-start",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <a id=\"s\"></a> Title five` gives `title-five`; GitHub gives `-title-five`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-start.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "s", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-five", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-middle",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Ti<a id=\"m\"></a>tle six` gives `title-six`.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-middle.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "m", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-six", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-middle-spaced",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title <a id=\"m2\"></a> seven` gives `title--seven`.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-middle-spaced.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "m2", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title--seven", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "empty-slugs",
+      "description": "Headings holding only an anchor element with an id, one with a class only, or an HTML comment have empty slugs and no derived anchor, while the explicit anchor `o` and the tag `only` are listed (§6.2, decision C14); GitHub gives the first the anchor `\"\"` and the others no permalink.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "empty-slugs.md" },
+      "expect": {
+        "result": {
+          "anchors": [{ "name": "o", "kind": "explicit", "at": "/$sections/0" }],
+          "tags": [{ "tag": "only", "at": "/$sections/1" }]
+        }
+      }
+    },
+    {
+      "id": "anchor-name",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title eight <a name=\"nm\"></a>` gives `title-eight`; GitHub gives `title-eight-`, since it keeps the space left by the removed HTML.",
+      "input": { "record": "anchor-name.md" },
+      "expect": { "result": { "anchors": [{ "name": "title-eight", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "anchor-empty-attrs",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title nine <a></a>` gives `title-nine`; GitHub gives `title-nine-`, since it keeps the space left by the removed HTML.",
+      "input": { "record": "anchor-empty-attrs.md" },
+      "expect": { "result": { "anchors": [{ "name": "title-nine", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "anchor-with-text",
+      "description": "An anchor element with content is a structural error, so `anchors` fails as `parse` does, with `anchor-element-invalid` on the section (§5.1, §6.2); GitHub gives the heading `title-ten-inner-text`.",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-with-text.md" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "anchor-element-invalid", "severity": "error", "path": "anchor-with-text.md", "at": "/$sections/0" }]
+      }
+    },
+    {
+      "id": "anchor-href",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title eleven <a href=\"#q\">link text</a>` gives `title-eleven-link-text`.",
+      "input": { "record": "anchor-href.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "title-eleven-link-text", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "anchor-id-with-uppercase",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title twelve <a id=\"MixedCase\"></a>` gives `title-twelve`; GitHub gives `title-twelve-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-with-uppercase.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "MixedCase", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-twelve", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-id-with-punct",
+      "description": "An anchor element whose id breaks the name pattern is a validation error (`anchor-invalid`, §6.2), so the record stays readable and lists the explicit anchor `a.b_c-d`, and the heading gives `title-thirteen`; GitHub gives `title-thirteen-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-with-punct.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "a.b_c-d", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-thirteen", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-id-equals-own-slug",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Same as anchor <a id=\"same-as-anchor\"></a>` gives `same-as-anchor`; GitHub gives `same-as-anchor-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-equals-own-slug.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "same-as-anchor", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "same-as-anchor", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-id-equals-later-slug",
+      "description": "The explicit anchor `later-heading` of one heading and the derived anchor `later-heading` of a later one are both listed, although `check` reports them as a duplicate anchor (§6.1, decision C16), and the first heading gives `first-has-anchor`; GitHub gives `first-has-anchor-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-equals-later-slug.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "later-heading", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "first-has-anchor", "kind": "derived", "at": "/$sections/0" },
+            { "name": "later-heading", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "anchor-id-with-user-content",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Title fourteen <a id=\"user-content-pre\"></a>` gives `title-fourteen`; GitHub gives `title-fourteen-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-with-user-content.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "user-content-pre", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "title-fourteen", "kind": "derived", "at": "/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "span",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <span>Span</span> words` gives `span-words`.",
+      "input": { "record": "span.md" },
+      "expect": { "result": { "anchors": [{ "name": "span-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "bold-html",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <b>Bold</b> html words` gives `bold-html-words`.",
+      "input": { "record": "bold-html.md" },
+      "expect": { "result": { "anchors": [{ "name": "bold-html-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "em-html",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <em>Emphasis</em> html words` gives `emphasis-html-words`.",
+      "input": { "record": "em-html.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "emphasis-html-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "code-html",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <code>Code</code> html words` gives `code-html-words`.",
+      "input": { "record": "code-html.md" },
+      "expect": { "result": { "anchors": [{ "name": "code-html-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "img-html",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <img src=\"x.png\" alt=\"alt text\"> image words` gives `image-words`; GitHub gives `-image-words`, since it keeps the space left by the removed HTML.",
+      "input": { "record": "img-html.md" },
+      "expect": { "result": { "anchors": [{ "name": "image-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "kbd",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Press <kbd>Ctrl</kbd>+<kbd>C</kbd>` gives `press-ctrlc`.",
+      "input": { "record": "kbd.md" },
+      "expect": { "result": { "anchors": [{ "name": "press-ctrlc", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "br",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Line<br>break words` gives `linebreak-words`.",
+      "input": { "record": "br.md" },
+      "expect": { "result": { "anchors": [{ "name": "linebreak-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "comment",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Visible <!-- hidden --> comment` gives `visible--comment`.",
+      "input": { "record": "comment.md" },
+      "expect": { "result": { "anchors": [{ "name": "visible--comment", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "unclosed-tag",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## Unclosed <b tag` gives `unclosed-b-tag`.",
+      "input": { "record": "unclosed-tag.md" },
+      "expect": { "result": { "anchors": [{ "name": "unclosed-b-tag", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "sup-sub",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## H<sub>2</sub>O and x<sup>2</sup>` gives `h2o-and-x2`.",
+      "input": { "record": "sup-sub.md" },
+      "expect": { "result": { "anchors": [{ "name": "h2o-and-x2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "div",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <div>Div</div> words` gives `div-words`.",
+      "input": { "record": "div.md" },
+      "expect": { "result": { "anchors": [{ "name": "div-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "details-tag",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <details>Details tag</details>` gives `details-tag`.",
+      "input": { "record": "details-tag.md" },
+      "expect": { "result": { "anchors": [{ "name": "details-tag", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "script-text",
+      "description": "HTML in a heading contributes the text between its tags, supported or not, so `## <script>alert(1)</script> script words` gives `alert1-script-words` (step 1, §5.3); GitHub gives `scriptalert1script-script-words`, since its sanitizer keeps the tags as text.",
+      "input": { "record": "script-text.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "alert1-script-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "non-tag-angle",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## <notatag> words` gives `words`; GitHub gives `-words`, since it keeps the space left by the removed HTML.",
+      "input": { "record": "non-tag-angle.md" },
+      "expect": { "result": { "anchors": [{ "name": "words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-tag",
+      "description": "HTML in a heading contributes the text between its tags, and the anchor element is removed before trimming (step 1, decisions C13 and C15): `## &lt;b&gt;escaped&lt;/b&gt; words` gives `bescapedb-words`.",
+      "input": { "record": "entity-tag.md" },
+      "expect": { "result": { "anchors": [{ "name": "bescapedb-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "anchor-id-equals-earlier-slug",
+      "description": "The explicit anchor `earlier-heading` and the derived anchor of the heading before it are both listed, although `check` reports them as a duplicate anchor (§6.1, decision C16), and the second heading gives `third-has-anchor`; the first heading, `## Earlier heading`, is added to the captured case, where GitHub gave the second `third-has-anchor-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "anchor-id-equals-earlier-slug.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "earlier-heading", "kind": "derived", "at": "/$sections/0" },
+            { "name": "earlier-heading", "kind": "explicit", "at": "/$sections/1" },
+            { "name": "third-has-anchor", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "check-anchor-id-equals-later-slug",
+      "description": "`check` reports the derived `later-heading` of the second heading as a duplicate of the explicit `later-heading` on the first (§6.1, decision C16), and the second section key `later-heading` as a duplicate key, the first key being the anchor (§5.5, §5.7).",
+      "spec": ["5.7", "6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["anchor-id-equals-later-slug.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-key", "severity": "error", "path": "anchor-id-equals-later-slug.md", "at": "/$sections/1" },
+          { "code": "duplicate-anchor", "severity": "error", "path": "anchor-id-equals-later-slug.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "check-anchor-id-equals-earlier-slug",
+      "description": "`check` reports the explicit `earlier-heading` of the second heading as a duplicate of the first heading’s derived `earlier-heading` (§6.1, decision C16), and the second section key `earlier-heading`, its anchor, as a duplicate key (§5.5, §5.7).",
+      "spec": ["5.7", "6.1"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["anchor-id-equals-earlier-slug.md"] },
+      "expect": {
+        "issues": [
+          { "code": "duplicate-key", "severity": "error", "path": "anchor-id-equals-earlier-slug.md", "at": "/$sections/1" },
+          { "code": "duplicate-anchor", "severity": "error", "path": "anchor-id-equals-earlier-slug.md", "at": "/$sections/1" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "35-repeat-nfc-nfd" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Café` in NFC, in NFD and in NFC again have one slug and give `café`, `café-1` and `café-2`, and `## Cafe` gives `cafe` (steps 2 and 7); GitHub gives `café`, `cafe\u0301` and `café-1`, since it does not normalize to NFC.",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "café", "kind": "derived", "at": "/$sections/0" },
+            { "name": "café-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "café-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "cafe", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

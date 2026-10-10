@@ -1,0 +1,312 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "03-punctuation-compound" }
+  },
+  "cases": [
+    {
+      "id": "parens",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## (parenthesised) words` gives `parenthesised-words`.",
+      "input": { "record": "parens.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "parenthesised-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "brackets",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## [bracketed] words` gives `bracketed-words`.",
+      "input": { "record": "brackets.md" },
+      "expect": { "result": { "anchors": [{ "name": "bracketed-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "braces",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## {braced} words` gives `braced-words`.",
+      "input": { "record": "braces.md" },
+      "expect": { "result": { "anchors": [{ "name": "braced-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "angle-not-tag",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a <= b >= c` gives `a--b--c`.",
+      "input": { "record": "angle-not-tag.md" },
+      "expect": { "result": { "anchors": [{ "name": "a--b--c", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "angle-tag-like",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## see <angle> here` gives `see--here`.",
+      "input": { "record": "angle-tag-like.md" },
+      "expect": { "result": { "anchors": [{ "name": "see--here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-quotes",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## \"double quoted\" words` gives `double-quoted-words`.",
+      "input": { "record": "double-quotes.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "double-quoted-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "single-quotes",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## 'single quoted' words` gives `single-quoted-words`.",
+      "input": { "record": "single-quotes.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "single-quoted-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "apostrophe",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## It's the user's choice` gives `its-the-users-choice`.",
+      "input": { "record": "apostrophe.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "its-the-users-choice", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "dollar-math",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## inline $x+y$ math` gives `inline-xy-math`.",
+      "input": { "record": "dollar-math.md" },
+      "expect": { "result": { "anchors": [{ "name": "inline-xy-math", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dollar-math-block",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## display $$x+y$$ math` gives `display-xy-math`.",
+      "input": { "record": "dollar-math-block.md" },
+      "expect": { "result": { "anchors": [{ "name": "display-xy-math", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "slash-path",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a/b/c path` gives `abc-path`.",
+      "input": { "record": "slash-path.md" },
+      "expect": { "result": { "anchors": [{ "name": "abc-path", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backslash-path",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## C:\\dir\\file path` gives `cdirfile-path`.",
+      "input": { "record": "backslash-path.md" },
+      "expect": { "result": { "anchors": [{ "name": "cdirfile-path", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "email",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## write to user@example.com now` gives `write-to-userexamplecom-now`.",
+      "input": { "record": "email.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "write-to-userexamplecom-now", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "percent",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## 50% off` gives `50-off`.",
+      "input": { "record": "percent.md" },
+      "expect": { "result": { "anchors": [{ "name": "50-off", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ampersand-qa",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## Q&A session` gives `qa-session`.",
+      "input": { "record": "ampersand-qa.md" },
+      "expect": { "result": { "anchors": [{ "name": "qa-session", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ampersand-spaced",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## Salt & pepper` gives `salt--pepper`.",
+      "input": { "record": "ampersand-spaced.md" },
+      "expect": { "result": { "anchors": [{ "name": "salt--pepper", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ampersand-att",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## AT&T and R&D` gives `att-and-rd`.",
+      "input": { "record": "ampersand-att.md" },
+      "expect": { "result": { "anchors": [{ "name": "att-and-rd", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "question-bang",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## what?!` gives `what`.",
+      "input": { "record": "question-bang.md" },
+      "expect": { "result": { "anchors": [{ "name": "what", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ellipsis-ascii",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## wait... what` gives `wait-what`.",
+      "input": { "record": "ellipsis-ascii.md" },
+      "expect": { "result": { "anchors": [{ "name": "wait-what", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dotted",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a.b.c dotted` gives `abc-dotted`.",
+      "input": { "record": "dotted.md" },
+      "expect": { "result": { "anchors": [{ "name": "abc-dotted", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "eg",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## e.g. this, i.e. that` gives `eg-this-ie-that`.",
+      "input": { "record": "eg.md" },
+      "expect": { "result": { "anchors": [{ "name": "eg-this-ie-that", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "equation",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## x = y + z` gives `x--y--z`.",
+      "input": { "record": "equation.md" },
+      "expect": { "result": { "anchors": [{ "name": "x--y--z", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "comparison",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a == b and a != b` gives `a--b-and-a--b`.",
+      "input": { "record": "comparison.md" },
+      "expect": { "result": { "anchors": [{ "name": "a--b-and-a--b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "arrows-ascii",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a -> b => c <- d` gives `a---b--c---d`.",
+      "input": { "record": "arrows-ascii.md" },
+      "expect": { "result": { "anchors": [{ "name": "a---b--c---d", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "pipes",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a|b|c` gives `abc`.",
+      "input": { "record": "pipes.md" },
+      "expect": { "result": { "anchors": [{ "name": "abc", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tildes",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## ~tilde~ words` gives `tilde-words`.",
+      "input": { "record": "tildes.md" },
+      "expect": { "result": { "anchors": [{ "name": "tilde-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "carets",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## ^caret^ words` gives `caret-words`.",
+      "input": { "record": "carets.md" },
+      "expect": { "result": { "anchors": [{ "name": "caret-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "call",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## foo(bar) call` gives `foobar-call`.",
+      "input": { "record": "call.md" },
+      "expect": { "result": { "anchors": [{ "name": "foobar-call", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "empty-call",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## baz() call` gives `baz-call`.",
+      "input": { "record": "empty-call.md" },
+      "expect": { "result": { "anchors": [{ "name": "baz-call", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "index",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## array[0] access` gives `array0-access`.",
+      "input": { "record": "index.md" },
+      "expect": { "result": { "anchors": [{ "name": "array0-access", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "colon-title",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## Note: read this` gives `note-read-this`.",
+      "input": { "record": "colon-title.md" },
+      "expect": { "result": { "anchors": [{ "name": "note-read-this", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "semicolon",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## one; two; three` gives `one-two-three`.",
+      "input": { "record": "semicolon.md" },
+      "expect": { "result": { "anchors": [{ "name": "one-two-three", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hash-inside",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## C# and F# languages` gives `c-and-f-languages`.",
+      "input": { "record": "hash-inside.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "c-and-f-languages", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "at-sign",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## the @ sign` gives `the--sign`.",
+      "input": { "record": "at-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "the--sign", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "plus",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## C++ and A+B` gives `c-and-ab`.",
+      "input": { "record": "plus.md" },
+      "expect": { "result": { "anchors": [{ "name": "c-and-ab", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backslash-escape-bang",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## escaped\\! mark` gives `escaped-mark`.",
+      "input": { "record": "backslash-escape-bang.md" },
+      "expect": { "result": { "anchors": [{ "name": "escaped-mark", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backslash-escape-dot",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## esc\\.aped dot` gives `escaped-dot`.",
+      "input": { "record": "backslash-escape-dot.md" },
+      "expect": { "result": { "anchors": [{ "name": "escaped-dot", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backslash-escape-star",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## \\*not emphasis\\*` gives `not-emphasis`.",
+      "input": { "record": "backslash-escape-star.md" },
+      "expect": { "result": { "anchors": [{ "name": "not-emphasis", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backslash-before-letter",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## back\\slash letter` gives `backslash-letter`.",
+      "input": { "record": "backslash-before-letter.md" },
+      "expect": { "result": { "anchors": [{ "name": "backslash-letter", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-amp",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## fish &amp; chips` gives `fish--chips`.",
+      "input": { "record": "entity-amp.md" },
+      "expect": { "result": { "anchors": [{ "name": "fish--chips", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-lt-gt",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## &lt;tag&gt; entity` gives `tag-entity`.",
+      "input": { "record": "entity-lt-gt.md" },
+      "expect": { "result": { "anchors": [{ "name": "tag-entity", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-quot",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## &quot;quoted&quot; entity` gives `quoted-entity`.",
+      "input": { "record": "entity-quot.md" },
+      "expect": { "result": { "anchors": [{ "name": "quoted-entity", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-numeric",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## hex &#x26; dec &#38; entity` gives `hex--dec--entity`.",
+      "input": { "record": "entity-numeric.md" },
+      "expect": { "result": { "anchors": [{ "name": "hex--dec--entity", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-copy",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## &copy; 2026 entity` gives `-2026-entity`.",
+      "input": { "record": "entity-copy.md" },
+      "expect": { "result": { "anchors": [{ "name": "-2026-entity", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "entity-nbsp",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## a&nbsp;b entity` gives `a-b-entity`; GitHub gives `ab-entity`, since it removes U+00A0 rather than turning it into a hyphen.",
+      "input": { "record": "entity-nbsp.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b-entity", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "backtick-unmatched",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `` ## stray ` backtick `` gives `stray--backtick`.",
+      "input": { "record": "backtick-unmatched.md" },
+      "expect": { "result": { "anchors": [{ "name": "stray--backtick", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "asterisk-unmatched",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## stray * asterisk` gives `stray--asterisk`.",
+      "input": { "record": "asterisk-unmatched.md" },
+      "expect": { "result": { "anchors": [{ "name": "stray--asterisk", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "underscore-unmatched",
+      "description": "Punctuation is removed from the visible text, after escapes and character references are resolved (steps 1 and 5): `## stray _ underscore` gives `stray-_-underscore`.",
+      "input": { "record": "underscore-unmatched.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "stray-_-underscore", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    }
+  ]
+}

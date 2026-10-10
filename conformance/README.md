@@ -65,9 +65,10 @@ The topics to start with, each a directory under `cases/`:
 | `edits` | §13.3 | edits with expected bytes (I4) |
 | `selftest` | §5.8 | the runner's own comparison ([Runner self-test](#runner-self-test)) |
 
-A fixture task adds a topic when none of these fits. The headings of the capture under `docs/research/` (#37) become `anchors`
-cases later, by #8, once this format is approved. Their expected anchors are those of vmd's own rule (§6.3, decisions C12 and F5),
-not GitHub's, although the two agree for most headings.
+A fixture task adds a topic when none of these fits. The headings of the capture under `docs/research/` (#37) are the `anchors`
+cases in `cases/anchors/derived/` (#8), one case file per captured document, and `edges.cases.json` holds cases the capture
+lacks. Their expected anchors are those of vmd's own rule (§6.3, decisions C12 and F5), not GitHub's, and a case whose anchors
+differ from GitHub's gives GitHub's in its description.
 
 ### Rules
 
@@ -661,6 +662,8 @@ case pairs two values that one specific wrong comparison would misjudge.
   as `error` until it implements them or skips them by declaration. The phase I0 decisions changed the meaning of numbers in case
   files (decision F2) and the `parse` result (decision F9), which would raise the case format, but it stays 1 as an exception,
   because no runner had been released.
+- **Unicode version.** Expected values that depend on Unicode data, such as derived anchors (§6.3), follow Unicode 17.0.0.
+  Changing it changes derived anchors, which §6.3 allows only with a new version of the spec, so `version` moves with it.
 - **Section citations.** Cases cite sections in `spec`. A change that renumbers the proposal updates them as well, as
   `AGENTS.md` asks for every place that cites a section.
 

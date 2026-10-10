@@ -1,0 +1,294 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "07-inline-markup" }
+  },
+  "cases": [
+    {
+      "id": "code-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## `code` `` gives `code`.",
+      "input": { "record": "code-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "code", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "code-in-text",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## Use `foo` here `` gives `use-foo-here`.",
+      "input": { "record": "code-in-text.md" },
+      "expect": { "result": { "anchors": [{ "name": "use-foo-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "code-with-punct",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## Call `a.b()` now `` gives `call-ab-now`.",
+      "input": { "record": "code-with-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "call-ab-now", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "code-with-space",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## The `two words` span `` gives `the-two-words-span`.",
+      "input": { "record": "code-with-space.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "the-two-words-span", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "code-with-hyphen",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## The `some-flag` option `` gives `the-some-flag-option`.",
+      "input": { "record": "code-with-hyphen.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "the-some-flag-option", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "code-uppercase",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## The `CamelCase` type `` gives `the-camelcase-type`.",
+      "input": { "record": "code-uppercase.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "the-camelcase-type", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "code-double-backtick",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): the heading gives `show-a--b-literal`.",
+      "input": { "record": "code-double-backtick.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "show-a--b-literal", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "code-punct-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `` ## Operator `->` arrow `` gives `operator---arrow`.",
+      "input": { "record": "code-punct-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "operator---arrow", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emphasis",
+      "description": "`*` and `_` emphasis give the same text, so `## An _emphasised_ word` after `## An *emphasised* word` is a repeat and gives `an-emphasised-word-1` (steps 1 and 7).",
+      "input": { "record": "emphasis.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "an-emphasised-word", "kind": "derived", "at": "/$sections/0" },
+            { "name": "an-emphasised-word-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "strong",
+      "description": "`**` and `__` give the same text, so `## A __strong__ word` after `## A **strong** word` is a repeat and gives `a-strong-word-1` (steps 1 and 7).",
+      "input": { "record": "strong.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "a-strong-word", "kind": "derived", "at": "/$sections/0" },
+            { "name": "a-strong-word-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "strong-emphasis",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## A ***both*** word` gives `a-both-word`.",
+      "input": { "record": "strong-emphasis.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-both-word", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "strikethrough",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## A ~~struck~~ word` gives `a-struck-word`.",
+      "input": { "record": "strikethrough.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-struck-word", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emphasis-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## *only emphasis*` gives `only-emphasis`.",
+      "input": { "record": "emphasis-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "only-emphasis", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "strong-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## **only strong**` gives `only-strong`.",
+      "input": { "record": "strong-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "only-strong", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "intraword-star",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## intra*word*emphasis` gives `intrawordemphasis`.",
+      "input": { "record": "intraword-star.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "intrawordemphasis", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "intraword-underscore",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## intra_word_not_emphasis` gives `intra_word_not_emphasis`.",
+      "input": { "record": "intraword-underscore.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "intra_word_not_emphasis", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "arithmetic-stars",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## 2*3*4 product` gives `234-product`.",
+      "input": { "record": "arithmetic-stars.md" },
+      "expect": { "result": { "anchors": [{ "name": "234-product", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## A [link text](http://example.com/path) here` gives `a-link-text-here`.",
+      "input": { "record": "link.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-link-text-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## [only link](http://example.com/only)` gives `only-link`.",
+      "input": { "record": "link-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "only-link", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link-with-title",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## B [titled](http://example.com/t \"the title\") here` gives `b-titled-here`.",
+      "input": { "record": "link-with-title.md" },
+      "expect": { "result": { "anchors": [{ "name": "b-titled-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link-relative",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## C [relative](other.md#frag) here` gives `c-relative-here`.",
+      "input": { "record": "link-relative.md" },
+      "expect": { "result": { "anchors": [{ "name": "c-relative-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link-reference",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## D [reference][ref1] here` gives `d-reference-here`.",
+      "input": { "record": "link-reference.md" },
+      "expect": { "result": { "anchors": [{ "name": "d-reference-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "link-emphasis-inside",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## E [*em* inside](http://example.com/e) here` gives `e-em-inside-here`.",
+      "input": { "record": "link-emphasis-inside.md" },
+      "expect": { "result": { "anchors": [{ "name": "e-em-inside-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "image",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## F ![alt text](img.png) here` gives `f--here`.",
+      "input": { "record": "image.md" },
+      "expect": { "result": { "anchors": [{ "name": "f--here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "image-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## ![only image](img2.png)` has an empty slug and no derived anchor (decision C14); GitHub gives it the anchor `\"\"`.",
+      "input": { "record": "image-only.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "image-link",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## G [![badge](b.png)](http://example.com/b) here` gives `g--here`.",
+      "input": { "record": "image-link.md" },
+      "expect": { "result": { "anchors": [{ "name": "g--here", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "autolink-angle",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## H <http://example.com/auto> here` gives `h-httpexamplecomauto-here`.",
+      "input": { "record": "autolink-angle.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "h-httpexamplecomauto-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "autolink-bare",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## I https://example.com/bare here` gives `i-httpsexamplecombare-here`.",
+      "input": { "record": "autolink-bare.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "i-httpsexamplecombare-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "autolink-www",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## J www.example.com here` gives `j-wwwexamplecom-here`.",
+      "input": { "record": "autolink-www.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "j-wwwexamplecom-here", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "escaped-star",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## K \\*literal\\* stars` gives `k-literal-stars`.",
+      "input": { "record": "escaped-star.md" },
+      "expect": { "result": { "anchors": [{ "name": "k-literal-stars", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "escaped-underscore",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## L a\\_b literal` gives `l-a_b-literal`.",
+      "input": { "record": "escaped-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "l-a_b-literal", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-shortcode",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## M :rocket: shortcode` gives `m-rocket-shortcode`.",
+      "input": { "record": "emoji-shortcode.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "m-rocket-shortcode", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "emoji-shortcode-only",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## :+1:` gives `1`.",
+      "input": { "record": "emoji-shortcode-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "1", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "issue-ref",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## N see #8 issue` gives `n-see-8-issue`.",
+      "input": { "record": "issue-ref.md" },
+      "expect": { "result": { "anchors": [{ "name": "n-see-8-issue", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "repo-issue-ref",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## O nosferatech/vollmond#8 ref` gives `o-nosferatechvollmond8-ref`.",
+      "input": { "record": "repo-issue-ref.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "o-nosferatechvollmond8-ref", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "mention",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## P @octocat mention` gives `p-octocat-mention`.",
+      "input": { "record": "mention.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "p-octocat-mention", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "sha",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## Q commit 5b0819b ref` gives `q-commit-5b0819b-ref`.",
+      "input": { "record": "sha.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "q-commit-5b0819b-ref", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "task-text",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## R [ ] checkbox text` gives `r---checkbox-text`.",
+      "input": { "record": "task-text.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "r---checkbox-text", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "footnote-like",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): `## S note[^1] marker` gives `s-note1-marker`.",
+      "input": { "record": "footnote-like.md" },
+      "expect": { "result": { "anchors": [{ "name": "s-note1-marker", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hard-break-backslash",
+      "description": "Inline Markdown contributes its visible text, without delimiters, URLs or images (step 1): the heading gives `t-line`.",
+      "input": { "record": "hard-break-backslash.md" },
+      "expect": { "result": { "anchors": [{ "name": "t-line", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

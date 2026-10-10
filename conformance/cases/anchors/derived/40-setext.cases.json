@@ -1,0 +1,102 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "40-setext" }
+  },
+  "cases": [
+    {
+      "id": "setext-h1",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext one` underlined with `=` gives `setext-one`.",
+      "input": { "record": "setext-h1.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-one", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-h2",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext two` underlined with `-` gives `setext-two`.",
+      "input": { "record": "setext-h2.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-two", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "setext-short-underline",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext three` underlined with `=` gives `setext-three`.",
+      "input": { "record": "setext-short-underline.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-three", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-long-underline",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext four` underlined with `-` gives `setext-four`.",
+      "input": { "record": "setext-long-underline.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-four", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "setext-trailing-spaces",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext seven   ` underlined with `=` gives `setext-seven`.",
+      "input": { "record": "setext-trailing-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-seven", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-leading-spaces",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `   Setext eight` underlined with `=` gives `setext-eight`.",
+      "input": { "record": "setext-leading-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-eight", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-indented-underline",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext nine` underlined with `=` gives `setext-nine`.",
+      "input": { "record": "setext-indented-underline.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-nine", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-inline-markup",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `` Setext *ten* and `code` `` underlined with `-` gives `setext-ten-and-code`.",
+      "input": { "record": "setext-inline-markup.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "setext-ten-and-code", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "setext-punct",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext thirteen, with: punct!` underlined with `=` gives `setext-thirteen-with-punct`.",
+      "input": { "record": "setext-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-thirteen-with-punct", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-html-anchor",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext fourteen <a id=\"s14\"></a>` underlined with `=` gives `setext-fourteen`; GitHub gives `setext-fourteen-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "setext-html-anchor.md" },
+      "expect": {
+        "result": {
+          "anchors": [{ "name": "s14", "kind": "explicit", "at": "" }, { "name": "setext-fourteen", "kind": "derived", "at": "" }],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "setext-unicode",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext fünfzehn` underlined with `=` gives `setext-fünfzehn`.",
+      "input": { "record": "setext-unicode.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-fünfzehn", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-trailing-hashes",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext sixteen ##` underlined with `=` gives `setext-sixteen-`.",
+      "input": { "record": "setext-trailing-hashes.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-sixteen-", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-escaped-hash",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `\\# Setext seventeen` underlined with `=` gives `-setext-seventeen`.",
+      "input": { "record": "setext-escaped-hash.md" },
+      "expect": { "result": { "anchors": [{ "name": "-setext-seventeen", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "setext-tab",
+      "description": "A setext heading gives the slug of its text, as an ATX heading does: `Setext\teighteen` underlined with `=` gives `setext-eighteen`; GitHub gives `setexteighteen`, since it removes U+0009 rather than turning it into a hyphen.",
+      "input": { "record": "setext-tab.md" },
+      "expect": { "result": { "anchors": [{ "name": "setext-eighteen", "kind": "derived", "at": "" }], "tags": [] } }
+    }
+  ]
+}

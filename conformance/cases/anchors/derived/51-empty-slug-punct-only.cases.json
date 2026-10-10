@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "51-empty-slug-punct-only" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## .`, `## ,` and `## ;` have empty slugs and no derived anchor (decision C14); GitHub gives them `\"\"`, `-1` and `-2`.",
+      "input": { "record": "document.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    }
+  ]
+}

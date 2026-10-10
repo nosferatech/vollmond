@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "52-proposal-examples" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "The examples of §5.3, §6.2 and §6.3 in one record: the title heading gives `flusher-stalls-under-load`, `## What was done <a id=\"done\" class=\"decision review\"></a>` gives `what-was-done` with the explicit anchor `done` and the tags `decision` and `review`, `## 11.4 The tail` gives `114-the-tail`, and two `## Notes` give `notes` and `notes-1`; GitHub gives `what-was-done-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "flusher-stalls-under-load", "kind": "derived", "at": "" },
+            { "name": "what-is-confirmed", "kind": "derived", "at": "/$sections/0" },
+            { "name": "done", "kind": "explicit", "at": "/$sections/1" },
+            { "name": "what-was-done", "kind": "derived", "at": "/$sections/1" },
+            { "name": "114-the-tail", "kind": "derived", "at": "/$sections/2" },
+            { "name": "notes", "kind": "derived", "at": "/$sections/3" },
+            { "name": "notes-1", "kind": "derived", "at": "/$sections/4" }
+          ],
+          "tags": [{ "tag": "decision", "at": "/$sections/1" }, { "tag": "review", "at": "/$sections/1" }]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "10-latin-nfd" }
+  },
+  "cases": [
+    {
+      "id": "accent-cafe",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Cafe\u0301 au lait` gives `café-au-lait`; GitHub gives `cafe\u0301-au-lait`, since it does not normalize to NFC.",
+      "input": { "record": "accent-cafe.md" },
+      "expect": { "result": { "anchors": [{ "name": "café-au-lait", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-creme",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Cre\u0300me bru\u0302le\u0301e` gives `crème-brûlée`; GitHub gives `cre\u0300me-bru\u0302le\u0301e`, since it does not normalize to NFC.",
+      "input": { "record": "accent-creme.md" },
+      "expect": { "result": { "anchors": [{ "name": "crème-brûlée", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-naive",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Nai\u0308ve re\u0301sume\u0301` gives `naïve-résumé`; GitHub gives `nai\u0308ve-re\u0301sume\u0301`, since it does not normalize to NFC.",
+      "input": { "record": "accent-naive.md" },
+      "expect": { "result": { "anchors": [{ "name": "naïve-résumé", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-angstrom",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## A\u030angstro\u0308m` gives `ångström`; GitHub gives `a\u030angstro\u0308m`, since it does not normalize to NFC.",
+      "input": { "record": "accent-angstrom.md" },
+      "expect": { "result": { "anchors": [{ "name": "ångström", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-upper",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## A\u0300E\u0301I\u0302O\u0303U\u0308 upper` gives `àéîõü-upper`; GitHub gives `a\u0300e\u0301i\u0302o\u0303u\u0308-upper`, since it does not normalize to NFC.",
+      "input": { "record": "accent-upper.md" },
+      "expect": { "result": { "anchors": [{ "name": "àéîõü-upper", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "sharp-s-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## Straße` gives `straße`.",
+      "input": { "record": "sharp-s-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "straße", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "capital-sharp-s-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## GROẞE` gives `große`.",
+      "input": { "record": "capital-sharp-s-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "große", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "o-slash-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## Øre og æble` gives `øre-og-æble`.",
+      "input": { "record": "o-slash-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "øre-og-æble", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "l-stroke",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Ło\u0301dz\u0301` gives `łódź`; GitHub gives `ło\u0301dz\u0301`, since it does not normalize to NFC.",
+      "input": { "record": "l-stroke.md" },
+      "expect": { "result": { "anchors": [{ "name": "łódź", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "n-tilde",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Sen\u0303or Nin\u0303o` gives `señor-niño`; GitHub gives `sen\u0303or-nin\u0303o`, since it does not normalize to NFC.",
+      "input": { "record": "n-tilde.md" },
+      "expect": { "result": { "anchors": [{ "name": "señor-niño", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "c-cedilla",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Franc\u0327ais` gives `français`; GitHub gives `franc\u0327ais`, since it does not normalize to NFC.",
+      "input": { "record": "c-cedilla.md" },
+      "expect": { "result": { "anchors": [{ "name": "français", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dotted-i",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## I\u0307stanbul` gives `i\u0307stanbul`.",
+      "input": { "record": "dotted-i.md" },
+      "expect": { "result": { "anchors": [{ "name": "i\u0307stanbul", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dotless-i-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## ı dotless` gives `ı-dotless`.",
+      "input": { "record": "dotless-i-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "ı-dotless", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "titlecase-dz-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## ǅ titlecase` gives `ǆ-titlecase`.",
+      "input": { "record": "titlecase-dz-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "ǆ-titlecase", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "vietnamese",
+      "description": "Decomposed Latin text is normalized to NFC before lower-casing (step 2): `## Tie\u0302\u0301ng Vie\u0323\u0302t` gives `tiếng-việt`; GitHub gives `tie\u0302\u0301ng-vie\u0323\u0302t`, since it does not normalize to NFC.",
+      "input": { "record": "vietnamese.md" },
+      "expect": { "result": { "anchors": [{ "name": "tiếng-việt", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "long-s-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## ſhort s` gives `ſhort-s`.",
+      "input": { "record": "long-s-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "ſhort-s", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "plain-k-after-normalization-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## K kelvin` gives `k-kelvin`.",
+      "input": { "record": "plain-k-after-normalization-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "k-kelvin", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ligature-fi-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## ﬁ ligature` gives `ﬁ-ligature`.",
+      "input": { "record": "ligature-fi-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "ﬁ-ligature", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ligature-ae-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## Æsop` gives `æsop`.",
+      "input": { "record": "ligature-ae-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "æsop", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "eszett-lower-final-same-as-nfc",
+      "description": "A letter with no canonical decomposition is the same in NFD and NFC: `## maße` gives `maße`.",
+      "input": { "record": "eszett-lower-final-same-as-nfc.md" },
+      "expect": { "result": { "anchors": [{ "name": "maße", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}
