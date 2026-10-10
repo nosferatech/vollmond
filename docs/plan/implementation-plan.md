@@ -54,7 +54,7 @@ filesystem, `git` or a process goes in `cli`, behind the storage contract's inte
 This tooling is for the TypeScript implementation and is configured in `js/`; the Python tooling will be chosen when `python/`
 starts. Exact dependency versions are pinned when the workspace is created. The libraries are those of the proposal's Appendix C:
 `micromark` and `mdast-util-from-markdown` with the GFM and front-matter extensions, `yaml`, `jsonc-parser`, Ajv with
-`ajv-formats`, `github-slugger`.
+`ajv-formats`. Derived anchors follow vmd's own rule (proposal §6.3), implemented in `core`, so `github-slugger` is not used.
 
 No native dependencies: the local index cache is JSONL files, the same format as the portable index (§14.4), not SQLite. SQLite
 comes back only if measurements ask for it.
@@ -117,7 +117,7 @@ Goal: an agent can list, outline and read any record by address, with the output
 | **I1.2** JSON parser | value view and source map from `jsonc-parser` in strict mode, duplicate keys rejected | I1.1 |
 | **I1.3** YAML parser | value view and source map from `yaml` with the core schema; every construct outside the data model rejected with its location | I1.1 |
 | **I1.4** Markdown parser | the section tree of §5.3 from `mdast-util-from-markdown` positions: front matter, title heading, outline by heading level, data blocks, `$body` sliced from the source rather than re-serialized, the `<a>` element on headings and blocks, container blocks left as prose | I1.1, I0.5 |
-| **I1.5** Keys and anchors | `$key`, derived anchors with GitHub's repeat suffixes, the record's anchor table, tags, block anchors | I1.4, I0.7 |
+| **I1.5** Keys and anchors | section keys as metadata (`@key`), derived anchors by vmd's rule with its repeat suffixes (proposal §6.3), the record's anchor table, tags, block anchors | I1.4, I0.7 |
 | **I1.6** Addresses | the §7 grammar; exact resolution; semantic resolution over fields and `$sections` (schema-declared keys come in I2.3); canonical addresses (§7.5) | I1.5, I0.6 |
 | **I1.7** Storage contract and local backend | the contract's TypeScript interface (§11.2); the filesystem backend's read operations; the portable regex checker for `grep`; file versions from `git ls-files -s` in a git working copy, hashing otherwise | I1.1 |
 | **I1.8** CLI foundation | global options, output conventions (one line per item, `~tok`, default limits, cursors, `--json`), the issue format of §12.3, exit codes | I1.7 |

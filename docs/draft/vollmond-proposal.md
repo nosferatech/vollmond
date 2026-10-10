@@ -220,7 +220,7 @@ Further types can be added as extensions (§18).
 ### 5.1 Overview
 
 Every record without a structural error (§9.2) parses to a **value view**: a JSON value (§4) whose root is a section. Schemas
-validate the value view, queries filter it, and paths walk it. The mapping from each format is lossless: the order and repeats of
+validate the value view, queries filter it, and paths walk it. The mapping from each format is lossless. The order and repeats of
 sections are kept, and converting a value to any format and back yields the same value (§5.8).
 
 The value view holds only what the record stores. What vmd derives, such as a section's key (§5.5), is metadata, returned next to
@@ -236,6 +236,7 @@ A record and each of its sections have the same shape:
 
 ```
 section = {
+  "$schema":   any,          root only, optional: stored data that vmd does not interpret (§5.4)
   "$title":    string,       required for a section, optional for the root
   "$anchor":   string,       optional (§6.2)
   "$tags":     [string],     optional (§6.4)
@@ -244,6 +245,10 @@ section = {
   "$sections": [section]     optional: child sections, in order
 }
 ```
+
+A section member of the wrong type is a structural error (`reserved-member-type`): a `$title`, `$body` or `$anchor` that is not a
+string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects. So is an item of `$sections`
+without a `$title` (`section-title-missing`).
 
 The members above are listed in the order the serializer writes them, and the CLI prints them, when it has no other order to keep;
 the order carries no meaning (§4.1). A plain string is never a section: anything that is not an item of `$sections` is a field.
@@ -280,8 +285,8 @@ follows.
   part of the title, and `## What was done <a id="done"></a>` and `## What was done<a id="done"></a>` have the same title.
 - **HTML in a heading.** Besides the anchor element, a heading may contain the inline elements `span`, `b`, `i`, `em`, `strong`,
   `code`, `kbd`, `sup` and `sub`, whose text counts as heading text (§6.3). Any other HTML in a heading is unsupported.
-  `vmd check` reports it (`heading-html`, a warning by default), and how it affects the derived anchor is not specified, so an
-  implementation may strip it.
+  `vmd check` reports it (`heading-html`, a warning by default). For the derived anchor (§6.3), its tags are removed and the text
+  between them is kept, and an HTML comment is removed whole, so that every implementation derives the same anchor.
 - **Container blocks are prose.** Headings and fences inside list items, block quotes and HTML blocks are part of `$body`. A list
   item has no key, so a data block inside one would have no unambiguous place in the tree, and fenced examples inside list items
   are common. Tables, lists and similar structures inside `$body` can be exposed later as views (§18).
@@ -331,16 +336,24 @@ A JSON or YAML record's value view is the parsed data, whose root must be an obj
 file, or one holding only whitespace and comments, is the empty record `{}`, as an empty Markdown file is. An empty JSON file is a
 syntax error, since it is not JSON.
 
-The section members apply to the root object and to items of `$sections`. Anywhere else, a member whose name begins with `$` is a
-structural error (`dollar-member`), with three exceptions:
+The section members apply to the root object and to items of `$sections`. On a section, a member whose name begins with `$` and
+that is not a section member (§5.2) is a structural error (`dollar-member`). Inside a field's value, three such members are vmd
+syntax and every other one is data:
 
-- `$anchor` and `$tags` may label any object (§6),
+- `$anchor` and `$tags` label the object that holds them (§6),
 - `$ref` forms a reference object (§8.1),
-- a member's name may begin with `$` inside a field's value when the schema allows it, since that is data and not vmd syntax.
+- any other member whose name begins with `$` is an ordinary member. The record stays readable whatever the schema says, and a
+  schema that does not allow the member reports it as a `schema-violation`.
 
-A section's key is derived, not stored (§5.5). A `$key` member is not part of the section shape, so in a file, or in a value given
-to a write, it is a `$` member where none is allowed. Reads never return one, so a value read and written back is safe. To set a
-section's key, give it an `$anchor`.
+Whether a record is readable therefore never depends on its schema.
+
+**`$schema` on the root** is allowed, so that a plain JSON or YAML file that names its JSON Schema for editors, as in
+`"$schema": "https://..."`, stays a readable record. It is stored data. It stays in the value view, vmd neither interprets it nor
+uses it to validate, and a collection's schema may constrain it like any field. It is not allowed on other sections.
+
+A section's key is derived, not stored (§5.5). A `$key` member is not part of the section shape, so on a section, in a file or in
+a value given to a write, it is a `$` member where none is allowed. Reads never return one, so a value read and written back is
+safe. To set a section's key, give it an `$anchor`.
 
 ### 5.5 Section keys
 
@@ -373,7 +386,8 @@ exact path, so `vmd check` reports a reference whose target moved after a schema
   namespace.
 - **Declared per list.** `x-vmd-list: {type: map}` requires unique keys; `type: multimap` allows repeats. The same keyword on
   `$sections` declares whether a record's sections may repeat.
-- **A store default** covers every level a schema does not declare. It is `strict` unless `.vmd/config.yaml` says otherwise:
+- **A store default** covers every level a schema does not declare; a duplicate at a level the schema declares `type: map` is an
+  error in either mode. The default is `strict` unless `.vmd/config.yaml` says otherwise:
   - `strict`: duplicates are validation errors (`duplicate-key`), so every semantic step is unique by construction.
   - `lenient`: duplicates are warnings. A singular address that hits a duplicate fails as `ambiguous` where it is used, and a
     selector takes all matches.
@@ -420,10 +434,10 @@ A backend that does not store files produces the source view by serializing, and
 ranges of whole files remain part of the storage contract (`read`, §11.2).
 
 **Units.** Every position in vmd uses the same units: source maps, offsets into a `$body` or `$title`, block anchor ranges (§6.2),
-the `refs` and `issues` tables (§14.2), and error locations (§12.3). Offsets count UTF-8 bytes from 0, and a range `[start, end]`
-excludes its end. Lines count from 1, and columns count code points from 1. An offset into a `$body` or `$title` counts the bytes
-of the value, after line breaks are read as `\n` (§5.1); a source map range counts the bytes of the file. Clients that need other
-units, such as JavaScript's UTF-16 string indexes, convert.
+the `refs` and `issues` tables (§14.2), and error locations (§12.3). Offsets count UTF-8 bytes from 0, and a range is half-open,
+`[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1. An offset into a `$body` or `$title`
+counts the bytes of the value, after line breaks are read as `\n` (§5.1); a source map range counts the bytes of the file. Clients
+that need other units, such as JavaScript's UTF-16 string indexes, convert.
 
 ### 5.10 Reading a node
 
@@ -499,7 +513,9 @@ References should use explicit anchors to be stable. A **tag** labels any number
 
 - An anchor name matches `[A-Za-z][A-Za-z0-9_-]*`; so does a tag. Another name is a validation error (`anchor-invalid`).
 - In Markdown, the `<a>` element goes at the end of the heading; the parser accepts it anywhere in the heading line. It has no
-  content and no attributes besides `id` and `class`. It is not part of the heading's title, and it is removed before the title is
+  content and no attributes besides `id` and `class`. An `<a>` element with an `id` or a `class` is an anchor element, and one
+  that also has content or another attribute is a structural error (`anchor-element-invalid`). An `<a>` element with neither, such
+  as a link, is other HTML (§5.3). It is not part of the heading's title, and it is removed before the title is
   trimmed (§5.3), so a space before it changes neither the title nor the derived anchor. The serializer writes it directly after
   the title, without a space. GitHub keeps `id` working as a link target; other renderers treat it as plain HTML.
 - Tags are written as HTML's `class` in Markdown, and as `$tags` in data, where `$class` or `$type` would clash with the names
@@ -517,13 +533,15 @@ The derived anchor is computed in seven steps. Steps 1 to 6 give the heading's *
 
 1. **Visible text.** Remove the `<a id ...>` element (§6.2), and take the text a reader sees: the text of a link but never its
    URL, the content of a code span, character references decoded, backslash escapes resolved, emphasis delimiters removed, the text
-   inside the inline HTML elements a heading may hold (§5.3), and nothing from an image.
+   inside HTML elements without their tags, whether supported or not (§5.3), nothing from an HTML comment, and nothing from an
+   image.
 2. **Normalize.** Normalize to NFC, and remove every Default_Ignorable_Code_Point character (zero-width joiners, variation
    selectors, soft hyphens and the like).
 3. **Lower-case** each code point by Unicode's default lower-case mapping, one code point at a time, with no locale and no context
    rules. That is the unconditional mapping of `SpecialCasing.txt` where there is one, and otherwise that of `UnicodeData.txt`, so
    Greek final sigma is not special. The conformance suite pins the Unicode version.
-4. **Trim** White_Space characters at both ends.
+4. **Trim** White_Space characters at both ends. White_Space is the Unicode property, which includes U+0085 (next line); this
+   is not JavaScript's `String.prototype.trim`, which leaves U+0085 in place.
 5. **Filter.** Map every White_Space character to a space (U+0020). Keep spaces, letters (general category L), marks (M), decimal
    digits (Nd), connector punctuation (Pc) and `-`, and remove every other character.
 6. **Hyphenate.** Replace each space with `-`. Hyphens are not collapsed, and not trimmed further.
@@ -540,8 +558,9 @@ the space, `## A [link](x.md) &amp; more` gives `a-link--more`, and `## Größe`
 Derived anchors make links such as `file.md#what-is-confirmed` work with no markup, in vmd and, for most headings, on GitHub. They
 change when the title changes; renaming through vmd rewrites references (§13.4), and `vmd check` detects a retitle made with plain
 tools (§13.5). `vmd check` therefore warns about a reference that reaches its target through a derived anchor
-(`ref-derived-anchor`). A reference through a derived anchor that has suffixed repeats (`#notes` while `#notes-1` exists) gets
-`ref-derived-repeat` instead, since inserting an earlier `## Notes` would retarget it. A store used as a database can require
+(`ref-derived-anchor`). A reference through a derived anchor whose slug is repeated in the record gets `ref-derived-repeat`
+instead. That covers the unsuffixed anchor and the suffixed ones alike (`#notes` and `#notes-1`, while two `## Notes` exist), since
+inserting, removing or retitling one of those headings renumbers the others (§13.4). A store used as a database can require
 explicit anchors in its typed references (`x-vmd-ref` with `anchors: explicit`, §9.3).
 
 Derived anchors exist only for Markdown headings. JSON and YAML have no headings, so their objects have only explicit anchors.
@@ -632,7 +651,8 @@ that is singular and stable.
 2. Otherwise, a semantic path whose first step is the nearest ancestor's explicit anchor, or that starts at the root:
    `#done/notes`, `#what-is-confirmed`.
 3. If that path is ambiguous (repeats allowed in `lenient` mode, §5.7): the derived anchor if it is unique (`#notes-1`), and
-   otherwise the exact path.
+   otherwise the exact path. Such an address identifies the node today, but a reference written with it gets
+   `ref-derived-repeat` (§6.3). A stable reference needs an explicit anchor on the node.
 
 The exact path is always available in `--json` output, as the metadata's `at` (§5.10).
 
@@ -721,7 +741,7 @@ ignore: ["drafts/**"]
 ```
 
 A record belongs to at most one collection. A record in no collection is valid and unschematized; its references are still
-checked.
+checked. A collection whose schema file is missing, or is not a valid schema, is an error (`schema-invalid`).
 
 - **Only `vmd` is required.** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness, compatibility
   quoting, every issue at its default severity, no collections and nothing ignored. A configuration without `vmd`, or that is not
@@ -730,21 +750,25 @@ checked.
   it does not support, and warns when it reads one (`format-version-unsupported`). Room is reserved for a client to declare the
   version it is built for, in the repository's settings or in a connection string; how a client and a store on different
   versions work together is a design topic of its own ([#46](https://github.com/nosferatech/vollmond/issues/46)).
-- **`issues`** sets the severity of an issue code to `off`, `warning` or `error`, within the limits Appendix D gives. It is how a
-  store makes a check stricter (an unsupported tag in a heading as an error) or quieter (no warning for references through derived
-  anchors). A raised severity does not make an issue structural, so the record stays readable (§9.2).
+- **`issues`** sets the severity of an issue code to `off`, `warning` or `error`, within the limits Appendix D gives. An unknown
+  code, or a severity outside those limits, makes the configuration invalid (`config-invalid`). An `issues` entry is explicit and
+  wins over a setting that implies a severity, so under `yaml_quoting: minimal` the entry `yaml-ambiguous-string: warning`
+  keeps the warning. It is how a store makes a check stricter (an unsupported tag in a heading as an error) or quieter (no
+  warning for references through derived anchors). A raised severity does not make an issue structural, so the record stays
+  readable (§9.2).
 
 ### 9.2 Validation
 
-The collection's schema, a JSON Schema 2020-12 document in JSON or YAML, validates the record's value view, with the section keys
-that the validator computes where the schema names them as `@key` (§9.3). Because schemas see values, not syntax, one schema covers
-a Markdown ticket and a YAML ticket with the same content.
+The collection's schema, a JSON Schema 2020-12 document in JSON or YAML, validates the record's value view. The validator never adds
+members to the value. Where a schema keys sections by `@key` (§9.3), vmd's validator computes the keys and evaluates that list
+itself. Because schemas see values, not syntax, one schema covers a Markdown ticket and a YAML ticket with the same content.
 
 Issues come in two classes, and Appendix D gives each code's class:
 
 - **Structural errors** make a record unreadable. It has no value view, so `get`, `query` and the other readers cannot use it
   (§9.5). They are syntax errors, values outside the data model (§4.1, including numbers a double cannot hold, §4.2), a misplaced
-  or malformed data block (§5.3), a `$` member where none is allowed (§5.4), and a malformed `$ref` object (§8.1).
+  or malformed data block (§5.3), a section member of the wrong type or a section without a title (§5.2), a malformed anchor
+  element (§6.2), a `$` member where none is allowed (§5.4), and a malformed `$ref` object (§8.1).
 - **Validation errors** and warnings attach to a readable record: schema violations, dangling or ambiguous references, duplicates
   (§5.7, §6.1), and every issue whose severity the configuration raises to `error` (§9.1). A validation error fails `vmd check`
   (exit code 4, §12.3), and a write through a gate refuses it (§9.4).
@@ -753,7 +777,7 @@ Parsing and checking report every error they can find, not only the first, so th
 
 `vmd check` reports, per record:
 
-- structural errors (§4.1, §4.2, §5.3, §5.4, §8.1),
+- structural errors (§4.1, §4.2, §5.2, §5.3, §5.4, §6.2, §8.1),
 - schema violations, including the logical types of §4.3,
 - path and filename rule violations,
 - duplicate keys (§5.7) and duplicate anchors (§6.1),
@@ -775,15 +799,24 @@ Parsing and checking report every error they can find, not only the first, so th
 ```yaml
 x-vmd-list:
   type: map                    # map: unique keys | multimap: repeats allowed
-  keys: ["@key"]               # the item member(s) that form the key; "@key" for $sections
+  keys: ["@key"]               # what forms the key: "@key" for sections, member names for data
   required: [what-is-confirmed]
   items:                       # a schema per key value
     what-is-confirmed: { $ref: "#/$defs/prose-section" }
   additional: true             # true, false, or a schema for items with other keys
 ```
 
-`@key` is not a member. It names the section key (§5.5), which the validator computes for each item. (`@` cannot begin a plain YAML
-scalar, so it is quoted.) The list compiles to standard JSON Schema 2020-12, so any validator can check it:
+An entry of `keys` is one of three forms:
+
+- **`@key`**, the section key (§5.5). It is not a member. vmd's validator computes it for each item and evaluates the list
+  natively, without adding a member to the item, so `additionalProperties: false` on a section and a stored member literally named
+  `@key` are unaffected. It is allowed only where the items are sections, that is on `$sections`. (`@` cannot begin a plain YAML
+  scalar, so it is quoted.)
+- **A JSON Pointer**, an entry beginning with `/`, names a member by its exact name, so `"/@key"` names a member literally called
+  `@key` and `"/~1x"` one called `/x`.
+- **Any other string** names the member of that name, as `name` does in §5.6.
+
+A list keyed by members compiles to standard JSON Schema 2020-12, so any validator can check it:
 
 - **Per-key schemas**: `items: {allOf: [{if: {properties: {K: {const: k}}, required: [K]}, then: S_k}, ...]}`.
 - **`required`**: one `contains` per required key, matching `K: k`.
@@ -792,8 +825,9 @@ scalar, so it is quoted.) The list compiles to standard JSON Schema 2020-12, so 
 
 Only uniqueness across keys that `items` does not name has no standard form. That needs a custom keyword, about ten lines in Ajv or
 in Python's `jsonschema`, comparable to `ajv-keywords`' `uniqueItemProperties`. Several key members form a composite key, which
-enforces uniqueness, but a semantic path step matches a single key member. For a list keyed by `@key`, the compiled forms apply
-to the items with their keys, which vmd's validator supplies, so a standard validator checks them only after that step.
+enforces uniqueness, but a semantic path step matches a single key member. A list keyed by `@key`, which every `$sections` list
+is, has no standard form, since the key is not in the instance. vmd's validator evaluates it with the same meaning, and a standard
+validator can check the rest of a section schema but not that list.
 
 `anchors: explicit` in `x-vmd-ref` requires a reference with a fragment to begin it with an explicit anchor (§6.2). A reference
 whose fragment begins otherwise, with a derived anchor, a section key or a field, is an error (`ref-target-not-allowed`). This is
@@ -865,13 +899,13 @@ A dotted field is a semantic path (§7.3) with `.` for `/`: `benchmarks.append-4
 - **`field:value`** is true when the field equals the value. String comparison ignores case by Unicode simple case folding, one
   code point to one, so Greek and Cyrillic case pairs match while `Straße` does not match `STRASSE`. When the field is an array,
   or a selector reaches several nodes, any of them may match. When the field is a section, its `$body` is compared, so `status:open`
-  matches a `status` field or a `## Status` section that says "Open". `value*` matches a prefix.
+  matches a `status` field or a `## Status` section that says "Open". `value*` matches a prefix, with the same case folding.
 - **`field:*`** is true when the field exists. `what-is-confirmed:*` means "has that section".
 - **Comparisons** (`>`, `>=`, `<`, `<=`, ranges) use the field's logical type (§4.3) where the schema gives one, enum order where
   the schema gives `x-vmd-ordered`, numbers numerically, and other strings lexicographically.
 - **A missing field** makes a term false, so `-field:x` is true.
-- **Full text** (`word`, `"phrase"`) matches case-insensitively against titles and every string in scope (§10.4). A word matches
-  whole tokens; a phrase matches a substring.
+- **Full text** (`word`, `"phrase"`) matches case-insensitively, by the same simple case folding, against titles and every string
+  in scope (§10.4). A word matches whole tokens; a phrase matches a substring.
 - **Pseudo-fields:**
   - `@path` matches the record path against a glob; `@collection`, the collection name.
   - `@tags` matches a tag.
@@ -966,12 +1000,13 @@ needs no knowledge of Markdown or schemas.
 
 ### 11.3 Version tokens
 
-- A **file version** is the git blob ID of the file's content: SHA-1 over `"blob " + length + "\0" + content`. Any backend can
-  compute it. It equals what `git hash-object` prints and what the GitHub API returns as a file's `sha`, so tokens mean the same
-  thing locally and remotely. A SHA-256 git repository uses the SHA-256 form.
+- A **file version** is the git blob ID of the file's content, which is the bytes the backend returns, computed as SHA-1 over
+  `"blob " + length + "\0" + content`. Any backend can compute it. It equals what `git hash-object` prints and what the GitHub API
+  returns as a file's `sha`, so tokens mean the same thing locally and remotely. A SHA-256 git repository uses the SHA-256 form.
 - A **node version** is a SHA-256 over the RFC 8785 (JCS) canonical JSON of the node's value, truncated to 16 hex digits. It
   hashes stored data only, since the value holds no derived members (§5.1), and its numbers are doubles, which RFC 8785 requires
-  (§4.2). Editing one section does not change another section's version.
+  (§4.2). Editing one section changes its own version and the versions of its ancestors, which contain it, and no other
+  section's version.
 - Every write takes `if_version` (or `if_absent`). A mismatch fails with a `conflict` that carries the current version.
 - `if_head` on `apply` makes the whole batch conditional on the store not having changed at all.
 
@@ -987,6 +1022,8 @@ needs no knowledge of Markdown or schemas.
 ```
 
 Each `old` must occur exactly once in the current text, unless `all` is set. Edits apply in order, and the call is all-or-nothing.
+The current text, like the file version, is the bytes the backend returns, which may have converted line endings (§13.3), so an
+`old` taken from another copy of the file may need its line endings adjusted.
 
 `grep` in `regex` mode uses the **portable regex** subset that RE2, Python `re` and ECMAScript all accept: literals and escapes,
 classes, `.`, anchors, groups, alternation, and greedy and lazy quantifiers, with flags `i` and `m`. Backreferences and lookaround
@@ -1091,7 +1128,7 @@ tickets/0171-x.md:14:3 error ref-ambiguous: #notes matches 2 sections
   in   #what-was-done/$body  (exact #/$sections/1/$body)
   candidates  #/$sections/2 (line 20, derived #notes)
               #/$sections/4 (line 31, derived #notes-1)
-  hint add <a id="..."></a> to one heading, or link #notes-1
+  hint add <a id="..."></a> to the heading you mean, and link to that anchor
 ```
 
 Issue codes, with their severities and classes, are listed in Appendix D. Lines and columns use the units of §5.9. Every issue
@@ -1165,15 +1202,24 @@ These rules apply where a backend stores the original file. They keep diffs smal
 4. apply them as one `apply`,
 5. re-check, and roll back the batch if any reference no longer resolves.
 
+A retitle can change the derived anchors of other headings too, through the repeat numbering of §6.3. Retitling the first of two
+`## Notes` sections turns the second one's `#notes-1` into `#notes`. `rename` therefore rewrites the references to every node
+whose derived anchor changes, not only to the renamed one.
+
+`rename` and `mv` refuse to run while the store has records with structural errors (`unreadable-records`), since references in
+those records cannot be found or rewritten.
+
 Link text is left alone. A move that changes a record's format (`.md` to `.yaml`) also rewrites references through derived
 anchors into semantic paths, since derived anchors exist only in Markdown (§6.3).
 
 ### 13.5 Retitles and moves made with plain tools
 
-When a heading's title changes in a plain edit, its derived anchor changes and references to it break. `vmd check` compares
+When a heading's title changes in a plain edit, its derived anchor changes and references to it break, and so may references to
+other headings whose repeat numbering it shifts. `vmd check` compares
 against the previous index. If a section disappeared and a new one appeared at the same exact path with the same node version
 apart from its title, it suggests the rename, and `vmd check --fix` applies it. A file moved with `git mv` is detected the same way,
-by an unchanged file version at a new path.
+by an unchanged file version at a new path. `vmd check` also reports every reference whose resolved exact path differs from the
+one in the previous index (`ref-retargeted`), since such a reference still resolves but may now mean another node.
 
 ### 13.6 Aliases
 
@@ -1185,17 +1231,20 @@ by an unchanged file version at a new path.
 ```
 
 `rename` and `mv` record an alias on every move and every rename of an anchor or title. An alias resolves an old address that the
-rewrite could not see: a reference added on a branch opened before the move, which merges without a textual conflict, a published
-URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5), and
-`vmd check --fix` rewrites such a reference to the current address.
+rewrite could not see, such as a reference added on a branch opened before the move, which merges without a textual conflict, a
+published URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5),
+and `vmd check --fix` rewrites such a reference to the current address.
 
 `vmd alias prune` removes the aliases that no open branch can still need, so the file does not grow without bound. A reference to
 an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client that
 synced before the rename and pushes after it cannot be told apart from one that means the new node. How vmd resolves such
-references is open ([#48](https://github.com/nosferatech/vollmond/issues/48)).
+references is open ([#48](https://github.com/nosferatech/vollmond/issues/48)), including whether an alias should reserve its old
+name until it is pruned. Until then a live node wins. An address that resolves to a live anchor or path is not resolved through an
+alias, and `vmd check` warns when a live anchor or path has the old name of an alias (`alias-shadowed`).
 
 Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike;
-writing it belongs to the Refactor profile (§19.2).
+writing it belongs to the Refactor profile (§19.2). A file that is not valid JSONL of alias entries is an error
+(`alias-file-invalid`).
 
 ---
 
@@ -1739,9 +1788,12 @@ The columns:
 | `root-not-object` | error | structural | §5.4 | a JSON or YAML record whose root is not an object; the root |
 | `data-block-misplaced` | error | structural | §5.3 | a data block right after the title heading; the root |
 | `data-block-not-object` | error | structural | §5.3 | a data block that does not hold an object; its section |
-| `dollar-member` | error | structural | §5.3, §5.4 | a member whose name begins with `$` where none is allowed, `$key` included; the member |
+| `reserved-member-type` | error | structural | §5.2 | a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects, on a section or, for `$anchor` and `$tags`, on any object; the member |
+| `section-title-missing` | error | structural | §5.2 | an item of `$sections` without a `$title`; the item |
+| `anchor-element-invalid` | error | structural | §6.2 | an `<a>` element with an `id` or `class` that also has content or another attribute; the section, or the `$body` for a block |
+| `dollar-member` | error | structural | §5.3, §5.4 | a member of a section (or a data block) whose name begins with `$` and that is not a section member, `$key` included. Inside a field's value such a member is data; the member |
 | `ref-malformed` | error | structural | §8.1 | a `$ref` object with other members, or whose `$ref` is not a string; the object |
-| `duplicate-key` | error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; the second |
+| `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; the second |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names two nodes; the second in document order |
 | `anchor-invalid` | error | validation | §6.2 | an anchor or tag name that does not match `[A-Za-z][A-Za-z0-9_-]*`; the node |
 | `schema-violation` | error | validation | §9.2 | a value the collection's schema rejects, logical types included; the value |
@@ -1756,15 +1808,20 @@ The columns:
 | `multiple-h1` | warning | validation | §5.3 | a Markdown record with several level-1 headings; the root |
 | `heading-html` | warning | validation | §5.3 | HTML in a heading other than the anchor element and the supported inline elements; the section |
 | `ref-derived-anchor` | warning | validation | §6.3 | a reference that reaches its target through a derived anchor without suffixed repeats; the reference |
-| `ref-derived-repeat` | warning | validation | §6.3 | a reference through a derived anchor that has suffixed repeats, in place of `ref-derived-anchor`; the reference |
+| `ref-derived-repeat` | warning | validation | §6.3 | a reference through a derived anchor whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
+| `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
-| `config-invalid` | error | operation | §9.1 | a store configuration without `vmd`, or that is not valid; none |
+| `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
+| `config-invalid` | error | operation | §9.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`; none |
+| `schema-invalid` | error | operation | §9.1, §9.2 | a collection whose schema file is missing or is not a valid schema; none |
+| `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
 | `format-version-unsupported` | warning on a read; error on a write | operation | §9.1 | a store whose format version the client does not support; none |
 | `address-malformed` | error | operation | §7.1 | an address that does not match the grammar; none |
 | `address-not-singular` | error | operation | §7.4 | a singular address the checker cannot prove singular; none |
 | `address-not-found` | error | operation | §7.4 | a singular address that matches no node; none |
 | `address-ambiguous` | error | operation | §7.4 | a singular address that matches several nodes; none |
 | `query-invalid` | error | operation | §10.2 | a VQL query that does not parse; none |
+| `unreadable-records` | error | operation | §13.4 | a `rename` or `mv` while the store has records with structural errors; none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
 
 For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A
@@ -1777,3 +1834,5 @@ reference that §8.2 places outside the store raises none of these.
 - A validation error stays an error. The uniqueness mode (§5.7) sets the severity of `duplicate-key` and `duplicate-anchor`.
 - A warning can be set to `off`, `warning` or `error`. Raised to `error`, it fails `vmd check` as any validation error does, and
   the record stays readable.
+- An `issues` entry wins over a setting that implies a severity, such as `yaml_quoting: minimal` for `yaml-ambiguous-string`.
+- An unknown code, or a severity outside these limits, is `config-invalid`.

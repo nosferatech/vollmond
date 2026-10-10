@@ -320,7 +320,11 @@ The result is the record's value view (§5.1). It holds stored data only, so it 
 tested through `meta` (decision F9). The operation fails when the record has a structural error (§9.2, decision F1), and its
 issues are those errors, the codes whose class is structural in the proposal's Appendix D. Validation errors and warnings leave
 the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing case
-may expect several. A syntax error can hide what follows it, though, so a case with a syntax error expects that error alone.
+may expect several.
+
+**A rule for case authors.** An input with a syntax error holds that one error and no other, and its case expects only it. A
+syntax error can hide what follows it, so an implementation that stops there and one that recovers would otherwise report
+different sets.
 
 ### source_map
 
@@ -334,7 +338,8 @@ implementation declares (§19.2), so an implementation without them skips these 
 
 The result is the record's metadata (§5.10) in a fixed shape, an object whose member names are the exact paths of the record's
 sections, the root's being `""`, and whose values are `{"key": ..., "address": ...}`. `key` is the section key (§5.5), and `null`
-for the root, and `address` is the canonical address, as in a target. The other members of the metadata envelope are left out.
+for the root, and `address` is the canonical address, as in a target. The `null` is this operation's fixed shape; in the metadata
+envelope itself, the root has no `key` member at all. The other members of the metadata envelope are left out.
 Anchors have their own operation, source locations wait for the spans of I1.4, and node versions belong to the cases of the
 Write profile.
 
@@ -477,12 +482,16 @@ An expected issue has four members:
   as for a syntax error that leaves no value view. For a reference in prose, `at` is the `$body` or `$title` that holds it, as
   §12.3's example locates `ref-ambiguous` in `#what-was-done/$body`.
 
-For example, a YAML record `aliases.yaml` holding `b: *a`, an alias, which is a structural error:
+For example, a YAML record `aliases.yaml` holding the two lines `a: &x 1` and `b: *x`, an anchor and an alias, each of which
+is a structural error:
 
 ```json
 "expect": {
   "fails": true,
-  "issues": [{ "code": "yaml-alias", "severity": "error", "path": "aliases.yaml", "at": "/b" }]
+  "issues": [
+    { "code": "yaml-alias", "severity": "error", "path": "aliases.yaml", "at": "/a" },
+    { "code": "yaml-alias", "severity": "error", "path": "aliases.yaml", "at": "/b" }
+  ]
 }
 ```
 
@@ -647,7 +656,9 @@ case pairs two values that one specific wrong comparison would misjudge.
 - **`case_format`** is the version of the format this README defines. It increases only when a runner must change to read the
   suite correctly, through a new member it has to understand or a changed meaning. A runner refuses a case format it does not
   know rather than misread it. A new operation does not change the case format, since a runner that lacks it reports its cases
-  as `error` until it implements them or skips them by declaration.
+  as `error` until it implements them or skips them by declaration. The phase I0 decisions changed the meaning of numbers in case
+  files (decision F2) and the `parse` result (decision F9), which would raise the case format, but it stays 1 as an exception,
+  because no runner had been released.
 - **Section citations.** Cases cite sections in `spec`. A change that renumbers the proposal updates them as well, as
   `AGENTS.md` asks for every place that cites a section.
 

@@ -418,3 +418,18 @@ trouble. An adversarial audit after I3 (#45) tries to break vmd by combining the
   conformance data stays language-neutral and shared.
 - **Repository layout (L1).** One top-level directory per language. The TypeScript workspace moves to `js/` (a separate pull
   request), and Python later goes to `python/`. `docs/` and `conformance/` stay shared at the root.
+
+### Corrections from reviewing the draft
+
+An adversarial review of Draft v0.4 before merging found places where applying the decisions left a rule unsound. They were
+corrected in the same round, without new decisions:
+
+- `@key` names a computed key that vmd's validator evaluates natively, never a member added to the instance, and is allowed only
+  on lists of sections; a JSON Pointer such as `"/@key"` names a literal member.
+- Whether a record is readable never depends on its schema. Inside a field's value, a `$` member other than `$ref`, `$anchor` and
+  `$tags` is data, and a root `$schema` member is stored data that vmd does not interpret.
+- A duplicate at a level the schema declares `type: map` is an error in either uniqueness mode.
+- Section members of the wrong type, a section without a title and a malformed anchor element are structural errors.
+- Unsupported HTML in a heading contributes its text but not its tags to the derived anchor.
+- A retitle rewrites references to every node whose derived anchor it changes, `check` reports references whose target moved
+  since the previous index and live anchors that shadow an alias, and `rename` and `mv` refuse while records fail parse.
