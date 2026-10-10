@@ -2,11 +2,11 @@
 
 Status: approved by the project owner, 2026-10-10 (#59), with the owner's answers to its questions on card K applied (section 9).
 It designs tasks I1.1 to I1.11 of [the implementation plan](../plan/implementation-plan.md) (issues #10 to #20) against Draft v0.6
-of [the proposal](../draft/vollmond-proposal.md). Card J, which Draft v0.7 applies (#61), answers one more of its questions. The
-answers of card K that change the specification are applied to the draft by a separate pull request, which brings Draft v0.8 after
-v0.7; until then, this document states them. Sections of the proposal are cited as §n, and decisions by their cards in the
-[decision log](../draft/vollmond-proposal-review.md). Card I1's decision ids collide with the plan's task ids, so here "I1.4"
-alone is a task, and "decision I1.4" is a decision.
+of [the proposal](../draft/vollmond-proposal.md). Draft v0.7 (#61) applies the answers of card K that change the specification,
+with the decision-log section "Answers from the phase I1 design (K)", and card J's J2, which answers one more of its questions.
+Sections of the proposal are cited as §n, and decisions by their cards in the [decision
+log](../draft/vollmond-proposal-review.md). Card I1's decision ids collide with the plan's task ids, so here "I1.4" alone is a
+task, and "decision I1.4" is a decision.
 
 Claims are marked as in the parser survey. **M** is measured by a script in [`docs/research/i1-design/`](../research/i1-design/),
 with its output in `results/`, on Node 24.21.0 on one laptop. **D** is documented, with the source named. **U** is unverified.
@@ -232,9 +232,9 @@ export interface StorageReader {
 
 - **A backend knows files, not records.** The store layer sorts them into records, assets and ignored paths (§3.3), so a backend
   needs no vmd configuration (§11.1). Cursors encode the last path, in UTF-8 byte order (C25).
-- **File versions are hashed from the bytes the backend returns** (§11.3), in a git working copy too. The plan first named
-  `git ls-files -s`, which gives the blob id of what git stored: that reflects git's clean filters (line-ending conversion, for
-  one) and so can differ from the bytes read; the suite computes its ids with `git hash-object --no-filters` for the same reason. Git
+- **File versions are hashed from the bytes the backend returns** (§11.3), in a git working copy too. The plan first named `git
+  ls-files -s`, which gives the blob id of what git stored: that reflects git's clean filters (line-ending conversion, for one)
+  and so can differ from the bytes read; the suite computes its ids with `git hash-object --no-filters` for the same reason. Git
   stays for `head()` and history.
 - **`grep`** checks the pattern against the portable subset (§11.4), then runs it with the JavaScript engine. Linear time is not
   promised there (decision K13).
@@ -371,8 +371,9 @@ parser raises against Appendix D.
 ### 3.6 Spans (decision K1)
 
 C11 left spans to the Markdown parser task, and decision I1.1 did the same for block anchor ranges. The owner approved these
-before the Markdown pull request (decision K1), and Draft v0.8 writes them into §5.9 and §6.2. The rule of §5.9 holds: a node's
-range is exactly what `get` returns for it in source form. The two edits of I4 need different ranges for members and for sections:
+before the Markdown pull request (decision K1), and Draft v0.7 (#61) writes them into §5.9 and §6.2. The rule of §5.9 holds: a
+node's range is exactly what `get` returns for it in source form. The two edits of I4 need different ranges for members and for
+sections:
 
 | Node | `range` (what `get` returns; `set` replaces it) | What `delete` removes |
 |---|---|---|
@@ -618,8 +619,8 @@ Draft v0.7's suite (#61) adds the same inputs as cases, so that other implementa
 ## 9. Decisions
 
 The project owner answered the design's questions on card K, 2026-10-10, accepting every recommendation and changing the third.
-Question 14 was answered on card J (J2). The answers that change the specification are marked *spec*; Draft v0.8 applies them,
-with their decision-log entries, after Draft v0.7 (#61).
+Question 14 was answered on card J (J2). The answers that change the specification are marked *spec*; Draft v0.7 (#61) applies
+them, with their decision-log entries.
 
 | Card | Decision | Effect here |
 |---|---|---|
@@ -652,7 +653,7 @@ Each task is its own pull request (plan §1.3).
 | C | I1.2 JSON (#11) | B | the JSON cases of `values/` pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
 | D | I1.3 YAML (#12) | B | the YAML cases of `values/` pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
 | G | I1.7 storage and filesystem backend (#16) | B | one contract test suite passes on both backends; versions equal `git hash-object --no-filters` in a temporary repository, also for a file that a clean filter changes; the regex checker's cases |
-| E | I1.4 Markdown (#13) | C, D; Draft v0.8 for the spans | `markdown/` and the Markdown cases of `values/` pass; property test 4 |
+| E | I1.4 Markdown (#13) | C, D; #61 for the spans | `markdown/` and the Markdown cases of `values/` pass; property test 4 |
 | F | I1.5 keys and anchors (#14) | E, U | `anchors/` passes, pending cases aside; property test 6 |
 | H | I1.8 CLI foundation (#17) | G | store discovery, global options, `--config` (decision K3); tests of line output, `~tok`, limits, cursors, the §12.3 format and exit codes |
 | I | I1.6 addresses and computed fields (#15) | F | `addresses/` and `meta` pass with the Read profile |
@@ -664,5 +665,5 @@ gates the Markdown parser through front matter, and every later step needs the o
 
 **Documents updated for these decisions.** The implementation plan, in the pull request that applies card K to this design:
 §1.1 (the runner's package), §1.2 (the four GFM 0.29 extensions), §1.4 (the demonstration stores), and the tasks I1.7, I1.8,
-I1.10, I1.11, I2.1, I2.7, I2.8, I3.4, I3.7 and I3.8. The proposal and the decision log, in Draft v0.8: the decisions marked *spec*
-in section 9. The conformance README (the runner's location) goes with them.
+I1.10, I1.11, I2.1, I2.7, I2.8, I3.4, I3.7 and I3.8. The proposal and the decision log, in Draft v0.7 (#61): the decisions marked
+*spec* in section 9. The conformance README's note on the runner's location is PR A's.
