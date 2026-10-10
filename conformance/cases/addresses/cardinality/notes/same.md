@@ -1,4 +1,4 @@
-# Same
+# Shared anchor
 
 ## Alpha<a id="same"></a>
 

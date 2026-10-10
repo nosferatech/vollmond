@@ -219,12 +219,13 @@ are these seven:
 `profiles` lists profiles of §19.2 in lower case, from `read`, `validate`, `query`, `write`, `refactor` and `publish`. It is
 empty for the runner's self-test.
 
-An entry of `spec` that cites another specification is written as three parts separated by single spaces: the specification's
-name as its title gives it, its version, and the section number, which is the entry's last word. A specification without
-versions, such as an RFC, has no version part, its number being its name. So `"CommonMark 0.31.2 4.3"`, `"YAML 1.2.2 6.8.1"`
-and `"RFC 3339 5.6"`. The version is the one the proposal pins or cites (CommonMark 0.31.2 in §5.3). A case cites the external
-sections that decide its outcome here rather than only in its description, so that they can be selected
-([Selecting](#selecting)).
+An entry of `spec` that cites another specification is written as words separated by single spaces: the specification's name
+as its title gives it, its version, and the section number, which is the entry's last word. A name may itself contain spaces,
+as a part of a multi-part specification does. A specification without versions, such as an RFC, has no version part, its
+number being its name, and an appendix is cited by its letter. So `"CommonMark 0.31.2 4.3"`, `"YAML 1.2.2 6.8.1"`,
+`"XSD 1.1 Part 2 3.3.3.1"`, `"RFC 3339 5.6"` and `"RFC 3339 A"`. The version is the one the proposal pins or cites
+(CommonMark 0.31.2 in §5.3). A case cites the external sections that decide its outcome here rather than only in its
+description, so that they can be selected ([Selecting](#selecting)).
 
 A case may also have an eighth member, **`pending`**, a string naming the open question or issue that blocks it, such as
 `"#53 question 2"`. A pending case is written in full, with the outcome its question's recommendation gives, and is not run: the

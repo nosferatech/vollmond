@@ -238,8 +238,11 @@ is not an error.
   Datatypes, section 3.3.3.1, [w3.org/TR/xmlschema11-2/#decimal](https://www.w3.org/TR/xmlschema11-2/#decimal), read on
   2026-10-10), whose regular expression the table gives. So `"+1"`, `".5"`, `"1."`, `"01"`, `"1.50"` and `"-0"` are all decimals,
   and an exponent, as in `"1e3"`, is not. XML applies its whitespace collapsing before the lexical space; vmd does not, so `" 1"`
-  is not a decimal. The writer emits the form in the canonical column. It differs from XML Schema's canonical representation,
-  which drops trailing zeros and the fraction of an integer, since vmd's form allows trailing zeros, as in `1.50`.
+  is not a decimal. The writer emits the form in the canonical column, mapping an accepted form to it by dropping a `+`,
+  dropping leading zeros of the integer part (keeping one `0` before the point), adding `0` before a leading point, dropping a
+  point with no digits after it, and writing `-0` as `0`: `+01.50` becomes `1.50`, `.5` becomes `0.5`, and `1.` becomes `1`.
+  Trailing zeros are kept, since they can carry precision. That is where vmd's form differs from XML Schema's canonical
+  representation, which drops them.
 
 Without a schema, values are plain strings and numbers. VQL then compares strings as strings, which still orders canonical dates
 and UTC date-times correctly.

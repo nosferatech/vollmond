@@ -100,24 +100,28 @@
     },
     {
       "id": "setext-multiline",
+      "spec": ["6.3", "CommonMark 0.31.2 4.3", "CommonMark 0.31.2 6.8"],
       "description": "A setext heading of two lines is one heading (CommonMark 4.3), and the soft line break between them contributes a line feed, which is white space and becomes a hyphen (steps 1, 5 and 6, decision H5.1): `Setext five line one` and `setext five line two` underlined with `=` give `setext-five-line-one-setext-five-line-two`; GitHub gives `setext-five-line-onesetext-five-line-two`, since it removes the line feed.",
       "input": { "record": "setext-multiline.md" },
       "expect": { "result": { "anchors": [{ "name": "setext-five-line-one-setext-five-line-two", "kind": "derived", "at": "" }], "tags": [] } }
     },
     {
       "id": "setext-multiline-h2",
+      "spec": ["6.3", "CommonMark 0.31.2 4.3", "CommonMark 0.31.2 6.8"],
       "description": "A setext heading of two lines is one heading (CommonMark 4.3), and the soft line break between them contributes a line feed, which is white space and becomes a hyphen (steps 1, 5 and 6, decision H5.1): `Setext six line one` and `setext six line two` underlined with `-` give `setext-six-line-one-setext-six-line-two`; GitHub gives `setext-six-line-onesetext-six-line-two`, since it removes the line feed.",
       "input": { "record": "setext-multiline-h2.md" },
       "expect": { "result": { "anchors": [{ "name": "setext-six-line-one-setext-six-line-two", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
     },
     {
       "id": "setext-hard-break-spaces",
+      "spec": ["6.3", "CommonMark 0.31.2 4.3", "CommonMark 0.31.2 6.7"],
       "description": "Two trailing spaces end the first line with a hard line break (CommonMark 6.7), which contributes one line feed, so it becomes a single hyphen, and the spaces belong to the break, not to the text (steps 1, 5 and 6, decision H5.1): `Setext eleven a`, two spaces, and `setext eleven b` underlined with `=` give `setext-eleven-a-setext-eleven-b`; GitHub gives `setext-eleven-asetext-eleven-b`, since it removes the break.",
       "input": { "record": "setext-hard-break-spaces.md" },
       "expect": { "result": { "anchors": [{ "name": "setext-eleven-a-setext-eleven-b", "kind": "derived", "at": "" }], "tags": [] } }
     },
     {
       "id": "setext-hard-break-backslash",
+      "spec": ["6.3", "CommonMark 0.31.2 4.3", "CommonMark 0.31.2 6.7"],
       "description": "A backslash at the end of the first line is a hard line break (CommonMark 6.7), not an escape, and it contributes one line feed, which becomes a hyphen (steps 1, 5 and 6, decision H5.1): `Setext twelve a\\` and `setext twelve b` underlined with `=` give `setext-twelve-a-setext-twelve-b`; GitHub gives `setext-twelve-asetext-twelve-b`, since it removes the break.",
       "input": { "record": "setext-hard-break-backslash.md" },
       "expect": { "result": { "anchors": [{ "name": "setext-twelve-a-setext-twelve-b", "kind": "derived", "at": "" }], "tags": [] } }

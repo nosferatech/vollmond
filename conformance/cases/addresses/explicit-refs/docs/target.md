@@ -5,10 +5,10 @@ links: [first, second]
 
 # Target
 
-## Done<a id="done"></a>
+## Shipped<a id="done"></a>
 
 Shipped.
 
-## Later<a id="later"></a>
+## Planned<a id="later"></a>
 
 Next.

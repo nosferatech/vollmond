@@ -207,7 +207,6 @@
       "id": "empty-json-data-block",
       "spec": ["5.3", "5.4"],
       "description": "An empty json data block gives the section no fields, as an empty data block does.",
-      "pending": "H3.5 makes an empty data block give no fields, while H3.11 reads a json data block as JSON and §5.4 makes empty JSON a syntax error; the case expects H3.5's reading",
       "input": { "record": "empty-json.md" },
       "expect": { "result": { "$title": "Record", "$body": "Root text.", "$sections": [{ "$title": "Part", "$body": "Part text." }] } }
     },

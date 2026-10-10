@@ -360,8 +360,9 @@ trouble. An adversarial audit after I3 (#45) tries to break vmd by combining the
   marks, decimal digits, connector punctuation and `-`, turns white space into `-`, and numbers repeats by skipping used
   candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 528 (78 percent),
   and on 602 (89 percent) under the rule as it stood before C13 and C14. (A correction of fact, made by the derived-anchor fixtures
-  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5 kept the captured handling of rendered text and of Unicode, so that most
-  links copied from GitHub still work, and made the rule vmd's own and versioned.
+  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5
+  kept the captured handling of rendered text and of Unicode, so that most links copied from GitHub still work, and made the
+  rule vmd's own and versioned.
 - **The `<a id>` element (C13).** It is not part of the heading's title and is stripped before trimming, so
   `## What was done <a id="done"></a>` gives `what-was-done` with or without the space, never a trailing hyphen. The serializer
   writes the element without a space. GitHub's behavior, which keeps the hyphen, is ignored.
@@ -538,8 +539,10 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
   - **Decimal.** The first version of Draft v0.5 claimed that decimal had no external standard and gave it vmd's own lexical
     space. The owner chose XML Schema 1.1 Part 2's `decimal` (section 3.3.3.1, regular expression
     `(\+|-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)`), so `.5`, `+1`, `1.`, `01` and `1.50` are accepted. vmd's
-    `-?(0|[1-9][0-9]*)(\.[0-9]+)?` stays as the canonical form the writer emits. That vmd applies no whitespace collapsing before
-    the lexical space, as XML does, is the agent's reading.
+    `-?(0|[1-9][0-9]*)(\.[0-9]+)?` stays as the canonical form the writer emits. Two points are the agent's reading: that vmd
+    applies no whitespace collapsing before the lexical space, as XML does; and the mapping §4.3 gives from an accepted form to
+    the written one (drop `+`, drop leading zeros, add `0` before a leading point, drop a bare trailing point, keep trailing
+    zeros since they can carry precision, write `-0` as `0`).
   - **A space between date and time.** A NOTE in RFC 3339, section 5.6, lets applications separate the date and the time with a
     space, which is why it was asked. The owner confirmed that `date-time` follows the RFC's `date-time` production, which JSON
     Schema validators check, so the space is rejected there, while local-date-time keeps accepting it, as TOML 1.0.0 does.

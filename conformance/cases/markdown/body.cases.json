@@ -128,6 +128,7 @@
     },
     {
       "id": "blank-lines-only-body-is-absent",
+      "spec": ["5.3", "CommonMark 0.31.2 4.9"],
       "description": "Text of blank lines only, one of them holding spaces (CommonMark 0.31.2, 2.1), leaves nothing once leading blank lines are removed, so the root has no $body.",
       "input": { "record": "blank-lines-only.md" },
       "expect": { "result": { "$title": "Record", "$sections": [{ "$title": "Part", "$body": "Part text." }] } }
@@ -141,8 +142,8 @@
           "$title": "Record",
           "$body": "Root text.",
           "$sections": [
-            { "$title": "No-break", "$body": "Text. " },
-            { "$title": "Ideographic", "$body": "Text.　" },
+            { "$title": "No-break", "$body": "Text.\u00a0" },
+            { "$title": "Ideographic", "$body": "Text.\u3000" },
             { "$title": "Form feed", "$body": "Text.\f" }
           ]
         }

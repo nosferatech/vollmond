@@ -116,7 +116,6 @@
       "profiles": ["read", "validate"],
       "operation": "check",
       "description": "The serializer cannot write a $title of several lines, so check warns not-representable and the record stays readable.",
-      "pending": "Appendix D attaches not-representable to 'the offending node' without saying whether that is the multi-line $title or the section that holds it; the case expects the $title",
       "input": { "records": ["setext-multi-line.md"] },
       "expect": {
         "issues": [{ "code": "not-representable", "severity": "warning", "path": "setext-multi-line.md", "at": "/$sections/0/$title" }]
@@ -128,7 +127,6 @@
       "profiles": ["read", "validate"],
       "operation": "check",
       "description": "The single-line rule of §5.8 covers the root's $title too, so check warns not-representable for a title heading of two lines.",
-      "pending": "Appendix D attaches not-representable to 'the offending node' without saying whether that is the multi-line $title or the section that holds it; the case expects the $title",
       "input": { "records": ["setext-multi-line-root.md"] },
       "expect": {
         "issues": [{ "code": "not-representable", "severity": "warning", "path": "setext-multi-line-root.md", "at": "/$title" }]

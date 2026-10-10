@@ -303,7 +303,7 @@
     },
     {
       "id": "same-anchor-ambiguous",
-      "description": "An explicit anchor on two sibling sections names two nodes; the record still reads, and a singular #same fails as ambiguous (§7.4).",
+      "description": "An explicit anchor on two sibling sections names two nodes, and no other node is named same (the title heading is Shared anchor); the record still reads, and a singular #same fails as ambiguous (§7.4).",
       "spec": ["6.1", "7.4", "D"],
       "input": { "address": "notes/same.md#same", "as": "singular" },
       "expect": {

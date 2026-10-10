@@ -190,6 +190,7 @@
     },
     {
       "id": "date-time-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6", "RFC 5234 2.3"],
       "description": "The assertion accepts the lexical space of RFC 3339's date-time production, not only the canonical form (§4.3): the offset +00:00, lower-case t and z (ABNF strings are case-insensitive, RFC 5234, section 2.3), a fraction of a second and the offset -00:00.",
       "input": { "records": ["date-time-lexical-valid.json"] },
       "expect": {}
@@ -207,6 +208,7 @@
     },
     {
       "id": "time-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 5.6", "RFC 3339 4.3"],
       "description": "RFC 3339 full-times with a fraction of a second, a leap second, the offset -00:00 and a lower-case z are valid times (§4.3).",
       "input": { "records": ["time-lexical-valid.json"] },
       "expect": {}
@@ -219,6 +221,7 @@
     },
     {
       "id": "duration-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "RFC 3339 A", "RFC 5234 2.3"],
       "description": "pt10m (ABNF strings are case-insensitive), PT0S, P2W and a duration with every unit match the duration of RFC 3339, Appendix A (§4.3).",
       "input": { "records": ["duration-lexical-valid.json"] },
       "expect": {}
@@ -269,6 +272,7 @@
     },
     {
       "id": "decimal-lexical-forms-valid",
+      "spec": ["4.3", "9.2", "XSD 1.1 Part 2 3.3.3.1"],
       "description": "decimal accepts the lexical space of XML Schema 1.1's decimal (§4.3; XSD 1.1 Part 2, section 3.3.3.1), so \".5\", \"+1\", \"1.\", \"01\", \"1.50\" and \"-0\" are valid, although only some are in vmd's canonical form.",
       "input": { "records": ["decimal-lexical-valid.json"] },
       "expect": {}

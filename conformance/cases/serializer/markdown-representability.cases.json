@@ -56,7 +56,7 @@
       "id": "trailing-no-break-space-kept",
       "description": "Trailing whitespace means spaces, tabs and line breaks only, so a $body ending in U+00A0 is representable and round-trips (§5.3, §5.8).",
       "spec": ["5.3", "5.8"],
-      "input": { "value": { "$title": "Record", "$body": "Text. " }, "format": "md" },
+      "input": { "value": { "$title": "Record", "$body": "Text.\u00a0" }, "format": "md" },
       "expect": {}
     },
     {
@@ -72,7 +72,6 @@
       "id": "multi-line-section-title-refused",
       "description": "A $title of two lines, which a multi-line setext heading parses to, cannot be written back (§5.3, §5.8).",
       "spec": ["5.3", "5.8"],
-      "pending": "Appendix D attaches not-representable to 'the offending node' without saying whether that is the multi-line $title or the section that holds it; the case expects the $title",
       "input": { "value": { "$sections": [{ "$title": "First line\nsecond line" }] }, "format": "md" },
       "expect": {
         "fails": true,
@@ -83,7 +82,6 @@
       "id": "multi-line-root-title-refused",
       "description": "The single-line rule covers the root's $title too, which a multi-line setext title heading parses to (§5.8).",
       "spec": ["5.3", "5.8"],
-      "pending": "Appendix D attaches not-representable to 'the offending node' without saying whether that is the multi-line $title or the section that holds it; the case expects the $title",
       "input": { "value": { "$title": "First line\nsecond line" }, "format": "md" },
       "expect": {
         "fails": true,
