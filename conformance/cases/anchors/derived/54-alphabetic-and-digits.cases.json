@@ -1,0 +1,84 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "54-alphabetic-and-digits" }
+  },
+  "cases": [
+    {
+      "id": "other-alphabetic-pair",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## Ⓐx ⒜y` gives `x-y`; GitHub gives `ⓐx-y`, since it keeps U+24D0, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "other-alphabetic-pair.md" },
+      "expect": { "result": { "anchors": [{ "name": "x-y", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "circled-capital-a",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## Ⓐ circled capital` gives `-circled-capital`; GitHub gives `ⓐ-circled-capital`, since it keeps U+24D0, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "circled-capital-a.md" },
+      "expect": { "result": { "anchors": [{ "name": "-circled-capital", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "circled-small-a",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ⓐ circled small` gives `-circled-small`; GitHub gives `ⓐ-circled-small`, since it keeps U+24D0, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "circled-small-a.md" },
+      "expect": { "result": { "anchors": [{ "name": "-circled-small", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "parenthesized-a",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ⒜ parenthesized` gives `-parenthesized`.",
+      "input": { "record": "parenthesized-a.md" },
+      "expect": { "result": { "anchors": [{ "name": "-parenthesized", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "roman-small-numeral",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ⅰ small roman` gives `-small-roman`; GitHub gives `ⅰ-small-roman`, since it keeps U+2170, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "roman-small-numeral.md" },
+      "expect": { "result": { "anchors": [{ "name": "-small-roman", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "devanagari-digits",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## १२३ digits` gives `१२३-digits`.",
+      "input": { "record": "devanagari-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "१२३-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "thai-digits",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ๑๒๓ digits` gives `๑๒๓-digits`.",
+      "input": { "record": "thai-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "๑๒๓-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "bengali-digits",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ১২৩ digits` gives `১২৩-digits`.",
+      "input": { "record": "bengali-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "১২৩-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "extended-arabic-indic-digits",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## ۱۲۳ digits` gives `۱۲۳-digits`.",
+      "input": { "record": "extended-arabic-indic-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "۱۲۳-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "mathematical-bold-digits",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## 𝟎𝟏 digits` gives `𝟎𝟏-digits`.",
+      "input": { "record": "mathematical-bold-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "𝟎𝟏-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "superscript-letter",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## xᵃ modifier letter` gives `xᵃ-modifier-letter`.",
+      "input": { "record": "superscript-letter.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "xᵃ-modifier-letter", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "squared-latin-capital",
+      "description": "Only general categories L, M, Nd and Pc are kept besides `-` and spaces, so Alphabetic symbols and letter numbers are removed (step 5): `## 🄰 squared` gives `-squared`; GitHub gives `🄰-squared`, since it keeps U+1F130, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "squared-latin-capital.md" },
+      "expect": { "result": { "anchors": [{ "name": "-squared", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

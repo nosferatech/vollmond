@@ -1,0 +1,79 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "01-ascii-words" }
+  },
+  "cases": [
+    {
+      "id": "lowercase-word",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `# hello` gives `hello`.",
+      "input": { "record": "lowercase-word.md" },
+      "expect": { "result": { "anchors": [{ "name": "hello", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "title-case",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## Title Case Words` gives `title-case-words`.",
+      "input": { "record": "title-case.md" },
+      "expect": { "result": { "anchors": [{ "name": "title-case-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "upper-case",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## UPPER CASE WORDS` gives `upper-case-words`.",
+      "input": { "record": "upper-case.md" },
+      "expect": { "result": { "anchors": [{ "name": "upper-case-words", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "mixed-case",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## mIxEd cAsE` gives `mixed-case`.",
+      "input": { "record": "mixed-case.md" },
+      "expect": { "result": { "anchors": [{ "name": "mixed-case", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "inner-multiple-spaces",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## multiple   inner   spaces` gives `multiple---inner---spaces`.",
+      "input": { "record": "inner-multiple-spaces.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "multiple---inner---spaces", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "single-letter-lower",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## a` gives `a`.",
+      "input": { "record": "single-letter-lower.md" },
+      "expect": { "result": { "anchors": [{ "name": "a", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "single-letter-upper",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## Z` gives `z`.",
+      "input": { "record": "single-letter-upper.md" },
+      "expect": { "result": { "anchors": [{ "name": "z", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "sentence",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## The quick brown fox jumps over the lazy dog` gives `the-quick-brown-fox-jumps-over-the-lazy-dog`.",
+      "input": { "record": "sentence.md" },
+      "expect": {
+        "result": {
+          "anchors": [{ "name": "the-quick-brown-fox-jumps-over-the-lazy-dog", "kind": "derived", "at": "/$sections/0" }],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "what-is-confirmed",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `## What is confirmed` gives `what-is-confirmed`.",
+      "input": { "record": "what-is-confirmed.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "what-is-confirmed", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "flusher-title",
+      "description": "ASCII letters are lower-cased and each space becomes a hyphen: `# Flusher stalls under load` gives `flusher-stalls-under-load`.",
+      "input": { "record": "flusher-title.md" },
+      "expect": { "result": { "anchors": [{ "name": "flusher-stalls-under-load", "kind": "derived", "at": "" }], "tags": [] } }
+    }
+  ]
+}

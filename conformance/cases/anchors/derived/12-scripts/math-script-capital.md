@@ -1,0 +1,1 @@
+## 𝒜 math script

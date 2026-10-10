@@ -1,0 +1,21 @@
+{
+  "accent-cafe.md": "309700db6e66c252e615c3f58a356fb4ccb9daed",
+  "accent-creme.md": "8d2df2a6b8a251140ec9638979a710069050e777",
+  "accent-naive.md": "59ccf495ac10fb23c58ec7232c432617f61a6e5a",
+  "accent-angstrom.md": "fd85ba6fa2034b46df1bcfc499fda7adcfff630f",
+  "accent-upper.md": "f0273203570777c5d2bb62406ac7ba18417ca959",
+  "sharp-s-same-as-nfc.md": "eac3caebab829d7c0ac217436d86f3832ccbff4a",
+  "capital-sharp-s-same-as-nfc.md": "f6e7e54eb5f872ec7c75b83a03df22f5901f708d",
+  "o-slash-same-as-nfc.md": "d2d79a442170d764d0ef5f220a1e67f2cad24bbe",
+  "l-stroke.md": "18158152caf248fd19aee79f6003b272c875c7c8",
+  "n-tilde.md": "439f9f5b3cb38a181318089f6e756d50eb2dff93",
+  "c-cedilla.md": "8af3e567b13fc5123de2b61155179a8991a37765",
+  "dotted-i.md": "3c113c176a2f2204db052651b48caaaab449288a",
+  "dotless-i-same-as-nfc.md": "a82d77a2c2cae59de8de3d15fa51a93bf555a6ba",
+  "titlecase-dz-same-as-nfc.md": "30912afe23490755d57f24ed2cd426f7b753f8cc",
+  "vietnamese.md": "932df5928e6bcc46bc474335c4fa332edeaf7692",
+  "long-s-same-as-nfc.md": "a745b24ffc61b1532321c56a148c2aa91949283e",
+  "ligature-fi-same-as-nfc.md": "545741b635c99226ac717e8ef204220402562e17",
+  "ligature-ae-same-as-nfc.md": "b3e8a031a202f309b9773464e73f91159cf30a43",
+  "eszett-lower-final-same-as-nfc.md": "5efbcd8b3a916d0a0c5f875988be2f3010c696fa"
+}

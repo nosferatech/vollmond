@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "36-repeat-html-heading" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "An HTML `<h2>` block is not a section (§5.3), so `## Fred`, `<h2>Fred</h2>` and `## Fred` give `fred` and `fred-1`; GitHub numbers the HTML heading too, and gives `fred`, `fred-1` and `fred-2`.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "fred", "kind": "derived", "at": "/$sections/0" },
+            { "name": "fred-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

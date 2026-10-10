@@ -1,0 +1,250 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "13-symbols-emoji" }
+  },
+  "cases": [
+    {
+      "id": "emoji-leading",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 🚀 Launch` gives `-launch`.",
+      "input": { "record": "emoji-leading.md" },
+      "expect": { "result": { "anchors": [{ "name": "-launch", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-trailing",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## Land 🚀` gives `land-`.",
+      "input": { "record": "emoji-trailing.md" },
+      "expect": { "result": { "anchors": [{ "name": "land-", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-only",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 👍` has an empty slug and no derived anchor (decision C14); GitHub gives it the anchor `\"\"`.",
+      "input": { "record": "emoji-only.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "emoji-middle",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## a 🚀 b` gives `a--b`.",
+      "input": { "record": "emoji-middle.md" },
+      "expect": { "result": { "anchors": [{ "name": "a--b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-adjacent-word",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## c🚀d` gives `cd`.",
+      "input": { "record": "emoji-adjacent-word.md" },
+      "expect": { "result": { "anchors": [{ "name": "cd", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-heart-vs16",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ❤\ufe0f heart vs16` gives `-heart-vs16`; GitHub gives `\ufe0f-heart-vs16`, since it keeps the default-ignorable U+FE0F.",
+      "input": { "record": "emoji-heart-vs16.md" },
+      "expect": { "result": { "anchors": [{ "name": "-heart-vs16", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-heart-text",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ❤ heart text` gives `-heart-text`.",
+      "input": { "record": "emoji-heart-text.md" },
+      "expect": { "result": { "anchors": [{ "name": "-heart-text", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-zwj-family",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 👨\u200d👩\u200d👧 family` gives `-family`; GitHub gives `\u200d\u200d-family`, since it keeps the default-ignorable U+200D.",
+      "input": { "record": "emoji-zwj-family.md" },
+      "expect": { "result": { "anchors": [{ "name": "-family", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-flag",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 🇩🇪 flag` gives `-flag`.",
+      "input": { "record": "emoji-flag.md" },
+      "expect": { "result": { "anchors": [{ "name": "-flag", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-keycap",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 1\ufe0f\u20e3 keycap` gives `1\u20e3-keycap`; GitHub gives `1\ufe0f\u20e3-keycap`, since it keeps the default-ignorable U+FE0F.",
+      "input": { "record": "emoji-keycap.md" },
+      "expect": { "result": { "anchors": [{ "name": "1\u20e3-keycap", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "emoji-skin-tone",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 👋🏽 wave` gives `-wave`.",
+      "input": { "record": "emoji-skin-tone.md" },
+      "expect": { "result": { "anchors": [{ "name": "-wave", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "check-mark",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ✔ done` gives `-done`.",
+      "input": { "record": "check-mark.md" },
+      "expect": { "result": { "anchors": [{ "name": "-done", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "warning-sign",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ⚠ warning` gives `-warning`.",
+      "input": { "record": "warning-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "-warning", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "black-star",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ★ star` gives `-star`.",
+      "input": { "record": "black-star.md" },
+      "expect": { "result": { "anchors": [{ "name": "-star", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "copyright",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## © copyright` gives `-copyright`.",
+      "input": { "record": "copyright.md" },
+      "expect": { "result": { "anchors": [{ "name": "-copyright", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "registered",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ® registered` gives `-registered`.",
+      "input": { "record": "registered.md" },
+      "expect": { "result": { "anchors": [{ "name": "-registered", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "degree",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 20° degrees` gives `20-degrees`.",
+      "input": { "record": "degree.md" },
+      "expect": { "result": { "anchors": [{ "name": "20-degrees", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "currency-euro",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## € euro` gives `-euro`.",
+      "input": { "record": "currency-euro.md" },
+      "expect": { "result": { "anchors": [{ "name": "-euro", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "currency-pound-yen",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## £ pound ¥ yen` gives `-pound--yen`.",
+      "input": { "record": "currency-pound-yen.md" },
+      "expect": { "result": { "anchors": [{ "name": "-pound--yen", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "math-symbols",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ∑ sum ∞ infinity ≠ neq` gives `-sum--infinity--neq`.",
+      "input": { "record": "math-symbols.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "-sum--infinity--neq", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "arrows",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## left ← right → arrows` gives `left--right--arrows`.",
+      "input": { "record": "arrows.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "left--right--arrows", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "box-drawing",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ─│┌ box` gives `-box`.",
+      "input": { "record": "box-drawing.md" },
+      "expect": { "result": { "anchors": [{ "name": "-box", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ellipsis-char",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## wait… what` gives `wait-what`.",
+      "input": { "record": "ellipsis-char.md" },
+      "expect": { "result": { "anchors": [{ "name": "wait-what", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "curly-quotes",
+      "description": "Curly double and single quotes are both removed, so `## ‘curly’ quotes` after `## “curly” quotes` is a repeat and gives `curly-quotes-1` (steps 5 and 7).",
+      "input": { "record": "curly-quotes.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "curly-quotes", "kind": "derived", "at": "/$sections/0" },
+            { "name": "curly-quotes-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "guillemets",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## «french» quotes` gives `french-quotes`.",
+      "input": { "record": "guillemets.md" },
+      "expect": { "result": { "anchors": [{ "name": "french-quotes", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "inverted-punct",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ¿Qué? ¡Hola!` gives `qué-hola`.",
+      "input": { "record": "inverted-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "qué-hola", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "middle-dot",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## a·b dot` gives `ab-dot`.",
+      "input": { "record": "middle-dot.md" },
+      "expect": { "result": { "anchors": [{ "name": "ab-dot", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "bullet",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## • bullet` gives `-bullet`.",
+      "input": { "record": "bullet.md" },
+      "expect": { "result": { "anchors": [{ "name": "-bullet", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "cjk-punct",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 「括弧」。` gives `括弧`.",
+      "input": { "record": "cjk-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "括弧", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "fullwidth-punct",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ！？， fullwidth` gives `-fullwidth`.",
+      "input": { "record": "fullwidth-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "-fullwidth", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "section-sign",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## § section` gives `-section`.",
+      "input": { "record": "section-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "-section", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "pilcrow",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ¶ pilcrow` gives `-pilcrow`.",
+      "input": { "record": "pilcrow.md" },
+      "expect": { "result": { "anchors": [{ "name": "-pilcrow", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dagger",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## † dagger` gives `-dagger`.",
+      "input": { "record": "dagger.md" },
+      "expect": { "result": { "anchors": [{ "name": "-dagger", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "per-mille",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## 5‰ permille` gives `5-permille`.",
+      "input": { "record": "per-mille.md" },
+      "expect": { "result": { "anchors": [{ "name": "5-permille", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "music-note",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ♪ note` gives `-note`.",
+      "input": { "record": "music-note.md" },
+      "expect": { "result": { "anchors": [{ "name": "-note", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dingbat-digit",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## ❶ dingbat` gives `-dingbat`.",
+      "input": { "record": "dingbat-digit.md" },
+      "expect": { "result": { "anchors": [{ "name": "-dingbat", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "private-use",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## \ue000 private use` gives `-private-use`.",
+      "input": { "record": "private-use.md" },
+      "expect": { "result": { "anchors": [{ "name": "-private-use", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "replacement-char",
+      "description": "Symbols and emoji are removed, and so are the default-ignorable code points of emoji sequences (steps 2 and 5): `## � replacement` gives `-replacement`.",
+      "input": { "record": "replacement-char.md" },
+      "expect": { "result": { "anchors": [{ "name": "-replacement", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

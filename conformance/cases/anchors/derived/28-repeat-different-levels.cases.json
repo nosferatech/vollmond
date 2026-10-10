@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "28-repeat-different-levels" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Repeats are numbered across levels, so `# Same`, `## Same`, `### Same` and `###### Same` give `same`, on the title heading, then `same-1`, `same-2` and `same-3` (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "same", "kind": "derived", "at": "" },
+            { "name": "same-1", "kind": "derived", "at": "/$sections/0" },
+            { "name": "same-2", "kind": "derived", "at": "/$sections/0/$sections/0" },
+            { "name": "same-3", "kind": "derived", "at": "/$sections/0/$sections/0/$sections/0" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

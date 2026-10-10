@@ -1,0 +1,180 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "14-combining-spaces-controls" }
+  },
+  "cases": [
+    {
+      "id": "combining-acute-alone",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## e\u0301` gives `é`; GitHub gives `e\u0301`, since it does not normalize to NFC.",
+      "input": { "record": "combining-acute-alone.md" },
+      "expect": { "result": { "anchors": [{ "name": "é", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "combining-stack",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## a\u0308\u0301 stacked` gives `ä\u0301-stacked`; GitHub gives `a\u0308\u0301-stacked`, since it does not normalize to NFC.",
+      "input": { "record": "combining-stack.md" },
+      "expect": { "result": { "anchors": [{ "name": "ä\u0301-stacked", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "combining-after-digit",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## 1\u0301 digit mark` gives `1\u0301-digit-mark`.",
+      "input": { "record": "combining-after-digit.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "1\u0301-digit-mark", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "combining-after-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## b \u0301 spaced mark` gives `b-\u0301-spaced-mark`.",
+      "input": { "record": "combining-after-space.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "b-\u0301-spaced-mark", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "combining-enclosing",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## x\u20dd enclosed` gives `x\u20dd-enclosed`.",
+      "input": { "record": "combining-enclosing.md" },
+      "expect": { "result": { "anchors": [{ "name": "x\u20dd-enclosed", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "combining-zalgo",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## Z\u0353a\u035blgo` gives `z\u0353a\u035blgo`.",
+      "input": { "record": "combining-zalgo.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "z\u0353a\u035blgo", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "combining-leading",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## \u0301lead mark` gives `\u0301lead-mark`.",
+      "input": { "record": "combining-leading.md" },
+      "expect": { "result": { "anchors": [{ "name": "\u0301lead-mark", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "combining-only",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## \u0301\u0302` gives `\u0301\u0302`.",
+      "input": { "record": "combining-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "\u0301\u0302", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "nbsp-between",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## c\u00a0d nbsp` gives `c-d-nbsp`; GitHub gives `cd-nbsp`, since it removes U+00A0 rather than turning it into a hyphen.",
+      "input": { "record": "nbsp-between.md" },
+      "expect": { "result": { "anchors": [{ "name": "c-d-nbsp", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "nbsp-leading",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## \u00a0e nbsp lead` gives `e-nbsp-lead`.",
+      "input": { "record": "nbsp-leading.md" },
+      "expect": { "result": { "anchors": [{ "name": "e-nbsp-lead", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "nbsp-trailing",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## f nbsp trail\u00a0` gives `f-nbsp-trail`.",
+      "input": { "record": "nbsp-trailing.md" },
+      "expect": { "result": { "anchors": [{ "name": "f-nbsp-trail", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "en-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## g\u2002h en space` gives `g-h-en-space`; GitHub gives `gh-en-space`, since it removes U+2002 rather than turning it into a hyphen.",
+      "input": { "record": "en-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "g-h-en-space", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "em-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## i\u2003j em space` gives `i-j-em-space`; GitHub gives `ij-em-space`, since it removes U+2003 rather than turning it into a hyphen.",
+      "input": { "record": "em-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "i-j-em-space", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "thin-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## k\u2009l thin space` gives `k-l-thin-space`; GitHub gives `kl-thin-space`, since it removes U+2009 rather than turning it into a hyphen.",
+      "input": { "record": "thin-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "k-l-thin-space", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ideographic-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## m\u3000n ideographic space` gives `m-n-ideographic-space`; GitHub gives `mn-ideographic-space`, since it removes U+3000 rather than turning it into a hyphen.",
+      "input": { "record": "ideographic-space.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "m-n-ideographic-space", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "narrow-nbsp",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## o\u202fp narrow nbsp` gives `o-p-narrow-nbsp`; GitHub gives `op-narrow-nbsp`, since it removes U+202F rather than turning it into a hyphen.",
+      "input": { "record": "narrow-nbsp.md" },
+      "expect": { "result": { "anchors": [{ "name": "o-p-narrow-nbsp", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "zero-width-space",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## q\u200br zws` gives `qr-zws`.",
+      "input": { "record": "zero-width-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "qr-zws", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "zero-width-joiner",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## s\u200dt zwj` gives `st-zwj`; GitHub gives `s\u200dt-zwj`, since it keeps the default-ignorable U+200D.",
+      "input": { "record": "zero-width-joiner.md" },
+      "expect": { "result": { "anchors": [{ "name": "st-zwj", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "zero-width-non-joiner",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## u\u200cv zwnj` gives `uv-zwnj`; GitHub gives `u\u200cv-zwnj`, since it keeps the default-ignorable U+200C.",
+      "input": { "record": "zero-width-non-joiner.md" },
+      "expect": { "result": { "anchors": [{ "name": "uv-zwnj", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "bom-inside",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## w\ufeffx bom` gives `wx-bom`.",
+      "input": { "record": "bom-inside.md" },
+      "expect": { "result": { "anchors": [{ "name": "wx-bom", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "soft-hyphen",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## y\u00adz soft hyphen` gives `yz-soft-hyphen`.",
+      "input": { "record": "soft-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "yz-soft-hyphen", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "bidi-mark",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## c1\u200ed1 lrm` gives `c1d1-lrm`.",
+      "input": { "record": "bidi-mark.md" },
+      "expect": { "result": { "anchors": [{ "name": "c1d1-lrm", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "variation-selector",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## e1\ufe0ff1 vs16` gives `e1f1-vs16`; GitHub gives `e1\ufe0ff1-vs16`, since it keeps the default-ignorable U+FE0F.",
+      "input": { "record": "variation-selector.md" },
+      "expect": { "result": { "anchors": [{ "name": "e1f1-vs16", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tag-character",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## g1\udb40\udc41h1 tag a` gives `g1h1-tag-a`.",
+      "input": { "record": "tag-character.md" },
+      "expect": { "result": { "anchors": [{ "name": "g1h1-tag-a", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "control-bell",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## i1\u0007j1 bell` gives `i1j1-bell`.",
+      "input": { "record": "control-bell.md" },
+      "expect": { "result": { "anchors": [{ "name": "i1j1-bell", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "vertical-tab",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## k1\u000bl1 vt` gives `k1-l1-vt`; GitHub gives `k1l1-vt`, since it removes U+000B rather than turning it into a hyphen.",
+      "input": { "record": "vertical-tab.md" },
+      "expect": { "result": { "anchors": [{ "name": "k1-l1-vt", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "form-feed",
+      "description": "Marks are kept, White_Space becomes a hyphen, and default-ignorable and control characters are removed (steps 2, 4 and 5): `## m1\u000cn1 ff` gives `m1-n1-ff`; GitHub gives `m1n1-ff`, since it removes U+000C rather than turning it into a hyphen.",
+      "input": { "record": "form-feed.md" },
+      "expect": { "result": { "anchors": [{ "name": "m1-n1-ff", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

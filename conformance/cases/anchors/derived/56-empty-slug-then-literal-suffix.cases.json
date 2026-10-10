@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "56-empty-slug-then-literal-suffix" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Two `## .` have empty slugs and no derived anchor, but their candidates `\"\"` and `-1` count as used, so `## -1` gives `-1-1`, and `## tail` gives `tail` (decision C14, step 7); GitHub gives the first two `\"\"` and `-1`.",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "-1-1", "kind": "derived", "at": "/$sections/2" },
+            { "name": "tail", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

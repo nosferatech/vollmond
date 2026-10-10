@@ -1,0 +1,130 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "09-latin-nfc" }
+  },
+  "cases": [
+    {
+      "id": "accent-cafe",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Café au lait` gives `café-au-lait`.",
+      "input": { "record": "accent-cafe.md" },
+      "expect": { "result": { "anchors": [{ "name": "café-au-lait", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-creme",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Crème brûlée` gives `crème-brûlée`.",
+      "input": { "record": "accent-creme.md" },
+      "expect": { "result": { "anchors": [{ "name": "crème-brûlée", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-naive",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Naïve résumé` gives `naïve-résumé`.",
+      "input": { "record": "accent-naive.md" },
+      "expect": { "result": { "anchors": [{ "name": "naïve-résumé", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-angstrom",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Ångström` gives `ångström`.",
+      "input": { "record": "accent-angstrom.md" },
+      "expect": { "result": { "anchors": [{ "name": "ångström", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "accent-upper",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## ÀÉÎÕÜ upper` gives `àéîõü-upper`.",
+      "input": { "record": "accent-upper.md" },
+      "expect": { "result": { "anchors": [{ "name": "àéîõü-upper", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "sharp-s",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Straße` gives `straße`.",
+      "input": { "record": "sharp-s.md" },
+      "expect": { "result": { "anchors": [{ "name": "straße", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "capital-sharp-s",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## GROẞE` gives `große`.",
+      "input": { "record": "capital-sharp-s.md" },
+      "expect": { "result": { "anchors": [{ "name": "große", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "o-slash",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Øre og æble` gives `øre-og-æble`.",
+      "input": { "record": "o-slash.md" },
+      "expect": { "result": { "anchors": [{ "name": "øre-og-æble", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "l-stroke",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Łódź` gives `łódź`.",
+      "input": { "record": "l-stroke.md" },
+      "expect": { "result": { "anchors": [{ "name": "łódź", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "n-tilde",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Señor Niño` gives `señor-niño`.",
+      "input": { "record": "n-tilde.md" },
+      "expect": { "result": { "anchors": [{ "name": "señor-niño", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "c-cedilla",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Français` gives `français`.",
+      "input": { "record": "c-cedilla.md" },
+      "expect": { "result": { "anchors": [{ "name": "français", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dotted-i",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## İstanbul` gives `i\u0307stanbul`.",
+      "input": { "record": "dotted-i.md" },
+      "expect": { "result": { "anchors": [{ "name": "i\u0307stanbul", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dotless-i",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## ı dotless` gives `ı-dotless`.",
+      "input": { "record": "dotless-i.md" },
+      "expect": { "result": { "anchors": [{ "name": "ı-dotless", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "titlecase-dz",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## ǅ titlecase` gives `ǆ-titlecase`.",
+      "input": { "record": "titlecase-dz.md" },
+      "expect": { "result": { "anchors": [{ "name": "ǆ-titlecase", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "vietnamese",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Tiếng Việt` gives `tiếng-việt`.",
+      "input": { "record": "vietnamese.md" },
+      "expect": { "result": { "anchors": [{ "name": "tiếng-việt", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "long-s",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## ſhort s` gives `ſhort-s`.",
+      "input": { "record": "long-s.md" },
+      "expect": { "result": { "anchors": [{ "name": "ſhort-s", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "plain-k-after-normalization",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## K kelvin` gives `k-kelvin`.",
+      "input": { "record": "plain-k-after-normalization.md" },
+      "expect": { "result": { "anchors": [{ "name": "k-kelvin", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ligature-fi",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## ﬁ ligature` gives `ﬁ-ligature`.",
+      "input": { "record": "ligature-fi.md" },
+      "expect": { "result": { "anchors": [{ "name": "ﬁ-ligature", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ligature-ae",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## Æsop` gives `æsop`.",
+      "input": { "record": "ligature-ae.md" },
+      "expect": { "result": { "anchors": [{ "name": "æsop", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "eszett-lower-final",
+      "description": "Precomposed Latin letters are lower-cased one code point at a time (step 3): `## maße` gives `maße`.",
+      "input": { "record": "eszett-lower-final.md" },
+      "expect": { "result": { "anchors": [{ "name": "maße", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

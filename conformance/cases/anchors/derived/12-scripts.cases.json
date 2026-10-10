@@ -1,0 +1,234 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "12-scripts" }
+  },
+  "cases": [
+    {
+      "id": "greek",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Ελληνικά γράμματα` gives `ελληνικά-γράμματα`.",
+      "input": { "record": "greek.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "ελληνικά-γράμματα", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "greek-upper-final-sigma",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ΟΔΥΣΣΕΥΣ` gives `οδυσσευσ`.",
+      "input": { "record": "greek-upper-final-sigma.md" },
+      "expect": { "result": { "anchors": [{ "name": "οδυσσευσ", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "greek-lower-final-sigma",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## οδυσσευς` gives `οδυσσευς`.",
+      "input": { "record": "greek-lower-final-sigma.md" },
+      "expect": { "result": { "anchors": [{ "name": "οδυσσευς", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "greek-tonos",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## άέήίόύώ tonos` gives `άέήίόύώ-tonos`.",
+      "input": { "record": "greek-tonos.md" },
+      "expect": { "result": { "anchors": [{ "name": "άέήίόύώ-tonos", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "cyrillic",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Привет мир` gives `привет-мир`.",
+      "input": { "record": "cyrillic.md" },
+      "expect": { "result": { "anchors": [{ "name": "привет-мир", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "cyrillic-yo",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ЁЖ ёж` gives `ёж-ёж`.",
+      "input": { "record": "cyrillic-yo.md" },
+      "expect": { "result": { "anchors": [{ "name": "ёж-ёж", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "han-simplified",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 中文标题` gives `中文标题`.",
+      "input": { "record": "han-simplified.md" },
+      "expect": { "result": { "anchors": [{ "name": "中文标题", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "han-with-spaces",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 日本語 の 見出し` gives `日本語-の-見出し`.",
+      "input": { "record": "han-with-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "日本語-の-見出し", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hiragana",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ひらがな` gives `ひらがな`.",
+      "input": { "record": "hiragana.md" },
+      "expect": { "result": { "anchors": [{ "name": "ひらがな", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "katakana",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## カタカナ` gives `カタカナ`.",
+      "input": { "record": "katakana.md" },
+      "expect": { "result": { "anchors": [{ "name": "カタカナ", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "katakana-prolonged",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## コーヒー` gives `コーヒー`.",
+      "input": { "record": "katakana-prolonged.md" },
+      "expect": { "result": { "anchors": [{ "name": "コーヒー", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hangul",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 한국어 제목` gives `한국어-제목`.",
+      "input": { "record": "hangul.md" },
+      "expect": { "result": { "anchors": [{ "name": "한국어-제목", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "arabic",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## مرحبا بالعالم` gives `مرحبا-بالعالم`.",
+      "input": { "record": "arabic.md" },
+      "expect": { "result": { "anchors": [{ "name": "مرحبا-بالعالم", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "arabic-diacritics",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## م\u064eر\u0652ح\u064eبا` gives `م\u064eر\u0652ح\u064eبا`.",
+      "input": { "record": "arabic-diacritics.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "م\u064eر\u0652ح\u064eبا", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "arabic-indic-digits",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ٣٤٥ digits` gives `٣٤٥-digits`.",
+      "input": { "record": "arabic-indic-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "٣٤٥-digits", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hebrew",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## שלום עולם` gives `שלום-עולם`.",
+      "input": { "record": "hebrew.md" },
+      "expect": { "result": { "anchors": [{ "name": "שלום-עולם", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hebrew-niqqud",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ש\u05b8\u05c1לו\u05b9ם` gives `ש\u05b8\u05c1לו\u05b9ם`.",
+      "input": { "record": "hebrew-niqqud.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "ש\u05b8\u05c1לו\u05b9ם", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "thai",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## สว\u0e31สด\u0e35` gives `สว\u0e31สด\u0e35`.",
+      "input": { "record": "thai.md" },
+      "expect": { "result": { "anchors": [{ "name": "สว\u0e31สด\u0e35", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "devanagari",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ह\u093fन\u094dद\u0940` gives `ह\u093fन\u094dद\u0940`.",
+      "input": { "record": "devanagari.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "ह\u093fन\u094dद\u0940", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "armenian",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Հայերեն` gives `հայերեն`.",
+      "input": { "record": "armenian.md" },
+      "expect": { "result": { "anchors": [{ "name": "հայերեն", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "georgian",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ქართული` gives `ქართული`.",
+      "input": { "record": "georgian.md" },
+      "expect": { "result": { "anchors": [{ "name": "ქართული", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tamil",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## தம\u0bbfழ\u0bcd` gives `தம\u0bbfழ\u0bcd`.",
+      "input": { "record": "tamil.md" },
+      "expect": { "result": { "anchors": [{ "name": "தம\u0bbfழ\u0bcd", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "mixed-script",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Hello 世界 мир` gives `hello-世界-мир`.",
+      "input": { "record": "mixed-script.md" },
+      "expect": { "result": { "anchors": [{ "name": "hello-世界-мир", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "fullwidth-latin",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ＡＢＣ ａｂｃ` gives `ａｂｃ-ａｂｃ`.",
+      "input": { "record": "fullwidth-latin.md" },
+      "expect": { "result": { "anchors": [{ "name": "ａｂｃ-ａｂｃ", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "fullwidth-digits",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## １２３` gives `１２３`.",
+      "input": { "record": "fullwidth-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "１２３", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "math-script-capital",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 𝒜 math script` gives `𝒜-math-script`.",
+      "input": { "record": "math-script-capital.md" },
+      "expect": { "result": { "anchors": [{ "name": "𝒜-math-script", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "han-extension-b",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 𠀀 ext b` gives `𠀀-ext-b`.",
+      "input": { "record": "han-extension-b.md" },
+      "expect": { "result": { "anchors": [{ "name": "𠀀-ext-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "deseret",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 𐐀𐐨 deseret` gives `𐐨𐐨-deseret`.",
+      "input": { "record": "deseret.md" },
+      "expect": { "result": { "anchors": [{ "name": "𐐨𐐨-deseret", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "superscript-two",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## x² squared` gives `x-squared`.",
+      "input": { "record": "superscript-two.md" },
+      "expect": { "result": { "anchors": [{ "name": "x-squared", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "circled-digit",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ① circled` gives `-circled`.",
+      "input": { "record": "circled-digit.md" },
+      "expect": { "result": { "anchors": [{ "name": "-circled", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "roman-numeral",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Ⅳ roman` gives `-roman`; GitHub gives `ⅳ-roman`, since it keeps U+2173, which is Alphabetic but not in L, M, Nd or Pc.",
+      "input": { "record": "roman-numeral.md" },
+      "expect": { "result": { "anchors": [{ "name": "-roman", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "vulgar-fraction",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## ½ cup` gives `-cup`.",
+      "input": { "record": "vulgar-fraction.md" },
+      "expect": { "result": { "anchors": [{ "name": "-cup", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "letterlike-trademark",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## Product™ name` gives `product-name`.",
+      "input": { "record": "letterlike-trademark.md" },
+      "expect": { "result": { "anchors": [{ "name": "product-name", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ordinal-indicator",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 1º place` gives `1º-place`.",
+      "input": { "record": "ordinal-indicator.md" },
+      "expect": { "result": { "anchors": [{ "name": "1º-place", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "micro-sign",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 5 µm size` gives `5-µm-size`.",
+      "input": { "record": "micro-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "5-µm-size", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "ohm-sign",
+      "description": "Letters of every script are kept and lower-cased, while numbers that are not decimal digits and symbols are removed (steps 3 and 5): `## 5 Ω resistor` gives `5-ω-resistor`.",
+      "input": { "record": "ohm-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "5-ω-resistor", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

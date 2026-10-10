@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "46-crlf" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "A record with CRLF line endings gives the anchors of its LF form: `crlf-plain`, `crlf-trailing-space`, `crlf-setext`, `crlf-anchor` with the explicit anchor `crlf`, and `crlf-closing` (decision C9); GitHub gives `crlf-anchor-`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "crlf-plain", "kind": "derived", "at": "/$sections/0" },
+            { "name": "crlf-trailing-space", "kind": "derived", "at": "/$sections/1" },
+            { "name": "crlf-setext", "kind": "derived", "at": "/$sections/2" },
+            { "name": "crlf", "kind": "explicit", "at": "/$sections/3" },
+            { "name": "crlf-anchor", "kind": "derived", "at": "/$sections/3" },
+            { "name": "crlf-closing", "kind": "derived", "at": "/$sections/4" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

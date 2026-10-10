@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "31-repeat-explicit-anchor-after" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Grault`, `## Other <a id=\"grault\"></a>`, `## Grault` and `## Other` give the derived anchors `grault`, `other`, `grault-1` and `other-1`, listed with the explicit `grault` that duplicates the first (§6.1, step 7); GitHub gives `other-` to the second heading and `other` to the fourth, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "grault", "kind": "derived", "at": "/$sections/0" },
+            { "name": "grault", "kind": "explicit", "at": "/$sections/1" },
+            { "name": "other", "kind": "derived", "at": "/$sections/1" },
+            { "name": "grault-1", "kind": "derived", "at": "/$sections/2" },
+            { "name": "other-1", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

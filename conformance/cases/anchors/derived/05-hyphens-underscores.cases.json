@@ -1,0 +1,214 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "05-hyphens-underscores" }
+  },
+  "cases": [
+    {
+      "id": "single-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## a-b` gives `a-b`.",
+      "input": { "record": "single-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "a-b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## a--b` gives `a--b`.",
+      "input": { "record": "double-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "a--b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "triple-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## a---b` gives `a---b`.",
+      "input": { "record": "triple-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "a---b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "leading-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## -a` gives `-a`.",
+      "input": { "record": "leading-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "-a", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "leading-double-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## --a` gives `--a`.",
+      "input": { "record": "leading-double-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "--a", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## b-` gives `b-`.",
+      "input": { "record": "trailing-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "b-", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-double-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## c--` gives `c--`.",
+      "input": { "record": "trailing-double-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "c--", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-only",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## -` gives `-`.",
+      "input": { "record": "hyphen-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "-", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-hyphen-only",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## --` gives `--`.",
+      "input": { "record": "double-hyphen-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "--", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-spaced",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## d - e` gives `d---e`.",
+      "input": { "record": "hyphen-spaced.md" },
+      "expect": { "result": { "anchors": [{ "name": "d---e", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-hyphen-spaced",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## f -- g` gives `f----g`.",
+      "input": { "record": "double-hyphen-spaced.md" },
+      "expect": { "result": { "anchors": [{ "name": "f----g", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-leading-space",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## - h` gives `--h`.",
+      "input": { "record": "hyphen-leading-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "--h", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-trailing-space",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## i -` gives `i--`.",
+      "input": { "record": "hyphen-trailing-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "i--", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "underscore-only",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## _` gives `_`.",
+      "input": { "record": "underscore-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "_", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-underscore-only",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## __` gives `__`.",
+      "input": { "record": "double-underscore-only.md" },
+      "expect": { "result": { "anchors": [{ "name": "__", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "single-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## j_k` gives `j_k`.",
+      "input": { "record": "single-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "j_k", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "double-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## l__m` gives `l__m`.",
+      "input": { "record": "double-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "l__m", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "triple-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## n___o` gives `n___o`.",
+      "input": { "record": "triple-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "n___o", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "leading-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## _p` gives `_p`.",
+      "input": { "record": "leading-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "_p", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## q_` gives `q_`.",
+      "input": { "record": "trailing-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "q_", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "wrapped-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## _r_` gives `r`.",
+      "input": { "record": "wrapped-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "r", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "wrapped-double-underscore",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## __s__` gives `s`.",
+      "input": { "record": "wrapped-double-underscore.md" },
+      "expect": { "result": { "anchors": [{ "name": "s", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "snake-case",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## snake_case_word` gives `snake_case_word`.",
+      "input": { "record": "snake-case.md" },
+      "expect": { "result": { "anchors": [{ "name": "snake_case_word", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "kebab-case",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## kebab-case-word` gives `kebab-case-word`.",
+      "input": { "record": "kebab-case.md" },
+      "expect": { "result": { "anchors": [{ "name": "kebab-case-word", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-underscore-mix",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## t-_-u` gives `t-_-u`.",
+      "input": { "record": "hyphen-underscore-mix.md" },
+      "expect": { "result": { "anchors": [{ "name": "t-_-u", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "underscore-spaced",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## v _ w` gives `v-_-w`.",
+      "input": { "record": "underscore-spaced.md" },
+      "expect": { "result": { "anchors": [{ "name": "v-_-w", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "en-dash",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## x – y` gives `x--y`.",
+      "input": { "record": "en-dash.md" },
+      "expect": { "result": { "anchors": [{ "name": "x--y", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "em-dash",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## z — a2` gives `z--a2`.",
+      "input": { "record": "em-dash.md" },
+      "expect": { "result": { "anchors": [{ "name": "z--a2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "unicode-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## b2‐c2` gives `b2c2`.",
+      "input": { "record": "unicode-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "b2c2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "non-breaking-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## d2‑e2` gives `d2e2`.",
+      "input": { "record": "non-breaking-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "d2e2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "minus-sign",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## f2−g2` gives `f2g2`.",
+      "input": { "record": "minus-sign.md" },
+      "expect": { "result": { "anchors": [{ "name": "f2g2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-between-digits",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## 1-2-3` gives `1-2-3`.",
+      "input": { "record": "hyphen-between-digits.md" },
+      "expect": { "result": { "anchors": [{ "name": "1-2-3", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hyphen-and-punct",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## h2-!-i2` gives `h2--i2`.",
+      "input": { "record": "hyphen-and-punct.md" },
+      "expect": { "result": { "anchors": [{ "name": "h2--i2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "dot-hyphen",
+      "description": "Hyphens and underscores are kept as written, and hyphens are neither collapsed nor trimmed (steps 5 and 6): `## j2.-k2` gives `j2-k2`.",
+      "input": { "record": "dot-hyphen.md" },
+      "expect": { "result": { "anchors": [{ "name": "j2-k2", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

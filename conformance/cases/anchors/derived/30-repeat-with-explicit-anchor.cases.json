@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "30-repeat-with-explicit-anchor" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Explicit anchors take no part in the numbering, so `## Corge <a id=\"corge\"></a>`, `## Corge`, `## Corge <a id=\"corge-1\"></a>` and `## Corge` give the derived anchors `corge`, `corge-1`, `corge-2` and `corge-3`, listed with the explicit `corge` and `corge-1` that duplicate two of them (§6.1, step 7); GitHub gives `corge-`, `corge`, `corge--1` and `corge-1`, since it keeps the space next to the anchor element (decision C13).",
+      "spec": ["6.2", "6.3"],
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "corge", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "corge", "kind": "derived", "at": "/$sections/0" },
+            { "name": "corge-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "corge-1", "kind": "explicit", "at": "/$sections/2" },
+            { "name": "corge-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "corge-3", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

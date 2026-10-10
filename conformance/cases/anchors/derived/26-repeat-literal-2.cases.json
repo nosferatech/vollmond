@@ -1,0 +1,27 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "26-repeat-literal-2" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Baz`, `## Baz`, `## Baz-2` and two `## Baz` give `baz`, `baz-1`, `baz-2`, `baz-3` and `baz-4`, the literal `baz-2` taking the place of a suffix (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "baz", "kind": "derived", "at": "/$sections/0" },
+            { "name": "baz-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "baz-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "baz-3", "kind": "derived", "at": "/$sections/3" },
+            { "name": "baz-4", "kind": "derived", "at": "/$sections/4" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

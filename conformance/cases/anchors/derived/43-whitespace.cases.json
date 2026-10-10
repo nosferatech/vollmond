@@ -1,0 +1,165 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "43-whitespace" }
+  },
+  "cases": [
+    {
+      "id": "one-leading-space",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): ` # Lead one` gives `lead-one`.",
+      "input": { "record": "one-leading-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "lead-one", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "two-leading-spaces",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `  ## Lead two` gives `lead-two`.",
+      "input": { "record": "two-leading-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "lead-two", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "three-leading-spaces",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `   ### Lead three` gives `lead-three`.",
+      "input": { "record": "three-leading-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "lead-three", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "four-leading-spaces-code",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `    #### Lead four` is not a heading, so the record has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "four-leading-spaces-code.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "space-after-hash-many",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `#      Many spaces after` gives `many-spaces-after`.",
+      "input": { "record": "space-after-hash-many.md" },
+      "expect": { "result": { "anchors": [{ "name": "many-spaces-after", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-spaces",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `# Trail one   ` gives `trail-one`.",
+      "input": { "record": "trailing-spaces.md" },
+      "expect": { "result": { "anchors": [{ "name": "trail-one", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-tab",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `# Trail two\t` gives `trail-two`.",
+      "input": { "record": "trailing-tab.md" },
+      "expect": { "result": { "anchors": [{ "name": "trail-two", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "leading-and-trailing",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `#    Both sides    ` gives `both-sides`.",
+      "input": { "record": "leading-and-trailing.md" },
+      "expect": { "result": { "anchors": [{ "name": "both-sides", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "tab-inside",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Tab\tinside` gives `tab-inside`; GitHub gives `tabinside`, since it removes U+0009 rather than turning it into a hyphen.",
+      "input": { "record": "tab-inside.md" },
+      "expect": { "result": { "anchors": [{ "name": "tab-inside", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tabs-inside-many",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Tabs\t\tinside` gives `tabs--inside`; GitHub gives `tabsinside`, since it removes U+0009 rather than turning it into a hyphen.",
+      "input": { "record": "tabs-inside-many.md" },
+      "expect": { "result": { "anchors": [{ "name": "tabs--inside", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tab-after-hashes",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `##\tTab after hashes` gives `tab-after-hashes`.",
+      "input": { "record": "tab-after-hashes.md" },
+      "expect": { "result": { "anchors": [{ "name": "tab-after-hashes", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "tab-spaces-mixed",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Mixed \t spaces tab` gives `mixed---spaces-tab`; GitHub gives `mixed--spaces-tab`, since it removes U+0009 rather than turning it into a hyphen.",
+      "input": { "record": "tab-spaces-mixed.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "mixed---spaces-tab", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "closing-hashes",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Closing one ##` gives `closing-one`.",
+      "input": { "record": "closing-hashes.md" },
+      "expect": { "result": { "anchors": [{ "name": "closing-one", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "closing-hashes-many",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Closing two #######` gives `closing-two`.",
+      "input": { "record": "closing-hashes-many.md" },
+      "expect": { "result": { "anchors": [{ "name": "closing-two", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "closing-hashes-trailing-space",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Closing three ##   ` gives `closing-three`.",
+      "input": { "record": "closing-hashes-trailing-space.md" },
+      "expect": { "result": { "anchors": [{ "name": "closing-three", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hash-not-closing",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Hash four #notclosing` gives `hash-four-notclosing`.",
+      "input": { "record": "hash-not-closing.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "hash-four-notclosing", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "hash-escaped-closing",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Hash five \\#` gives `hash-five-`.",
+      "input": { "record": "hash-escaped-closing.md" },
+      "expect": { "result": { "anchors": [{ "name": "hash-five-", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "hash-no-space-closing",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Hash six#` gives `hash-six`.",
+      "input": { "record": "hash-no-space-closing.md" },
+      "expect": { "result": { "anchors": [{ "name": "hash-six", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-space-markup",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `` ## Trail `code`   `` gives `trail-code`.",
+      "input": { "record": "trailing-space-markup.md" },
+      "expect": { "result": { "anchors": [{ "name": "trail-code", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "trailing-space-emphasis",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Trail *em*  ` gives `trail-em`.",
+      "input": { "record": "trailing-space-emphasis.md" },
+      "expect": { "result": { "anchors": [{ "name": "trail-em", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "space-before-punct",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Space before , comma` gives `space-before--comma`.",
+      "input": { "record": "space-before-punct.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "space-before--comma", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "space-after-punct",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Dot.  Two spaces after` gives `dot--two-spaces-after`.",
+      "input": { "record": "space-after-punct.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "dot--two-spaces-after", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "space-then-hyphen",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Spaced - hyphen - words` gives `spaced---hyphen---words`.",
+      "input": { "record": "space-then-hyphen.md" },
+      "expect": {
+        "result": { "anchors": [{ "name": "spaced---hyphen---words", "kind": "derived", "at": "/$sections/0" }], "tags": [] }
+      }
+    },
+    {
+      "id": "entity-newline",
+      "description": "White space around the heading and a closing # sequence are not heading text, and white space inside becomes hyphens (steps 4 to 6): `## Entity&#10;newline` gives `entity-newline`; GitHub gives `entitynewline`, since it removes U+000A rather than turning it into a hyphen.",
+      "input": { "record": "entity-newline.md" },
+      "expect": { "result": { "anchors": [{ "name": "entity-newline", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

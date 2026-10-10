@@ -1,0 +1,66 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "41-levels" }
+  },
+  "cases": [
+    {
+      "id": "level-1",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `# Level one` gives `level-one`.",
+      "input": { "record": "level-1.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-one", "kind": "derived", "at": "" }], "tags": [] } }
+    },
+    {
+      "id": "level-2",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `## Level two` gives `level-two`.",
+      "input": { "record": "level-2.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-two", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "level-3",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `### Level three` gives `level-three`.",
+      "input": { "record": "level-3.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-three", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "level-4",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `#### Level four` gives `level-four`.",
+      "input": { "record": "level-4.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-four", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "level-5",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `##### Level five` gives `level-five`.",
+      "input": { "record": "level-5.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-five", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "level-6",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `###### Level six` gives `level-six`.",
+      "input": { "record": "level-6.md" },
+      "expect": { "result": { "anchors": [{ "name": "level-six", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "level-7-not-heading",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `####### Level seven` is not a heading, so the record has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "level-7-not-heading.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "no-space-not-heading",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `#NoSpace` is not a heading, so the record has no anchors.",
+      "spec": ["5.3", "6.3"],
+      "input": { "record": "no-space-not-heading.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "tab-after-hashes",
+      "description": "Headings of every level have a derived anchor, and lines that are not headings have none (§5.3): `#\tTab after hash` gives `tab-after-hash`.",
+      "input": { "record": "tab-after-hashes.md" },
+      "expect": { "result": { "anchors": [{ "name": "tab-after-hash", "kind": "derived", "at": "" }], "tags": [] } }
+    }
+  ]
+}

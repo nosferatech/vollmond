@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "04-punctuation-only" }
+  },
+  "cases": [
+    {
+      "id": "empty-slugs",
+      "description": "Thirty-four headings of punctuation alone have empty slugs, so none has a derived anchor (decision C14); GitHub gives the first 33 the anchors `\"\"` and `-1` to `-32`, and the last no permalink.",
+      "input": { "record": "empty-slugs.md" },
+      "expect": { "result": { "anchors": [], "tags": [] } }
+    },
+    {
+      "id": "alone-30",
+      "description": "A heading of a hyphen or an underscore alone keeps it (step 5): `## -` gives `-`.",
+      "input": { "record": "alone-30.md" },
+      "expect": { "result": { "anchors": [{ "name": "-", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "alone-31",
+      "description": "A heading of a hyphen or an underscore alone keeps it (step 5): `## _` gives `_`.",
+      "input": { "record": "alone-31.md" },
+      "expect": { "result": { "anchors": [{ "name": "_", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

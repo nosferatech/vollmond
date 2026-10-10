@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "33-repeat-numeric" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## 1`, `## 1`, `## 1-1` and `## 1` give `1`, `1-1`, `1-1-1` and `1-2` (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "1", "kind": "derived", "at": "/$sections/0" },
+            { "name": "1-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "1-1-1", "kind": "derived", "at": "/$sections/2" },
+            { "name": "1-2", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

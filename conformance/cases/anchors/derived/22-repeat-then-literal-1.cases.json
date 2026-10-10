@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "22-repeat-then-literal-1" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Foo`, `## Foo` and `## Foo-1` give `foo`, `foo-1` and `foo-1-1`, since a candidate that is already used is skipped (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "foo", "kind": "derived", "at": "/$sections/0" },
+            { "name": "foo-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "foo-1-1", "kind": "derived", "at": "/$sections/2" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

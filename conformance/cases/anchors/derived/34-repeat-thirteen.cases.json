@@ -1,0 +1,35 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "34-repeat-thirteen" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Thirteen `## Waldo` headings give `waldo` and `waldo-1` to `waldo-12`, with decimal suffixes past 9 (step 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "waldo", "kind": "derived", "at": "/$sections/0" },
+            { "name": "waldo-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "waldo-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "waldo-3", "kind": "derived", "at": "/$sections/3" },
+            { "name": "waldo-4", "kind": "derived", "at": "/$sections/4" },
+            { "name": "waldo-5", "kind": "derived", "at": "/$sections/5" },
+            { "name": "waldo-6", "kind": "derived", "at": "/$sections/6" },
+            { "name": "waldo-7", "kind": "derived", "at": "/$sections/7" },
+            { "name": "waldo-8", "kind": "derived", "at": "/$sections/8" },
+            { "name": "waldo-9", "kind": "derived", "at": "/$sections/9" },
+            { "name": "waldo-10", "kind": "derived", "at": "/$sections/10" },
+            { "name": "waldo-11", "kind": "derived", "at": "/$sections/11" },
+            { "name": "waldo-12", "kind": "derived", "at": "/$sections/12" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "15-lowercase-unicode-versions" }
+  },
+  "cases": [
+    {
+      "id": "georgian-mtavruli",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ᲐᲑ mtavruli` gives `აბ-mtavruli`.",
+      "input": { "record": "georgian-mtavruli.md" },
+      "expect": { "result": { "anchors": [{ "name": "აბ-mtavruli", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "cherokee-capital",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ᎠᎡ cherokee` gives `ꭰꭱ-cherokee`.",
+      "input": { "record": "cherokee-capital.md" },
+      "expect": { "result": { "anchors": [{ "name": "ꭰꭱ-cherokee", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "latin-extended-d-unicode8",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Ꞵ unicode8` gives `ꞵ-unicode8`.",
+      "input": { "record": "latin-extended-d-unicode8.md" },
+      "expect": { "result": { "anchors": [{ "name": "ꞵ-unicode8", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "latin-unicode11",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Ꞹ unicode11` gives `ꞹ-unicode11`.",
+      "input": { "record": "latin-unicode11.md" },
+      "expect": { "result": { "anchors": [{ "name": "ꞹ-unicode11", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "latin-unicode14",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Ꟁ unicode14` gives `ꟁ-unicode14`.",
+      "input": { "record": "latin-unicode14.md" },
+      "expect": { "result": { "anchors": [{ "name": "ꟁ-unicode14", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "cyrillic-tje-unicode16",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Ᲊ unicode16` gives `ᲊ-unicode16`.",
+      "input": { "record": "cyrillic-tje-unicode16.md" },
+      "expect": { "result": { "anchors": [{ "name": "ᲊ-unicode16", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "latin-unicode16",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Ɤ unicode16b` gives `ɤ-unicode16b`.",
+      "input": { "record": "latin-unicode16.md" },
+      "expect": { "result": { "anchors": [{ "name": "ɤ-unicode16b", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "garay-capital-unicode16",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## 𐵐 garay` gives `𐵰-garay`.",
+      "input": { "record": "garay-capital-unicode16.md" },
+      "expect": { "result": { "anchors": [{ "name": "𐵰-garay", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "greek-final-sigma-context",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ΣΑΣ sas` gives `σασ-sas`.",
+      "input": { "record": "greek-final-sigma-context.md" },
+      "expect": { "result": { "anchors": [{ "name": "σασ-sas", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "greek-sigma-end-of-word",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ΑΣ as` gives `ασ-as`.",
+      "input": { "record": "greek-sigma-end-of-word.md" },
+      "expect": { "result": { "anchors": [{ "name": "ασ-as", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "turkish-dotless-capital",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## I and İ` gives `i-and-i\u0307`.",
+      "input": { "record": "turkish-dotless-capital.md" },
+      "expect": { "result": { "anchors": [{ "name": "i-and-i\u0307", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "lithuanian-dot",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## Į\u0301 lt` gives `į\u0301-lt`.",
+      "input": { "record": "lithuanian-dot.md" },
+      "expect": { "result": { "anchors": [{ "name": "į\u0301-lt", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "special-casing-ligature",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ﬃ ffi` gives `ﬃ-ffi`.",
+      "input": { "record": "special-casing-ligature.md" },
+      "expect": { "result": { "anchors": [{ "name": "ﬃ-ffi", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "special-casing-n-apostrophe",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ŉ napos` gives `ŉ-napos`.",
+      "input": { "record": "special-casing-n-apostrophe.md" },
+      "expect": { "result": { "anchors": [{ "name": "ŉ-napos", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "special-casing-j-caron",
+      "description": "Lower-casing is per code point, with Unicode 17.0.0 data and no locale or context rules (step 3): `## ǰ jcaron` gives `ǰ-jcaron`.",
+      "input": { "record": "special-casing-j-caron.md" },
+      "expect": { "result": { "anchors": [{ "name": "ǰ-jcaron", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

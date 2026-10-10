@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "32-repeat-empty" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "Three empty headings and `## !!!` have empty slugs and no derived anchor, and the two `## -` after them give `-` and `--1` (decision C14, step 7); GitHub gives the first empty heading the anchor `\"\"` and the next three no permalink.",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "-", "kind": "derived", "at": "/$sections/4" },
+            { "name": "--1", "kind": "derived", "at": "/$sections/5" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

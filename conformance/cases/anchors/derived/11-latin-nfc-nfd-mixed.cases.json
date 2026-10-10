@@ -1,0 +1,150 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "11-latin-nfc-nfd-mixed" }
+  },
+  "cases": [
+    {
+      "id": "accent-cafe",
+      "description": "The NFC and the NFD form of `Café au lait` give one slug, so the second, in NFD, is a repeat and gives `café-au-lait-1` (steps 2 and 7); GitHub gives `cafe\u0301-au-lait`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "accent-cafe.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "café-au-lait", "kind": "derived", "at": "/$sections/0" },
+            { "name": "café-au-lait-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "accent-creme",
+      "description": "The NFC and the NFD form of `Crème brûlée` give one slug, so the second, in NFD, is a repeat and gives `crème-brûlée-1` (steps 2 and 7); GitHub gives `cre\u0300me-bru\u0302le\u0301e`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "accent-creme.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "crème-brûlée", "kind": "derived", "at": "/$sections/0" },
+            { "name": "crème-brûlée-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "accent-naive",
+      "description": "The NFC and the NFD form of `Naïve résumé` give one slug, so the second, in NFD, is a repeat and gives `naïve-résumé-1` (steps 2 and 7); GitHub gives `nai\u0308ve-re\u0301sume\u0301`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "accent-naive.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "naïve-résumé", "kind": "derived", "at": "/$sections/0" },
+            { "name": "naïve-résumé-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "accent-angstrom",
+      "description": "The NFC and the NFD form of `Ångström` give one slug, so the second, in NFD, is a repeat and gives `ångström-1` (steps 2 and 7); GitHub gives `a\u030angstro\u0308m`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "accent-angstrom.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "ångström", "kind": "derived", "at": "/$sections/0" },
+            { "name": "ångström-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "accent-upper",
+      "description": "The NFC and the NFD form of `ÀÉÎÕÜ upper` give one slug, so the second, in NFD, is a repeat and gives `àéîõü-upper-1` (steps 2 and 7); GitHub gives `a\u0300e\u0301i\u0302o\u0303u\u0308-upper`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "accent-upper.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "àéîõü-upper", "kind": "derived", "at": "/$sections/0" },
+            { "name": "àéîõü-upper-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "sharp-s",
+      "description": "`## Straße` twice gives `straße` and `straße-1`; the capture's NFD form of the second has the same bytes, since its letters have no canonical decomposition (step 7).",
+      "input": { "record": "sharp-s.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "straße", "kind": "derived", "at": "/$sections/0" },
+            { "name": "straße-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "capital-sharp-s",
+      "description": "`## GROẞE` twice gives `große` and `große-1`; the capture's NFD form of the second has the same bytes, since its letters have no canonical decomposition (step 7).",
+      "input": { "record": "capital-sharp-s.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "große", "kind": "derived", "at": "/$sections/0" },
+            { "name": "große-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "o-slash",
+      "description": "`## Øre og æble` twice gives `øre-og-æble` and `øre-og-æble-1`; the capture's NFD form of the second has the same bytes, since its letters have no canonical decomposition (step 7).",
+      "input": { "record": "o-slash.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "øre-og-æble", "kind": "derived", "at": "/$sections/0" },
+            { "name": "øre-og-æble-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "l-stroke",
+      "description": "The NFC and the NFD form of `Łódź` give one slug, so the second, in NFD, is a repeat and gives `łódź-1` (steps 2 and 7); GitHub gives `ło\u0301dz\u0301`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "l-stroke.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "łódź", "kind": "derived", "at": "/$sections/0" },
+            { "name": "łódź-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "n-tilde",
+      "description": "The NFC and the NFD form of `Señor Niño` give one slug, so the second, in NFD, is a repeat and gives `señor-niño-1` (steps 2 and 7); GitHub gives `sen\u0303or-nin\u0303o`, in NFD, since it does not normalize to NFC.",
+      "input": { "record": "n-tilde.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "señor-niño", "kind": "derived", "at": "/$sections/0" },
+            { "name": "señor-niño-1", "kind": "derived", "at": "/$sections/1" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}

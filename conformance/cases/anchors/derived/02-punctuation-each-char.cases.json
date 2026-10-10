@@ -1,0 +1,394 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "02-punctuation-each-char" }
+  },
+  "cases": [
+    {
+      "id": "embedded-00",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P00.x` gives `p00x`.",
+      "input": { "record": "embedded-00.md" },
+      "expect": { "result": { "anchors": [{ "name": "p00x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-01",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P01,x` gives `p01x`.",
+      "input": { "record": "embedded-01.md" },
+      "expect": { "result": { "anchors": [{ "name": "p01x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-02",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P02:x` gives `p02x`.",
+      "input": { "record": "embedded-02.md" },
+      "expect": { "result": { "anchors": [{ "name": "p02x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-03",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P03;x` gives `p03x`.",
+      "input": { "record": "embedded-03.md" },
+      "expect": { "result": { "anchors": [{ "name": "p03x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-04",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P04!x` gives `p04x`.",
+      "input": { "record": "embedded-04.md" },
+      "expect": { "result": { "anchors": [{ "name": "p04x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-05",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P05?x` gives `p05x`.",
+      "input": { "record": "embedded-05.md" },
+      "expect": { "result": { "anchors": [{ "name": "p05x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-06",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P06'x` gives `p06x`.",
+      "input": { "record": "embedded-06.md" },
+      "expect": { "result": { "anchors": [{ "name": "p06x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-07",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P07\"x` gives `p07x`.",
+      "input": { "record": "embedded-07.md" },
+      "expect": { "result": { "anchors": [{ "name": "p07x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-08",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P08(x` gives `p08x`.",
+      "input": { "record": "embedded-08.md" },
+      "expect": { "result": { "anchors": [{ "name": "p08x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-09",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P09)x` gives `p09x`.",
+      "input": { "record": "embedded-09.md" },
+      "expect": { "result": { "anchors": [{ "name": "p09x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-10",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P10[x` gives `p10x`.",
+      "input": { "record": "embedded-10.md" },
+      "expect": { "result": { "anchors": [{ "name": "p10x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-11",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P11]x` gives `p11x`.",
+      "input": { "record": "embedded-11.md" },
+      "expect": { "result": { "anchors": [{ "name": "p11x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-12",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P12{x` gives `p12x`.",
+      "input": { "record": "embedded-12.md" },
+      "expect": { "result": { "anchors": [{ "name": "p12x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-13",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P13}x` gives `p13x`.",
+      "input": { "record": "embedded-13.md" },
+      "expect": { "result": { "anchors": [{ "name": "p13x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-14",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P14<x` gives `p14x`.",
+      "input": { "record": "embedded-14.md" },
+      "expect": { "result": { "anchors": [{ "name": "p14x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-15",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P15>x` gives `p15x`.",
+      "input": { "record": "embedded-15.md" },
+      "expect": { "result": { "anchors": [{ "name": "p15x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-16",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P16/x` gives `p16x`.",
+      "input": { "record": "embedded-16.md" },
+      "expect": { "result": { "anchors": [{ "name": "p16x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-17",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P17\\x` gives `p17x`.",
+      "input": { "record": "embedded-17.md" },
+      "expect": { "result": { "anchors": [{ "name": "p17x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-18",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P18|x` gives `p18x`.",
+      "input": { "record": "embedded-18.md" },
+      "expect": { "result": { "anchors": [{ "name": "p18x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-19",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P19@x` gives `p19x`.",
+      "input": { "record": "embedded-19.md" },
+      "expect": { "result": { "anchors": [{ "name": "p19x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-20",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P20#x` gives `p20x`.",
+      "input": { "record": "embedded-20.md" },
+      "expect": { "result": { "anchors": [{ "name": "p20x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-21",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P21$x` gives `p21x`.",
+      "input": { "record": "embedded-21.md" },
+      "expect": { "result": { "anchors": [{ "name": "p21x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-22",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P22%x` gives `p22x`.",
+      "input": { "record": "embedded-22.md" },
+      "expect": { "result": { "anchors": [{ "name": "p22x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-23",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P23^x` gives `p23x`.",
+      "input": { "record": "embedded-23.md" },
+      "expect": { "result": { "anchors": [{ "name": "p23x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-24",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P24&x` gives `p24x`.",
+      "input": { "record": "embedded-24.md" },
+      "expect": { "result": { "anchors": [{ "name": "p24x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-25",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P25*x` gives `p25x`.",
+      "input": { "record": "embedded-25.md" },
+      "expect": { "result": { "anchors": [{ "name": "p25x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-26",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P26+x` gives `p26x`.",
+      "input": { "record": "embedded-26.md" },
+      "expect": { "result": { "anchors": [{ "name": "p26x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-27",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P27=x` gives `p27x`.",
+      "input": { "record": "embedded-27.md" },
+      "expect": { "result": { "anchors": [{ "name": "p27x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-28",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P28~x` gives `p28x`.",
+      "input": { "record": "embedded-28.md" },
+      "expect": { "result": { "anchors": [{ "name": "p28x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-29",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `` ## P29`x `` gives `p29x`.",
+      "input": { "record": "embedded-29.md" },
+      "expect": { "result": { "anchors": [{ "name": "p29x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-30",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P30-x` gives `p30-x`.",
+      "input": { "record": "embedded-30.md" },
+      "expect": { "result": { "anchors": [{ "name": "p30-x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "embedded-31",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## P31_x` gives `p31_x`.",
+      "input": { "record": "embedded-31.md" },
+      "expect": { "result": { "anchors": [{ "name": "p31_x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-00",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q00 . x` gives `q00--x`.",
+      "input": { "record": "spaced-00.md" },
+      "expect": { "result": { "anchors": [{ "name": "q00--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-01",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q01 , x` gives `q01--x`.",
+      "input": { "record": "spaced-01.md" },
+      "expect": { "result": { "anchors": [{ "name": "q01--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-02",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q02 : x` gives `q02--x`.",
+      "input": { "record": "spaced-02.md" },
+      "expect": { "result": { "anchors": [{ "name": "q02--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-03",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q03 ; x` gives `q03--x`.",
+      "input": { "record": "spaced-03.md" },
+      "expect": { "result": { "anchors": [{ "name": "q03--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-04",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q04 ! x` gives `q04--x`.",
+      "input": { "record": "spaced-04.md" },
+      "expect": { "result": { "anchors": [{ "name": "q04--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-05",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q05 ? x` gives `q05--x`.",
+      "input": { "record": "spaced-05.md" },
+      "expect": { "result": { "anchors": [{ "name": "q05--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-06",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q06 ' x` gives `q06--x`.",
+      "input": { "record": "spaced-06.md" },
+      "expect": { "result": { "anchors": [{ "name": "q06--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-07",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q07 \" x` gives `q07--x`.",
+      "input": { "record": "spaced-07.md" },
+      "expect": { "result": { "anchors": [{ "name": "q07--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-08",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q08 ( x` gives `q08--x`.",
+      "input": { "record": "spaced-08.md" },
+      "expect": { "result": { "anchors": [{ "name": "q08--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-09",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q09 ) x` gives `q09--x`.",
+      "input": { "record": "spaced-09.md" },
+      "expect": { "result": { "anchors": [{ "name": "q09--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-10",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q10 [ x` gives `q10--x`.",
+      "input": { "record": "spaced-10.md" },
+      "expect": { "result": { "anchors": [{ "name": "q10--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-11",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q11 ] x` gives `q11--x`.",
+      "input": { "record": "spaced-11.md" },
+      "expect": { "result": { "anchors": [{ "name": "q11--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-12",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q12 { x` gives `q12--x`.",
+      "input": { "record": "spaced-12.md" },
+      "expect": { "result": { "anchors": [{ "name": "q12--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-13",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q13 } x` gives `q13--x`.",
+      "input": { "record": "spaced-13.md" },
+      "expect": { "result": { "anchors": [{ "name": "q13--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-14",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q14 < x` gives `q14--x`.",
+      "input": { "record": "spaced-14.md" },
+      "expect": { "result": { "anchors": [{ "name": "q14--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-15",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q15 > x` gives `q15--x`.",
+      "input": { "record": "spaced-15.md" },
+      "expect": { "result": { "anchors": [{ "name": "q15--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-16",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q16 / x` gives `q16--x`.",
+      "input": { "record": "spaced-16.md" },
+      "expect": { "result": { "anchors": [{ "name": "q16--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-17",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q17 \\ x` gives `q17--x`.",
+      "input": { "record": "spaced-17.md" },
+      "expect": { "result": { "anchors": [{ "name": "q17--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-18",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q18 | x` gives `q18--x`.",
+      "input": { "record": "spaced-18.md" },
+      "expect": { "result": { "anchors": [{ "name": "q18--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-19",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q19 @ x` gives `q19--x`.",
+      "input": { "record": "spaced-19.md" },
+      "expect": { "result": { "anchors": [{ "name": "q19--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-20",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q20 # x` gives `q20--x`.",
+      "input": { "record": "spaced-20.md" },
+      "expect": { "result": { "anchors": [{ "name": "q20--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-21",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q21 $ x` gives `q21--x`.",
+      "input": { "record": "spaced-21.md" },
+      "expect": { "result": { "anchors": [{ "name": "q21--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-22",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q22 % x` gives `q22--x`.",
+      "input": { "record": "spaced-22.md" },
+      "expect": { "result": { "anchors": [{ "name": "q22--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-23",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q23 ^ x` gives `q23--x`.",
+      "input": { "record": "spaced-23.md" },
+      "expect": { "result": { "anchors": [{ "name": "q23--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-24",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q24 & x` gives `q24--x`.",
+      "input": { "record": "spaced-24.md" },
+      "expect": { "result": { "anchors": [{ "name": "q24--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-25",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q25 * x` gives `q25--x`.",
+      "input": { "record": "spaced-25.md" },
+      "expect": { "result": { "anchors": [{ "name": "q25--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-26",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q26 + x` gives `q26--x`.",
+      "input": { "record": "spaced-26.md" },
+      "expect": { "result": { "anchors": [{ "name": "q26--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-27",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q27 = x` gives `q27--x`.",
+      "input": { "record": "spaced-27.md" },
+      "expect": { "result": { "anchors": [{ "name": "q27--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-28",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q28 ~ x` gives `q28--x`.",
+      "input": { "record": "spaced-28.md" },
+      "expect": { "result": { "anchors": [{ "name": "q28--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-29",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `` ## Q29 ` x `` gives `q29--x`.",
+      "input": { "record": "spaced-29.md" },
+      "expect": { "result": { "anchors": [{ "name": "q29--x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-30",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q30 - x` gives `q30---x`.",
+      "input": { "record": "spaced-30.md" },
+      "expect": { "result": { "anchors": [{ "name": "q30---x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    },
+    {
+      "id": "spaced-31",
+      "description": "Punctuation other than `-` and `_` is removed, inside a word or between spaces (step 5): `## Q31 _ x` gives `q31-_-x`.",
+      "input": { "record": "spaced-31.md" },
+      "expect": { "result": { "anchors": [{ "name": "q31-_-x", "kind": "derived", "at": "/$sections/0" }], "tags": [] } }
+    }
+  ]
+}

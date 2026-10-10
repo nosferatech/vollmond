@@ -1,0 +1,27 @@
+{
+  "defaults": {
+    "spec": ["6.3"],
+    "profiles": ["read"],
+    "operation": "anchors",
+    "input": { "store": "29-repeat-via-punctuation" }
+  },
+  "cases": [
+    {
+      "id": "document",
+      "description": "`## Quux`, `## Quux!`, `## Quux?` and ``## `Quux` `` have one slug and give `quux` to `quux-3`, while `## Quux ?` among them has the slug `quux-` and takes no part in their numbering (steps 5 and 7).",
+      "input": { "record": "document.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "quux", "kind": "derived", "at": "/$sections/0" },
+            { "name": "quux-1", "kind": "derived", "at": "/$sections/1" },
+            { "name": "quux-2", "kind": "derived", "at": "/$sections/2" },
+            { "name": "quux-", "kind": "derived", "at": "/$sections/3" },
+            { "name": "quux-3", "kind": "derived", "at": "/$sections/4" }
+          ],
+          "tags": []
+        }
+      }
+    }
+  ]
+}
