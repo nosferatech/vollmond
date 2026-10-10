@@ -10,6 +10,12 @@ Decided for this plan (project owner, 2026-10-09):
   reporters already have accounts and access there. vampiredb and Belfry dogfood vmd for their tickets instead.
 - **int64**: a number within ±(2^53−1), a decimal string beyond it.
 
+Decided for this plan (project owner, 2026-10-10):
+
+- **One top-level directory per language**: TypeScript in `js/`, Python later in `python/`. `docs/` and `conformance/` stay at the
+  root and are shared by all languages. Each language's conformance runner lives next to its implementation; the suite's data
+  stays shared in `conformance/`.
+
 ---
 
 ## 1. Shape of the code
@@ -19,7 +25,7 @@ Decided for this plan (project owner, 2026-10-09):
 One top-level directory per language (project owner, 2026-10-10), the model being Apache Arrow's layout of `cpp/`, `python/` and
 `js/` around a shared specification and integration tests. The TypeScript implementation lives in `js/`; a Python implementation
 will go in `python/` later. `docs/` and `conformance/` stay at the root and are shared by all languages. Each language's
-conformance runner lives next to its implementation (decision C29), not in `conformance/`.
+conformance runner lives next to its implementation (decision log, phase I0), not in `conformance/`.
 
 The TypeScript workspace in `js/` is an npm workspace with two packages to start, split further only when a consumer needs a part
 without the rest:
