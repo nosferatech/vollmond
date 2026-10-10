@@ -464,6 +464,15 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
   classes after ext4's compat, ro_compat and incompat flags, ZFS feature flags and git's `extensions.*`, and how a store writes a
   minor version. The owner then confirmed that a client refuses an older major version as well as a newer one, rather than
   reading it with a warning, unless the client can be configured to work at that version's compatibility level.
+  On second thought, the owner then accepted the session's proposal for a client newer than the store. A validating backend
+  rejects newer features, and a reader is generally expected to read older versions, so a warning is enough, except where a
+  change in between alters the meaning of existing syntax (YAML's `no` against `"no"`, a new slug rule), where data valid under
+  both rules reads differently and validation cannot catch it. So a newer client reads an older store with a warning
+  (`format-version-older`) when no change in between alters meaning, and refuses it otherwise; each major version lists its
+  changes in meaning, and writes from a newer client stay at the store's level (§9.1). The safeguards proposed in #46 keep that
+  list true for vmd's own specification and implementations; vmd does not certify third-party serializers, and a user who
+  upgrades is responsible for their own data. The owner's caveat: if versioning becomes too heavy a burden, raise it and revisit
+  these choices.
 - **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
 - **G5. An empty many-reference is valid** (§8.5).
 - **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax
