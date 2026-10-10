@@ -1,0 +1,5 @@
+Minimal_Log.md: import 39 ms, read and decode 1 ms, first parse 295 ms
+Minimal_Log.md: import 20 ms, read and decode 0 ms, first parse 254 ms
+Minimal_Log.md: import 20 ms, read and decode 0 ms, first parse 256 ms
+Minimal_Log.md: import 19 ms, read and decode 0 ms, first parse 254 ms
+Minimal_Log.md: import 20 ms, read and decode 0 ms, first parse 254 ms

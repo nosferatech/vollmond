@@ -1,0 +1,32 @@
+node 24.21.0, icu 78.3, unicode 17.0
+yaml plain                  errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml !!str                  errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors [{"node":"Scalar","tag":"tag:yaml.org,2002:str"}]
+yaml non-specific tag !     errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors [{"node":"Scalar","tag":"!"}]
+yaml custom tag !foo        errors [] warnings ["TAG_RESOLVE_FAILED"] %YAML {"version":"1.2","explicit":false} tags/anchors [{"node":"Scalar","tag":"!foo"}]
+yaml anchor and alias       errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors [{"node":"Scalar","anchor":"x"},{"node":"Alias","source":"x"}]
+yaml undefined alias        errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors [{"node":"Alias","source":"nope"}]
+yaml two documents          errors ["MULTIPLE_DOCS"] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml %YAML 1.1              errors [] warnings [] %YAML {"version":"1.1","explicit":true} tags/anchors []
+yaml %YAML 1.3              errors [] warnings ["BAD_DIRECTIVE"] %YAML {"version":"1.2","explicit":true} tags/anchors []
+yaml raw U+FFFE             errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml byte order mark        errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml duplicate key          errors [] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml unclosed flow          errors ["BAD_INDENT"] warnings [] %YAML {"version":"1.2","explicit":false} tags/anchors []
+yaml range of n in "k: x😀y\nn: 0x1F" [11,15,16] (UTF-16 units give 11), source 0x1F, value 31
+yaml "\ud800" is accepted; isWellFormed() = false; root isMap: true
+jsonc "NaN"                      errors [["InvalidSymbol",0],["ValueExpected",3]] tree none
+jsonc "+1"                       errors [["InvalidSymbol",0],["ValueExpected",2]] tree none
+jsonc ".5"                       errors [["InvalidSymbol",0],["ValueExpected",2]] tree none
+jsonc "01"                       errors [["EndOfFileExpected",1]] tree number, 0 children
+jsonc "\"a\u0001\""              errors [["InvalidCharacter",0]] tree string, 0 children
+jsonc "﻿{}"                      errors [["InvalidSymbol",0]] tree object, 0 children
+jsonc "{\"a\":1,}"               errors [["PropertyNameExpected",7],["ValueExpected",7]] tree object, 1 children
+jsonc "{\"a\":1 \"b\":2, \"c\" 3}" errors [["CommaExpected",7],["ColonExpected",18]] tree object, 3 children
+jsonc "\"\\ud800\""              errors [] tree string, 0 children
+jsonc "{\"a\":1,\"a\":2}"        errors [] tree object, 2 children
+jsonc ""                         errors [["ValueExpected",0]] tree none
+jsonc offset of the second property 11 (UTF-16 units give 11)
+"ΑΣ".toLowerCase() = ας; per code point = ασ
+"İ".toLowerCase() has 2 code units (SpecialCasing's unconditional mapping)
+U+16EA0 (new in Unicode 17.0): \p{L} true, lower-cases to U+16EBB
+"\u0085".trim() keeps U+0085: true; \p{White_Space} matches it: true
