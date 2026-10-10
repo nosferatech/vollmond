@@ -1,0 +1,44 @@
+{
+  "defaults": {"spec": ["6.2"], "profiles": ["read"], "operation": "parse", "input": {"store": "blocks-and-tags"}},
+  "cases": [
+    {
+      "id": "two-anchors-at-paragraph-start",
+      "spec": ["6.2", "D"],
+      "description": "Two anchor elements at the start of one paragraph are a structural error, attached to the $body that holds the block (§6.2, decisions I1.1 and I1.6).",
+      "input": {"record": "two-anchors-paragraph.md"},
+      "expect": {"fails": true, "issues": [{"code": "anchor-element-invalid", "severity": "error", "path": "two-anchors-paragraph.md", "at": "/$body"}]}
+    },
+    {
+      "id": "two-anchors-at-list-item-start",
+      "spec": ["6.2", "D"],
+      "description": "The same at the start of a list item in a section, attached to that section's $body.",
+      "input": {"record": "two-anchors-list-item.md"},
+      "expect": {"fails": true, "issues": [{"code": "anchor-element-invalid", "severity": "error", "path": "two-anchors-list-item.md", "at": "/$sections/0/$body"}]}
+    },
+    {
+      "id": "list-placement",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "A block anchor may start a list item at any depth, so the nested item's <a id> is an anchor; one starting a list item's second paragraph is plain HTML, with anchor-element-ignored at the $body (§6.2, decision I1.7).",
+      "input": {"records": ["list-placement.md"]},
+      "expect": {"issues": [{"code": "anchor-element-ignored", "severity": "warning", "path": "list-placement.md", "at": "/$body"}]}
+    },
+    {
+      "id": "repeated-data-tags-kept",
+      "spec": ["6.2", "6.4"],
+      "description": "A tag repeated in a data $tags array is stored data and stays as written (§6.2, decision I1.5).",
+      "input": {"record": "repeated-tags.yaml"},
+      "expect": {"result": {"$tags": ["open", "review", "open"], "item": {"$anchor": "item", "$tags": ["a", "a"]}}}
+    },
+    {
+      "id": "repeated-data-tags-warned",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "Each array with a repeated tag gets a duplicate-tag warning at the node that holds it (§6.2, decision I1.5).",
+      "input": {"records": ["repeated-tags.yaml"]},
+      "expect": {"issues": [{"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": ""}, {"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": "/item"}]}
+    }
+  ]
+}

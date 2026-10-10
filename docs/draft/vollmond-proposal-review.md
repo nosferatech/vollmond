@@ -668,3 +668,41 @@ An independent review of this round, before merging, found further gaps, correct
 - The conformance README: an external `spec` entry is the specification's name, its version where it has one, and the section,
   as `"CommonMark 0.31.2 4.3"`. The case-format bullet attributes `pending` and external citations to these corrections, not to
   the owner's decisions.
+
+## Decisions on the open questions of Draft v0.5 (I1)
+
+Recorded 2026-10-10, and applied to Draft v0.6. Pull request #57 ended with thirteen open questions ("Open questions after this
+round"). The project owner accepted every recommendation on card I1, which covers them, as I1.1 to I1.13 in the order of that
+list. Section numbers refer to Draft v0.6.
+
+- **I1.1. Block anchor ranges** are specified with the Markdown parser (I1.4), as C11 left source-map spans to it. The two
+  block-anchor cases stay `pending`, so #7 stays open. An issue on a block anchor is attached to the `$body` that holds it (§6.2,
+  Appendix D).
+- **I1.2. Percent-encoding.** A canonical address percent-encodes, as UTF-8 with upper-case hex, exactly the characters RFC 3986
+  does not allow in a fragment, plus `/` and `%` (§7.1). For every such address to match the grammar, `step` now accepts every
+  fragment character except `/`, where Draft v0.5 allowed only letters, digits, `-`, `_`, `.`, `$` and escapes; that widening is
+  the agent's, so that the rule and the grammar agree.
+- **I1.3. An input member that the operation does not take** is an error in the case file, and the runner exits with 2 (suite
+  README). Other unknown members still make the case an `error`, so the suite has two treatments; the owner's answer names the
+  exit code, and it is applied as given.
+- **I1.4. Byte order marks.** A BOM in a JSON or YAML record is skipped, as in Markdown, and offsets count from the file's first
+  byte, the BOM included (C10). In the owner's words, "there should only be one at the beginning of the file, and it should
+  apply to the entire file". So only a BOM at byte 0 is one, in every format; a U+FEFF elsewhere is an ordinary character,
+  Default_Ignorable and so dropped from slugs, and in Markdown it does not restart front matter detection (§5.1, §5.3, §5.9).
+- **I1.5. A tag repeated in a data `$tags` array** gives `duplicate-tag`, and the value is kept as written. `class` tokens are still
+  dropped (H3.16), since they are parsed rather than stored (§6.2, Appendix D).
+- **I1.6. Two `<a id>` at the start of one block** are a structural `anchor-element-invalid`, as H4.6 is for headings (§6.2).
+- **I1.7. Where a block anchor goes.** At the start of any list item, at any depth, and of a paragraph only at the top level. An
+  `<a id>` starting a list item's second paragraph gives `anchor-element-ignored` (§6.2, Appendix D).
+- **I1.8. A many-reference to a record that does not exist** is `ref-dangling`, since the record part of a reference is always
+  singular. G5's empty result stays for a record that exists with nothing matching (§8.2, §8.5, Appendix D).
+- **I1.9. A reference into a record with a structural error** gives a new warning, `ref-target-unreadable`, not `ref-dangling`
+  (§8.5, Appendix D, suite README).
+- **I1.10. A `%YAML` line in front matter** is a `syntax-error`, and §4.4 drops its front-matter case (§4.4, Appendix D).
+- **I1.11. An `x-vmd-ref` without `targets`** allows any node in the store (§9.3).
+- **I1.12. int64** accepts the string `"-0"`, written without the sign, and the number `1.0`, as JSON Schema's `integer` accepts
+  it (§4.3).
+- **I1.13. Leap seconds.** A date-time accepts `:60` anywhere, with no leap-second table (§4.3). The card's reason, "as JSON Schema
+  validators commonly do", was checked and does not hold: Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC, and Python's
+  `jsonschema` checks `date-time` with `rfc3339-validator`, which rejects `:60`. §4.3 states the measured behavior and notes
+  that neither library's check can be used unchanged. The decision stands as the owner's; its reason is corrected.
