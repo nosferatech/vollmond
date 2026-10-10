@@ -1,0 +1,418 @@
+{
+  "defaults": { "spec": ["7.3"], "profiles": ["read"], "operation": "resolve", "input": { "store": "paths" } },
+  "cases": [
+    {
+      "id": "field-in-field",
+      "description": "A semantic path steps from a front-matter field into a member of its object.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/design.md#config/retries", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/config/retries", "address": "#config/retries" }] }
+    },
+    {
+      "id": "array-index",
+      "description": "In an array that is not a keyed list, a step is the item at that decimal index.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/design.md#links/1", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/links/1", "address": "#links/1" }] }
+    },
+    {
+      "id": "array-index-exact",
+      "description": "The exact path of the same item has the semantic path from the root as its canonical address.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "notes/design.md#/links/1", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/links/1", "address": "#links/1" }] }
+    },
+    {
+      "id": "object-exact",
+      "description": "The exact path of a front-matter object has the field's name as its canonical address.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "notes/design.md#/config", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/config", "address": "#config" }] }
+    },
+    {
+      "id": "explicit-anchor-at-depth",
+      "description": "The first step matches an explicit anchor on a heading two levels down.",
+      "spec": ["6.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#past", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0", "address": "#past" }] }
+    },
+    {
+      "id": "derived-anchor-of-anchored-section",
+      "description": "The derived anchor of a heading that also has an explicit anchor reaches it, and the canonical address is the explicit anchor.",
+      "spec": ["6.3", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#history", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0", "address": "#past" }] }
+    },
+    {
+      "id": "section-key-is-its-anchor",
+      "description": "A section with an explicit anchor has the anchor as its key (§5.5), so the step from its parent is past, not history.",
+      "spec": ["5.5", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#background/past", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0", "address": "#past" }] }
+    },
+    {
+      "id": "below-explicit-anchor",
+      "description": "A section below an anchored one is addressed from the nearest ancestor's explicit anchor.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/design.md#past/sources", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0/$sections/0", "address": "#past/sources" }]
+      }
+    },
+    {
+      "id": "derived-anchor-at-depth",
+      "description": "The derived anchor of a level-4 heading reaches it from the first step; its canonical address starts at the nearest ancestor's explicit anchor.",
+      "spec": ["6.3", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#sources", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0/$sections/0", "address": "#past/sources" }]
+      }
+    },
+    {
+      "id": "long-path-to-prose",
+      "description": "A semantic path through three section keys and $body has the shorter path from the explicit anchor as its canonical address.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/design.md#background/past/sources/$body", "as": "singular" },
+      "expect": {
+        "result": [
+          { "path": "notes/design.md", "at": "/$sections/0/$sections/0/$sections/0/$body", "address": "#past/sources/$body" }
+        ]
+      }
+    },
+    {
+      "id": "exact-path-to-prose",
+      "description": "The exact path of the same prose has the same canonical address.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "notes/design.md#/$sections/0/$sections/0/$sections/0/$body", "as": "singular" },
+      "expect": {
+        "result": [
+          { "path": "notes/design.md", "at": "/$sections/0/$sections/0/$sections/0/$body", "address": "#past/sources/$body" }
+        ]
+      }
+    },
+    {
+      "id": "derived-anchor-below-explicit",
+      "description": "A derived anchor reaches a section whose parent has an explicit anchor, and the canonical address starts at that anchor.",
+      "spec": ["6.3", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#consequences", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "notes/design.md", "at": "/$sections/1/$sections/0", "address": "#choice/consequences" }]
+      }
+    },
+    {
+      "id": "section-exact",
+      "description": "The exact path of a section without an explicit anchor in its ancestry has its key from the root as its canonical address.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "notes/design.md#/$sections/0", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0", "address": "#background" }] }
+    },
+    {
+      "id": "data-block-field",
+      "description": "A field from a section's data block is a step below the section.",
+      "spec": ["5.3", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#choice/votes", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/1/votes", "address": "#choice/votes" }] }
+    },
+    {
+      "id": "root-title",
+      "description": "$title is a step at the root.",
+      "spec": ["5.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#$title", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$title", "address": "#$title" }] }
+    },
+    {
+      "id": "root-body",
+      "description": "$body is a step at the root.",
+      "spec": ["5.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#$body", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$body", "address": "#$body" }] }
+    },
+    {
+      "id": "root-sections",
+      "description": "$sections is a step at the root, and reaches the array of sections.",
+      "spec": ["5.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#$sections", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections", "address": "#$sections" }] }
+    },
+    {
+      "id": "section-title",
+      "description": "$title is a step on a section reached by its explicit anchor.",
+      "spec": ["5.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#choice/$title", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/1/$title", "address": "#choice/$title" }] }
+    },
+    {
+      "id": "section-anchor-member",
+      "description": "$anchor is a step on a section, and reaches the stored anchor name.",
+      "spec": ["5.2", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#choice/$anchor", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/1/$anchor", "address": "#choice/$anchor" }] }
+    },
+    {
+      "id": "section-tags-item",
+      "description": "$tags is a step, and its array is not a keyed list, so the next step is an index.",
+      "spec": ["5.2", "6.4", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#choice/$tags/0", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/1/$tags/0", "address": "#choice/$tags/0" }] }
+    },
+    {
+      "id": "sections-by-key",
+      "description": "$sections is a keyed list by definition (§5.6), so the step after it is a section key.",
+      "spec": ["5.6", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#$sections/background", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0", "address": "#background" }] }
+    },
+    {
+      "id": "sections-by-key-twice",
+      "description": "Two $sections steps, each followed by a section key, reach a section whose key is its explicit anchor.",
+      "spec": ["5.5", "5.6", "7.3", "7.5"],
+      "input": { "address": "notes/design.md#$sections/background/$sections/past", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0/$sections/0", "address": "#past" }] }
+    },
+    {
+      "id": "selector-one-match",
+      "description": "A selector that matches one node gives a list of that one target.",
+      "spec": ["7.4", "7.5"],
+      "input": { "address": "notes/design.md#background", "as": "selector" },
+      "expect": { "result": [{ "path": "notes/design.md", "at": "/$sections/0", "address": "#background" }] }
+    },
+    {
+      "id": "selector-no-match",
+      "description": "A selector that matches nothing gives an empty result, not a failure.",
+      "spec": ["7.4"],
+      "input": { "address": "notes/design.md#nothing", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-key-not-slug",
+      "description": "A section's key is its explicit anchor, so the slug of its title is not a step from its parent: no match.",
+      "spec": ["5.5", "7.3", "7.4"],
+      "input": { "address": "notes/design.md#background/history", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-anchor-not-first-step",
+      "description": "Only the first step may match a record-wide anchor (§7.3), so an anchor after another step matches nothing.",
+      "spec": ["7.3", "7.4"],
+      "input": { "address": "notes/design.md#background/choice", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-section-field-not-at-root",
+      "description": "A field of a section is not a root member, so it is no first step: no match.",
+      "spec": ["7.3", "7.4"],
+      "input": { "address": "notes/design.md#votes", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-tag-is-not-an-address",
+      "description": "A tag never resolves an address (§6.4), so the section's tag adopted matches nothing.",
+      "spec": ["6.4", "7.4"],
+      "input": { "address": "notes/design.md#adopted", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-sections-not-by-index",
+      "description": "$sections is a keyed list, where a step matches an item by key and never by index (§5.6, §7.3), and no section has the key 0.",
+      "spec": ["5.6", "7.3", "7.4"],
+      "input": { "address": "notes/design.md#$sections/0", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-index-out-of-range",
+      "description": "An index beyond the end of an array matches nothing.",
+      "spec": ["7.3", "7.4"],
+      "input": { "address": "notes/design.md#links/5", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-exact-no-match",
+      "description": "An exact path to a member that does not exist matches nothing.",
+      "spec": ["7.2", "7.4"],
+      "input": { "address": "notes/design.md#/missing", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "selector-pointer-to-empty-name",
+      "description": "#/ is not the root but the member whose name is the empty string (§7.1), which this record does not have.",
+      "spec": ["7.1", "7.2", "7.4"],
+      "input": { "address": "notes/design.md#/", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "shadowed-field-exact",
+      "description": "The root field notes and the deep heading Notes share a name, so #notes is ambiguous (§7.3); the field has no derived anchor, so its canonical address is its exact path (§7.5 rule 3).",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/shadow.md#/notes", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/shadow.md", "at": "/notes", "address": "#/notes" }] }
+    },
+    {
+      "id": "shadowed-section-by-path",
+      "description": "The deep section is reached by a path from the root, which is its canonical address, as it is not ambiguous.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "notes/shadow.md#background/notes", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/shadow.md", "at": "/$sections/0/$sections/0", "address": "#background/notes" }] }
+    },
+    {
+      "id": "yaml-object-anchor",
+      "description": "An object's $anchor in YAML is a record-wide anchor.",
+      "spec": ["6.2", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#ada", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/owner", "address": "#ada" }] }
+    },
+    {
+      "id": "yaml-below-object-anchor",
+      "description": "A node below an anchored object is addressed from that anchor.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "data/run.yaml#owner/roles/1", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/owner/roles/1", "address": "#ada/roles/1" }] }
+    },
+    {
+      "id": "yaml-array-item-anchor-exact",
+      "description": "An item of a plain array reached by its exact path is addressed from its own anchor.",
+      "spec": ["7.2", "7.5"],
+      "input": { "address": "data/run.yaml#/benchmarks/0/p99_us", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/benchmarks/0/p99_us", "address": "#append/p99_us" }] }
+    },
+    {
+      "id": "yaml-array-item-by-index",
+      "description": "An item of an array without a schema is reached by its index, and has no anchor, so its path starts at the root.",
+      "spec": ["5.6", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#benchmarks/1/name", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/benchmarks/1/name", "address": "#benchmarks/1/name" }] }
+    },
+    {
+      "id": "yaml-section-by-key",
+      "description": "A YAML section is reached by its key, the slug of its title.",
+      "spec": ["5.5", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#setup/$tags/0", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/$sections/0/$tags/0", "address": "#setup/$tags/0" }] }
+    },
+    {
+      "id": "yaml-section-key-is-anchor",
+      "description": "A YAML section with $anchor has it as its key, so the path to its child starts there.",
+      "spec": ["5.5", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#outcome/details/$body", "as": "singular" },
+      "expect": {
+        "result": [{ "path": "data/run.yaml", "at": "/$sections/1/$sections/0/$body", "address": "#outcome/details/$body" }]
+      }
+    },
+    {
+      "id": "yaml-anchor-in-section-field",
+      "description": "An anchored object inside a section's field is reached by its anchor from the first step.",
+      "spec": ["6.2", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#outcome/summary/result", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/$sections/1/summary/result", "address": "#verdict/result" }] }
+    },
+    {
+      "id": "yaml-sections-by-key",
+      "description": "In YAML too, the step after $sections is a section key.",
+      "spec": ["5.6", "7.3", "7.5"],
+      "input": { "address": "data/run.yaml#$sections/outcome/$sections/details", "as": "singular" },
+      "expect": { "result": [{ "path": "data/run.yaml", "at": "/$sections/1/$sections/0", "address": "#outcome/details" }] }
+    },
+    {
+      "id": "yaml-selector-no-derived-anchor",
+      "description": "YAML sections have no derived anchors (§6.3), so the title of a nested section is no first step: no match.",
+      "spec": ["6.3", "7.3", "7.4"],
+      "input": { "address": "data/run.yaml#details", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "yaml-selector-title-slug-not-key",
+      "description": "The section titled Results has the key outcome, so results matches nothing.",
+      "spec": ["5.5", "6.3", "7.4"],
+      "input": { "address": "data/run.yaml#results", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "yaml-selector-list-without-schema",
+      "description": "Without a schema an array is not a keyed list (§5.6), and append-4k is not a decimal index: no match.",
+      "spec": ["5.6", "7.3", "7.4"],
+      "input": { "address": "data/run.yaml#benchmarks/append-4k", "as": "selector" },
+      "expect": { "result": [] }
+    },
+    {
+      "id": "json-member-and-anchor-same-node",
+      "description": "The first step matches the root member contact and the anchor contact, which name the same node, so it is not ambiguous.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "data/person.json#contact", "as": "singular" },
+      "expect": { "result": [{ "path": "data/person.json", "at": "/contact", "address": "#contact" }] }
+    },
+    {
+      "id": "json-anchor-in-array",
+      "description": "An anchored object in an array is addressed from its anchor.",
+      "spec": ["6.2", "7.2", "7.5"],
+      "input": { "address": "data/person.json#/projects/0/title", "as": "singular" },
+      "expect": { "result": [{ "path": "data/person.json", "at": "/projects/0/title", "address": "#cobol/title" }] }
+    },
+    {
+      "id": "json-unanchored-array-item",
+      "description": "An item without an anchor is addressed by its index from the root.",
+      "spec": ["7.3", "7.5"],
+      "input": { "address": "data/person.json#projects/1/title", "as": "singular" },
+      "expect": { "result": [{ "path": "data/person.json", "at": "/projects/1/title", "address": "#projects/1/title" }] }
+    },
+    {
+      "id": "json-tags-member",
+      "description": "$tags inside a field's value is a member of its object, and a step like any other.",
+      "spec": ["5.4", "7.3", "7.5"],
+      "input": { "address": "data/person.json#contact/$tags/0", "as": "singular" },
+      "expect": { "result": [{ "path": "data/person.json", "at": "/contact/$tags/0", "address": "#contact/$tags/0" }] }
+    },
+    {
+      "id": "meta-markdown",
+      "description": "Each section's key is its explicit anchor or the slug of its title, and its canonical address starts at the nearest explicit anchor or at the root.",
+      "spec": ["5.5", "5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/design.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "background", "@address": "#background" },
+          "/$sections/0/$sections/0": { "@key": "past", "@address": "#past" },
+          "/$sections/0/$sections/0/$sections/0": { "@key": "sources", "@address": "#past/sources" },
+          "/$sections/1": { "@key": "choice", "@address": "#choice" },
+          "/$sections/1/$sections/0": { "@key": "consequences", "@address": "#choice/consequences" }
+        }
+      }
+    },
+    {
+      "id": "meta-shadowed-name",
+      "description": "A section that shares its key with a root field elsewhere in the record keeps the path from the root as its canonical address.",
+      "spec": ["5.5", "5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "notes/shadow.md" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "background", "@address": "#background" },
+          "/$sections/0/$sections/0": { "@key": "notes", "@address": "#background/notes" }
+        }
+      }
+    },
+    {
+      "id": "meta-yaml",
+      "description": "A YAML section's key is its $anchor or the slug of its title, as in Markdown.",
+      "spec": ["5.5", "5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "data/run.yaml" },
+      "expect": {
+        "result": {
+          "": { "@key": null, "@address": "" },
+          "/$sections/0": { "@key": "setup", "@address": "#setup" },
+          "/$sections/1": { "@key": "outcome", "@address": "#outcome" },
+          "/$sections/1/$sections/0": { "@key": "details", "@address": "#outcome/details" }
+        }
+      }
+    },
+    {
+      "id": "meta-no-sections",
+      "description": "A record without sections has only its root, which has no key.",
+      "spec": ["5.5", "5.10", "7.5"],
+      "operation": "meta",
+      "input": { "record": "data/person.json" },
+      "expect": { "result": { "": { "@key": null, "@address": "" } } }
+    }
+  ]
+}

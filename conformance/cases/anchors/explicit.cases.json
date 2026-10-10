@@ -1,0 +1,220 @@
+{
+  "defaults": { "spec": ["6.2"], "input": { "store": "explicit" } },
+  "cases": [
+    {
+      "id": "markdown-headings",
+      "description": "The title heading's anchor and tags are the root's; each heading has an explicit anchor from its <a> element, wherever it sits in the heading line, and a derived anchor; an element with class only gives tags; an explicit and a derived anchor of the same name on one node are both listed.",
+      "spec": ["5.3", "6.2", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "release.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "release", "kind": "explicit", "at": "" },
+            { "name": "release-checklist", "kind": "derived", "at": "" },
+            { "name": "prep", "kind": "explicit", "at": "/$sections/0" },
+            { "name": "prepare", "kind": "derived", "at": "/$sections/0" },
+            { "name": "build", "kind": "derived", "at": "/$sections/1" },
+            { "name": "verify", "kind": "derived", "at": "/$sections/1/$sections/0" },
+            { "name": "early", "kind": "explicit", "at": "/$sections/2" },
+            { "name": "early-access", "kind": "derived", "at": "/$sections/2" },
+            { "name": "ship", "kind": "explicit", "at": "/$sections/3" },
+            { "name": "ship", "kind": "derived", "at": "/$sections/3" }
+          ],
+          "tags": [
+            { "tag": "checklist", "at": "" },
+            { "tag": "ops", "at": "" },
+            { "tag": "ops", "at": "/$sections/0" },
+            { "tag": "manual", "at": "/$sections/1/$sections/0" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yaml-objects-and-sections",
+      "description": "In YAML, $anchor and $tags label the root, field objects, array items and sections; YAML has no headings, so no node has a derived anchor (§6.3).",
+      "spec": ["5.4", "6.2", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "inventory.yaml" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "Shelf_A-1", "kind": "explicit", "at": "/shelf" },
+            { "name": "milk", "kind": "explicit", "at": "/shelf/items/0" },
+            { "name": "notes", "kind": "explicit", "at": "/$sections/0" }
+          ],
+          "tags": [
+            { "tag": "stock", "at": "" },
+            { "tag": "front", "at": "/shelf" },
+            { "tag": "cold", "at": "/shelf" },
+            { "tag": "fragile", "at": "/shelf/items/1" },
+            { "tag": "review", "at": "/$sections/0" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "json-objects",
+      "description": "In JSON, $anchor and $tags label the root and any object, including one inside nested arrays.",
+      "spec": ["5.4", "6.2", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "person.json" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "grace", "kind": "explicit", "at": "" },
+            { "name": "contact", "kind": "explicit", "at": "/contact" },
+            { "name": "nested", "kind": "explicit", "at": "/projects/0/0" }
+          ],
+          "tags": [{ "tag": "private", "at": "/contact" }]
+        }
+      }
+    },
+    {
+      "id": "front-matter-object",
+      "description": "An object in Markdown front matter carries $anchor and $tags as a YAML object does, beside the title heading's derived anchor.",
+      "spec": ["5.3", "5.4", "6.2", "6.3"],
+      "profiles": ["read"],
+      "operation": "anchors",
+      "input": { "record": "desk.md" },
+      "expect": {
+        "result": {
+          "anchors": [
+            { "name": "desk", "kind": "explicit", "at": "/contact" },
+            { "name": "help-desk", "kind": "derived", "at": "" }
+          ],
+          "tags": [{ "tag": "support", "at": "/contact" }]
+        }
+      }
+    },
+    {
+      "id": "valid-names",
+      "description": "Anchor and tag names that match [A-Za-z][A-Za-z0-9_-]*, in upper and lower case and with digits, _ and -, raise no issue.",
+      "spec": ["6.2"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["release.md", "inventory.yaml", "person.json", "desk.md"] },
+      "expect": {}
+    },
+    {
+      "id": "invalid-names-yaml",
+      "description": "An anchor beginning with a digit and a tag beginning with - are validation errors on the node they label; the valid names beside them raise none.",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["names.yaml"] },
+      "expect": {
+        "issues": [
+          { "code": "anchor-invalid", "severity": "error", "path": "names.yaml", "at": "/first" },
+          { "code": "anchor-invalid", "severity": "error", "path": "names.yaml", "at": "/second" }
+        ]
+      }
+    },
+    {
+      "id": "invalid-names-markdown",
+      "description": "An id beginning with a digit and a class beginning with _ are validation errors on their section; the valid names of the third heading raise none.",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["names.md"] },
+      "expect": {
+        "issues": [
+          { "code": "anchor-invalid", "severity": "error", "path": "names.md", "at": "/$sections/0" },
+          { "code": "anchor-invalid", "severity": "error", "path": "names.md", "at": "/$sections/1" }
+        ]
+      }
+    },
+    {
+      "id": "heading-element-with-attribute",
+      "description": "An anchor element with an attribute besides id and class is a structural error on its section.",
+      "spec": ["6.2", "9.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/heading-attribute.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "anchor-element-invalid", "severity": "error", "path": "invalid/heading-attribute.md", "at": "/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "heading-element-with-content",
+      "description": "An anchor element with content is a structural error on its section.",
+      "spec": ["6.2", "9.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/heading-content.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "anchor-element-invalid", "severity": "error", "path": "invalid/heading-content.md", "at": "/$sections/0" }
+        ]
+      }
+    },
+    {
+      "id": "block-element-with-attribute",
+      "description": "An anchor element at the start of a paragraph with another attribute is a structural error on the $body that holds it.",
+      "spec": ["6.2", "9.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/block-attribute.md" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "anchor-element-invalid", "severity": "error", "path": "invalid/block-attribute.md", "at": "/$body" }
+        ]
+      }
+    },
+    {
+      "id": "tags-not-an-array",
+      "description": "$tags on an object inside a field's value must be an array of strings; a string is a structural error on the member.",
+      "spec": ["5.2", "6.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/tags-not-array.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "reserved-member-type", "severity": "error", "path": "invalid/tags-not-array.yaml", "at": "/shelf/$tags" }
+        ]
+      }
+    },
+    {
+      "id": "tag-not-a-string",
+      "description": "A number among the root's $tags is a structural error on the member.",
+      "spec": ["5.2", "6.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/tag-not-string.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          { "code": "reserved-member-type", "severity": "error", "path": "invalid/tag-not-string.yaml", "at": "/$tags" }
+        ]
+      }
+    },
+    {
+      "id": "anchor-not-a-string",
+      "description": "$anchor on an object inside a field's value must be a string; a number is a structural error on the member.",
+      "spec": ["5.2", "6.2", "D"],
+      "profiles": ["read"],
+      "operation": "parse",
+      "input": { "record": "invalid/anchor-not-string.json" },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "reserved-member-type",
+            "severity": "error",
+            "path": "invalid/anchor-not-string.json",
+            "at": "/contact/$anchor"
+          }
+        ]
+      }
+    }
+  ]
+}

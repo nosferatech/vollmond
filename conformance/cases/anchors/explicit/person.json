@@ -1,0 +1,6 @@
+{
+  "$anchor": "grace",
+  "name": "Grace",
+  "contact": { "$anchor": "contact", "$tags": ["private"], "email": "grace@example.com" },
+  "projects": [[{ "$anchor": "nested", "title": "COBOL" }]]
+}

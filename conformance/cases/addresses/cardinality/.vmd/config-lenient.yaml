@@ -1,0 +1,6 @@
+vmd: 1
+uniqueness: lenient
+collections:
+  journal:
+    match: ["journal/*.md"]
+    schema: journal.schema.yaml

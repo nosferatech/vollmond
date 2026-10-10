@@ -1,0 +1,25 @@
+$title: Run R0007
+host: perf-box
+owner:
+  $anchor: ada
+  name: Ada
+  roles: [author, reviewer]
+benchmarks:
+  - name: append-4k
+    $anchor: append
+    $tags: [hot]
+    p99_us: 120
+  - name: read-4k
+    p99_us: 80
+$sections:
+  - $title: Setup
+    $tags: [env]
+    $body: Two machines on one switch.
+  - $title: Results
+    $anchor: outcome
+    summary:
+      $anchor: verdict
+      result: pass
+    $sections:
+      - $title: Details
+        $body: Within budget.

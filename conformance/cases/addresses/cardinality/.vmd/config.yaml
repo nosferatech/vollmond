@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  journal:
+    match: ["journal/*.md"]
+    schema: journal.schema.yaml
