@@ -1,9 +1,9 @@
 # Conformance suite
 
 Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
-the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1), as the
+the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1, G1 to G9), as the
 [decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them. Until the format is approved, the
-suite holds only the four sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
+suite holds only the five sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
 runner (#19) follow the format once it is approved.
 
 The suite checks that an implementation of vmd behaves as [the proposal](../docs/draft/vollmond-proposal.md) specifies
@@ -705,11 +705,15 @@ Alternatives that lost:
   derived anchor that are the same node, which must not be ambiguous (§7.3). Another reaches the second section by its derived
   anchor, `what-was-done`, which the space before its `<a>` element does not change (§6.3, decision C13).
 - **`cases/serializer/large-numbers.cases.json`** round-trips 2^60, an integer-valued double beyond ±(2^53−1), through each
-  format, and `1e23`, which is not an integer by form. The writer must put both in exponent form, so that neither is read back as
-  an integer that a double cannot hold (§4.2). These cases need the Write profile and wait for the serializer of I4.
+  format, and the nearest double of `1e23`. A round trip checks that the written bytes parse back to the same value, not
+  an error, which is what writing such numbers as integers would give (§4.2, decision G1). It does not check which form the
+  writer chose; that is left to the `serialize` cases of I4, which compare bytes. These cases need the Write profile and wait for
+  the serializer of I4.
+- **`cases/values/numbers.cases.json`** parses five YAML records with the Read profile (decision G1). `1152921504606847000`,
+  `-9007199254740993` and the hexadecimal `0x20000000000001` are integers by form that a double cannot hold, so each fails with
+  `number-not-representable`, while `1e23` and `9007199254740993.0` are not integers by form and give their nearest doubles.
 
-None of them expects an issue. The proposal's Appendix D now defines the codes, and the fixture tasks write the first cases that
-expect one.
+Only the last sample expects issues, with the codes of the proposal's Appendix D.
 
 ---
 

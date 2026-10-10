@@ -441,6 +441,9 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
 - **G1. Integers by form.** A number is an integer for the check of §4.2 when it is written as one, with no fraction and no
   exponent, so `1e23` means its nearest double. vmd's writer emits integer-valued doubles beyond ±(2^53−1) in exponent form, so
   its own output always parses back. The round-trip property tests include such values, and the suite has example cases for 2^60.
+  This is an application of G1, not a new decision. An integer by form is any integer literal of its format, so a YAML
+  `+9007199254740993` or `0x20000000000001` that a double cannot hold is an error as a JSON one is, since precision lost while
+  parsing must be flagged (C4). The canonical writer uses exponent form exactly when |x| ≥ 2^53 or 0 < |x| < 10^-6 (§4.2).
 - **G2. What a backend is.** In the owner's definition, the backend is everything that runs regardless of the client: storage,
   server-side scripts, commit protocols, merge queues, CI runners, Lambda calls. Client-side hooks and scripts are not the backend.
   A backend that validates before accepting a write (gate mode) is a validating backend. GitHub plus a Lambda function that
@@ -458,7 +461,8 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
   uses, not from the declared number (`feature-unsupported`), and a client refuses a major version it does not support (§9.1).
   Left to #46, as proposals with their precedents (§20), are a store setting for the writers' compatibility level, feature
   classes after ext4's compat, ro_compat and incompat flags, ZFS feature flags and git's `extensions.*`, and how a store writes a
-  minor version.
+  minor version. Refusing an older major version that the client does not support, rather than reading it with a warning, is
+  pending the owner's confirmation; the draft refuses it for now.
 - **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
 - **G5. An empty many-reference is valid** (§8.5).
 - **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax
@@ -467,7 +471,8 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
 - **G7. Strict read** refuses records with structural errors or schema violations only (§9.5).
 - **G8. YAML numbers.** The writer uses exponent forms that a YAML 1.1 reader also reads as numbers, with a dot in the mantissa
   and a sign on the exponent (`1.0e+20`), and `vmd check` warns about other number forms that YAML 1.1 readers misread (§4.2,
-  §4.4).
+  §4.4). As an extension of F3, `yaml_quoting: minimal` turns off this warning, `yaml-ambiguous-number`, as it turns off the
+  string warning.
 - **G9. Computed fields.** In the owner's framing, metadata are computed fields, not part of the data. Like `rowid` in some SQL
   databases, they are not in `SELECT *` and cannot be written, but they can be selected explicitly. A plain read returns the
   stored data only, so a read and write round trip is exact. A caller that needs computed fields, such as a validating reader or a

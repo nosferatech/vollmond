@@ -7,25 +7,25 @@
   "cases": [
     {
       "id": "two-to-the-60-yaml",
-      "description": "2^60 is a double beyond 2^53; the writer puts it in exponent form, so it is not read back as an integer a double cannot hold.",
+      "description": "2^60, a double beyond 2^53, written as YAML parses back to the same double rather than to an error.",
       "input": { "value": { "n": 1152921504606846976 }, "format": "yaml" },
       "expect": {}
     },
     {
       "id": "two-to-the-60-json",
-      "description": "The same value written as JSON parses back to the same double.",
+      "description": "2^60 written as JSON parses back to the same double rather than to an error.",
       "input": { "value": { "n": 1152921504606846976 }, "format": "json" },
       "expect": {}
     },
     {
       "id": "two-to-the-60-md",
-      "description": "The same value as a front-matter field of a Markdown record parses back to the same double.",
+      "description": "2^60 as a front-matter field of a Markdown record parses back to the same double rather than to an error.",
       "input": { "value": { "n": 1152921504606846976 }, "format": "md" },
       "expect": {}
     },
     {
-      "id": "exponent-form-1e23-yaml",
-      "description": "1e23 is not an integer by form, so it means its nearest double, which the writer writes back in exponent form.",
+      "id": "double-of-1e23-yaml",
+      "description": "The nearest double of 1e23, an integer-valued double beyond 2^53 that is not exactly 10^23, round-trips through YAML.",
       "input": { "value": { "n": 1e23 }, "format": "yaml" },
       "expect": {}
     }

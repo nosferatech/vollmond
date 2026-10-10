@@ -1,0 +1,49 @@
+{
+  "defaults": {
+    "spec": ["4.2"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "numbers" }
+  },
+  "cases": [
+    {
+      "id": "integer-rounded-by-a-double",
+      "description": "1152921504606847000 is an integer by form, and its double is 2^60, which differs from it, so the record fails parse.",
+      "input": { "record": "integer-rounded.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "integer-rounded.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "negative-integer-beyond-2-53",
+      "description": "-9007199254740993 is an integer by form that a double cannot hold.",
+      "input": { "record": "negative-integer.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "negative-integer.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "yaml-hex-integer-beyond-2-53",
+      "description": "A YAML hexadecimal literal is an integer by form too, and 0x20000000000001 (2^53 + 1) is one a double cannot hold.",
+      "input": { "record": "hex-integer.yaml" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "number-not-representable", "severity": "error", "path": "hex-integer.yaml", "at": "/n" }]
+      }
+    },
+    {
+      "id": "exponent-form-is-not-an-integer",
+      "description": "1e23 has an exponent, so it is not an integer by form and means its nearest double, with no issue.",
+      "input": { "record": "exponent.yaml" },
+      "expect": { "result": { "n": 1e23 } }
+    },
+    {
+      "id": "fraction-is-not-an-integer",
+      "description": "9007199254740993.0 has a fraction, so it is not an integer by form and means its nearest double, 9007199254740992.",
+      "input": { "record": "integer-with-fraction.yaml" },
+      "expect": { "result": { "n": 9007199254740992 } }
+    }
+  ]
+}
