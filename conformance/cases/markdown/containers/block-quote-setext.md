@@ -1,0 +1,6 @@
+# Record
+
+Root text.
+
+> Quoted
+> ---

@@ -3,7 +3,7 @@
 Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
 the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1, G1 to G9), as the
 [decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them. Until the format is approved, the
-suite holds only the five sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
+suite holds the five sample case files listed under [Samples](#samples) and the Markdown fixtures of #6. The fixture tasks (#5 to #8) and the TypeScript
 runner (#19) follow the format once it is approved.
 
 The suite checks that an implementation of vmd behaves as [the proposal](../docs/draft/vollmond-proposal.md) specifies
@@ -698,7 +698,7 @@ Alternatives that lost:
   numbers as doubles, types, missing members, Unicode normalization and unordered multisets.
 - **`cases/markdown/line-endings.cases.json`** shows byte-exact inputs. The example of §5.3, once with LF and a final newline
   and once with CRLF and none, gives the value view §5.3 shows, which holds no `$key` (decision F9). The value view reads CRLF as
-  `\n` (§5.1, decision C9); the sample's bodies are single lines, so multi-line bodies are left to the Markdown fixtures (#6). The
+  `\n` (§5.1, decision C9); the sample's bodies are single lines, so multi-line bodies are in `crlf.cases.json` (#6). The
   store sits next to its case file, with its versions manifest.
 - **`cases/addresses/appendix-a.cases.json`** applies `resolve` to the ticket of Appendix A, with the results of its address
   table. It covers every row of the table but the last, which is a VQL query. One case is a section reached by a key and a

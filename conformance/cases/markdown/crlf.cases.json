@@ -1,0 +1,48 @@
+{
+  "defaults": {
+    "spec": ["5.1", "5.3"],
+    "profiles": ["read"],
+    "operation": "parse",
+    "input": { "store": "crlf" }
+  },
+  "cases": [
+    {
+      "id": "multi-line-bodies",
+      "description": "With CRLF line endings, every line break in a multi-line $body, a front-matter block scalar and a fenced block reads as \\n, and the trailing blank lines are removed as with LF.",
+      "input": { "record": "multi-line.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "status": "Open",
+          "notes": "first\nsecond\n",
+          "$body": "Line one  \nline two.\n\n\nSecond paragraph.",
+          "$sections": [{ "$title": "Part", "owner": "ana", "$body": "```sh\necho hi\n```" }]
+        }
+      }
+    },
+    {
+      "id": "mixed-line-endings",
+      "description": "A file that mixes CRLF and LF reads every line break as \\n.",
+      "input": { "record": "mixed.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text.\nMore text." }]
+        }
+      }
+    },
+    {
+      "id": "setext-headings",
+      "description": "Setext underlines followed by CRLF make headings as with LF (CommonMark 0.31.2, 2.1 and 4.3), and the last body ends without a final newline.",
+      "input": { "record": "setext.md" },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [{ "$title": "Part", "$body": "Part text." }]
+        }
+      }
+    }
+  ]
+}
