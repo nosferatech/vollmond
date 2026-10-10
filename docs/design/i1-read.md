@@ -411,13 +411,16 @@ step 5 there and kept in another, so one heading gets two anchors.
 runtime.
 
 - `js/packages/core/scripts/generate-unicode.mjs` downloads `DerivedCoreProperties.txt`, `PropList.txt`,
-  `DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from `https://www.unicode.org/Public/17.0.0/ucd/`,
-  checks SHA-256 hashes written in the script, and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is
-  run by hand, never in CI. Size: some tens of kilobytes (U: an estimate).
-- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The normalization stability
-  policy keeps the normal form of text in assigned characters unchanged in later versions (D: UAX #15, "Versioning and Stability";
-  U: the wording is to be quoted when the generator lands), so a runtime at 17.0 or later normalizes every 17.0 character as 17.0
-  does. A runtime older than 17.0 may normalize characters added since its version differently.
+  `extracted/DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from
+  `https://www.unicode.org/Public/17.0.0/ucd/` (or reads a local copy with `--ucd`), checks SHA-256 hashes written in the script,
+  and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is run by hand, never in CI. Size: 10,236 bytes
+  of source (M): 10 ranges of White_Space, 17 of Default_Ignorable_Code_Point, 796 of L, M, Nd and Pc together, and 185 runs of
+  lower-case mappings plus one expansion (U+0130).
+- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The Unicode Character Encoding
+  Stability Policy says, under "Normalization Stability", that for "any string S which only contains characters assigned according
+  to both V and U", the NFC of S under version V equals that under U (D: https://www.unicode.org/policies/stability_policy.html).
+  So a runtime at 17.0 or later normalizes every 17.0 character as 17.0 does. A runtime older than 17.0 may normalize characters
+  added since its version differently.
 
 **Tests that catch other Unicode data.** CI's `setup-node` takes `node-version: 24`, which floats to the newest 24.x. So CI pins
 the exact version with `node-version-file: js/.node-version` (24.21.0), and a person raises it deliberately. The comparison of the
