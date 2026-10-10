@@ -6,17 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!**/node_modules",
-      "!**/dist",
-      "!**/coverage",
-      "!.claude",
-      "!.idea",
-      "!package-lock.json",
-      "!conformance",
-      "!docs/research"
-    ]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/coverage", "!package-lock.json"]
   },
   "formatter": {
     "enabled": true,

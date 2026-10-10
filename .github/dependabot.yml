@@ -1,12 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /
+    directory: /js
     schedule:
       interval: weekly
     groups:
       development:
         dependency-type: development
+    ignore:
+      # The runtime is Node 24 (project owner's decision), so the types stay on major 24.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -1,5 +1,6 @@
+.claude/worktrees/
+# Safety net at any depth; js/.gitignore has the same entries and is the one Biome reads.
 node_modules/
 dist/
-*.tsbuildinfo
 coverage/
-.claude/worktrees/
+*.tsbuildinfo
