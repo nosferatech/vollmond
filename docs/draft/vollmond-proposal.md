@@ -217,7 +217,7 @@ is not an error.
 | duration | `string`, `format: duration` | the `duration` of RFC 3339 Appendix A | `PT10M`, `P3D`, upper case | by length; with months or years, only to equal values |
 | int64 | `integer` or `string`, `format: int64` | a number whose value is an integer in [−2^63, 2^63−1], or a string matching `-?(0\|[1-9][0-9]*)` whose value is | a number within ±(2^53−1), otherwise a decimal string | exactly |
 | bigint | `integer` or `string`, `format: bigint` | as int64, unbounded | as int64 | exactly |
-| decimal | `string`, `format: decimal` | `-?(0\|[1-9][0-9]*)(\.[0-9]+)?` | as the lexical space: no exponent, no `+`, no leading zero | exactly |
+| decimal | `string`, `format: decimal` | XML Schema 1.1's decimal: `(\+\|-)?([0-9]+(\.[0-9]*)?\|\.[0-9]+)` | `-?(0\|[1-9][0-9]*)(\.[0-9]+)?`: no exponent, no `+`, no leading zero | exactly |
 | uri, uri-reference, email, uuid | as JSON Schema | as JSON Schema | as JSON Schema | as strings |
 
 - **Dates and times** follow the ABNF of RFC 3339, section 5.6, which JSON Schema 2020-12 refers to (Validation, section
@@ -234,8 +234,12 @@ is not an error.
   forms are accepted throughout the range, so `"42"` is valid. A number is a double (§4.2), and a number such as `1e3` whose value
   is an integer is accepted, as JSON Schema's `integer` accepts it. A string has no sign `+`, no leading zero and no white space,
   so `"+5"`, `"007"` and `" 42"` are not int64.
-- **decimal** has no external standard, so its lexical space is vmd's own: `"1.50"` and `"-0"` are accepted, and `"+1"`, `".5"`,
-  `"1."` and `"01"` are not.
+- **decimal** follows the lexical space of XML Schema 1.1's `decimal` (W3C XML Schema Definition Language 1.1 Part 2:
+  Datatypes, section 3.3.3.1, [w3.org/TR/xmlschema11-2/#decimal](https://www.w3.org/TR/xmlschema11-2/#decimal), read on
+  2026-10-10), whose regular expression the table gives. So `"+1"`, `".5"`, `"1."`, `"01"`, `"1.50"` and `"-0"` are all decimals,
+  and an exponent, as in `"1e3"`, is not. XML applies its whitespace collapsing before the lexical space; vmd does not, so `" 1"`
+  is not a decimal. The writer emits the form in the canonical column. It differs from XML Schema's canonical representation,
+  which drops trailing zeros and the fraction of an integer, since vmd's form allows trailing zeros, as in `1.50`.
 
 Without a schema, values are plain strings and numbers. VQL then compares strings as strings, which still orders canonical dates
 and UTC date-times correctly.

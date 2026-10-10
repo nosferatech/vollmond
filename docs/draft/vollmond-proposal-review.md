@@ -532,9 +532,17 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
   process a higher minor version such as `%YAML 1.3` with a warning.
 - **H2.7. Logical types accept their full lexical space (#52 Q9).** A `format` assertion accepts every form of the standard the
   type refers to, not only the canonical form, and the writer emits the canonical form. §4.3 gives each type's lexical space,
-  spells out those of int64, bigint, decimal and local-date-time, and pins duration to RFC 3339 Appendix A. Two consequences
-  are the agent's: local date-times now compare chronologically rather than as strings, since `T`, `t` and a space give the same
-  value; and decimal, which has no external standard, gets vmd's own lexical space, `-?(0|[1-9][0-9]*)(\.[0-9]+)?`.
+  spells out those of int64, bigint, decimal and local-date-time, and pins duration to RFC 3339 Appendix A. One consequence is
+  the agent's: local date-times now compare chronologically rather than as strings, since `T`, `t` and a space give the same
+  value. Two follow-up questions from the review of this round went to the owner, who answered them:
+  - **Decimal.** The first version of Draft v0.5 claimed that decimal had no external standard and gave it vmd's own lexical
+    space. The owner chose XML Schema 1.1 Part 2's `decimal` (section 3.3.3.1, regular expression
+    `(\+|-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)`), so `.5`, `+1`, `1.`, `01` and `1.50` are accepted. vmd's
+    `-?(0|[1-9][0-9]*)(\.[0-9]+)?` stays as the canonical form the writer emits. That vmd applies no whitespace collapsing before
+    the lexical space, as XML does, is the agent's reading.
+  - **A space between date and time.** A NOTE in RFC 3339, section 5.6, lets applications separate the date and the time with a
+    space, which is why it was asked. The owner confirmed that `date-time` follows the RFC's `date-time` production, which JSON
+    Schema validators check, so the space is rejected there, while local-date-time keeps accepting it, as TOML 1.0.0 does.
 - **H2.8. YAML 1.1 casings (#52 Q10, first point).** The boolean and null entries of §4.4's list cover exactly the casings YAML 1.1
   reads (`yes`, `Yes`, `YES` and the like, from the regular expression of its bool type), so `tRuE` gets no warning. "In any
   case" is gone. The list also drives compatibility quoting, which therefore no longer quotes `tRuE`; no reader misreads it.
@@ -589,7 +597,9 @@ Each bullet cites the pull request and its question, as "#52 Q1". Section number
   #53: an anchor longer than the root path wins (Q4), a derived anchor whose address is ambiguous falls through to the exact
   path (Q6), and so does a duplicated explicit anchor (Q7). §7.5 now lists four forms (explicit anchor, path from the nearest
   anchored ancestor or the root, derived anchor, exact path) where Draft v0.4 had three rules, with the derived anchor and the
-  exact path in one. The conformance README's open question 1 is closed.
+  exact path in one. The conformance README's open question 1 is closed. Asked again after the review of this round, the owner
+  confirmed the order: most stable first, an explicit anchor, then the semantic path, with the exact path as the last resort,
+  since an insertion breaks it.
 - **H4.2. Duplicates in strict mode (#53 Q5).** An unschematized record in strict mode whose sibling keys repeat still reads, with
   a `duplicate-key` validation error, and a singular address through the duplicate is `address-ambiguous`, a third case in §7.4.
   The draft states the case for any data that breaks the uniqueness the proof relies on, so also for a level declared
