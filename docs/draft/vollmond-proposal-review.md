@@ -673,9 +673,10 @@ An independent review of this round, before merging, found further gaps, correct
 
 Recorded 2026-10-10, and applied to Draft v0.6. Pull request #57 ended with thirteen open questions ("Open questions after this
 round"). The project owner accepted every recommendation on card I1, which covers them, as I1.1 to I1.13 in the order of that
-list. Section numbers refer to Draft v0.6.
+list. Section numbers refer to Draft v0.6. The decision ids I1.1 to I1.13 collide with the plan's task ids, so the plan's
+tasks are written "task I1.4" here.
 
-- **I1.1. Block anchor ranges** are specified with the Markdown parser (I1.4), as C11 left source-map spans to it. The two
+- **I1.1. Block anchor ranges** are specified with the Markdown parser (task I1.4), as C11 left source-map spans to it. The two
   block-anchor cases stay `pending`, so #7 stays open. An issue on a block anchor is attached to the `$body` that holds it (§6.2,
   Appendix D).
 - **I1.2. Percent-encoding.** A canonical address percent-encodes, as UTF-8 with upper-case hex, exactly the characters RFC 3986
@@ -693,16 +694,20 @@ list. Section numbers refer to Draft v0.6.
   dropped (H3.16), since they are parsed rather than stored (§6.2, Appendix D).
 - **I1.6. Two `<a id>` at the start of one block** are a structural `anchor-element-invalid`, as H4.6 is for headings (§6.2).
 - **I1.7. Where a block anchor goes.** At the start of any list item, at any depth, and of a paragraph only at the top level. An
-  `<a id>` starting a list item's second paragraph gives `anchor-element-ignored` (§6.2, Appendix D).
+  `<a id>` starting a list item's second paragraph gives `anchor-element-ignored` (§6.2, Appendix D). Whether a list item inside
+  a block quote can carry a block anchor is not settled by "any list item at any depth": open, to the owner.
 - **I1.8. A many-reference to a record that does not exist** is `ref-dangling`, since the record part of a reference is always
   singular. G5's empty result stays for a record that exists with nothing matching (§8.2, §8.5, Appendix D).
 - **I1.9. A reference into a record with a structural error** gives a new warning, `ref-target-unreadable`, not `ref-dangling`
-  (§8.5, Appendix D, suite README).
+  (§8.5, Appendix D, suite README). Its status in `refs` results and the index, beside `ok`, `dangling`, `ambiguous` and
+  `aliased`, is not given: open, to the owner (§20, open question 7). Meanwhile `check` reports it.
 - **I1.10. A `%YAML` line in front matter** is a `syntax-error`, and §4.4 drops its front-matter case (§4.4, Appendix D).
 - **I1.11. An `x-vmd-ref` without `targets`** allows any node in the store (§9.3).
 - **I1.12. int64** accepts the string `"-0"`, written without the sign, and the number `1.0`, as JSON Schema's `integer` accepts
-  it (§4.3).
+  it (§4.3). The card said that `"-0"` is written as `"0"`. The canonical int64 form writes a value within ±(2^53−1) as a number,
+  so the writer writes the number `0`; the string on the card was a slip of the session that drafted it.
 - **I1.13. Leap seconds.** A date-time accepts `:60` anywhere, with no leap-second table (§4.3). The card's reason, "as JSON Schema
   validators commonly do", was checked and does not hold: Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC, and Python's
-  `jsonschema` checks `date-time` with `rfc3339-validator`, which rejects `:60`. §4.3 states the measured behavior and notes
-  that neither library's check can be used unchanged. The decision stands as the owner's; its reason is corrected.
+  `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which rejects `:60`. `ajv-formats` also accepts a
+  space separator and the offsets `+02` and `+0200`, which §4.3 rejects. §4.3 states the measured behavior, and vmd needs its
+  own date and time checks (Appendix C, task I2.2). The decision stands as the owner's; its reason is corrected.

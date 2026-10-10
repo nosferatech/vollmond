@@ -24,6 +24,7 @@
     },
     {
       "id": "json-feff-in-string-kept",
+      "spec": ["5.1", "RFC 8259 7"],
       "description": "A raw U+FEFF inside a JSON string is an ordinary character and stays in the value (§5.1).",
       "input": {"record": "feff-in-string.json"},
       "expect": {"result": {"s": "x\ufeffy"}}

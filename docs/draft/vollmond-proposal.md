@@ -230,9 +230,11 @@ is not an error.
   seconds: the assertion checks the grammar and not the restriction of RFC 3339, section 5.7, on where a leap second may fall.
   Validators differ here. Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC (the `time` check in
   [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), and Python's `jsonschema` checks
-  `date-time` with `rfc3339-validator`, which rejects `:60` altogether
+  `date-time` only when `rfc3339-validator` is installed, which then rejects `:60` altogether
   ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)), both read on
-  2026-10-10. Neither library's check can therefore be used unchanged for these formats (Appendix C).
+  2026-10-10. `ajv-formats` also departs from the rules above the other way: its `date-time` splits on `t` or any white space,
+  so it accepts a space separator, and its `time` pattern accepts the offsets `+02` and `+0200`. Neither library's check can
+  therefore be used unchanged, and vmd needs its own date and time checks (Appendix C).
 - **Durations** are pinned to RFC 3339 Appendix A, the grammar JSON Schema's `duration` uses, rather than to the whole of ISO 8601.
   So `PT1.5S` (a fraction), `P1Y3D` and `PT1H30S` (a skipped unit) and `P1W2D` (weeks with days) are not durations, although ISO
   8601 allows them.
@@ -268,9 +270,9 @@ false, `2026-10-09` a date and `1:30` the number 90.
 
 **The `%YAML` directive.** A `%YAML 1.2` directive is allowed. A directive naming any other version, in a YAML file or a
 `yaml data` block, is a structural error (`yaml-version-unsupported`). Front matter cannot hold a directive: a directive must be
-followed by a `---` document marker, which would close the front matter, so a `%YAML` line in front matter is a
-`syntax-error`. Under `%YAML 1.1` the `yaml` package reads `a: yes` as `true`, `017` as 15 and `2026-10-09` as a date
-(measured for the value fixtures, #52, with `yaml` 2.9.1), so reading the record as 1.2 would silently change what those values
+followed by a `---` directives end marker (YAML 1.2.2, section 9.1.5), which would close the front matter, so a `%YAML` line in
+front matter is a `syntax-error`. Under `%YAML 1.1` the `yaml` package reads `a: yes` as `true`, `017` as 15 and `2026-10-09` as
+a date (measured for the value fixtures, #52, with `yaml` 2.9.1), so reading the record as 1.2 would silently change what those values
 mean to its author, and honoring the directive would make the value view depend on YAML 1.1. This departs from YAML 1.2.2
 twice. Its section 6.8.1 says that a 1.2 processor "must also accept documents with an explicit `%YAML 1.1` directive" and
 process them as 1.2 with warnings, and that a document naming a higher minor version, such as `%YAML 1.3`, should be processed
@@ -577,8 +579,8 @@ ranges of whole files remain part of the storage contract (`read`, §11.2).
 the `refs` and `issues` tables (§14.2), and error locations (§12.3). Offsets count UTF-8 bytes from 0, and a range is half-open,
 `[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1. An offset into a `$body` or `$title`
 counts the bytes of the value, after line breaks are read as `\n` (§5.1); a source map range counts the bytes of the file, from
-its first byte, a byte order mark included (§5.1). Clients
-that need other units, such as JavaScript's UTF-16 string indexes, convert.
+its first byte, a byte order mark included (§5.1). Clients that need other units, such as JavaScript's UTF-16 string indexes,
+convert.
 
 ### 5.10 Reading a node
 
@@ -772,6 +774,9 @@ step      = 1*( pchar / "?" )                      ; RFC 3986 fragment character
   `#name%20with%20space`, one named `a/b` is `#a%2Fb`, and one named `x:y` stays `#x:y`. An exact path writes `~` and `/` inside
   a token as `~0` and `~1` first, as RFC 6901 requires, and then applies the same encoding. `step` accepts every fragment
   character except `/`, so that every canonical address matches the grammar.
+- **How vmd reads an address.** An exact path is percent-decoded first and then split at `/` into reference tokens, as RFC 6901,
+  section 6, specifies for a JSON Pointer in a URI fragment, so `#/a%2Fb` is the pointer `/a/b`, member `b` of member `a`. A
+  semantic path is split at `/` first and each step is then decoded, so `#a%2Fb` is the one step `a/b`.
 
 ### 7.2 Exact paths
 
@@ -914,11 +919,13 @@ target (as vampiredb's section numbers are), are deferred; their syntax is open 
 
 ### 8.5 Status
 
-Each reference inside the store resolves to one of `ok`, `dangling` (no target, `ref-dangling`), `ambiguous` (several targets for
-a singular reference, `ref-ambiguous`), or `aliased` (resolved through an alias, §13.6, `ref-aliased`). A reference declared
+Each reference inside the store into a readable record resolves to one of `ok`, `dangling` (no target, `ref-dangling`),
+`ambiguous` (several targets for a singular reference, `ref-ambiguous`), or `aliased` (resolved through an alias, §13.6,
+`ref-aliased`). A reference declared
 `cardinality: many` whose selector matches nothing, in a record that exists, is valid. It is `ok`, with no targets. A reference
 into a record that has a structural error cannot be resolved, since that record has no value view. It is not dangling: `vmd
-check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what to fix.
+check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what to fix. Its status in `refs`
+results and in the index (§14.2) is open (§20, open question 7).
 
 ---
 
@@ -1017,7 +1024,8 @@ Parsing and checking report every error they can find, not only the first, so th
 - schema violations, including the logical types of §4.3,
 - path and filename rule violations,
 - duplicate keys (§5.7) and duplicate anchors (§6.1),
-- references that are dangling or ambiguous, or that point where the schema does not allow,
+- references that are dangling or ambiguous, or that point where the schema does not allow, and references into records with
+  structural errors (`ref-target-unreadable`),
 - values the Markdown serializer could not represent (§5.8), where the record is Markdown,
 - warnings, such as unquoted YAML strings that YAML 1.1 readers misread (§4.4) and unsupported HTML in a heading (§5.3).
 
@@ -1532,7 +1540,8 @@ The index is derived. It can be rebuilt from the files at any time, and nothing 
 | `issues` | path, exact path, line and column if known, severity, code (Appendix D), message |
 
 Offsets, lines and columns use the units of §5.9. A record with a structural error is listed in `records` with its issues and has
-no nodes.
+no nodes. A reference's `status` is one of those of §8.5; for a reference into a record with a structural error it is open (§20,
+open question 7).
 
 ### 14.3 Local index
 
@@ -1779,6 +1788,9 @@ A backend conforms to the storage contract (§11) separately, and states whether
 6. **Explicit-only links in Markdown.** In YAML and JSON a schema can require references to use explicit anchors (§9.3), while a
    Markdown link stays a plain link (§6.3). Whether a Markdown link can carry an attribute that a reader does not see and that
    says the same is open.
+7. **The status of a reference into an unreadable record** (§8.5). `vmd check` reports it as `ref-target-unreadable`, a warning,
+   in the meantime. Which status `refs` results and the index's `refs` table (§14.2) give it, beside `ok`, `dangling`,
+   `ambiguous` and `aliased`, is open.
 
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
@@ -2026,7 +2038,7 @@ Libraries to adopt (licences to be confirmed at adoption):
 | Markdown with source offsets | `micromark` / `mdast-util-from-markdown` (MIT) | `markdown-it-py` (MIT; line maps) |
 | YAML 1.2 round-trip with comments and ranges | `yaml` (ISC) | `ruamel.yaml` (MIT) |
 | JSON with offsets and edits | `jsonc-parser` (MIT) | |
-| JSON Schema 2020-12 with formats | Ajv with `ajv-formats` (MIT) | `jsonschema` (MIT) |
+| JSON Schema 2020-12 with formats | Ajv with `ajv-formats` (MIT), with vmd's own date and time checks (§4.3) | `jsonschema` (MIT), with the same |
 | Derived anchors (§6.3) | vmd's own rule, in `core` | the same rule |
 | GitHub API | Octokit (MIT) | |
 

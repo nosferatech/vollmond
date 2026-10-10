@@ -63,6 +63,13 @@
       "description": "A semantic step with %2F names the member a/b. (§7.1, decision I1.2)",
       "input": {"address": "data.json#a%2Fb", "as": "singular"},
       "expect": {"result": [{"path": "data.json", "at": "/a~1b", "address": "#a%2Fb"}]}
+    },
+    {
+      "id": "exact-encoded-slash-splits",
+      "spec": ["7.1", "7.4", "RFC 6901 6"],
+      "description": "An exact path is percent-decoded before it is split, so #/a%2Fb is the pointer /a/b, member b of a member a that the record does not have; the member a/b is reached as #/a~1b (§7.1).",
+      "input": {"address": "data.json#/a%2Fb", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "data.json", "at": null}]}
     }
   ]
 }

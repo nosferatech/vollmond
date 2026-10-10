@@ -36,7 +36,7 @@
       "spec": ["6.2", "D"],
       "profiles": ["validate"],
       "operation": "check",
-      "description": "Each array with a repeated tag gets a duplicate-tag warning at the node that holds it (§6.2, decision I1.5).",
+      "description": "Each repeat after the first gets one duplicate-tag warning, at the node that holds the array: one for open at the root and one for a at /item (§6.2, Appendix D, decision I1.5).",
       "input": {"records": ["repeated-tags.yaml"]},
       "expect": {"issues": [{"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": ""}, {"code": "duplicate-tag", "severity": "warning", "path": "repeated-tags.yaml", "at": "/item"}]}
     }

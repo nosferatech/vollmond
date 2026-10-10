@@ -423,10 +423,13 @@ objects with these members:
   For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5). Reading aliases belongs to the Validate profile (§13.6,
+- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5), for a reference into a readable record. The status of a
+  reference into a record with a structural error is open (§20); `check` reports it as `ref-target-unreadable`, and no `refs`
+  case expects one yet. Reading aliases belongs to the Validate profile (§13.6,
   decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
-  reference declared `cardinality: many` whose selector matches nothing, which is valid with the status `ok` (§8.5).
+  reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
+  `ok` (§8.5).
 
 Links that leave the store are not listed (§8.2).
 
@@ -653,8 +656,7 @@ implementation.
 **Exit status.** The runner exits with 0 when no result is `fail` or `error`, and with 1 otherwise. It writes no report and
 exits with 2 when it cannot start, which happens when `suite.json` or the declaration cannot be read or has an unknown member,
 when the `case_format` is unknown, when the selection is invalid, or when a case's `input` has a member that its operation does
-not take. Besides the report, a runner may print progress, TAP or
-JUnit XML for its own test framework.
+not take. Besides the report, a runner may print progress, TAP or JUnit XML for its own test framework.
 
 **TAP or JUnit XML as the contract were rejected.** CI tools read both, and JUnit XML can carry a skip message and free-form
 `<properties>`. But neither defines where the suite's version, the declared profiles or the selection go, so the suite would
@@ -719,6 +721,8 @@ Alternatives that lost:
 2. Read the implementation's declaration and the selection, and exit with 2 if either is invalid.
 3. Walk `cases/` for files named `*.cases.json`, without descending into fixture stores. Read each one as
    [Reading case files](#reading-case-files) requires, apply its `defaults`, reject unknown members, and form the global ids.
+   If any case has an `input` member that its operation does not take, exit with 2 without a report. This applies to every case,
+   selected or not, since this step runs before the selection.
 4. Take the selected cases in the byte order of their global ids. Skip a case if it is `pending`, or else if it needs an
    undeclared profile, or else if a skip entry matches it.
 5. Check each store's versions manifest, and report `error` for the cases on a store with a mismatch.

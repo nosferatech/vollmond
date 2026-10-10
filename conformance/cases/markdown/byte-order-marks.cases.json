@@ -3,6 +3,7 @@
   "cases": [
     {
       "id": "second-bom-is-text",
+      "spec": ["5.1", "5.3", "CommonMark 0.31.2 4.2"],
       "description": "The byte order mark at byte 0 is skipped and the second U+FEFF is an ordinary character, so the line is a paragraph, not a heading (§5.1).",
       "input": {"record": "double-bom-heading.md"},
       "expect": {"result": {"$body": "\ufeff# Title"}}
@@ -25,14 +26,14 @@
     },
     {
       "id": "yaml-directive-in-front-matter",
-      "spec": ["4.4", "5.3", "D"],
+      "spec": ["4.4", "5.3", "D", "YAML 1.2.2 9.1.5"],
       "description": "A %YAML line in front matter is a syntax error, even for version 1.2, since the --- marker a directive needs would close the front matter (§4.4, decision I1.10).",
       "input": {"record": "yaml-directive-in-front-matter.md"},
       "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "yaml-directive-in-front-matter.md", "at": ""}]}
     },
     {
       "id": "yaml-1-1-directive-in-front-matter",
-      "spec": ["4.4", "5.3", "D"],
+      "spec": ["4.4", "5.3", "D", "YAML 1.2.2 9.1.5"],
       "description": "A %YAML 1.1 line in front matter is also a syntax error, not yaml-version-unsupported (§4.4, decision I1.10).",
       "input": {"record": "yaml-1-1-directive-in-front-matter.md"},
       "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "yaml-1-1-directive-in-front-matter.md", "at": ""}]}
