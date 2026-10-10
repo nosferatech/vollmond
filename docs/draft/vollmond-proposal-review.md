@@ -433,3 +433,37 @@ corrected in the same round, without new decisions:
 - Unsupported HTML in a heading contributes its text but not its tags to the derived anchor.
 - A retitle rewrites references to every node whose derived anchor it changes, `check` reports references whose target moved
   since the previous index and live anchors that shadow an alias, and `rename` and `mv` refuse while records fail parse.
+
+### The owner's answers to the review (G1 to G9)
+
+Recorded 2026-10-10. The review raised nine questions that needed the owner; the answers refine the decisions above.
+
+- **G1. Integers by form.** A number is an integer for the check of §4.2 when it is written as one, with no fraction and no
+  exponent, so `1e23` means its nearest double. vmd's writer emits integer-valued doubles beyond ±(2^53−1) in exponent form, so
+  its own output always parses back. The round-trip property tests include such values, and the suite has example cases for 2^60.
+- **G2. What a backend is.** In the owner's definition, the backend is everything that runs regardless of the client: storage,
+  server-side scripts, commit protocols, merge queues, CI runners, Lambda calls. Client-side hooks and scripts are not the backend.
+  A backend that validates before accepting a write (gate mode) is a validating backend. GitHub plus a Lambda function that
+  validates after the commit (pattern A) is a weakly validating backend, whose constraints hold except for the latest commits
+  still being validated, and a client that syncs only to commits marked green sees a validating backend. The role of queries,
+  which assume the backend is correct, rests on this (§9.4, §9.5, §11.1).
+- **G3. Version differences.** On a major version difference, a client that supports the store's major version reads and writes
+  at that compatibility level. Otherwise it refuses a newer store and warns on an older one. A minor version difference gives no
+  warning, which holds because minor versions are compatible in both directions: a change that is not compatible in both
+  directions is by definition a major version change (§9.1). The full design stays in #46.
+- **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
+- **G5. An empty many-reference is valid** (§8.5).
+- **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax
+  the schema so that it permits the offending data, or comment out the offending links. Adoption goes step by step, by relaxing the
+  schema first and tightening it later (Appendix D, R1 in §22).
+- **G7. Strict read** refuses records with structural errors or schema violations only (§9.5).
+- **G8. YAML numbers.** The writer uses exponent forms that a YAML 1.1 reader also reads as numbers, with a dot in the mantissa
+  and a sign on the exponent (`1.0e+20`), and `vmd check` warns about other number forms that YAML 1.1 readers misread (§4.2,
+  §4.4).
+- **G9. Computed fields.** In the owner's framing, metadata are computed fields, not part of the data. Like `rowid` in some SQL
+  databases, they are not in `SELECT *` and cannot be written, but they can be selected explicitly. A plain read returns the
+  stored data only, so a read and write round trip is exact. A caller that needs computed fields, such as a validating reader or a
+  writer that needs the version token, requests them explicitly, with the read or later by address, and then gets them as drafted,
+  with `@issues` added and `@nodes` only on request. The computed fields have the names of VQL's pseudo-fields, so requesting
+  them and selecting `@key` in a query are one concept. Writes return the new version token, so editing needs no extra round trip
+  (§5.10, §10.3, §13.2).

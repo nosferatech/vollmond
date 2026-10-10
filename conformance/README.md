@@ -3,7 +3,7 @@
 Status: design proposal for issue #4 (I0.3), awaiting the project owner's approval. The owner's decisions of phase I0 answered
 the questions it raised, and this version applies them, citing each by its card (C1 to C29, F1 to F10, L1), as the
 [decision log](../docs/draft/vollmond-proposal-review.md#decisions-of-phase-i0) records them. Until the format is approved, the
-suite holds only the three sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
+suite holds only the four sample case files listed under [Samples](#samples). The fixture tasks (#5 to #8) and the TypeScript
 runner (#19) follow the format once it is approved.
 
 The suite checks that an implementation of vmd behaves as [the proposal](../docs/draft/vollmond-proposal.md) specifies
@@ -247,9 +247,10 @@ For an operation that returns a result, `expect` has exactly one of `result` and
 Case files are UTF-8 JSON as RFC 8259 defines it. A runner reads case files with two rules:
 
 - **Duplicate member names are rejected.**
-- **Every number is read as §4.2 reads one** (decision F2). It means its nearest double, and `-0` is `0`. A number that §4.2
-  makes an error (an integer whose double differs from it, a number too large for a double, or a non-zero number that a double
-  rounds to zero) makes the case an `error`, since no value view can hold it.
+- **Every number is read as §4.2 reads one** (decisions F2 and G1). It means its nearest double, and `-0` is `0`. A number that
+  §4.2 makes an error (a number written as an integer, with no fraction and no exponent, whose double differs from it, a number
+  too large for a double, or a non-zero number that a double rounds to zero) makes the case an `error`, since no value view can
+  hold it. `1e23` is not written as an integer, so it is a valid number meaning its nearest double.
 
 The check in the second rule needs each number's source text, since a plain double has already lost the difference between
 `9007199254740993` and `9007199254740992`. In JavaScript, a `JSON.parse` reviver gets it from `context.source` (the proposal's
@@ -288,7 +289,7 @@ A **target** is `{"path": <store path>, "at": <exact path>, "address": <canonica
 | Operation | Profiles | Spec | Input | Result |
 |---|---|---|---|---|
 | `parse` | `read` | §4, §5 | `store`, `record` | the value view |
-| `meta` | `read` | §5.5, §5.10 | `store`, `record` | each section's key and canonical address |
+| `meta` | `read` | §5.5, §5.10 | `store`, `record` | each section's computed fields `@key` and `@address` |
 | `source_map` | `read` | §5.9 | `store`, `record` | a byte range per node |
 | `anchors` | `read` | §6 | `store`, `record` | the record's anchors and tags |
 | `resolve` | `read`, or more | §7 | `store`, `address`, `as` | the targets |
@@ -336,12 +337,12 @@ implementation declares (§19.2), so an implementation without them skips these 
 
 ### meta
 
-The result is the record's metadata (§5.10) in a fixed shape, an object whose member names are the exact paths of the record's
-sections, the root's being `""`, and whose values are `{"key": ..., "address": ...}`. `key` is the section key (§5.5), and `null`
-for the root, and `address` is the canonical address, as in a target. The `null` is this operation's fixed shape; in the metadata
-envelope itself, the root has no `key` member at all. The other members of the metadata envelope are left out.
-Anchors have their own operation, source locations wait for the spans of I1.4, and node versions belong to the cases of the
-Write profile.
+The result is two computed fields (§5.10) of each section of the record, in a fixed shape. It is an object whose member names are
+the exact paths of the record's sections, the root's being `""`, and whose values are `{"@key": ..., "@address": ...}`. `@key` is
+the section key (§5.5), and `null` for the root, and `@address` is the canonical address, as in a target. The `null` is this
+operation's fixed shape; in a read that requests `@key`, the root has no `@key` at all. The other computed fields are left out.
+Anchors have their own operation, source locations wait for the spans of I1.4, node versions belong to the cases of the Write
+profile, and issues are tested through `check`.
 
 ### anchors
 
@@ -395,7 +396,8 @@ objects with these members:
 - **`raw`** is the reference's target as written in the record.
 - **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5). Reading aliases belongs to the Validate profile (§13.6,
   decision C22), so `aliased` cases need no more than `validate`.
-- **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list.
+- **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
+  reference declared `cardinality: many` whose selector matches nothing, which is valid with the status `ok` (§8.5).
 
 Links that leave the store are not listed (§8.2).
 
@@ -702,6 +704,9 @@ Alternatives that lost:
   table. It covers every row of the table but the last, which is a VQL query. One case is a section reached by a key and a
   derived anchor that are the same node, which must not be ambiguous (§7.3). Another reaches the second section by its derived
   anchor, `what-was-done`, which the space before its `<a>` element does not change (§6.3, decision C13).
+- **`cases/serializer/large-numbers.cases.json`** round-trips 2^60, an integer-valued double beyond ±(2^53−1), through each
+  format, and `1e23`, which is not an integer by form. The writer must put both in exponent form, so that neither is read back as
+  an integer that a double cannot hold (§4.2). These cases need the Write profile and wait for the serializer of I4.
 
 None of them expects an issue. The proposal's Appendix D now defines the codes, and the fixture tasks write the first cases that
 expect one.
