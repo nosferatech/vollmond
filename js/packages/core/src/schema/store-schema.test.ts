@@ -69,7 +69,7 @@ describe("readers and a schema that cannot be used", () => {
     const read = await (await store()).get("invalid/a.json");
     expect(read.ok).toBe(false);
     expect(read.issues.map((issue) => issue.code)).toEqual(["schema-invalid"]);
-    expect(read.issues[0]?.message).toContain("reached only through oneOf");
+    expect(read.issues[0]?.message).toContain("reached through oneOf");
   });
 
   test("get refuses a record of a collection whose schema has an unknown x-vmd-* keyword, with feature-unsupported", async () => {

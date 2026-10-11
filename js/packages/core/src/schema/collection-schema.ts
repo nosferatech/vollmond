@@ -132,7 +132,9 @@ export async function loadCollectionSchema(
     } catch (error) {
       // The set's own checks guarantee that every reference has a target in it, so a retrieval is a bug of those checks.
       if (!(error instanceof Error) || error.name === "RetrievalError") throw error;
-      problems.push({ code: "schema-invalid", file: root, message: `the validator cannot compile it: ${error.message}` });
+      // The validator names files by the URIs core registered them under, which messages give as the files' paths.
+      const message = error.message.replaceAll(/https:\/\/vmd\.invalid\/[0-9a-f]{64}\/schema\//g, "");
+      problems.push({ code: "schema-invalid", file: root, message: `the validator cannot compile it: ${message}` });
     }
   }
   return fail([schemaIssue(collection, set, problems, loading)]);

@@ -9,7 +9,7 @@ import type { OversizedFile } from "../storage/storage.js";
 import { decodeSource, type Position, type SourceText } from "../text/source-text.js";
 import { sliceUnitText } from "../text/unit-text.js";
 import type { Value, ValueObject } from "../value/value.js";
-import { isObject, isSchemaValue, pointerTokens, subschemas, valueAtPointer } from "./walk.js";
+import { isObject, isSchemaKeyword, pointerTokens, subschemas, valueAtPointer } from "./walk.js";
 
 /** The `$schema` of every schema vmd reads, which may also be left out. */
 export const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
@@ -58,6 +58,14 @@ export function locationKey(location: SchemaLocation): string {
 /** Reads a schema file of the schema directory by its path relative to it, as a configuration source does. */
 export type SchemaReader = (path: string) => Promise<Outcome<Uint8Array | OversizedFile>>;
 
+/** Writes a reference's place as one string: the location of the schema object that holds it, and its keyword. */
+export function referenceKey(location: SchemaLocation, keyword: "$ref" | "$dynamicRef"): string {
+  return `${locationKey(location)}|${keyword}`;
+}
+
+/** The members that identify a schema or a place in one, which stand only in schema objects. */
+const IDENTIFIERS = ["$id", "$anchor", "$dynamicAnchor", "$schema"] as const;
+
 /** A reference that a schema object holds, and where it leads. */
 export interface SchemaReference {
   readonly keyword: "$ref" | "$dynamicRef";
@@ -80,7 +88,7 @@ export interface SchemaSet {
   readonly files: ReadonlyMap<string, SchemaDocument>;
   /** Every schema object or boolean schema found, by {@link locationKey}. */
   readonly schemas: ReadonlyMap<string, { readonly location: SchemaLocation; readonly value: ValueObject | boolean }>;
-  /** The `$ref` or `$dynamicRef` of each schema object that has one, by the object's {@link locationKey}. */
+  /** The `$ref` and the `$dynamicRef` of each schema object, by {@link referenceKey}. */
   readonly references: ReadonlyMap<string, SchemaReference>;
   /** The schema objects of each `$dynamicAnchor` name, in any file. */
   readonly dynamicAnchors: ReadonlyMap<string, readonly SchemaLocation[]>;
@@ -96,8 +104,11 @@ export interface SchemaSet {
  *
  * - a file that does not exist, is larger than {@link MAX_SCHEMA_BYTES}, has another extension, is not UTF-8, or holds what
  *   vmd's readers refuse (YAML anchors, aliases and tags among it), or something other than a mapping;
- * - a file whose `$schema` is not {@link DRAFT_2020_12}, a schema object with `$id`, a reference that leaves the directory or
- *   is malformed, and one whose fragment names no schema in its file;
+ * - a file whose `$schema` is not {@link DRAFT_2020_12}, a `$schema` below a file's root, a schema object with `$id`, a
+ *   reference that leaves the directory or is malformed, and one whose fragment names no schema object of its file, the
+ *   inside of `const`, `enum`, `default`, `examples` and unknown keywords being no schema;
+ * - an `$id`, `$anchor`, `$dynamicAnchor` or `$schema` member in a value that is not a schema, such as a `const`'s, since the
+ *   validator would read it as a schema's and change what the value means;
  * - `storage-failed` for a file that the reader finds and cannot read.
  *
  * The codes the readers raise for the shape of a record do not apply to a schema, whose `$` members are JSON Schema's, and the
@@ -145,29 +156,6 @@ class SchemaSetReader {
         pending.push(named);
       }
     }
-    // A reference may lead into a part of a file that no keyword walks into, such as the inside of an unknown keyword: the
-    // schemas there are walked too, and the files they name read, until nothing new is found.
-    for (let found = true; found; ) {
-      found = false;
-      for (const reference of this.#references.values()) {
-        if (reference.target !== null || reference.pointer === null) continue;
-        const document = this.#files.get(reference.file);
-        if (document === undefined) continue;
-        const value = valueAtPointer(document.value, reference.pointer);
-        if (!isSchemaValue(value)) continue;
-        reference.target = { file: reference.file, pointer: reference.pointer };
-        if (!this.#schemas.has(locationKey(reference.target))) {
-          this.#walk(reference.file, reference.pointer, value);
-          found = true;
-        }
-      }
-      for (const named of this.#namedFiles()) {
-        if (this.#asked.has(named)) continue;
-        this.#asked.add(named);
-        await this.read(named);
-        found = true;
-      }
-    }
   }
 
   result(root: string): SchemaSet {
@@ -192,16 +180,27 @@ class SchemaSetReader {
         if (keyword === "$dynamicAnchor") dynamicAnchors.set(name, [...(dynamicAnchors.get(name) ?? []), location]);
       }
     }
+    // Deviation from the I2 design, recorded in issue #22: a reference that does not lead to a schema object is refused.
+    // Every reference is resolved here, against the schema objects the walk found, which are all the validator sees as schemas.
     for (const reference of this.#references.values()) {
       if (!this.#files.has(reference.file)) continue;
-      if (reference.anchor !== null) reference.target = anchors.get(reference.file)?.get(reference.anchor) ?? null;
+      if (reference.anchor !== null) {
+        reference.target = anchors.get(reference.file)?.get(reference.anchor) ?? null;
+      } else {
+        const location = { file: reference.file, pointer: reference.pointer as string };
+        reference.target = this.#schemas.has(locationKey(location)) ? location : null;
+      }
       if (reference.target === null) {
         const fragment = reference.anchor ?? reference.pointer;
+        const document = this.#files.get(reference.file) as SchemaDocument;
+        const there = reference.pointer === null ? undefined : valueAtPointer(document.value, reference.pointer);
         this.#problem(
           "schema-invalid",
           reference.from.file,
           childPath(reference.from.pointer, reference.keyword),
-          `${reference.keyword} names ${reference.file}#${fragment}, where ${reference.file} has no schema`,
+          there === undefined
+            ? `${reference.keyword} names ${reference.file}#${fragment}, where ${reference.file} has no schema`
+            : `${reference.keyword} names ${reference.file}#${fragment}, which is not a schema: a reference leads to a schema object, not into a keyword's data`,
         );
       }
     }
@@ -289,6 +288,14 @@ class SchemaSetReader {
       this.#schemas.set(key, { location, value: next.value });
       if (!isObject(next.value)) continue;
       const object = next.value;
+      if (next.pointer !== "" && Object.hasOwn(object, "$schema")) {
+        this.#problem(
+          "schema-invalid",
+          path,
+          childPath(next.pointer, "$schema"),
+          "$schema stands only at the root of a schema file, since a schema has no resources of its own",
+        );
+      }
       if (Object.hasOwn(object, "$id")) {
         this.#problem(
           "schema-invalid",
@@ -310,12 +317,59 @@ class SchemaSetReader {
           );
           continue;
         }
-        this.#references.set(key, { keyword, from: location, ...resolved, target: null });
+        this.#references.set(referenceKey(location, keyword), { keyword, from: location, ...resolved, target: null });
       }
+      this.#checkData(path, next.pointer, object);
       for (const subschema of subschemas(object, next.pointer)) {
         pending.push({ pointer: subschema.pointer, value: subschema.value as ValueObject | boolean });
       }
     }
+  }
+
+  // Deviation from the I2 design, recorded in issue #22: identifiers in data are refused, which narrows what 2020-12 allows,
+  // since the validator would read them as a schema's.
+  /**
+   * Refuses an identifier in the data of a schema object: the values of its members that are not schemas (`const`, `enum`,
+   * `default`, `examples`, unknown keywords, the members of `x-vmd-list` but its schemas). The validator records identifiers
+   * wherever they stand, so one in data would become a schema's, and a `const` that holds one would never match.
+   */
+  #checkData(path: string, pointer: string, object: ValueObject): void {
+    for (const [keyword, value] of Object.entries(object)) {
+      if (
+        isSchemaKeyword(keyword) ||
+        keyword === "$ref" ||
+        keyword === "$dynamicRef" ||
+        IDENTIFIERS.some((name) => name === keyword)
+      )
+        continue;
+      const at = childPath(pointer, keyword);
+      if (keyword === "x-vmd-list" && isObject(value)) {
+        for (const [member, inner] of Object.entries(value)) {
+          if (member !== "items" && member !== "additional") this.#checkDataValue(path, childPath(at, member), inner);
+        }
+        continue;
+      }
+      this.#checkDataValue(path, at, value);
+    }
+  }
+
+  #checkDataValue(path: string, pointer: string, value: Value): void {
+    if (Array.isArray(value)) {
+      for (const [index, item] of value.entries()) this.#checkDataValue(path, childPath(pointer, index), item);
+      return;
+    }
+    if (!isObject(value)) return;
+    for (const name of IDENTIFIERS) {
+      if (Object.hasOwn(value, name)) {
+        this.#problem(
+          "schema-invalid",
+          path,
+          childPath(pointer, name),
+          `${name} stands in ${pointer}, which is not a schema; vmd's schemas keep identifiers out of data, which the validator would take for a schema's`,
+        );
+      }
+    }
+    for (const [name, inner] of Object.entries(value)) this.#checkDataValue(path, childPath(pointer, name), inner);
   }
 
   #problem(code: SchemaProblem["code"], file: string, pointer: string | null, message: string): void {

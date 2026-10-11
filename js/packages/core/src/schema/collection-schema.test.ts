@@ -81,7 +81,7 @@ describe("loading a schema: files and references", () => {
     expect((await unusable(file({ $ref: "missing.json" }))).message).toContain("missing.json does not exist");
     expect((await unusable(file({ $ref: "#/$defs/nothing" }))).message).toContain("has no schema");
     expect((await unusable(file({ $ref: "#nothing" }))).message).toContain("has no schema");
-    expect((await unusable(file({ $ref: "#/required/0", required: ["a"] }))).message).toContain("has no schema");
+    expect((await unusable(file({ $ref: "#/required/0", required: ["a"] }))).message).toContain("which is not a schema");
   });
 
   test.each([
@@ -136,7 +136,7 @@ describe("loading a schema: files and references", () => {
         $defs: { l: { $dynamicAnchor: "l", type: "array", "x-vmd-list": { type: "map", keys: ["k"] } } },
       }),
     );
-    expect(issue.message).toContain("reached only through $dynamicRef");
+    expect(issue.message).toContain("reached through $dynamicRef");
   });
 
   test("a recursive schema can be used", async () => {
@@ -291,12 +291,12 @@ describe("the spine", () => {
   ])("an x-vmd-list or x-vmd-ref reached only through %s is schema-invalid", async (via, schema) => {
     const issue = await unusable(file(schema));
     expect(issue.code).toBe("schema-invalid");
-    expect(issue.message).toContain(`reached only through ${via}`);
+    expect(issue.message).toContain(`reached through ${via}`);
   });
 
   test("a declaration reached through a $ref under oneOf is off the spine too", async () => {
     const issue = await unusable(file({ oneOf: [{ properties: { l: { $ref: "#/$defs/l" } } }], $defs: { l: keyed } }));
-    expect(issue.message).toContain("reached only through oneOf");
+    expect(issue.message).toContain("reached through oneOf");
   });
 
   // Predicted bug: an unreferenced $defs entry with a declaration under oneOf, which is valid since nothing applies it.
@@ -304,18 +304,65 @@ describe("the spine", () => {
     await usable({ $defs: { unused: { oneOf: [{ properties: { l: keyed } }] } }, type: "object" });
   });
 
-  test("a declaration that the spine reaches as well as a branch is valid", async () => {
-    await usable({
-      properties: { a: { $ref: "#/$defs/l" } },
-      oneOf: [{ properties: { b: { $ref: "#/$defs/l" } } }],
-      $defs: { l: keyed },
+  // Review of #97, S1: a declaration reached on the spine at one place and through a branch at another would silently not apply
+  // at the second, so it is refused as one reached only off the spine is.
+  test("a declaration that the spine reaches as well as a branch is schema-invalid", async () => {
+    const issue = await unusable(
+      file({
+        properties: { a: { $ref: "#/$defs/l" } },
+        oneOf: [{ properties: { b: { $ref: "#/$defs/l" } } }],
+        $defs: { l: keyed },
+      }),
+    );
+    expect(issue.message).toContain("is reached through oneOf");
+  });
+
+  test("a declaration that the spine reaches at two places is valid", async () => {
+    await usable({ properties: { a: { $ref: "#/$defs/l" }, b: { items: { $ref: "#/$defs/l" } } }, $defs: { l: keyed } });
+  });
+
+  // Review of #97, O3: a $dynamicRef may land on any $dynamicAnchor of its name in the files read.
+  test("a declaration at another file's $dynamicAnchor of a $dynamicRef's name is off the spine", async () => {
+    const issue = await unusable({
+      "s.json": JSON.stringify({
+        properties: { a: { $dynamicRef: "#l" }, b: { $ref: "o.json" } },
+        $defs: { l: { $dynamicAnchor: "l" } },
+      }),
+      "o.json": JSON.stringify({ $defs: { x: { $dynamicAnchor: "l", ...keyed } } }),
     });
+    expect(issue.message).toContain("o.json");
+    expect(issue.message).toContain("reached through $dynamicRef");
+  });
+
+  // Review of #97, S2: the spine's check built every set of locations a path can reach, exponential in the schema's size.
+  test("the spine's check takes time polynomial in the schema, over a schema whose paths reach exponentially many sets", async () => {
+    // Paths through this schema reach about 2^n distinct sets of locations, so a check that builds each set never ends at n = 40
+    // (the review measured 8.9 s and 1.26 GB at n = 18); one over pairs of locations takes milliseconds. No time is asserted,
+    // since a time bound fails on loaded machines first.
+    const n = 40;
+    const defs: Record<string, unknown> = {};
+    for (let index = 1; index < n; index++) {
+      defs[`q${index}`] = { properties: { a: { $ref: `#/$defs/q${index + 1}` }, b: { $ref: `#/$defs/q${index + 1}` } } };
+    }
+    defs[`q${n}`] = { type: "object" };
+    await usable({ properties: { a: { allOf: [{ $ref: "#" }, { $ref: "#/$defs/q1" }] }, b: { $ref: "#" } }, $defs: defs });
+  }, 60_000);
+
+  // Review of #97, O1: additionalProperties and patternProperties reach a section's $sections too.
+  test("a list that additionalProperties or a pattern brings to a section's $sections follows the $sections rule", async () => {
+    const byName = { type: "array", "x-vmd-list": { type: "map", keys: ["name"] } };
+    expect((await unusable(file({ additionalProperties: byName }))).message).toContain('$sections takes keys: ["@key"] only');
+    expect((await unusable(file({ patternProperties: { "^\\$sec": byName } }))).message).toContain(
+      '$sections takes keys: ["@key"] only',
+    );
+    await usable({ properties: { $sections: { type: "array" } }, additionalProperties: byName });
+    await usable({ patternProperties: { "^data": byName } });
   });
 
   test.each([
     ["properties", { properties: { l: keyed } }],
     ["patternProperties", { patternProperties: { "^l": keyed } }],
-    ["additionalProperties", { additionalProperties: keyed }],
+    ["additionalProperties", { properties: { d: { additionalProperties: keyed } } }],
     ["items", { properties: { a: { type: "array", items: { properties: { l: keyed } } } } }],
     ["prefixItems", { properties: { a: { type: "array", prefixItems: [{ properties: { l: keyed } }] } } }],
     ["allOf", { allOf: [{ properties: { l: keyed } }] }],

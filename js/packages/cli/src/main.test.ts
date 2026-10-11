@@ -37,6 +37,18 @@ test("main prints the version on stdout and leaves the exit code at 0", async ()
   expect(result.exitCode).toBe(0);
 });
 
+// Review of #97, S6: the removal of the validator's network and file URI schemes had no test.
+test("main closes the validator's http, https and file URI schemes before it runs a command", async () => {
+  const close = vi.fn();
+  vi.doMock("@vollmond/core", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@vollmond/core")>()),
+    closeValidatorUriSchemes: close,
+  }));
+  await runMain(["--version"]);
+  vi.doUnmock("@vollmond/core");
+  expect(close).toHaveBeenCalledOnce();
+});
+
 test("main writes an error to stderr and sets exit code 2 for an unknown option", async () => {
   const result = await runMain(["--nope"]);
   expect(result.stdout).toBe("");

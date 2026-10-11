@@ -1,3 +1,4 @@
+import { removeUriSchemePlugin } from "@hyperjump/browser";
 import {
   registerSchema,
   type SchemaObject,
@@ -115,6 +116,16 @@ export async function compileSchemaSet(set: SchemaSet, configuration: Uint8Array
   return { digest, validate: (value) => run(validator, value, files) };
 }
 
+/**
+ * Removes the validator's `http`, `https` and `file` URI schemes for the whole process, a second line of defense behind
+ * core's own checks, which already keep the validator from retrieving anything. Registered schemas are still served. Core
+ * never calls it, since the schemes are global to the process and another user of the validator in a host may need them; a
+ * host that runs vmd alone, such as the CLI, calls it once at start.
+ */
+export function closeValidatorUriSchemes(): void {
+  for (const scheme of ["http", "https", "file"]) removeUriSchemePlugin(scheme);
+}
+
 /** How many schema sets are registered now, for tests of the bound. */
 export function registeredSetCount(): number {
   return registered.size;
@@ -139,10 +150,16 @@ function register(set: SchemaSet, digest: string): RegisteredSet {
         : `${target}#${encodePointer(reference.target.pointer)}`;
   }
   const uris: string[] = [];
-  for (const [path, value] of copies) {
-    const uri = files.get(path) as string;
-    registerSchema(value as SchemaObject, uri, DRAFT_2020_12);
-    uris.push(uri);
+  try {
+    for (const [path, value] of copies) {
+      const uri = files.get(path) as string;
+      registerSchema(value as SchemaObject, uri, DRAFT_2020_12);
+      uris.push(uri);
+    }
+  } catch (error) {
+    // All or nothing: a set registered in part would make its next registration fail with "already registered".
+    for (const uri of uris) unregisterSchema(uri);
+    throw error;
   }
   const entry: RegisteredSet = { uris, files, validators: new Map() };
   registered.set(digest, entry);
@@ -188,7 +205,10 @@ class FoldingPlugin {
     if (keyword.simpleApplicator !== true) {
       schemaContext.vmdErrors.push({ keyword: node[0], location: node[1], instance: instanceUri(instance) });
     }
-    if (context.vmdErrors !== undefined && !FOLDED_KEYWORDS.has(node[0])) schemaContext.vmdErrors.push(...context.vmdErrors);
+    // One push per failure: spreading them into one call's arguments overflows the stack for a large array.
+    if (context.vmdErrors !== undefined && !FOLDED_KEYWORDS.has(node[0])) {
+      for (const error of context.vmdErrors) schemaContext.vmdErrors.push(error);
+    }
   }
 
   afterSchema(

@@ -11,9 +11,9 @@ import {
   readTime,
 } from "./logical-types.js";
 
-// The oracles are independent of the checks: the calendar is Date.UTC's, a leap second's place is integer arithmetic over the
-// components, and the lexical forms are regular expressions transcribed from RFC 3339's ABNF (section 5.6 and Appendix A),
-// TOML 1.0.0's local date-time, XML Schema 1.1's decimal and §4.3's integer pattern, matched without regard to case where the
+// The oracles are independent of the checks: the calendar is Date.UTC's, and so is a leap second's place, the time less its
+// offset taken to UTC by Date.UTC; and the lexical forms are regular expressions transcribed from RFC 3339's ABNF (section
+// 5.6 and Appendix A), TOML 1.0.0's local date-time, XML Schema 1.1's decimal and §4.3's integer pattern, matched without regard to case where the
 // ABNF says so (RFC 5234, section 2.3).
 
 /** Whether a day exists in the Gregorian calendar, by Date.UTC. */
@@ -23,9 +23,13 @@ function dayExists(year: number, month: number, day: number): boolean {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-/** Whether a seconds field of 60 is allowed at this time with this offset, in minutes: only at 23:59 UTC. */
+/**
+ * Whether a seconds field of 60 is allowed at this time with this offset, in minutes: only at 23:59 UTC. The UTC time comes
+ * from `Date.UTC`'s arithmetic, which carries the offset across midnight, not from the code's modular formula.
+ */
 function leapAllowed(hour: number, minute: number, offset: number): boolean {
-  return (((hour * 60 + minute - offset) % 1440) + 1440) % 1440 === 23 * 60 + 59;
+  const utc = new Date(Date.UTC(2000, 0, 2, hour, minute - offset));
+  return utc.getUTCHours() === 23 && utc.getUTCMinutes() === 59;
 }
 
 const pad = (value: number, width: number) => String(value).padStart(width, "0");
@@ -126,7 +130,7 @@ function timeComponentsValid(text: string, local: boolean): boolean {
   return second <= 59 || (second === 60 && leapAllowed(hour, minute, offset));
 }
 
-describe("property test 2: dates and times against Date.UTC, integer arithmetic and RFC 3339's ABNF", () => {
+describe("property test 2: dates and times against Date.UTC and RFC 3339's ABNF", () => {
   test("a full-date is valid exactly when its day exists", () => {
     fc.assert(
       fc.property(components, (c) => {

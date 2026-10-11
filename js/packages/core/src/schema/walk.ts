@@ -41,6 +41,11 @@ const SCHEMA_KEYWORDS: ReadonlyMap<string, { readonly form: "schema" | "array" |
   ],
 );
 
+/** Whether a keyword of JSON Schema 2020-12 holds schemas: a schema, an array of them or a mapping to them. */
+export function isSchemaKeyword(keyword: string): boolean {
+  return SCHEMA_KEYWORDS.has(keyword);
+}
+
 /** Whether a value can be a schema: an object or a boolean. */
 export function isSchemaValue(value: Value | undefined): value is ValueObject | boolean {
   return typeof value === "boolean" || isObject(value);

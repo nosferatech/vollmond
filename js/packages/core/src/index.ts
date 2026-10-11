@@ -102,6 +102,7 @@ export {
 } from "./schema/logical-types.js";
 export { DRAFT_2020_12, type SchemaLocation, type SchemaReader } from "./schema/schema-set.js";
 export type { SchemaShape, ShapeStep } from "./schema/spine.js";
+export { closeValidatorUriSchemes } from "./schema/validator.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
 export { compileLineTest, type LineTest } from "./storage/grep.js";
 export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";
