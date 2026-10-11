@@ -411,22 +411,26 @@ step 5 there and kept in another, so one heading gets two anchors.
 runtime.
 
 - `js/packages/core/scripts/generate-unicode.mjs` downloads `DerivedCoreProperties.txt`, `PropList.txt`,
-  `DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from `https://www.unicode.org/Public/17.0.0/ucd/`,
-  checks SHA-256 hashes written in the script, and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is
-  run by hand, never in CI. Size: some tens of kilobytes (U: an estimate).
-- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The normalization stability
-  policy keeps the normal form of text in assigned characters unchanged in later versions (D: UAX #15, "Versioning and Stability";
-  U: the wording is to be quoted when the generator lands), so a runtime at 17.0 or later normalizes every 17.0 character as 17.0
-  does. A runtime older than 17.0 may normalize characters added since its version differently.
+  `extracted/DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from
+  `https://www.unicode.org/Public/17.0.0/ucd/` (or reads a local copy with `--ucd`), checks SHA-256 hashes written in the script,
+  and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is run by hand, never in CI. Size: 10,236 bytes
+  of source (M): 10 ranges of White_Space, 17 of Default_Ignorable_Code_Point, 796 of L, M, Nd and Pc together, and 185 runs of
+  lower-case mappings plus one expansion (U+0130).
+- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The Unicode Character Encoding
+  Stability Policy says, under "Normalization Stability", that for "any string S which only contains characters assigned according
+  to both V and U", the NFC of S under version V equals that under U (D: https://www.unicode.org/policies/stability_policy.html).
+  So a runtime at 17.0 or later normalizes every 17.0 character as 17.0 does. An older runtime may differ on strings that contain
+  characters assigned after its version.
 
 **Tests that catch other Unicode data.** CI's `setup-node` takes `node-version: 24`, which floats to the newest 24.x. So CI pins
 the exact version with `node-version-file: js/.node-version` (24.21.0), and a person raises it deliberately. The comparison of the
 tables with the runtime for every code point runs when `process.versions.unicode` equals the tables' version, and is skipped with
 a message otherwise, so a contributor on another Node still passes. In CI a further assertion requires that the comparison ran, so
-a pin raised to a Node with other Unicode data fails loudly. `core` also exports `unicodeRuntimeProbe()`, which checks facts of
-17.0 such as U+16EA0 being a letter that lower-cases to U+16EBB (M), and the CLI warns when it fails, since NFC may then differ
-for the newest characters. The suite's `anchors/derived/15-lowercase-unicode-versions` and `55-case-mapping-singletons` use
-characters up to Unicode 17.0.
+a pin raised to a Node with other Unicode data fails loudly. `core` will also export `unicodeRuntimeProbe()`, which checks facts
+of 17.0 such as U+16EA0 being a letter that lower-cases to U+16EBB (M), and the CLI warns when it fails, since NFC may then differ
+for the newest characters. The probe is deferred from PR U to I1.8, the CLI foundation
+([#17](https://github.com/nosferatech/vollmond/issues/17)), whose warning is its first caller. The suite's
+`anchors/derived/15-lowercase-unicode-versions` and `55-case-mapping-singletons` use characters up to Unicode 17.0.
 
 **The anchor table.** Step 7 runs over the section headings and the title heading in document order. A map from each slug to the
 last `n` it tried makes the search for an unused candidate resume there, so many repeats of one slug stay linear. Explicit anchors
@@ -650,7 +654,7 @@ Each task is its own pull request (plan §1.3).
 |---|---|---|---|
 | A | I1.10 runner (#19) | (none) | CI runs it; `compare` is implemented and the other operations are skipped by `operation`; `selftest` passes, and fails when the comparison is broken on purpose; the versions check fires on an edited fixture |
 | B | I1.1 values (#10), with `SourceText`, issues, `Outcome` and `record/` | (none) | unit tests, property tests 1 and 5; RFC 8785's examples (U: its appendix of number samples); `gitBlobId` matches every entry of the suite's versions manifests; the Appendix D test |
-| U | Unicode tables and probe (from I1.5) | (none) | tables committed; the Node pin in CI; the comparison over every code point passes and is shown to have run |
+| U | Unicode tables and their comparison with the runtime (from I1.5) | (none) | tables committed; the Node pin in CI; the comparison over every code point passes and is shown to have run |
 | C | I1.2 JSON (#11) | B | the JSON cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
 | D | I1.3 YAML (#12) | B | the YAML cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
 | G | I1.7 storage and filesystem backend (#16) | B | one contract test suite passes on both backends; versions equal `git hash-object --no-filters` in a temporary repository, also for a file that a clean filter changes; the regex checker's cases |
