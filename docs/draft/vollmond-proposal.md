@@ -1,9 +1,10 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.9 (2026-10-10). Supersedes Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit
-`c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit
-`5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft. The
-review of v0.1 and every round of decisions since are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
+Status: Draft v0.10 (2026-10-10). Supersedes Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit
+`c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
+`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
+decisions applied to the draft. The review of v0.1 and every round of decisions since are in
+[vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -107,7 +108,10 @@ Assets outside collections get these checks as warnings only.
 
 ### 3.3 Store root and ignored paths
 
-The store root is the directory containing `.vmd/config.yaml`. In a git repository it is usually the repository root.
+The store root is the directory that `--store` names (§12.1), or without it the nearest directory at or above the working
+directory that holds `.vmd/config.yaml`. With `--config`, the `--store` directory need not hold one, so a checkout that has no
+configuration, such as vampiredb's, is read unmodified (decision K3). In a git repository the root is usually the repository
+root.
 `.vmd/` itself, dotfiles, and paths listed under `ignore` in the config are not records.
 
 ---
@@ -681,7 +685,8 @@ query are one concept.
 A read that requests computed fields returns the value and the requested fields side by side. `meta: all` requests every field
 except `@nodes`, which is requested by name on top of it. For the second section of the ticket in Appendix A, with
 `vmd get tickets/0171-clean-root-in-scattered-record.md#done --meta all --json` (the version and the source location are
-illustrative):
+illustrative), the result is this object, which the CLI prints as the `value` of its outcome object, `{"ok": true, "value": …,
+"issues": []}` (§12.3):
 
 ```json
 {
@@ -773,8 +778,15 @@ The derived anchor is computed in seven steps. Steps 1 to 6 give the heading's *
    image. A soft or a hard line break, as in a setext heading of several lines, contributes a line feed, which is white space, so
    steps 5 and 6 turn it into a hyphen. A `<br>` element contributes nothing, as every tag does.
 2. **Normalize.** Remove every Default_Ignorable_Code_Point character (zero-width joiners, variation selectors, soft hyphens and
-   the like), then normalize to NFC. Removing first means that an invisible character cannot keep two headings that look the
-   same apart: `e`, U+FE0F, U+0301 gives `é` (U+00E9), as `é` does.
+   the like) and every code point that is unassigned (General_Category `Cn`, noncharacters included) in the pinned Unicode
+   version, 17.0.0, then normalize to NFC. Removing first means that an invisible character cannot keep two headings that look
+   the same apart: `e`, U+FE0F, U+0301 gives `é` (U+00E9), as `é` does. Removing the unassigned code points means that every
+   runtime at Unicode 17 or later derives the same anchor: a later version can assign one as a combining mark with a combining
+   class, which NFC then reorders and composes on that runtime only. Unicode 18.0.0 assigns U+1ADE (COMBINING GRAVE-DOT,
+   combining class 230), so on an 18 runtime `a`, U+1ADE, U+0323 normalizes to U+1EA1, U+1ADE, while on 17 it stays as written;
+   with the removal, both give `ạ` (U+1EA1) (UnicodeData.txt of 17.0.0 and 18.0.0, read on 2026-10-10). A runtime whose Unicode
+   data is older than 17.0.0 may normalize the characters assigned since its version differently, so an implementation that
+   relies on its runtime's data warns once per command that reads a store (`unicode-runtime-older`).
 3. **Lower-case** each code point by Unicode's default lower-case mapping, one code point at a time, with no locale and no context
    rules. That is the unconditional mapping of `SpecialCasing.txt` where there is one, and otherwise that of `UnicodeData.txt`, so
    Greek final sigma is not special. The conformance suite pins the Unicode version.
@@ -1349,9 +1361,12 @@ count of the paths that remain; `grep` returns an estimate of the matches that r
 
 **Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1), the configuration's `ignore`
 (§3.3) and VQL's `@path` (§10.3). A glob matches a whole store path. `*` matches any run of characters within one segment, none
-included, and a leading `.` too, so dotfiles are not special; `**` as a whole segment matches any number of whole segments, none
-included; and every other character matches itself. A `/` that follows `**` is kept, so `docs/**` matches every path below
-`docs/` but not the path `docs` itself, as the filesystem backend's `compileGlob` does.
+included, and a leading `.` too, so dotfiles are not special. `**` is special only as a whole segment: `**/` matches zero or
+more whole segments with their `/`; a final `/**` matches one or more segments, so `docs/**` matches every path below `docs/` but
+not the path `docs` itself, as the filesystem backend's `compileGlob` does; `**` alone matches every path; and consecutive `**`
+segments are one. Every other character matches itself. A glob that is empty, starts or ends with `/`, or has an empty segment
+(`//`) is malformed: `query-invalid` in `list`, `grep` and VQL, and `config-invalid` in the configuration's `ignore`, `match`
+and `exclude`.
 
 **`grep` matches line by line.** Each line of a file is matched on its own, without its line break, so `^` and `$` are the line's
 start and end, and `.` matches any character of the line. A line ends at a line feed, a CR LF pair or a carriage return alone,
@@ -1452,7 +1467,7 @@ vmd refs ADDR [--to|--from] [--context N]     backlinks (default) or outgoing re
 vmd schema [COLLECTION]                       fields, types, enum values, required sections, in one screen
 vmd check [PATHS|--changed REV] [--fix]       validate; issues grouped and capped
 vmd new PATH [--set K=V].. [--body-file F]    create a record
-vmd set ADDR VALUE [--json] / vmd delete ADDR / vmd body ADDR --file F
+vmd set ADDR VALUE [--json-value] / vmd delete ADDR / vmd body ADDR --file F
 vmd rename ADDR NEW-ANCHOR|--title TITLE      rename an anchor or retitle, and rewrite references
 vmd mv PATH NEW-PATH                          move a record and rewrite references
 vmd alias prune                               remove the aliases no open branch can still need (§13.6)
@@ -1461,7 +1476,15 @@ vmd index [--publish DIR]                     build the index, or write the port
 vmd sync / vmd push                           working copy of a remote store (§15.3)
 ```
 
-Global options: `--store` (a path, `github:owner/repo@branch`, an HTTP URL, or a published index URL), `--json`, `--quiet`.
+Global options:
+
+- `--store`: a path, `github:owner/repo@branch`, an HTTP URL, or a published index URL.
+- `--config PATH`: a configuration to use in place of the store's `.vmd/config.yaml`, as the suite's `config` input does
+  ([Configuration override](../../conformance/README.md#configuration-override); decision K3). A path that does not exist or
+  cannot be read is `config-invalid`.
+- `--json`: results and failures as JSON (§12.3).
+- `--quiet`: leaves out warnings, the warning about the runtime's Unicode data included (`unicode-runtime-older`, §6.3), on stderr
+  and from the JSON object alike, except for `check`, whose warnings are its result. Errors and the result are always printed.
 
 ### 12.2 Output
 
@@ -1471,7 +1494,7 @@ Global options: `--store` (a path, `github:owner/repo@branch`, an HTTP URL, or a
   and `query` also say how many records they could not read, when there are any (§9.5).
 - `get` prints the node's source (§5.10) and stops at 20,000 characters unless `--max-chars` says otherwise; the cut says what
   remains and suggests `outline`.
-- `--json` prints the library's result objects unchanged.
+- `--json` prints the library's result objects unchanged, and every failure as an object of the same shape (§12.3).
 - `-l` prints only full addresses, one per line, as `grep -l` does, for piping into `vmd get` or `xargs`.
 
 Query results in `nodes` mode are grouped by record, so a record's path is printed once. Each match is one line: its canonical
@@ -1521,6 +1544,14 @@ found is counted (§9.2); at most 20 are printed by default, followed by the cou
 usage, `3` conflict (re-read and retry), `4` validation failed, meaning at least one issue of severity `error`. An operation that
 succeeds can still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out (§11.2), and
 the command then exits with `4`.
+
+**Where issues go.** Issues are printed on stderr and the result on stdout. `check`, whose result is its issues, and `refs`,
+whose result lists references with their status, print those on stdout; configuration issues and the warning about the runtime's
+Unicode data still go to stderr for them. Under `--json`, every outcome is one JSON object on stdout, a failure included:
+`{"ok": true, "value": …, "issues": [...]}` on success and `{"ok": false, "issues": [...]}` on failure, whether the failure is a
+usage error (`usage-invalid`, exit code `2`), a store that cannot be found (`store-not-found`, exit code `1`) or any other. The
+warning about the runtime's Unicode data is then an issue of the object too (`unicode-runtime-older`). An internal error of the
+implementation, a bug, is the one failure without an issue code: it is reported as a bug, with exit code `1`.
 
 ### 12.4 Shell safety
 
@@ -2182,9 +2213,9 @@ growth:
 
 ## Appendix D. Issue codes
 
-Every issue vmd reports carries one of these codes, which the CLI prints (§12.3), the index stores (§14.2) and the conformance
-suite compares (§19.1). Messages and hints are not part of the contract. The fixture tasks add codes as they need them, and each
-round of decisions adopts them here.
+Every issue vmd reports carries one of these codes (an internal error of an implementation, a bug, is not an issue, §12.3),
+which the CLI prints (§12.3), the index stores (§14.2) and the conformance suite compares (§19.1). Messages and hints are not
+part of the contract. The fixture tasks add codes as they need them, and each round of decisions adopts them here.
 
 The columns:
 
@@ -2245,7 +2276,7 @@ The columns:
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
-| `config-invalid` | error | operation | §9.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`; none |
+| `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues` and a malformed glob in `ignore`, `match` or `exclude`; a `--config` path that does not exist or cannot be read; none |
 | `schema-invalid` | error | operation | §9.1, §9.2 | a collection whose schema file is missing or is not a valid schema; none |
 | `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
 | `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
@@ -2254,7 +2285,10 @@ The columns:
 | `address-not-singular` | error | operation | §7.4 | a singular address the checker cannot prove singular; none |
 | `address-not-found` | error | operation | §7.4 | a singular address that matches no node, or an address, singular or a selector, whose record does not exist; none |
 | `address-ambiguous` | error | operation | §7.4 | a singular address that matches several nodes; none |
-| `query-invalid` | error | operation | §10.2 | a VQL query that does not parse; none |
+| `query-invalid` | error | operation | §10.2, §11.2 | a VQL query that does not parse, or a malformed glob (empty, starting or ending with `/`, or with an empty segment) in `list`, `grep` or VQL; none |
+| `usage-invalid` | error | operation | §12.3 | a command line the CLI cannot read: an unknown command or option, a missing or extra argument, or an option value it cannot read (exit code 2); none |
+| `store-not-found` | error | operation | §3.3, §12.3 | no store: `--store` names a directory that does not exist, or, without `--config`, one that holds no `.vmd/config.yaml`; or, without `--store`, no directory at or above the working directory holds one, or the working directory cannot be read; none |
+| `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than 17.0.0, the version that derived anchors follow, so derived anchors may differ; once per command that reads a store; none |
 | `unreadable-records` | error | operation | §13.4 | a `rename` or `mv` while the store has records with structural errors; none |
 | `storage-failed` | error | operation | §11.2 | a read that the backend cannot complete, such as one refused by a permission error; none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
