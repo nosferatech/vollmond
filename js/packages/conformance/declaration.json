@@ -3,131 +3,193 @@
   "version": "0.0.0",
   "profiles": ["read"],
   "skip": [
-    { "operation": "anchors", "reason": "anchors come with I1.5, #14" },
-    { "operation": "meta", "reason": "computed fields come with I1.6, #15" },
-    { "operation": "resolve", "reason": "addresses come with I1.6, #15" },
-    { "id": "anchors/blocks-and-tags/two-anchors-at-paragraph-start", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "anchors/blocks-and-tags/two-anchors-at-list-item-start", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "anchors/blocks-and-tags/repeated-data-tags-kept", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "anchors/explicit/heading-element-with-attribute", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "anchors/explicit/heading-element-with-content", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "anchors/explicit/block-element-with-attribute", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "anchors/explicit/tags-not-an-array", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "anchors/explicit/tag-not-a-string", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "anchors/explicit/front-matter-anchor-and-tags", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "data/shape/root-not-object-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/section-title-missing-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/ref-malformed-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/ref-malformed-front-matter", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "data/shape/dollar-key-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/schema-below-root-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/dollar-unknown-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "data/shape/near-misses-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "markdown/body/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/byte-order-marks/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/containers/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/crlf/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/dash-lines/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/data-blocks/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/front-matter/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/closing-sequence", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/hash-without-space-is-not-closing", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/no-space-is-not-a-heading", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/inline-source-kept", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/indentation-and-spaces-trimmed", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/indented-code-is-not-a-heading", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/empty-heading", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/headings/html-kept-in-title", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/line-endings/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/parse-units/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/sections/", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/single-h1-first", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/h1-not-first-is-a-section", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/several-h1-are-sections", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/anchor-and-tags", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/h1-in-code-block-does-not-count", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/setext-title", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/several-h1-first-block", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/setext-multi-line-title", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/setext-multi-line-root-title", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/h1-in-block-quote-does-not-count", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/h1-in-list-item-does-not-count", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/h1-in-html-block-does-not-count", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "markdown/title/repeated-class-token", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/byte-order-marks/yaml-bom-skipped", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-feff-in-quoted-scalar-kept", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-feff-in-plain-scalar", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-second-bom", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-feff-in-block-scalar", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-feff-in-comment", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/byte-order-marks/yaml-feff-after-comment-line", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-duplicate-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-duplicate-key-quoted", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-duplicate-key-in-flow-mapping", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-unpaired-surrogate-16-bit-escape", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-unpaired-surrogate-32-bit-escape", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/front-matter-duplicate-key", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/i-json/yaml-duplicate-key-three-times", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-escaped-surrogate-pair", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-escaped-noncharacter-valid", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-raw-noncharacter-fdd0-valid", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/yaml-raw-noncharacter-fffe", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/i-json/front-matter-raw-noncharacter-fffe", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/line-breaks/", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/integer-rounded-by-a-double", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/negative-integer-beyond-2-53", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-hex-integer-beyond-2-53", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/exponent-form-is-not-an-integer", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/fraction-is-not-an-integer", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-plus-sign-integer", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-plus-sign-small-integer", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-octal-integer-beyond-2-53", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-hex-integer-64-bit", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-integer-forms", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-float-forms", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-overflow-and-underflow", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-negative-zero", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/yaml-quoted-big-integer", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/numbers/front-matter-integer-beyond-2-53", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/utf-8/invalid-utf-8-yaml", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/utf-8/invalid-utf-8-md", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/yaml-constructs/infinity", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/infinity-signs-and-cases", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/not-a-number", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/infinity-in-a-flow-sequence", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/non-finite-lookalikes-are-strings", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/integer-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/boolean-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/null-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/float-key-in-nested-mapping", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/sequence-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/string-keys", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/anchor-without-alias", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/anchor-and-alias", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/anchor-on-a-mapping", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/merge-key", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/merge-key-in-nested-mapping", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/custom-tag", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/custom-tag-on-a-mapping", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/verbatim-tag", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/every-construct-reported", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/front-matter-infinity", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/yaml-constructs/one-document-with-markers", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/core-schema-tag-str", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/core-schema-tag-int", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/core-schema-tag-binary", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/core-schema-tag-set", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/non-specific-tag", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/quoted-merge-key-is-a-member", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/merge-key-with-a-scalar-value", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/alias-to-an-undefined-anchor", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/several-documents", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/yaml-directive-1-1", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/yaml-directive-1-3", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/yaml-directive-1-2-accepted", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-constructs/yaml-directive-in-a-data-block", "reason": "the Markdown parser comes with I1.4, #13" },
-    { "id": "values/yaml-scalars/core-schema-strings", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-scalars/core-schema-booleans-and-nulls", "reason": "the YAML parser comes with I1.3, #12" },
-    { "id": "values/yaml-scalars/number-warning-raised-to-error-still-reads", "reason": "the YAML parser comes with I1.3, #12" }
+    {
+      "operation": "anchors",
+      "reason": "anchors come with I1.5, #14"
+    },
+    {
+      "operation": "meta",
+      "reason": "computed fields come with I1.6, #15"
+    },
+    {
+      "operation": "resolve",
+      "reason": "addresses come with I1.6, #15"
+    },
+    {
+      "id": "anchors/blocks-and-tags/two-anchors-at-paragraph-start",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "anchors/blocks-and-tags/two-anchors-at-list-item-start",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "anchors/explicit/heading-element-with-attribute",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "anchors/explicit/heading-element-with-content",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "anchors/explicit/block-element-with-attribute",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "anchors/explicit/front-matter-anchor-and-tags",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "data/shape/ref-malformed-front-matter",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/body/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/byte-order-marks/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/containers/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/crlf/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/dash-lines/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/data-blocks/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/front-matter/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/closing-sequence",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/hash-without-space-is-not-closing",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/no-space-is-not-a-heading",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/inline-source-kept",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/indentation-and-spaces-trimmed",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/indented-code-is-not-a-heading",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/empty-heading",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/headings/html-kept-in-title",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/line-endings/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/parse-units/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/sections/",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/single-h1-first",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/h1-not-first-is-a-section",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/several-h1-are-sections",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/anchor-and-tags",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/h1-in-code-block-does-not-count",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/setext-title",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/several-h1-first-block",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/setext-multi-line-title",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/setext-multi-line-root-title",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/h1-in-block-quote-does-not-count",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/h1-in-list-item-does-not-count",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/h1-in-html-block-does-not-count",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "markdown/title/repeated-class-token",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/i-json/front-matter-duplicate-key",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/i-json/front-matter-raw-noncharacter-fffe",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/numbers/front-matter-integer-beyond-2-53",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/utf-8/invalid-utf-8-md",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/yaml-constructs/front-matter-infinity",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    },
+    {
+      "id": "values/yaml-constructs/yaml-directive-in-a-data-block",
+      "reason": "the Markdown parser comes with I1.4, #13"
+    }
   ]
 }

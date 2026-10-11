@@ -17,8 +17,8 @@ export interface Position {
   readonly col: number;
 }
 
-// Deviation from the I1 design, recorded in issue #10: the map of line breaks read as LF back to the source is not here yet;
-// the YAML parser, its first user, brings it.
+// Deviation from the I1 design, recorded in issues #10 and #12: line breaks read as LF, with the map back to the file, are not
+// a member of the source text but `readLineBreaksAsLf` in unit-text.ts, since each parse unit reads its own part of the file.
 /**
  * The decoded text of a file, with conversions between the UTF-16 indexes that JavaScript strings and parsers use and the
  * UTF-8 byte offsets that vmd reports. Lines end at LF, CRLF or a lone CR.
