@@ -32,7 +32,7 @@ describe("configurationFileSource", () => {
   test("reads at most one byte more than the largest schema, whatever the file holds", async () => {
     const { source } = sourceIn({ "schema/big.json": THREE_MIB });
     const read = await source.readSchema("big.json");
-    expect(read.ok && read.value.length).toBe(MAX_SCHEMA_BYTES + 1);
+    expect(read.ok && read.value instanceof Uint8Array && read.value.length).toBe(MAX_SCHEMA_BYTES + 1);
   });
 
   test("fails with address-not-found for a schema that does not exist, and storage-failed for a directory", async () => {

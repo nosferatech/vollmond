@@ -13,6 +13,25 @@ export interface FileInfo {
   readonly modified: string | null;
 }
 
+/** What a read takes beyond the path. */
+export interface ReadOptions {
+  /** The part of the file to read; the whole file when absent. */
+  readonly range?: ContentRange;
+  /** A past version of the store to read the file at. */
+  readonly at?: string;
+}
+
+/**
+ * A file that a read bounded by `maxBytes` refused for being larger than the bound, before reading its content: it has no
+ * content and no version, since computing the version would read it.
+ */
+export interface OversizedFile {
+  readonly path: string;
+  readonly oversized: true;
+  /** The file's size in bytes, as far as the backend could tell without reading it: more than the bound. */
+  readonly size: number;
+}
+
 /** A file's content, or part of it, with the version and size of the whole file. */
 export interface FileContent extends FileInfo {
   /** The bytes read: the whole file, or the bytes of the requested range. */
@@ -168,7 +187,14 @@ export interface StorageReader {
    * Reads a file, or a range of it, with the version of the whole file. `at` reads it at a past version of the store, and
    * fails with `storage-failed` where the backend keeps no history.
    */
-  read(path: string, options?: { readonly range?: ContentRange; readonly at?: string }): Promise<Outcome<FileContent>>;
+  read(path: string, options?: ReadOptions): Promise<Outcome<FileContent>>;
+  /**
+   * Reads a file, or a range of it, as the other form does, unless the whole file is larger than `maxBytes`: such a file is
+   * refused before its content is read or hashed, as an {@link OversizedFile}, and at most `maxBytes` and one byte more are
+   * read of a file that grows past the bound while it is read. Throws a `RangeError` for a `maxBytes` that is not an integer
+   * of at least 0.
+   */
+  read(path: string, options: ReadOptions & { readonly maxBytes: number }): Promise<Outcome<FileContent | OversizedFile>>;
   /**
    * Finds the lines that match a pattern, in UTF-8 byte order of the paths and then by line. A `regex` pattern outside the
    * portable subset fails, with an issue for each construct outside it. A file the backend cannot read is skipped with a

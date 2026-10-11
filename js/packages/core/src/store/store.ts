@@ -10,8 +10,14 @@ import {
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import { type CheckOptions, type CheckSummary, checkStore } from "../check/check.js";
 import { collectionOfRecord, type PathClass, PathClassifier } from "../config/classify.js";
-import { type Collection, readStoreConfiguration, type StoreConfiguration } from "../config/configuration.js";
-import { parseRecord } from "../format/parse-record.js";
+import {
+  type Collection,
+  MAX_CONFIGURATION_BYTES,
+  readStoreConfiguration,
+  type StoreConfiguration,
+} from "../config/configuration.js";
+import { MAX_RECORD_BYTES } from "../format/limits.js";
+import { parseRecord, recordTooLarge } from "../format/parse-record.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import {
@@ -24,7 +30,7 @@ import {
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
-import type { CountedPage, FileInfo, GrepMatch, GrepQuery, StorageReader } from "../storage/storage.js";
+import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
 
@@ -48,10 +54,11 @@ export interface ConfigurationSource {
   readonly name: string;
   /**
    * Reads a file of the schema directory by its path relative to that directory, which has no `.` or `..` segment. Fails with
-   * `address-not-found` when there is none, and with another issue when it cannot be read. A source may stop reading after
-   * one byte more than {@link MAX_SCHEMA_BYTES}, since a longer file is refused whatever it holds.
+   * `address-not-found` when there is none, whose hint the store passes on, and with another issue when it cannot be read. A
+   * source may stop reading after one byte more than {@link MAX_SCHEMA_BYTES}, or give a larger file as an `OversizedFile`
+   * without reading it, since a longer file is refused whatever it holds.
    */
-  readSchema(path: string): Promise<Outcome<Uint8Array>>;
+  readSchema(path: string): Promise<Outcome<Uint8Array | OversizedFile>>;
 }
 
 /** A file a store lists: a record or an asset, with what the backend says of it. */
@@ -212,10 +219,12 @@ export interface Store {
 
 /**
  * Opens a store over a backend: reads its configuration, from `configuration` when given and otherwise from the backend's
- * `.vmd/config.yaml`, with the schemas in `.vmd/schema/`. Those are read as any other file of the store, so the backend's rules
- * apply to them: the local filesystem's refuses a path reached through a symbolic link. Fails with that reading's issues, with `config-invalid` when the
- * backend has no configuration file, or with the backend's `storage-failed`. The configuration's warnings are the outcome's
- * issues. Schemas are read when a record of their collection is first read or checked, not here.
+ * `.vmd/config.yaml`, with the schemas in `.vmd/schema/`. Those are read as any other file of the store, so the backend's
+ * rules apply to them: the local filesystem's refuses a path reached through a symbolic link. A configuration file larger
+ * than `MAX_CONFIGURATION_BYTES` is refused by its size before it is read. Fails with that reading's issues, with
+ * `config-invalid` when the backend has no configuration file or a larger one, or with the backend's `storage-failed`. The
+ * configuration's warnings are the outcome's issues. Schemas are read when a record of their collection is first read or
+ * checked, not here.
  */
 export async function openStore(
   backend: StorageReader,
@@ -223,7 +232,7 @@ export async function openStore(
 ): Promise<Outcome<Store>> {
   let source = options.configuration;
   if (source === undefined) {
-    const file = await backend.read(CONFIGURATION_PATH);
+    const file = await backend.read(CONFIGURATION_PATH, { maxBytes: MAX_CONFIGURATION_BYTES });
     if (!file.ok) {
       if (file.issues.some((issue) => issue.code !== "address-not-found")) return fail(file.issues);
       return fail([
@@ -236,7 +245,18 @@ export async function openStore(
         }),
       ]);
     }
-    source = storeConfigurationSource(backend, file.value.content);
+    const read = file.value;
+    if ("oversized" in read) {
+      return fail([
+        makeIssue({
+          code: "config-invalid",
+          path: null,
+          at: null,
+          message: `the configuration is larger than ${MAX_CONFIGURATION_BYTES} bytes`,
+        }),
+      ]);
+    }
+    source = storeConfigurationSource(backend, read.content);
   }
   const configuration = readStoreConfiguration(source.content);
   if (!configuration.ok) return configuration;
@@ -246,9 +266,10 @@ export async function openStore(
 /**
  * Gives the configuration source of a configuration file kept in a store's `.vmd/`, whose schemas are files of the store in
  * `.vmd/schema/`, read through the backend as any file of the store is, so that the backend's rules apply to them. A schema
- * that the backend finds no file for fails with `address-not-found`, unless files lie below its path, which makes it a
- * directory: that fails with `storage-failed`, since the file is there but cannot be read as one. A backend that cannot read
- * the file fails with its own issue.
+ * larger than {@link MAX_SCHEMA_BYTES} is refused by its size before it is read. A schema that the backend finds no file for
+ * fails with `address-not-found`, whose hint says that a backend may refuse a path reached through a symbolic link, unless
+ * files lie below its path, which makes it a directory: that fails with `storage-failed`, since the file is there but cannot
+ * be read as one. A backend that cannot read the file fails with its own issue.
  */
 export function storeConfigurationSource(
   backend: StorageReader,
@@ -260,11 +281,21 @@ export function storeConfigurationSource(
     name,
     readSchema: async (path) => {
       const stored = `${SCHEMA_DIRECTORY}/${path}`;
-      const file = await backend.read(stored);
-      if (file.ok) return succeed(file.value.content);
+      const file = await backend.read(stored, { maxBytes: MAX_SCHEMA_BYTES });
+      if (file.ok) return succeed("oversized" in file.value ? file.value : file.value.content);
       if (!file.issues.every((issue) => issue.code === "address-not-found")) return fail(file.issues);
       const below = await backend.list({ prefix: `${stored}/`, limit: 1 });
-      if (!below.ok || below.value.items.length === 0) return fail(file.issues);
+      if (!below.ok || below.value.items.length === 0) {
+        return fail([
+          makeIssue({
+            code: "address-not-found",
+            path: null,
+            at: null,
+            message: `${stored} does not exist`,
+            hint: "a schema must be a regular file of the store: a backend may refuse one reached through a symbolic link",
+          }),
+        ]);
+      }
       return fail([makeIssue({ code: "storage-failed", path: null, at: null, message: `${stored} is a directory, not a file` })]);
     },
   };
@@ -333,7 +364,10 @@ class BackendStore implements Store {
   parse(path: string): Promise<Outcome<ParsedRecord>> {
     let parsing = this.#parses.get(path);
     if (parsing === undefined) {
-      parsing = this.backend.read(path).then((file) => (file.ok ? parseRecord(path, file.value.content) : fail(file.issues)));
+      parsing = this.backend.read(path, { maxBytes: MAX_RECORD_BYTES }).then((file) => {
+        if (!file.ok) return fail(file.issues);
+        return "oversized" in file.value ? fail([recordTooLarge(path)]) : parseRecord(path, file.value.content);
+      });
       this.#parses.set(path, parsing);
     }
     return parsing;
@@ -357,14 +391,16 @@ class BackendStore implements Store {
     let problem: string | null = null;
     // A file that is there and cannot be read is the storage's failure; a missing or oversized one is the schema's.
     let code: "schema-invalid" | "storage-failed" = "schema-invalid";
+    let sourceHint: string | undefined;
     if (!read.ok) {
       if (read.issues.every((issue) => issue.code === "address-not-found")) {
         problem = "does not exist";
+        sourceHint = read.issues.find((issue) => issue.hint !== undefined)?.hint;
       } else {
         code = "storage-failed";
         problem = `cannot be read: ${read.issues.map((issue) => issue.message).join("; ")}`;
       }
-    } else if (read.value.length > MAX_SCHEMA_BYTES) {
+    } else if ("oversized" in read.value || read.value.length > MAX_SCHEMA_BYTES) {
       problem = `is larger than ${MAX_SCHEMA_BYTES} bytes`;
     }
     if (problem === null) return null;
@@ -373,7 +409,7 @@ class BackendStore implements Store {
       path: null,
       at: null,
       message: `the schema ${path} of the collection ${collection.name} ${problem}, so the collection's records cannot be read`,
-      hint: `schemas are in the schema/ directory beside ${this.#source.name}`,
+      hint: `schemas are in the schema/ directory beside ${this.#source.name}${sourceHint === undefined ? "" : `; ${sourceHint}`}`,
     });
   }
 

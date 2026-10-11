@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitBlobId, type Outcome } from "@vollmond/core";
@@ -54,6 +54,22 @@ describeStorageContract({
 });
 
 describe("createFilesystemStorage", () => {
+  test("refuses a file over maxBytes by its size, without reading it: a 3 GiB sparse file, which no read could hold", async () => {
+    const root = temporaryDirectory();
+    writeFiles(root, { "big.md": "" });
+    truncateSync(join(root, "big.md"), 3 * 1024 ** 3);
+    const storage = createFilesystemStorage(root);
+    const started = performance.now();
+    expect(successValue(await storage.read("big.md", { maxBytes: 1024 }))).toEqual({
+      path: "big.md",
+      oversized: true,
+      size: 3 * 1024 ** 3,
+    });
+    expect(performance.now() - started).toBeLessThan(1000);
+    // A read without the bound reads the whole file, which Node cannot hold in one buffer.
+    expect((await storage.read("big.md")).issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
+  });
+
   test.skipIf(process.platform === "win32")("does not follow symbolic links", async () => {
     const outside = temporaryDirectory();
     writeFiles(outside, { "secret.md": "outside the store\n" });

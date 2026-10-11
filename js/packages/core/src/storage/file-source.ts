@@ -12,6 +12,8 @@ import type {
   GrepMatch,
   GrepQuery,
   ListQuery,
+  OversizedFile,
+  ReadOptions,
   StorageHistory,
   StorageReader,
 } from "./storage.js";
@@ -36,6 +38,12 @@ export interface FileSource {
   listFiles(directory: string): Promise<Outcome<readonly string[]>>;
   /** Reads a file, and fails with `address-not-found` when there is none, or `storage-failed` when it cannot be read. */
   readFile(path: string): Promise<Outcome<StoredFile>>;
+  /**
+   * Reads a file as {@link FileSource.readFile} does, unless it is larger than `maxBytes`: such a file is refused by the size
+   * the source knows before reading anything, as an {@link OversizedFile}, and a file that grows while it is read is read no
+   * further than `maxBytes` and one byte, and refused too.
+   */
+  readFileWithin(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>>;
   /** The store's current version, or null for a plain filesystem. */
   head(): Promise<Outcome<string | null>>;
   readonly history: StorageHistory | null;
@@ -114,8 +122,14 @@ class FileSourceReader implements StorageReader {
     return succeed(await fileInfo(path, file.value), file.issues);
   }
 
-  async read(path: string, options: { readonly range?: ContentRange; readonly at?: string } = {}): Promise<Outcome<FileContent>> {
+  read(path: string, options?: ReadOptions): Promise<Outcome<FileContent>>;
+  read(path: string, options: ReadOptions & { readonly maxBytes: number }): Promise<Outcome<FileContent | OversizedFile>>;
+  async read(
+    path: string,
+    options: ReadOptions & { readonly maxBytes?: number } = {},
+  ): Promise<Outcome<FileContent | OversizedFile>> {
     if (options.range !== undefined) requireRange(options.range);
+    if (options.maxBytes !== undefined) requireCount("maxBytes", options.maxBytes, 0);
     const pathIssue = checkStoragePath(path);
     if (pathIssue !== null) return fail([pathIssue]);
     if (options.at !== undefined) {
@@ -128,8 +142,12 @@ class FileSourceReader implements StorageReader {
         }),
       ]);
     }
-    const file = await this.#source.readFile(path);
+    const file =
+      options.maxBytes === undefined
+        ? await this.#source.readFile(path)
+        : await this.#source.readFileWithin(path, options.maxBytes);
     if (!file.ok) return file;
+    if ("oversized" in file.value) return succeed(file.value, file.issues);
     const bytes = file.value.bytes;
     const range = options.range === undefined ? { start: 0, end: bytes.length } : byteRangeOf(bytes, options.range);
     // A copy, so that a caller who changes the content cannot change what the backend holds.

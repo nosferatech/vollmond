@@ -4,3 +4,9 @@
  * holds. Parsers check it before a library recurses into the unit.
  */
 export const MAX_NESTING = 256;
+
+/**
+ * The largest record, in bytes: 16 MiB. A larger record is a `syntax-error` whatever it holds, and a store refuses it by its
+ * size before reading it.
+ */
+export const MAX_RECORD_BYTES = 16 * 1024 * 1024;

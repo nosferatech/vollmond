@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { MAX_CONFIGURATION_BYTES } from "../config/configuration.js";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
@@ -97,6 +98,30 @@ describe("openStore", () => {
   test("fails with storage-failed when the backend cannot read the configuration", async () => {
     const files = { ".vmd/config.yaml": { content: CONFIG, unreadable: true } };
     expect(codesOf(await openStore(createMemoryStorage({ files })))).toEqual(["storage-failed"]);
+  });
+
+  test("refuses a configuration over a mebibyte by its size, asking the backend for no more, and reads one of exactly that", async () => {
+    const config = (size: number) => `vmd: 1\n#${"x".repeat(size - 9)}\n`;
+    expect(config(MAX_CONFIGURATION_BYTES)).toHaveLength(MAX_CONFIGURATION_BYTES);
+    const bounds: (number | undefined)[] = [];
+    const inner = createMemoryStorage({ files: { ".vmd/config.yaml": config(MAX_CONFIGURATION_BYTES + 1) } });
+    const backend: StorageReader = {
+      list: (query) => inner.list(query),
+      stat: (path) => inner.stat(path),
+      read: ((path: string, options?: { maxBytes?: number }) => {
+        bounds.push(options?.maxBytes);
+        return inner.read(path, options as never);
+      }) as StorageReader["read"],
+      grep: (query) => inner.grep(query),
+      head: () => inner.head(),
+      history: inner.history,
+    };
+    const larger = await openStore(backend);
+    expect(codesOf(larger)).toEqual(["config-invalid"]);
+    expect(larger.issues[0]?.message).toContain("larger than 1048576 bytes");
+    expect(bounds).toEqual([MAX_CONFIGURATION_BYTES]);
+    const fits = await openStore(createMemoryStorage({ files: { ".vmd/config.yaml": config(MAX_CONFIGURATION_BYTES) } }));
+    expect(fits.ok).toBe(true);
   });
 });
 

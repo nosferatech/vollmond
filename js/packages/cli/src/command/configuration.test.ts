@@ -1,7 +1,7 @@
 // What a store's configuration changes in the read commands: collections in `ls`, ignored paths, and where schemas are.
 
 import { execFileSync } from "node:child_process";
-import { chmodSync, symlinkSync } from "node:fs";
+import { chmodSync, symlinkSync, truncateSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_SCHEMA_BYTES } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
@@ -201,6 +201,36 @@ describe("a store's own schema that is not a regular file", () => {
   );
 });
 
+describe("files over their bound, 3 GiB sparse files that a read of the whole file could not hold", () => {
+  const BIG = 3 * 1024 ** 3;
+  const CONFIG = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
+
+  test("a store's own configuration is config-invalid, refused by its size", async () => {
+    const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "", "a.md": "# A\n" });
+    truncateSync(join(root, ".vmd/config.yaml"), BIG);
+    const result = await vmd(root, "get", "a.md");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/config-invalid: the configuration is larger than 1048576 bytes/);
+  });
+
+  test("a store's own schema is schema-invalid, and a record is a syntax-error, each refused by its size", async () => {
+    const root = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": CONFIG,
+      ".vmd/schema/t.json": "",
+      "t/a.md": "# A\n",
+      "big.md": "",
+    });
+    truncateSync(join(root, ".vmd/schema/t.json"), BIG);
+    truncateSync(join(root, "big.md"), BIG);
+    const schema = await vmd(root, "get", "t/a.md");
+    expect(schema.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t is larger than 1048576 bytes/);
+    const record = await vmd(root, "--json", "get", "big.md");
+    expect(JSON.parse(record.stdout).issues).toEqual([
+      expect.objectContaining({ code: "syntax-error", path: "big.md", at: "", message: expect.stringContaining("larger than") }),
+    ]);
+  });
+});
+
 describe("symbolic links", () => {
   const CONFIG_T = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
 
@@ -235,6 +265,7 @@ describe("symbolic links", () => {
       const linked = await vmd(store, "get", "t/a.md");
       expect(linked.exitCode).toBe(1);
       expect(linked.stderr).toMatch(/^error schema-invalid: the schema t\.json of the collection t does not exist/);
+      expect(linked.stderr).toMatch(/hint schemas are in the schema\/ directory beside \.vmd\/config\.yaml; .*symbolic link/);
       const plain = writeFiles(temporaryDirectory(), {
         ".vmd/config.yaml": CONFIG_T,
         ".vmd/schema/t.json": "{}",
