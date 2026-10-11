@@ -569,16 +569,16 @@ script builds it, and fails above 1.5 s: loose enough for CI's variance, tight e
 I1.11 times the real file with the built command, the median of ten runs, and records it in #20.
 
 **Measured in I1.11** (M, by [`examples/vampiredb/demo.mjs`](../../examples/vampiredb/demo.mjs), on 2026-10-11, the file now
-672,719 bytes): a cold `vmd outline design/Minimal_Log.md` takes 339 ms, the median of ten fresh processes (333 to 412 ms); a
-warm one, `runCli` again in one process, 201 ms. Of a cold run, the library's parse is about 238 ms, vmd's own walk about 12 ms,
-the canonical addresses under 1 ms, and Node's start and the imports about 60 ms. Under a load average of 10 to 15 on the same
-machine, a cold run took 0.70 to 0.79 s. The budget holds without any of the fallbacks above.
+672,719 bytes): a cold `vmd outline design/Minimal_Log.md` takes 339 ms, the median of ten fresh processes with a warm file
+cache (333 to 412 ms); a warm one, `runCli` again in one process, 201 ms. Of a cold run, the library's parse is about 238 ms,
+vmd's own walk about 12 ms, the canonical addresses under 1 ms, and Node's start and the imports about 60 ms. Under a load
+average of 10 to 15 on the same machine, a cold run took 0.70 to 0.79 s. The budget holds without any of the fallbacks above.
 
 The guard as built, `core`'s `store/outline-time.test.ts`, departs from the one above (recorded in #20). It generates a 673 KB
 document shaped like `Minimal_Log.md` rather than repeating the proposal. It counts what can be counted exactly: one read of the
 file and one Markdown parse. Its time bound is 5 s, the style of the suite's other timing tests: a step that loops over the
-whole text for each line takes it to about 6 s, while 1.5 s is close to a slow machine's time and would still pass a step that
-adds 0.6 s.
+whole text for each line takes it to about 6 s. 1.5 s would be close to the 1.26 s the test file took on CI, and would still
+pass a step that adds 0.6 s.
 
 ---
 

@@ -88,12 +88,12 @@ describe("the outline of a large document", () => {
     // keys and the canonical addresses.
     expect(reads).toBe(1);
     expect(fromMarkdown).toHaveBeenCalledTimes(1);
-    // The time cannot be counted. The library's parse is most of it: about 0.4 s on a laptop, and a few times that on a
-    // loaded machine. The bound is far from that, so that a loaded machine does not fail it, and it catches only a gross
-    // step of vmd's own: a loop over the whole text for each line takes this test to about 6 s, while encoding the text
-    // before each line again adds only about 0.6 s and passes.
-    // Deviation from the I1 design, recorded in issue #20: the design's bound is 1.5 s, close to what a slow or loaded
-    // machine takes, and it would not catch the second step either.
+    // The time cannot be counted. The library's parse is most of it: this test file took 1.26 s on CI (and about 0.4 s on a
+    // laptop), so the bound leaves CI a margin of about four times. It catches only a gross step of vmd's own: a loop over
+    // the whole text for each line takes the test to about 6 s on the laptop, while encoding the text before each line
+    // again adds only about 0.6 s and passes.
+    // Deviation from the I1 design, recorded in issue #20: the design's bound is 1.5 s, close to the 1.26 s CI takes, and
+    // it would not catch the second step either.
     expect(elapsed).toBeLessThan(5000);
 
     const parsed = opened.value.recordRead("design.md");

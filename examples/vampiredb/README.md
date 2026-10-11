@@ -7,15 +7,25 @@ vampiredb is not modified (decision K3). The configuration holds only `vmd: 1`, 
 
 ```sh
 cd js && npm ci && npm run build && cd ..
-node examples/vampiredb/demo.mjs ~/vampiredb            # every get through the CLI's runCli, about 2 minutes
+node examples/vampiredb/demo.mjs ~/vampiredb            # every get through the CLI's runCli, 2 to 4 minutes
 node examples/vampiredb/demo.mjs ~/vampiredb --fast     # every get through openStore, a few seconds
 ```
 
 [`demo.mjs`](demo.mjs) lists the store with `vmd ls` and outlines every record with `vmd outline`, each in a fresh process. It
 then runs `vmd get` on every section's canonical address, every block anchor's canonical address, and `#NAME` for every
 explicit, derived and block anchor, and checks that each one resolves, as a singular address, to the node or block it came
-from. It cross-checks the counts against a line scan that does not use vmd, times `vmd outline design/Minimal_Log.md`, and
-checks that the store's files are unchanged. It exits with 1 when a check fails. Its header comment lists the steps.
+from. Those expectations come from vmd's own parse, so that check compares vmd with itself.
+
+A second check compares vmd with the files, through a line scan that does not use vmd:
+
+- The headings and the `<a id=` elements must be as many as vmd finds.
+- `#ID` of each heading's element must give the section at that heading's line, with the heading's text as its title.
+- `#SLUG` must do the same, where SLUG is the demo's own reading of §6.3. It skips headings with markup it does not read.
+- `#ID` of every other element must give a block that starts with the element (after any list marker), at the element's line,
+  whose text is in the file. The one exception is an element vmd reports as anchoring nothing: there `get` must find nothing.
+
+It also times `vmd outline design/Minimal_Log.md` and checks that the store's files are unchanged. It exits with 1 when a check
+fails. Its header comment lists the steps.
 
 ## Result
 
@@ -26,8 +36,10 @@ Run on 2026-10-11 against the vampiredb checkout at `~/vampiredb`, with Node 24.
 | documents | 37 Markdown records, all readable |
 | sections | 677, every one with a heading; a line scan counts 677 ATX headings |
 | anchors | 157 explicit, 677 derived, 264 block; a line scan counts 438 `<a id=` elements, which are the 157 and the 264 plus 17 that anchor nothing (below) |
-| `get` | 2,039 checks over 1,377 distinct addresses: all 1,377 resolve, each to the node or block it came from |
-| failures | none among the anchors vmd reads |
+| `get`, against vmd's parse | 2,039 checks over 1,377 distinct addresses: all 1,377 resolve, each to the node or block it came from |
+| `get`, against the files | all 157 heading anchors and all 264 block anchors; 636 derived anchors by the demo's slug, with 41 headings skipped for markup; the 17 ignored elements are not found |
+| failures | none |
+| full run | 3.5 minutes under a load average of 15; about 2 minutes on an idle machine, measured before the checks against the files were added |
 | store | unchanged (a digest of its files before and after), and no `.vmd/` created |
 
 **Anchor elements that anchor nothing.** `design/Minimal_Log.md` has 17 `<a id>` elements at the start of a list item's second
@@ -36,6 +48,18 @@ block anchor only at the start of a list item or of a top-level paragraph of a `
 for each one (a warning), and `vmd get` finds none of them. Twelve of them are the target of links, 40 links in all, which GitHub
 follows. Whether the documents should move these anchors or §6.2 should accept them is for the project owner to decide; this
 demonstration does not.
+
+**The checks fail when they should.** Each check against the files was made to fail once:
+
+- on a copy of the docs, a setext heading fails the heading count, and an ignored element named like a heading fails the
+  ignored-element check;
+- with a bug planted in vmd and rebuilt:
+  - slugs left in upper case fail 622 derived anchors;
+  - explicit anchors moved to the parent section fail all 157 heading anchors;
+  - block ranges shifted by a byte fail all 264 blocks;
+  - block anchors dropped silently fail 28 blocks, and the count.
+
+The check against vmd's parse misses the slug, range and dropped-block bugs.
 
 **Failures by class.** vmd bugs: none. Problems in vampiredb's documents, such as duplicate anchors: none. Questions for the
 specification: the 17 elements above, and a block anchor's canonical address when its name is not singular. §7.5 defines the
@@ -48,7 +72,7 @@ vampiredb has no such block, but a copy of its docs with a planted duplicate, ru
 
 | | min | median | max |
 |---|---|---|---|
-| cold: the built `vmd` in a fresh process, wall clock | 333 ms | 339 ms | 412 ms |
+| cold: the built `vmd` in a fresh process, wall clock, with the operating system's file cache warm | 333 ms | 339 ms | 412 ms |
 | warm: `runCli` again in the same process, which opens the store and parses the record again | 196 ms | 201 ms | 242 ms |
 
 That is well under the plan's second. Where a cold run's time goes, measured stage by stage in fresh processes on an idle machine:

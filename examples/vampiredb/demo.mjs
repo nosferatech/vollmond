@@ -16,8 +16,11 @@
 //     address, to the node (or the block) it came from. By default each `get` goes through the CLI's `runCli` in this
 //     process, which reads the record again for each address; `--fast` reads each record once through `openStore` over the
 //     same filesystem backend, which is the operation `vmd get` runs, without the command line around it;
-//  5. cross-checks the counts against a line scan of the files that does not use vmd: ATX headings and `<a id=` elements
-//     outside fenced code blocks and code spans;
+//  5. checks vmd against the files, through a line scan that does not use vmd (ATX headings and `<a id=` elements outside
+//     fenced code blocks and code spans): the counts must agree; `#ID` of each heading's element and `#SLUG` of its slug, by
+//     the demo's own reading of §6.3, must give the section at that heading's line with its title; `#ID` of each other
+//     element must give a block that starts with the element, at its line, whose text is in the file, or nothing when vmd
+//     reports the element as anchoring nothing. Steps 3 and 4 compare vmd with itself; this step does not;
 //  6. runs `vmd get` on `#ID` for each anchor element that anchors nothing (`anchor-element-ignored`), and counts the store's
 //     links to it, which vmd cannot resolve;
 //  7. times `vmd outline design/Minimal_Log.md`: cold, in a fresh process each run, and warm, `runCli` again in one process;
@@ -125,6 +128,8 @@ const checks = [];
 const warnings = [];
 /** The anchor elements that anchor nothing (`anchor-element-ignored`), with their ids. */
 const ignored = [];
+/** Each record's text, with the headings and anchor elements the line scan found in it. */
+const scanned = [];
 let outlineMs = 0;
 for (const { path: recordPath } of records) {
   const outlined = vmd(["--json", "outline", recordPath]);
@@ -186,19 +191,21 @@ for (const { path: recordPath } of records) {
         );
     }
   }
-  const counted = lineScan(new TextDecoder().decode(bytes));
-  scan.headings += counted.headings;
+  const text = new TextDecoder().decode(bytes);
+  const counted = lineScan(text);
+  scanned.push({ record: recordPath, text, ...counted });
+  scan.headings += counted.headings.length;
   scan.anchorElements += counted.anchorElements;
   const vmdHeadings = sections.filter((section) => section.heading !== null).length;
-  if (counted.headings !== vmdHeadings) {
-    console.log(`  note: ${recordPath}: the line scan counts ${counted.headings} headings, vmd ${vmdHeadings}`);
+  if (counted.headings.length !== vmdHeadings) {
+    fail(recordPath, "", "line scan", `the line scan counts ${counted.headings.length} headings, vmd ${vmdHeadings}`);
   }
   // Every anchor element is an explicit or a block anchor, or raises an issue: anchor-element-ignored, or invalid.
   const vmdElements =
     record.anchors.anchors.filter((entry) => entry.kind !== "derived").length +
     record.issues.filter((issue) => issue.code.startsWith("anchor-element-")).length;
   if (counted.anchorElements !== vmdElements) {
-    console.log(`  note: ${recordPath}: the line scan counts ${counted.anchorElements} <a id= elements, vmd ${vmdElements}`);
+    fail(recordPath, "", "line scan", `the line scan counts ${counted.anchorElements} <a id= elements, vmd ${vmdElements}`);
   }
 }
 console.log(`outline: ${records.length} records, ${outlineMs.toFixed(0)} ms in all, each in a fresh process`);
@@ -209,13 +216,7 @@ if (opened !== null && !opened.ok) throw new Error(JSON.stringify(opened.issues)
 const seen = new Map();
 const getStarted = performance.now();
 for (const check of checks) {
-  const full = `${check.record}${check.address}`;
-  let outcome = seen.get(full);
-  if (outcome === undefined) {
-    outcome = await get(full);
-    seen.set(full, outcome);
-    totals.addresses += 1;
-  }
+  const outcome = await get(`${check.record}${check.address}`);
   if (!outcome.ok) {
     const issue = outcome.issues.map((i) => `${i.code}: ${i.message}`).join("; ");
     fail(check.record, check.address, check.what, issue, check.duplicate ? "docs" : "triage");
@@ -231,15 +232,99 @@ for (const check of checks) {
     fail(check.record, check.address, check.what, `resolves to ${meta["@at"]} ${gotRange ?? ""}, not ${check.at} ${range ?? ""}`);
   }
 }
+const vmdAddresses = totals.addresses;
+
+// 5. The same reads, checked against the files rather than against vmd: the line scan's headings and anchor elements.
+const independent = { explicit: 0, derived: 0, derivedSkipped: 0, block: 0, ignored: 0 };
+for (const { record, text, headings, elements } of scanned) {
+  for (const [index, heading] of headings.entries()) {
+    if (heading.id !== null) {
+      independent.explicit += 1;
+      await checkHeading(record, `#${heading.id}`, heading, index, "explicit, from the file");
+    }
+    if (heading.slug === null) independent.derivedSkipped += 1;
+    else if (heading.slug !== "") {
+      independent.derived += 1;
+      await checkHeading(record, `#${heading.slug}`, heading, index, "derived, by the demo's slug");
+    }
+  }
+  for (const element of elements) {
+    const address = `#${element.id}`;
+    const outcome = await get(`${record}${address}`);
+    const reported = ignored.some((entry) => entry.record === record && entry.id === element.id && entry.line === element.line);
+    if (!outcome.ok) {
+      if (reported) independent.ignored += 1;
+      else fail(record, address, "block, from the file", `line ${element.line}: get finds nothing, and vmd reports no issue`);
+      continue;
+    }
+    if (reported) {
+      fail(
+        record,
+        address,
+        "block, from the file",
+        `line ${element.line}: vmd ignores the element, but get finds ${outcome.value.meta["@at"]}`,
+      );
+      continue;
+    }
+    const { value, meta } = outcome.value;
+    const problem =
+      typeof value !== "string"
+        ? `get gives a node, ${meta["@at"]}, not a block`
+        : !value.replace(/^([-*+]|[0-9]{1,9}[.)])[ \t]+/, "").startsWith(`<a id="${element.id}"`)
+          ? `the block starts ${JSON.stringify(value.slice(0, 40))}, not with its element`
+          : !text.includes(value)
+            ? "the block's text is not in the file"
+            : meta["@source"].line !== element.line
+              ? `the block is at line ${meta["@source"].line}, the element at line ${element.line}`
+              : null;
+    if (problem === null) independent.block += 1;
+    else fail(record, address, "block, from the file", problem);
+  }
+}
 for (const outcome of seen.values()) if (outcome.ok) totals.resolved += 1;
 const getMs = performance.now() - getStarted;
 console.log(`get: ${checks.length} checks, ${totals.addresses} distinct addresses, ${(getMs / 1000).toFixed(1)} s`);
 
-/** Reads a node with its exact path, canonical address and block range, as `vmd get --json --meta` gives them. */
+/**
+ * Checks that an address resolves to the section of a heading the line scan found: the section at the heading's line with
+ * its title, or the root, whose title heading is the first heading of the record.
+ */
+async function checkHeading(record, address, heading, index, what) {
+  const outcome = await get(`${record}${address}`);
+  if (!outcome.ok) {
+    fail(record, address, what, outcome.issues.map((i) => `${i.code}: ${i.message}`).join("; "));
+    return;
+  }
+  const { value, meta } = outcome.value;
+  const title = value !== null && typeof value === "object" ? value.$title : undefined;
+  const place = meta["@at"] === "" ? (index === 0 && heading.level === 1 ? heading.line : 1) : meta["@source"].line;
+  if (place !== heading.line || title !== heading.title) {
+    fail(
+      record,
+      address,
+      what,
+      `line ${heading.line} ${JSON.stringify(heading.title)}: get gives line ${place} ${JSON.stringify(title)}`,
+    );
+  }
+}
+
+/**
+ * Reads a node's value view, with its exact path, canonical address, block range and place in the file, as
+ * `vmd --json get ADDRESS --value --meta at,address,range,source` gives them; each address is read once.
+ */
 async function get(full) {
-  if (opened !== null) return opened.value.get(full, { meta: ["@at", "@address", "@range"], reading: { raw: true } });
-  const result = await runCli(["--store", store, "--config", config, "--json", "get", full, "--meta", "at,address,range"]);
-  return JSON.parse(result.stdout);
+  let outcome = seen.get(full);
+  if (outcome !== undefined) return outcome;
+  const meta = ["@at", "@address", "@range", "@source"];
+  if (opened !== null) {
+    outcome = await opened.value.get(full, { meta, reading: { raw: true } });
+  } else {
+    const args = ["--store", store, "--config", config, "--json", "get", full, "--value", "--meta", meta.join(",")];
+    outcome = JSON.parse((await runCli(args)).stdout);
+  }
+  seen.set(full, outcome);
+  totals.addresses += 1;
+  return outcome;
 }
 
 /** Identifies the target an anchor entry names: a node by its exact path, a block by its range too. */
@@ -248,15 +333,21 @@ function targetOf(entry) {
 }
 
 /**
- * Counts, without vmd, the ATX headings at the start of a line and the `<a id=` elements, outside fenced code blocks and
- * one-line code spans: an approximation (it misses setext headings and counts headings in block quotes) that checks vmd's
- * counts from outside.
+ * Reads, without vmd, the ATX headings at the start of a line and the `<a id=` elements, outside fenced code blocks and
+ * one-line code spans: an approximation of CommonMark (it misses setext headings, and takes headings and elements in block
+ * quotes and HTML blocks too) that checks vmd from outside.
+ *
+ * Gives each heading's line, level, title (its text without the `#` sequences and the anchor element, trimmed), explicit
+ * anchor, and derived anchor by {@link slugOf} with §6.3's repeats (null where the title holds markup the demo's slug does
+ * not read); each element outside a heading, with its line and id; and the number of elements.
  */
 function lineScan(text) {
   let fence = null;
-  let headings = 0;
+  const headings = [];
+  const elements = [];
   let anchorElements = 0;
-  for (const line of text.split(/\r\n|\r|\n/)) {
+  const used = new Set();
+  for (const [n, line] of text.split(/\r\n|\r|\n/).entries()) {
     const opener = /^ {0,3}(`{3,}|~{3,})/.exec(line);
     if (fence !== null) {
       if (opener !== null && opener[1][0] === fence[0] && opener[1].length >= fence.length && /^ {0,3}[`~]+\s*$/.test(line))
@@ -267,11 +358,48 @@ function lineScan(text) {
       fence = opener[1];
       continue;
     }
-    if (/^ {0,3}#{1,6}(\s|$)/.test(line)) headings += 1;
     // Code spans on one line are left out: an element in one is text.
+    const ids = [...line.replace(/(`+)(?:(?!\1).)+?\1/g, "").matchAll(/<a\s+id="([^"]*)"/g)].map((match) => match[1]);
     anchorElements += (line.replace(/(`+)(?:(?!\1).)+?\1/g, "").match(/<a\s+id=/g) ?? []).length;
+    const atx = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/.exec(line);
+    if (atx === null) {
+      for (const id of ids) elements.push({ line: n + 1, id });
+      continue;
+    }
+    const content = atx[2] ?? "";
+    const title = content.replace(/<a\s+id="[^"]*"\s*>\s*<\/a>/, "").replace(/^[ \t]+|[ \t]+$/g, "");
+    const slug = slugOf(content);
+    // §6.3 step 7: the slug, or the slug followed by `-n` for the smallest n that is not yet used.
+    let candidate = slug ?? title;
+    for (let k = 1; used.has(candidate); k++) candidate = `${slug ?? title}-${k}`;
+    used.add(candidate);
+    headings.push({ line: n + 1, level: atx[1].length, title, id: ids[0] ?? null, slug: slug === null ? null : candidate });
   }
-  return { headings, anchorElements };
+  return { headings, elements, anchorElements };
+}
+
+/**
+ * Gives the slug of a heading's content by §6.3 steps 1 to 6, written here apart from vmd's and with the runtime's Unicode
+ * data, or null for content whose visible text it does not read: HTML other than the anchor element, character references,
+ * backslash escapes, images, reference links, and `_` that may be an emphasis delimiter.
+ */
+function slugOf(content) {
+  const withoutElement = content.replace(/<a\s+id="[^"]*"\s*>\s*<\/a>/, "");
+  if (/[<\\]|&[#A-Za-z0-9]+;|!\[|\]\[|(^|[^\p{L}\p{Nd}])_|_($|[^\p{L}\p{Nd}])/u.test(withoutElement)) return null;
+  // Step 1, visible text: a code span's content as it is; outside code spans, a link's text without its URL and no `*`.
+  const visible = withoutElement
+    .split(/(`+[^`]*`+)/)
+    .map((part, i) =>
+      i % 2 === 1 ? part.replace(/^`+|`+$/g, "") : part.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\*/g, ""),
+    )
+    .join("");
+  const normalized = visible.replace(/[\p{Default_Ignorable_Code_Point}\p{Cn}]/gu, "").normalize("NFC");
+  const lower = [...normalized].map((c) => c.toLowerCase()).join("");
+  const trimmed = lower.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
+  return trimmed
+    .replace(/\p{White_Space}/gu, " ")
+    .replace(/[^ \p{L}\p{M}\p{Nd}\p{Pc}-]/gu, "")
+    .replace(/ /g, "-");
 }
 
 // 6. Ignored anchor elements: `get` should not find them, and the links that use them do not resolve.
@@ -340,7 +468,8 @@ summary
   anchors            ${totals.explicit} explicit, ${totals.derived} derived, ${totals.block} block (line scan: ${scan.anchorElements} <a id= elements)
   validation issues  ${warnings.length} ${JSON.stringify(byCode)}
   ignored elements   ${ignored.length}, ${ignored.filter((e) => !e.found).length} not found by get, ${ignored.filter((e) => e.links > 0).length} of them linked (${ignored.reduce((n, e) => n + e.links, 0)} links)
-  get                ${checks.length} checks over ${totals.addresses} distinct addresses, ${totals.resolved} resolved
+  get                ${checks.length} checks over ${vmdAddresses} addresses from vmd's anchor table; ${totals.addresses} distinct addresses in all, ${totals.resolved} resolved
+  from the files     ${independent.explicit} heading anchors, ${independent.derived} derived anchors by the demo's slug (${independent.derivedSkipped} headings skipped for markup), ${independent.block} blocks, ${independent.ignored} ignored elements not found
   failures           ${failures.length}: ${failures.filter((f) => f.kind === "docs").length} docs (a name given to several targets), ${failures.filter((f) => f.kind === "triage").length} to triage
   ls                 ${listed.ms.toFixed(0)} ms, one fresh process
   outline, all       ${outlineMs.toFixed(0)} ms for ${records.length} fresh processes
