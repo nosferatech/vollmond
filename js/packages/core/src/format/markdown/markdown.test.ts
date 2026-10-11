@@ -291,6 +291,9 @@ describe("emphasis runs", () => {
     // Three ~ are no strikethrough, so the library reads them one at a time, and they are one run still.
     expect(issuesOf(`x ${"~~~ ".repeat(2000)}\n`)).toEqual([]);
     expect(issuesOf(`x ${"~~~ ".repeat(4097)}\n`)).toEqual([["syntax-error", ""]]);
+    // A run of _ right after a run of * is a run of its own, though it starts right after the last one counted.
+    expect(issuesOf(`${"*_".repeat(2048)}\n`)).toEqual([]);
+    expect(issuesOf(`${"*_".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
     // A * right after an escaped one starts a run, though the character before it is a *.
     expect(issuesOf(`${"\\**a* ".repeat(2048)}\n`)).toEqual([]);
     expect(issuesOf(`${"\\**a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
@@ -299,6 +302,12 @@ describe("emphasis runs", () => {
   test("near miss: a heading is not a paragraph, so its runs are not bounded", () => {
     expect(issuesOf(`# R\n\n## ${"*a* ".repeat(2500)}\n\nText ${"*a* ".repeat(100)}\n`)).toEqual([]);
     expect(issuesOf(`${"*a* ".repeat(2500)}\n---\n\n${"*a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("containers nested too deep after a heading beyond the runs are a syntax error at the containers, found first", () => {
+    const text = `## ${"*a* ".repeat(2049)}\n\n${">".repeat(MAX_NESTING + 1)} x\n`;
+    const issue = parse(text).issues[0];
+    expect([issue?.code, issue?.at, issue?.position?.line]).toEqual(["syntax-error", "", 3]);
   });
 
   test("ten thousand nested emphasis levels are refused before the library resolves them", () => {
@@ -610,6 +619,17 @@ describe("data blocks", () => {
     // Its last line would close a shorter fence, and does not close this one.
     expect(issuesOf("## A\n````yaml data\na: |\n  x\n  ```")).toEqual([["syntax-error", "/$sections/0"]]);
     expect(parse("## A\n\n```yaml data\na: 1\n").issues[0]?.position?.line).toBe(3);
+  });
+
+  test("a misplaced or second data block whose fence is not closed is a syntax error too, at the root or the section", () => {
+    expect(issuesOf("# R\n\n```yaml data\na: 1\n\n## B\n")).toEqual([
+      ["data-block-misplaced", ""],
+      ["syntax-error", ""],
+    ]);
+    expect(issuesOf("## A\n```yaml data\na: 1\n```\n```json data\n{}\n")).toEqual([
+      ["data-block-misplaced", "/$sections/0"],
+      ["syntax-error", "/$sections/0"],
+    ]);
   });
 
   test("near miss: a data fence closed on the last line of the file, and an unclosed fence that is prose, are no error", () => {

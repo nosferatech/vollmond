@@ -91,8 +91,9 @@ export function parseMarkdownRecord(path: string, source: SourceText): Outcome<P
  *   level.
  * - A section's data block is the fenced block right after its heading with the info string `yaml data` or `json data`; one
  *   whose fence is not closed is a `syntax-error` at its section. Such a block after the title heading, as the first block
- *   of a record without one, or right after a data block, is `data-block-misplaced`; a `data` marker of a newer version in
- *   any of those places, or after a heading, is `feature-unsupported`.
+ *   of a record without one, or right after a data block, is `data-block-misplaced`, and a `syntax-error` too when it is not
+ *   closed, at the root or the section; a `data` marker of a newer version in any of those places, or after a heading, is
+ *   `feature-unsupported`.
  * - A section's `$body` runs from the line after its heading, or its data block, to the next top-level heading.
  */
 export function readMarkdown(path: string, source: SourceText): MarkdownReading {
@@ -196,6 +197,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const where = titleHeading === null ? "the first block of a record without a title heading" : "right after the title heading";
     const message = `a data block ${where} has no section; the root's fields come from front matter`;
     raise("data-block-misplaced", "", message, misplaced.start);
+    if (!misplaced.closed) raise("syntax-error", "", UNCLOSED_MESSAGE, misplaced.start);
     const after = readFence(text, blocks[index + 1], shift);
     if (after?.marker === "unsupported") raise("feature-unsupported", "", unsupportedMessage(after.words), after.start);
   } else if (misplaced?.marker === "unsupported") {
@@ -231,12 +233,13 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
         issues.push(...dataBlock.issues);
         if (dataBlock.value !== null) draft.fields = { value: dataBlock.value, nodes: dataBlock.nodes };
       } else {
-        raise("syntax-error", draft.at, "the data block's fence is not closed, so it would run to the end", fence.start);
+        raise("syntax-error", draft.at, UNCLOSED_MESSAGE, fence.start);
       }
       after = fence.end;
       const second = readFence(text, blocks[index + 2], shift);
       if (second?.marker === "yaml" || second?.marker === "json") {
         raise("data-block-misplaced", draft.at, "a section has one data block, and this is a second", second.start);
+        if (!second.closed) raise("syntax-error", draft.at, UNCLOSED_MESSAGE, second.start);
       } else if (second?.marker === "unsupported") {
         raise("feature-unsupported", draft.at, unsupportedMessage(second.words), second.start);
       }
@@ -351,6 +354,9 @@ function isCommentsOnly(block: RootContent | undefined): boolean {
   while (SPACE_THEN_COMMENT.test(html)) end = SPACE_THEN_COMMENT.lastIndex;
   return end > 0 && /^[ \t\r\n]*$/.test(html.slice(end));
 }
+
+/** The message of a data block whose fence is not closed, in its place or misplaced. */
+const UNCLOSED_MESSAGE = "the data block's fence is not closed, so it would run to the end";
 
 function unsupportedMessage(words: readonly string[]): string {
   return `the info string ${JSON.stringify(words.join(" "))} is not a data block of this version: only yaml data and json data are`;

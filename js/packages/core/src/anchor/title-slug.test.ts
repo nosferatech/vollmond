@@ -60,6 +60,16 @@ describe("the slug of a data section's $title, read as a heading's inline conten
     expect(titleSlugOf("[Foo][other]", ["bar"])).toBe("fooother");
   });
 
+  test("labels match with full case folding, as CommonMark matches them: ẞ is SS", () => {
+    expect(titleSlugOf("[Foo][SS] x", ["ẞ"])).toBe("foo-x");
+    expect(titleSlugOf("[Foo][ẞ] x", ["ss"])).toBe("foo-x");
+  });
+
+  test("a thematic break is text in a title", () => {
+    expect(titleSlugOf("- - -", [])).toBe("-----");
+    expect(titleSlugOf("***", [])).toBe("");
+  });
+
   test("a title whose emphasis nests deeper than the Markdown parser reads is slugged as plain text", () => {
     const depth = MAX_NESTING + 1;
     const title = `${"*a ".repeat(depth)}b &amp;${" c*".repeat(depth)}`;

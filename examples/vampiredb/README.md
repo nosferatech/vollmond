@@ -50,9 +50,10 @@ an earlier state of the docs: 677 sections, 438 elements, 264 block anchors.
 item's second or later paragraph, such as `#named-segment-past-prefix-dropped`: 17 at the first run, 18 now. §6.2 of the
 proposal then made an anchor element a block anchor only at the start of a list item or of a top-level paragraph of a `$body`,
 so vmd raised `anchor-element-ignored` for each one (a warning), and `vmd get` found none of them, though twelve were the target
-of links, 40 links in all, which GitHub follows. Decision T (Draft v0.11) widened §6.2 to any paragraph outside block quotes, so
-they are block anchors now and every one resolves: the build before that change, run on today's docs, gives 264 block anchors and
-18 ignored elements, and the build after it 282 and none.
+of links, 40 links in all, which GitHub follows; in today's docs, 13 are the target of 44 links. Decision T (Draft v0.11) widened
+§6.2 to any paragraph outside block quotes, so they are block anchors now and every one resolves, the 13 linked ones included: the
+build before that change, run on today's docs, gives 264 block anchors and 18 ignored elements, and the build after it 282 and
+none.
 
 **The checks fail when they should.** Each check against the files was made to fail once:
 

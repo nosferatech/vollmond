@@ -127,8 +127,9 @@ export function parseMarkdownTree(text: string): MarkdownTree {
     } catch (error) {
       if (!(error instanceof LimitPassed)) throw error;
       if (error.kind === "runs" && headings.length === 0) {
+        // Runs are counted in inline content, which the library reads after every container, so the containers are within
+        // their limit here.
         const found = headingRangesOf(text);
-        if (found instanceof LimitPassed) return { ok: false, limitAt: found.at, message: found.message };
         if (found.some((range) => range.start <= error.at && error.at < range.end)) {
           headings = found;
           continue;
@@ -207,17 +208,11 @@ interface IndexRange {
 
 /**
  * Finds the headings of a text, which hold runs that are not counted, by a parse without emphasis and strikethrough, whose
- * cost does not grow with the square of the runs; the containers' limit holds, and a text beyond it gives the limit passed.
+ * cost does not grow with the square of the runs. The text's containers must be known to nest within the limit, as they are
+ * once a parse has reached its inline content: the library reads every container before any inline text.
  */
-function headingRangesOf(text: string): IndexRange[] | LimitPassed {
-  const withoutEmphasis: MicromarkExtension = { disable: { null: ["attention", "strikethrough"] } };
-  let root: Root;
-  try {
-    root = fromMarkdown(text, optionsOf([CONTAINER_DEPTH, withoutEmphasis]));
-  } catch (error) {
-    if (error instanceof LimitPassed) return error;
-    throw error;
-  }
+function headingRangesOf(text: string): IndexRange[] {
+  const root = fromMarkdown(text, optionsOf([{ disable: { null: ["attention", "strikethrough"] } }]));
   const ranges: IndexRange[] = [];
   const pending: Nodes[] = [root];
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
