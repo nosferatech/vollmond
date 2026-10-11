@@ -14,7 +14,7 @@
 // core's; the list's Markdown packages have the same top-level versions, and their own dependencies may be newer.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const here = new URL(".", import.meta.url).pathname;
@@ -76,6 +76,10 @@ function unpack(meta, directory) {
   execFileSync("tar", ["-xzf", "-", "-C", directory, "--strip-components=1"], { input: tgz });
 }
 const lockPath = join(here, "fetched-deps.txt");
+
+// Every run starts from an empty node_modules, as `npm ci` does, so that a file changed after an earlier install is replaced
+// rather than trusted because its package directory exists.
+rmSync(join(here, "node_modules"), { recursive: true, force: true });
 
 if (process.argv.includes("--update")) {
   // Resolves package.json's ranges as the registry has them today, installs, and rewrites the lock list.

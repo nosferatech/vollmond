@@ -30,10 +30,10 @@ In brief:
   closing #15's first deviation.
 - **References** are collected during the Markdown parse that already runs, with each destination's source range kept for I5's
   rewrites (M: the tree is unchanged). A second parse for links would cost as much as the first: 878 ms over vampiredb's docs (M).
-- **The local index** is content-addressed JSONL in `.vmd/cache/`, one entry per file version in the portable index's row format,
-  plus a snapshot of the last full check. Entries carry a MAC under a key kept outside the store, so that entries committed into a
-  repository are never trusted (section 6.2). A warm check re-parses nothing unchanged and re-resolves every reference, which
-  costs 15 to 19 ms for vampiredb's 1,965 (M).
+- **The local index** is content-addressed JSONL in a per-user cache directory, never in the store: one entry per file version in
+  the portable index's row format, shared by every store and worktree, plus a snapshot of the last full check per store. Nothing
+  in a checkout is read as cache, so entries committed into a repository are never trusted (section 6.2, question 4). A warm check
+  re-parses nothing unchanged and re-resolves every reference, which costs 15 to 19 ms for vampiredb's 1,965 (M).
 - **vampiredb**: `vmd check` will report the 40 links into 12 of the 17 anchor elements that §6.2 does not make block anchors,
   which `docs.sh` accepts (#20, open item 1, pending). Everything else resolves (M). A cold check without the index is estimated
   at about 1.1 to 1.4 s, within the plan's budget of 2 s for a warm one.
@@ -71,7 +71,7 @@ No parser learns about configuration (I1 §2.4): the binding is applied after th
 | Module (`src/`) | Responsibility |
 |---|---|
 | `configuration-file.ts` | a configuration source for the store's `.vmd/config.yaml` or the `--config` file, with the `schema/` directory beside it |
-| `cache/` | the filesystem `IndexCache`: entries under `.vmd/cache/`, written by rename (section 6.2) |
+| `cache/` | the filesystem `IndexCache` in the per-user cache directory: entries written by rename, snapshots, eviction (section 6.2) |
 | `backend/git-changes.ts` | the paths changed since a revision, for `check --changed` |
 | `command/check.ts`, `refs.ts`, `schema.ts`, `index.ts` | the four commands of section 7 |
 | `command/ls.ts`, `outline.ts`, `get.ts` | the collection column, the store-wide unreadable count, refs-in counts, `@refs` and `@collection` (the TODOs of #18) |
@@ -110,7 +110,7 @@ Their licences are to be confirmed at adoption, as for I1's (npm gives MIT for `
 The configuration file is read as I1.8 reads it (#17): UTF-8 with a byte order mark skipped (J5), at most 1 MiB, one YAML document
 read with vmd's YAML rules, the record-shape codes dropped, every problem a `config-invalid` at its position with `path: null` and
 the file named in the issue's details. I2.1 reads every member. What a member the specification does not define gives is question
-20: §9.1 lists the forms a minor version may add, and a configuration member is not among them.
+21: §9.1 lists the forms a minor version may add, and a configuration member is not among them.
 
 | Member | Value | Default |
 |---|---|---|
@@ -186,11 +186,12 @@ them into what is reported, at output, never in the index:
 4. An `issues` entry sets the severity of every occurrence of its code that steps 1 to 3 left a warning or turned off, so it wins
    over the setting that implied a severity (§9.1), and it never lowers an error.
 
-Appendix D's limits, as `readStoreConfiguration` checks them (question 6): an entry for a structural or an operation code is
-`config-invalid`, since those cannot be configured; for a validation code whose occurrences are always errors (such as
-`schema-violation` or `ref-dangling`) only `error` is accepted; for a code whose default is a warning, or whose severity depends
-on its context (`duplicate-key`, `duplicate-anchor`, `path-invalid`, `path-case-conflict`, `not-representable`), any of the three
-is accepted and applies to its warnings. An unknown code is `config-invalid`.
+Appendix D's limits, as `readStoreConfiguration` checks them: an entry for a structural or an operation code is `config-invalid`,
+since those cannot be configured; for a validation code whose occurrences are always errors (such as `schema-violation` or
+`ref-dangling`) only `error` is accepted, since a validation error stays an error; an unknown code is `config-invalid`. Appendix D
+decides all of that. What it leaves open is question 6: for a code whose severity depends on its context (`duplicate-key`,
+`duplicate-anchor`, `path-invalid`, `path-case-conflict`, `not-representable`), the design accepts any of the three values and
+applies the entry to the code's warnings only.
 
 Because severities resolve at output, the index never holds them, and editing `issues` invalidates nothing (section 6.3).
 
@@ -203,8 +204,8 @@ configuration; nothing is merged. This generalizes §9.1's comment `# in .vmd/sc
 with `--config` finds its schemas, so it is question 13: a store read unmodified, such as vampiredb's `docs/`, cannot hold them.
 
 The store's own data stays in the store whatever configuration reads it: `.vmd/aliases.jsonl` (§13.6) belongs to the store. The
-cache is the exception that needs a decision: writing `.vmd/cache/` into vampiredb's `docs/` would modify the checkout, which K3
-forbids (question 4).
+cache does not: it lives in a per-user directory for every store (section 6.2, question 4), so reading vampiredb's `docs/` writes
+nothing into the checkout, as K3 requires.
 
 ```ts
 export interface ConfigurationSource {
@@ -223,7 +224,7 @@ export function openStore(backend: StorageReader, options?: {
 
 Every file vmd reads skips a byte order mark at byte 0 (J5), which the suite's `validation/bom-config` case checks for a
 configuration and a schema. The configuration is at most 1 MiB, the bound I1.8 set, recorded as a deviation in #17; the design
-proposes the same bound for each schema file (question 19). The alias file has no bound in the specification; I2 reads it whole
+proposes the same bound for each schema file (question 20). The alias file has no bound in the specification; I2 reads it whole
 and sets none. Records have none either, beyond the nesting bound of I1.
 
 ---
@@ -259,17 +260,21 @@ errored tests look like strict mode's refusals rather than verdicts: 133 are in 
 mode refuses. Its 27 wrong verdicts are 15 on `$dynamicRef` and `$dynamicAnchor`, 6 on `unevaluatedItems` and
 `unevaluatedProperties` (among them "unevaluatedItems with nested items", "unevaluatedItems depends on adjacent contains",
 "unevaluatedProperties with if/then/else, then not defined"), 5 on names `Object.prototype` has, which `ownProperties: true`
-corrects in the probes, and 1 on a custom meta-schema (D: the report, by theme). The first version of this design said that Ajv's
-prototype-name defects could not all be worked around; that was wrong. With `ownProperties: true` the only probed defect left is
-the `__proto__` entry of `properties` (M: [`ajv-own-properties.mjs`](../research/i2-design/ajv-own-properties.mjs), 2 wrong
-verdicts of 84, both that one).
+corrects in the probes, and 1 on a custom meta-schema (D: the report, by theme). Run here with strict mode off and `ownProperties:
+true` over the report's 73 `unevaluated*` cases that need no other document, Ajv gives 13 wrong verdicts of 199 tests and
+hyperjump none (M: [`unevaluated-cases.mjs`](../research/i2-design/unevaluated-cases.mjs)); with strict mode off, tests that
+Bowtie's run counted as errored are run, which is why the count is higher than Bowtie's 6. The first version of this design said
+that Ajv's prototype-name defects could not all be worked around; that was wrong. With `ownProperties: true` the only probed
+defect left is the `__proto__` entry of `properties` (M: [`ajv-own-properties.mjs`](../research/i2-design/ajv-own-properties.mjs),
+2 wrong verdicts of 84, both that one).
 
 Two other validators were looked at. `@cfworker/json-schema` 4.1.1 reports every declared property of a null-prototype object as
 an additional one (M), so it is out. `ata-validator` had no wrong verdict and no error on Bowtie's run, as 1.46.0 (D), and its
 package is pure JavaScript with optional per-platform native accelerators (D: its README). It is not proposed now: its first
-release was on 2026-03-21, it has published 159 versions since, six of them in the five days before this design, and 1.51.0 on the
-day of writing (D: npm). A dependency of core is read by every implementation's maintainers for years, and that rate of change is
-a risk the probes cannot measure. It was not probed (U), and is the first candidate if hyperjump disappoints in I2.2.
+release was on 2026-03-21, it has published 159 versions in all, the first included, six of them in the five days before this
+design, and 1.51.0 on the day of writing (D: npm). A dependency of core is read by every implementation's maintainers for years,
+and that rate of change is a risk the probes cannot measure. It was not probed (U), and is the first candidate if hyperjump
+disappoints in I2.2.
 
 **Recommendation: `@hyperjump/json-schema`** (question 1), by a narrower margin than the first version of this design gave. What
 decides it is the 21 wrong verdicts on `unevaluated*` and `$dynamicRef`, in keywords a schema author uses without knowing which
@@ -337,7 +342,7 @@ vmd checks the keywords of §9.3 before the validator sees the schema:
   boolean or a schema.
 - **`x-vmd-ref`**: `targets` a list of strings, `cardinality` `one` or `many`, `anchors` `any` or `explicit`; on a schema for a
   `$ref` object, or for a string, which the design proposes must then have `format: uri-reference` (question 18).
-- **`x-vmd-summary`**: a boolean, as the design proposes (question 18). **`x-vmd-ordered`**: `asc` or `desc`, beside an `enum`.
+- **`x-vmd-summary`**: a boolean, as the design proposes (question 19). **`x-vmd-ordered`**: `asc` or `desc`, beside an `enum`.
 - A malformed keyword is `schema-invalid`. An unknown `x-vmd-*` keyword is `feature-unsupported`, of class operation in a schema
   (Appendix D).
 
@@ -355,15 +360,22 @@ does not reach at all is no error: a shared `common.schema.yaml` whose `$defs` e
 what is unreached is never checked against the spine. Reached means through any keyword, so the walk that finds the off-spine
 declarations follows every applicator and every `$ref`, with a set of visited locations against cycles.
 
-**Several declarations at one instance location** must be equal, or the schema is `schema-invalid`. They meet in four ways:
+**Several declarations at one instance location** must be equal. Where the schema alone shows two unequal ones, it is
+`schema-invalid`; where only a member name in the data brings them together, that member of that record has a `schema-violation`.
+They meet in four ways:
 
 - `allOf`, and `$ref` beside other keywords (D: 2020-12 Core, section 8.2.3.1): both are static, so the check runs when the schema
   is loaded;
 - a member named in `properties` whose name a `patternProperties` pattern also matches: static too, since the name is in the
   schema; patterns are ECMA-262 expressions, run with the `u` flag (D: 2020-12 Core, section 10.3.2.2, which names ECMA-262);
 - two patterns that both match one member name: only a name in the data can tell, so the check runs when a record is bound, and
-  the first record that brings the two together makes the collection's schema `schema-invalid`, naming the member and both
-  patterns; the proof, which knows the step's text, checks the same way;
+  raises a `schema-violation` at that member of that record, naming both patterns and their declarations, as any value the schema
+  cannot accept would. The member then gets neither declaration: an array there is not a keyed list, a string there is no typed
+  reference. The record stays readable, and the collection's other records are unaffected, so the result depends neither on which
+  record is checked first nor on the cache. The existing code fits, since §9.2's schema violation is a value the schema rejects,
+  and §9.5's strict read refuses the record (question 2 names it). The proof, which knows the step's text, sees the same two
+  declarations at that member and decides as section 4.4 does: if either is `multimap`, the address is not singular; otherwise the
+  member's array is not keyed, and a key step through it matches nothing, as it does in the binding;
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
   `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both.
 
@@ -672,6 +684,10 @@ file counts as one, reading R7); a directory, which exists when a listed path is
 | a record, `cardinality: many` | `ok`, also with no match (G5) | every match | none |
 | through an alias | `aliased` | the alias's target | `ref-aliased` (warning) |
 
+The proof applies to every reference of cardinality one, whatever its form: a Markdown link through a level declared `multimap` is
+`ambiguous` exactly as a typed string is (question 3). E1 resolves links before D exists; no level can be declared then, so the
+proof would refuse nothing, and E2 adds it for every form at once (section 13).
+
 A malformed fragment, which `resolve` would refuse with `address-malformed`, is `ref-dangling` with that message, since a
 reference's issue is about the reference (reading R8). Every issue is at the reference: `path` the citing record's, `at` the node
 of section 5.1, with `offset` for a link (Appendix D's note on prose).
@@ -759,24 +775,34 @@ index of I7 writes both. Severities are never stored (section 2.5).
 
 (The figures are illustrative.) Rows carry no path, so one entry serves every path with those bytes, on every branch (§14.3).
 
-### 6.2 Layout, keys and writing
+### 6.2 Where the cache lives, its layout and writing
+
+The cache is never in the store. It lives in the per-user cache directory, `$XDG_CACHE_HOME/vmd/` or `~/.cache/vmd/` on Linux and
+`~/Library/Caches/vmd/` on macOS, for every store, whether it has a `.vmd/` of its own or is read with `--config` (question 4):
 
 ```
-.vmd/cache/
-  .gitignore                          "*", so that the cache is never committed by mistake (§14.3)
-  v1-<implementation id>/
-    parse/<2 hex>/<blob id>.<format>.jsonl
-    bind/<2 hex>/<blob id>.<format>.<collection>.<schema digest>.jsonl
-    snapshot.json, snapshot-refs.jsonl
+<per-user cache>/vmd/v1-<implementation id>/
+  entries/parse/<2 hex>/<blob id>.<format>.jsonl
+  entries/bind/<2 hex>/<blob id>.<format>.<collection>.<schema digest>.jsonl
+  stores/<store id>/snapshot.json, snapshot-refs.jsonl
+  last-eviction                       a timestamp, so that eviction runs at most once a day
 ```
 
+- **Entries are shared** by every store and worktree of the user: they are content-addressed, and their rows carry no path, so two
+  worktrees of one repository, or two stores holding one file, read one entry.
+- **One snapshot per store**, under a store id that is a SHA-256 of the store root's real path (symbolic links resolved). The
+  snapshot records the digest of the configuration it was made with, and a snapshot made with another configuration is treated as
+  absent.
 - **The implementation id** is a hash of core's sources, which the build writes into `dist/` (a small script beside
-  `generate-unicode.mjs`), so that an unreleased build that changes the parser never reads another build's entries. A directory of
-  another id is removed by `vmd index`.
+  `generate-unicode.mjs`), so that an unreleased build that changes the parser never reads another build's entries.
+- **Eviction.** The cache is bounded to 512 MB by default. When a write finds the last eviction more than a day old, entries not
+  read for 30 days are removed, then the least recently read ones until the cache is under its bound; a snapshot whose store root
+  no longer exists is removed too, and so are the directories of other implementation ids. Reading an entry sets its modification
+  time, so that "read" can be told from the file system. `vmd index` runs the same eviction at once.
 - **Writes** go to a temporary file renamed into place. An entry's bytes are a function of its key, so two processes that write
-  one entry at once write the same bytes; the snapshot is written whole, and the last writer wins with a consistent file.
+  one entry at once write the same bytes; a snapshot is written whole, and the last writer wins with a consistent file.
 - **Who writes**: `check`, `index`, `refs`, `ls` and `outline` read the cache and write what they parse. `get`, `cat` and `grep`
-  neither read nor write it, so a plain read stays free of side effects.
+  neither read nor write it, so a plain read stays free of side effects. `--no-cache` turns it off for any command (question 4).
 - **The cache interface** is core's, so that the Lambda functions of I6 and I7 can keep it elsewhere:
 
 ```ts
@@ -787,38 +813,35 @@ export interface IndexCache {
 ```
 
 A cache that cannot be written raises no issue, since Appendix D has no code for it and nothing is wrong with the store; `vmd
-index` says how many entries it could not write.
+index` says how many entries it could not write. §14.3 says the local index is "a cache in `.vmd/cache/`, which is never
+committed"; this layout changes that sentence (question 4).
 
-Where the cache goes for a store read with `--config` and no `.vmd/` of its own, vampiredb's `docs/`, is question 4.
+#### 6.2.1 What the cache trusts, and why that is safe
 
-#### 6.2.1 Trusting an entry
+An entry is a claim about a file's bytes, which `check` believes without parsing them, and a file's blob id and a released vmd's
+implementation id are both public. A cache inside the checkout could therefore be forged by whoever can write to the checkout: a
+pull request could add `.vmd/cache/…` with `git add -f` past a `.gitignore`, saying that a broken record is valid, and a gate's
+`vmd check` (§9.4, pattern B of §16.3) would pass it. With the cache in the per-user directory, vmd never reads the checkout as
+cache, so a committed `.vmd/cache/` is an ordinary ignored directory: harmless, and never read. What the cache trusts is then
+exactly what the user's home directory holds, written by the user's own vmd.
 
-An entry is a claim about a file's bytes, and `check` believes it without parsing them. Its key gives no protection: a file's blob
-id is public, and so is the implementation id of a released vmd. So a pull request could add an entry under `.vmd/cache/` with
-`git add -f`, past the `.gitignore`, which says that a broken record is readable and valid, and a gate's `vmd check` (§9.4,
-pattern B of §16.3) would pass the broken store. A cache restored on a CI runner from somewhere an attacker can write, or an
-extracted archive, does the same.
+`check --changed` trusts the snapshot for one thing: which records cite a path, from each reference's resolved target. It uses a
+row only while the citing record's version in the snapshot equals the version on disk; any other citing record has its references
+extracted again from its parse entry, or parsed. So a stale snapshot costs work and never hides a citing record, and a forged one
+would need a write to the user's cache directory, which can as well replace vmd itself.
 
-**The defense: entries carry a MAC.** Each entry ends with a row `{"t":"mac","hmac":"…"}`, an HMAC-SHA-256 over the entry's key
-and its other bytes, under a 256-bit key that vmd generates (`crypto.getRandomValues`) on first use and keeps outside every store,
-in the per-user cache directory of question 4, with permissions for its owner only. An entry whose MAC does not verify is a miss:
-it is parsed again and overwritten. On a fresh CI runner the key is new, so nothing committed, copied or restored is trusted, and
-the gate parses everything, which is what a gate should do; on a developer's machine the key is the developer's, and their own
-entries verify. Verifying costs an HMAC over the entry's bytes, which `crypto.subtle` computes at hundreds of megabytes a second
-(U: to measure in I2.5; vampiredb's entries are a few megabytes in all).
+**CI.** A fresh runner has an empty cache, and the gate parses everything, which is what a gate should do. A workflow that saves
+and restores the per-user cache directory between runs trusts its own earlier runs, and whether a pull request's run can write a
+cache that a run of the base branch later restores depends on the CI's cache scoping; for GitHub Actions this is not checked here
+(U). The guidance for `vmd check` in CI is therefore to restore no vmd cache in a gate, or to pass `--no-cache` there.
 
-Alternatives, and why not:
-
-- **Ignoring cache files that git tracks.** It needs git, and it misses everything that reaches `.vmd/cache/` another way: a
-  restored CI cache, an archive, a shared directory. It is still worth a line in `vmd index`'s output when git tracks any, as a
-  hint that the `.gitignore` was bypassed.
-- **`--no-cache` in gates.** It makes the safe behavior depend on every gate's configuration remembering a flag, and the default
-  unsafe exactly where it matters.
-- **Re-verifying entries in `check` by parsing.** It removes what the cache is for.
-
-The key must not be cached by CI itself, since a cache an attacker can write would then carry a key too; the documentation of `vmd
-check` for CI says so. This is not a question for the specification: §14.3 leaves the local index's engine to the implementation,
-and the defense changes no result.
+**Rejected: a MAC on each entry**, under a key kept in the per-user directory. The first version of this design proposed it, for a
+cache in `.vmd/cache/`. It does not hold up: a cache that always lives in the per-user directory never reads the checkout, so
+committed entries are harmless without a MAC; a CI restore of the per-user directory brings the key along with the entries, which
+defeats it; a restore of `.vmd/cache/` alone misses every entry, so the MAC protects only where the cache is useless; and relying
+on "never cache the key" is the same weakness as relying on a gate to pass `--no-cache`. **Rejected too**: ignoring cache files
+that git tracks (it needs git, and misses everything that reaches the directory another way), and re-verifying entries by parsing
+(it removes what the cache is for).
 
 ### 6.3 Invalidation
 
@@ -874,10 +897,11 @@ does not.
   differ from `REV` in the working copy, from `git diff --name-status -z --no-renames REV --` and the untracked files of `git
   ls-files --others --exclude-standard -z`, mapped below the store root. `--no-renames` matters: git's rename detection is on by
   default (D: git-config, `diff.renames`), and with it `--name-only` names only the new side of a rename, so after `git mv a.md
-  b.md` the old path `a.md` would be missed (measured by the review of #86). Both sides then count: the paths that still exist are
-  checked, and every path, deleted or not, selects the records whose references point to it, from the snapshot or, without one,
-  from every record's cached references (§16.3's incremental pattern), since a reference into a deleted path is now dangling. A
-  store without history fails with `storage-failed`, as `read(…, {at})` does (#16; reading R12). `--fix` is I5's.
+  b.md` the old path `a.md` would be missed (reported by the review of #86, not yet probed here: U). Both sides then count: the
+  paths that still exist are checked, and every path, deleted or not, selects the records whose references point to it, from the
+  snapshot or, without one, from every record's cached references (§16.3's incremental pattern), since a reference into a deleted
+  path is now dangling. A store without history fails with `storage-failed`, as `read(…, {at})` does (#16; reading R12). `--fix`
+  is I5's.
 - **Output.** Issues on stdout, since they are the result (O3), each in §12.3's format, sorted by path and position; at most 20 by
   default (`-n N`, `--all`), then the counts per code that `formatIssues` already writes; and a last line: `37 records (35 from
   the index), 1,965 references: 40 errors, 17 warnings`. Configuration issues and the Unicode warning go to stderr (O3). `--quiet`
@@ -933,9 +957,9 @@ unless `--all`. `--json` gives the same as data.
 ### 7.4 `vmd index [--publish DIR]`
 
 `vmd index` brings the cache up to date for the whole store, writes the snapshot, removes other builds' directories, and prints
-`37 records (2 parsed, 35 from the index), 1,965 references; .vmd/cache 1.4 MB` (illustrative). `--publish DIR` is the portable
-index, which §21 puts in I7 and §19.2 in the Publish profile; until then it is `usage-invalid` with that message, a deferral
-(section 11). The local entries are already in its row format, so I7 concatenates them and adds the manifest.
+`37 records (2 parsed, 35 from the index), 1,965 references; cache 1.4 MB` (illustrative). `--publish DIR` is the portable index,
+which §21 puts in I7 and §19.2 in the Publish profile; until then it is `usage-invalid` with that message, a deferral (section
+11). The local entries are already in its row format, so I7 concatenates them and adds the manifest.
 
 ### 7.5 Streams and exit codes
 
@@ -1098,9 +1122,9 @@ of each range shows.
 
 So a **cold check without a cache** costs about 60 ms of Node and imports (I1 §7), 40 ms for the validator, 950 to 1,250 ms of
 parsing, a few milliseconds of validation and 15 to 20 ms of resolution: about 1.1 to 1.4 s (U until I2.8 measures it), within the
-budget already. A **warm check** re-parses nothing: the listing and hashing (10 ms), reading and verifying 37 parse entries and 37
-bindings (U: the rows of Minimal_Log are a few hundred kilobytes), resolution (15 to 20 ms) and output. A few hundred
-milliseconds, including Node's start, is the expectation (U).
+budget already. A **warm check** re-parses nothing: the listing and hashing (10 ms), reading 37 parse entries and 37 bindings (U:
+the rows of Minimal_Log are a few hundred kilobytes), resolution (15 to 20 ms) and output. A few hundred milliseconds, including
+Node's start, is the expectation (U).
 
 What keeps it so:
 
@@ -1166,10 +1190,12 @@ and a survivor in a guard gets a test.
 - one store's configuration opened twice in a process, and a schema edited between two opens, with no "already registered" error
   (section 3.1.1);
 - a `multimap` under an array's `items` beside `x-vmd-list`'s per-key schema, which the proof must refuse (section 4.4); two
-  `patternProperties` that bring unequal declarations to one member (section 3.3); an unreferenced `$defs` entry with a
+  `patternProperties` that bring unequal declarations to one member, which must give that member a `schema-violation` and leave
+  the collection's other records alone, in either order of checking (section 3.3); an unreferenced `$defs` entry with a
   declaration under `oneOf`, which is valid;
 - `check --changed` after `git mv a.md b.md` with a reference to `a.md` elsewhere, which must report it as dangling (section 7.1);
-- an entry committed with `git add -f`, and one copied from another machine, which must not be trusted (section 6.2.1);
+- a `.vmd/cache/` committed into a store, which must never be read; a snapshot whose citing record changed, which must not hide it
+  from `--changed`; eviction under the bound (section 6.2);
 - `../` past the root, which RFC 3986 clamps; `%E9` and other paths that do not decode as UTF-8;
 - a `$ref` beside other keywords in a YAML schema, which the record-shape code `ref-malformed` would refuse;
 - `23:59:60+02:00` invalid and `01:59:60+02:00` valid; `P1Y3D`; `"-0"`; `9223372036854775808` as a string;
@@ -1203,8 +1229,8 @@ refuses what the specification allows or changes what it states; the design's ch
 The first version listed 20 readings. Seven of them (its R1 and R4 to R8, and R20) refused or moved what the specification allows,
 and are now questions, with the value of `x-vmd-summary`, which no reading named: collection names (question 10), the schema
 directory (13), `$id` (14), YAML anchors in schemas (15), `unevaluatedItems` beside `x-vmd-list` (16), `$sections` keyed by `@key`
-alone (17), `x-vmd-ref` without `format` and the value of `x-vmd-summary` (18), the size of schema files (19) and unknown
-configuration members (20). One was not a reading but a deferral: `vmd index --publish`, a command of §12.1, is refused until I7
+alone (17), `x-vmd-ref` without `format` (18), the value of `x-vmd-summary` (19), the size of schema files (20) and unknown
+configuration members (21). One was not a reading but a deferral: `vmd index --publish`, a command of §12.1, is refused until I7
 builds the portable index, as `check --fix` is until I5.
 
 ---
@@ -1215,39 +1241,46 @@ Each with its options, a recommendation and what follows from it. Those marked *
 recommended, and go into a Draft v0.11 with their decision-log entries before the pull request that needs them (section 13).
 
 1. **The validator.** (a) `@hyperjump/json-schema` 1.18.0; (b) Ajv 8.20.0 with `ownProperties: true`, core checking a `properties`
-   entry named `__proto__` itself, `$dynamicRef` refused, and Bowtie's wrong verdicts on `unevaluated*` listed as known
-   deviations; (c) json-schema-library 11.6.5, its unescaped locations worked around; (d) `ata-validator`, not probed.
-   Recommended: (a), narrowly: it is the one without wrong verdicts, and the `unevaluated*` ones are Ajv's that vmd cannot
-   correct; against it weigh its experimental APIs and process-wide state (section 3.1). Consequence: core depends on hyperjump
-   and its peer; Appendix C and the plan's §1.2 name it in place of Ajv and `ajv-formats` (*spec*, Appendix C). Under (b) the
-   design keeps its shape and loses section 3.1.1.
+   entry named `__proto__` itself, `$dynamicRef` refused, and its wrong verdicts on `unevaluated*` listed as known deviations: 13
+   of 199 such tests here (M: [`unevaluated-cases.mjs`](../research/i2-design/unevaluated-cases.mjs)); (c) json-schema-library
+   11.6.5, its unescaped locations worked around; (d) `ata-validator`, not probed. Recommended: (a), narrowly: it is the one
+   without wrong verdicts, and the `unevaluated*` ones are Ajv's that vmd cannot correct; against it weigh its experimental APIs
+   and process-wide state (section 3.1). Consequence: core depends on hyperjump and its peer; Appendix C and the plan's §1.2 name
+   it in place of Ajv and `ajv-formats` (*spec*, Appendix C). Under (b) the design keeps its shape and loses section 3.1.1.
 2. **Where `x-vmd-list` and `x-vmd-ref` may stand.** (a) on the spine of section 3.3, `schema-invalid` when reached only off it;
    (b) anywhere, with annotation semantics, which (a) of question 1 can give, and a proof of §7.4 that then cannot be static for
    those levels; (c) anywhere, applied wherever the keyword is met, failing branches included, which is what a custom keyword in
    Ajv does. Recommended: (a): a reference's meaning never depends on which branch of a `oneOf` its record satisfies, and the
    proof stays before evaluation. Whether Python's `jsonschema` can collect annotations, which (b) would need of a Python
-   implementation, is U. Consequence: §9.3 says where the keywords may stand (*spec*, §9.3). Allowing them off the spine later
-   relaxes a refusal, which §9.1's list of additions does not cover today: it would need question 20's change, or a new `x-vmd-*`
-   keyword, or a major version.
+   implementation, is U. Consequence: §9.3 says where the keywords may stand, and that two `patternProperties` that bring unequal
+   declarations to one member in the data are a `schema-violation` at that member (section 3.3) (*spec*, §9.3). Allowing the
+   keywords off the spine later relaxes a refusal that fails every read of the collection under question 12's answer, so it is an
+   addition under question 21's (a); otherwise it needs a new `x-vmd-*` keyword or a major version.
 3. **A reference through a level declared `multimap`**, which §7.4 says cannot be singular, but §8.5 gives no status for. (a)
    status `ambiguous`, issue `ref-ambiguous` saying it cannot be proved singular; (b) a new code `ref-not-singular`, status
    `ambiguous`; (c) evaluate it, and accept it when one node matches. Recommended: (a): the reference may match several nodes by
-   declaration, and it keeps one code per status. (c) contradicts §7.4. Consequence: §8.5 and Appendix D's `ref-ambiguous` row
-   name the case (*spec*, §8.5, Appendix D).
-4. **Where the cache goes for a store read with `--config`**, whose root has no `.vmd/`, as vampiredb's `docs/`, and the MAC key
-   of section 6.2.1. (a) a per-user cache directory keyed by the store root's real path (`$XDG_CACHE_HOME/vmd/` or
-   `~/Library/Caches/vmd/`), which also holds the key, and `.vmd/cache/` for a store with its own `.vmd/`; (b) no persistent cache
-   unless a new `--cache DIR` says where; (c) `.vmd/cache/` in the store anyway, which modifies the store, against K3.
-   Recommended: (a), with a global `--no-cache` for measurements and debugging. Consequence: §12.1 gains `--no-cache`, and §14.3
-   says where the cache of such a store lives (*spec*, §12.1, §14.3).
+   declaration, and it keeps one code per status. (c) contradicts §7.4. The rule is the same for every form of reference: Markdown
+   links, `$ref` objects and typed strings. Consequence: §8.5 and Appendix D's `ref-ambiguous` row name the case (*spec*, §8.5,
+   Appendix D); E2 applies the proof to every reference, E1 having resolved links before any level could be declared (section 13).
+4. **Where the cache lives.** (a) always in the per-user cache directory (`$XDG_CACHE_HOME/vmd/` or `~/.cache/vmd/`,
+   `~/Library/Caches/vmd/`), with entries shared by every store and worktree, one snapshot per store's real path, eviction to a
+   bound (section 6.2), and a global `--no-cache`; (b) `.vmd/cache/` in a store that has a `.vmd/`, and the per-user directory
+   only for a store read with `--config`, which is what the first version proposed, and which reads the checkout as cache and
+   needed a MAC that does not hold up (section 6.2.1); (c) no persistent cache unless a new `--cache DIR` says where. Recommended:
+   (a): nothing in a checkout is ever read as cache, worktrees share their entries, and reading vampiredb's `docs/` writes nothing
+   there (K3). Consequence: §14.3's "a cache in `.vmd/cache/`, which is never committed" becomes a cache in a per-user directory
+   outside every store; §12.1 gains `--no-cache`; §17's table of git paths drops `.vmd/cache/` from its row of untracked paths
+   (*spec*, §12.1, §14.3, §17).
 5. **A record that two collections match.** (a) a new validation error, `collection-conflict`, at the record, which is then read
    unschematized; (b) `config-invalid`, failing every command once such a file exists; (c) the first collection by name. (b) lets
    one new file break the store, and (c) depends on names. Recommended: (a). Consequence: Appendix D gains the code, and §9.1 says
    what a conflict does (*spec*, §9.1, Appendix D).
-6. **`issues` entries for codes whose severity depends on context**, and for structural and operation codes. (a) the rule of
-   section 2.5: an entry applies to a code's warnings only and never lowers an error; structural and operation codes take no
-   entry; always-error validation codes accept only `error`; (b) an entry sets every occurrence. Recommended: (a); (b) would lower
-   errors that G6 keeps. Consequence: Appendix D's "Configuring severities" states it (*spec*, Appendix D).
+6. **`issues` entries for codes whose severity depends on context.** Appendix D already says that structural and operation codes
+   cannot be configured and that a validation error stays an error. Open is what an entry does to `duplicate-key`,
+   `duplicate-anchor`, `path-invalid`, `path-case-conflict` and `not-representable`, which are errors in some contexts and
+   warnings in others. (a) the entry applies to the code's warnings only, and never touches its errors; (b) the entry sets every
+   occurrence, which would lower errors that G6 keeps. Recommended: (a). Consequence: Appendix D's "Configuring severities" states
+   it (*spec*, Appendix D).
 7. **Images.** §8.1 names inline links and link reference definitions. (a) an image is a reference too, so a missing image is
    `ref-dangling`; (b) images are not references. vampiredb's docs have none (M); tickets with screenshots will. Recommended: (a),
    since a broken image is the broken link a reader sees first. Consequence: §8.1's table gains a row (*spec*, §8.1).
@@ -1255,8 +1288,8 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
    with a key that is not a string, is a `schema-violation` at the item in a declared list, and is reached only by its `$anchor`
    or its exact path, since no step indexes a keyed list (§7.3); (b) composite keys now, with a rule for which member a step
    matches, which §9.3's "a semantic path step matches a single key member" leaves open. Recommended: (a); no case needs composite
-   keys. Consequence: §5.6 and §9.3 state it (*spec*). Allowing several key members later relaxes a refusal, which needs question
-   20's change to §9.1, or a new keyword.
+   keys. Consequence: §5.6 and §9.3 state it (*spec*). Allowing several key members later relaxes a `schema-invalid`, an addition
+   under question 21's (a) once question 12's answer makes it fail every read.
 9. **`targets` entries.** §9.3's example mixes `tickets`, a collection, and `docs/**`, a glob. (a) an entry naming a collection of
    the configuration is that collection, and any other entry is a glob; (b) a prefix such as `collection:tickets`, explicit but
    changing Appendix A's schema. Recommended: (a), which with question 10's names never confuses a collection with a glob holding
@@ -1269,11 +1302,17 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
     `refs` in I2.6; (b) as the plan says, in I3.4 with `query`. Recommended: (a): its inputs all exist in I2, and an agent reading
     a store that does not validate can use it before queries exist. Consequence: §12.1 gains `--strict`, and the plan's I3.4 loses
     the mode (*spec*, §12.1).
-12. **A collection whose schema is invalid.** (a) `schema-invalid` is reported; `check` goes on with the other collections, and
-    with that collection's records checked for everything but their schema; a read that needs the binding of one of its records,
-    such as `get` of an address, fails with it, since its addresses depend on the schema; (b) every command that opens the store
-    fails. Recommended: (a), so that one broken schema does not hide every other result. Consequence: §9.1 says what "is an error"
-    does for such a collection (*spec*, §9.1).
+12. **A collection whose schema is invalid.** (a) `schema-invalid` is reported once; `check` goes on with the other collections,
+    and checks that collection's records for everything but their schema; every read of one of its records (`get`, `outline`,
+    `resolve`, a query, a reference's target below the root) fails with `schema-invalid`, `ls` counts them as unreadable, and a
+    reference with a fragment into one has the status `unreadable`; (b) as (a) for `check`, but reads go on without the schema;
+    (c) every command that opens the store fails. Recommended: (a). (b) is what the first version proposed, and it misreads: an
+    older reader that does not know a construct of a newer schema (an unknown `x-vmd-*` keyword, which §9.1 already relies on to
+    be detectable, or a relaxation under question 21) would read the collection without its schema, and its typed references and
+    logical types would silently become plain strings. (c) lets one broken schema hide the whole store. Consequence: §9.1 says
+    what "is an error" does for such a collection; §5.4's "whether a record is readable therefore never depends on its schema"
+    gains "provided the schema can be read", since under (a) a reader refuses a record whose schema it cannot use (*spec*, §5.4,
+    §9.1). Question 21's (a) depends on this answer: it is what makes an invalid schema fail every read.
 13. **Where a configuration's schemas are.** §9.1 says `.vmd/schema/`. (a) in `schema/` beside the configuration file, which is
     `.vmd/schema/` for the store's own configuration and for the suite's `config` input, and `examples/vampiredb/schema/` for
     `--config examples/vampiredb/config.yaml`; (b) always the store's `.vmd/schema/`, so that a store read with `--config` and no
@@ -1282,8 +1321,8 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
     vampiredb. Consequence: §9.1's comment and §12.1's `--config` say it (*spec*, §9.1, §12.1).
 14. **`$id` in a schema file.** It is valid 2020-12. (a) refused (`schema-invalid`) in I2; (b) allowed, with every file still
     reachable by its name as well as by its `$id`. Recommended: (a) for now: a base URI of its own changes what a relative `$ref`
-    in that file means, and no schema of the suite or Appendix A needs one; (b) is an addition for later. Consequence: §9.2 says
-    that vmd's schemas are 2020-12 without `$id` (*spec*, §9.2), and allowing it later needs question 20's change.
+    in that file means, and no schema of the suite or Appendix A needs one. Consequence: §9.2 says that vmd's schemas are 2020-12
+    without `$id` (*spec*, §9.2); allowing it later is an addition under question 21's (a).
 15. **YAML anchors, aliases and tags in schema files.** They are valid YAML, and some authors share definitions with them. (a)
     schema files follow vmd's YAML rules, so they are `schema-invalid`; (b) schema files are read with plain YAML 1.2.
     Recommended: (a): one YAML reader with one set of rules for every file vmd reads (J5's spirit), and `$defs` with `$ref` does
@@ -1295,24 +1334,33 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
 17. **`$sections` keyed by `@key` alone.** §9.3 allows `@key` only on `$sections`, but does not forbid other keys there. (a) a
     `$sections` list is keyed by `["@key"]` only, since `$sections` is keyed by the section key by definition (§5.6); (b) other
     keys allowed on `$sections`, keying sections by a field. Recommended: (a). Consequence: §9.3 says so (*spec*, §9.3).
-18. **What `x-vmd-ref` and `x-vmd-summary` require.** §8.1 makes a typed reference a string whose schema has both `format:
-    uri-reference` and `x-vmd-ref`, without saying what `x-vmd-ref` alone on a string schema is; §9.3 does not give
-    `x-vmd-summary`'s value. (a) `x-vmd-ref` on a string schema without `format: uri-reference` is `schema-invalid`, and
-    `x-vmd-summary` is a boolean; (b) the first is no reference, silently, and any value of the second counts as true.
-    Recommended: (a): a declaration that does nothing is a mistake to report. Consequence: §9.3 says both (*spec*, §9.3).
-19. **The size of a schema file.** (a) at most 1 MiB, the bound I1.8 set for the configuration (a deviation recorded in #17); (b)
+18. **`x-vmd-ref` on a string schema without `format: uri-reference`.** §8.1 makes a typed reference a string whose schema has
+    both, and does not say what `x-vmd-ref` alone is. (a) `schema-invalid`; (b) no reference, silently. Recommended: (a): a
+    declaration that does nothing is a mistake to report. Consequence: §8.1 or §9.3 says so (*spec*, §9.3).
+19. **The value of `x-vmd-summary`.** §9.3 gives none. (a) a boolean, anything else `schema-invalid`; (b) any value, counted as
+    true. Recommended: (a), so that `x-vmd-summary: false` means what it says. Consequence: §9.3's table gives the value (*spec*,
+    §9.3).
+20. **The size of a schema file.** (a) at most 1 MiB, the bound I1.8 set for the configuration (a deviation recorded in #17); (b)
     no bound. Recommended: (a): a schema of more is a mistake or an attack on a validating service. Consequence: §9.1 states both
     bounds (*spec*, §9.1).
-20. **Unknown configuration members, and what §9.1 counts as an addition.** §9.1 allows a minor version to add only a new `$`
+21. **Unknown configuration members, and what §9.1 counts as an addition.** §9.1 allows a minor version to add only a new `$`
     member, a new `data` info string or a new `x-vmd-*` keyword. That leaves out a new configuration member, and every relaxation
-    of a refusal (questions 2, 8, 14). (a) §9.1's list becomes "any construct the previous minor version refuses with an error",
-    which keeps the rule's reason, that an older reader fails rather than misreads; an unknown configuration member is then
-    `feature-unsupported`, whose message names the store's declared version, as for the other forms; (b) the three forms stay, an
-    unknown configuration member is `config-invalid`, and a new member or a relaxation needs a major version or a new keyword; (c)
-    unknown configuration members are ignored, which would misread a newer store silently. Recommended: (a). Consequence: §9.1's
-    "Every addition is detectable" and Appendix D's `feature-unsupported` row change (*spec*, §9.1, Appendix D).
-21. **#20's open item 1**, pending: the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The design does not depend on
-    it; I2.8's numbers do.
+    of a refusal (questions 2, 8, 14). (a) §9.1's list becomes "any construct the previous minor version refuses with an error
+    that fails every read of it": a structural error, which makes the record unreadable, or an operation error that fails the
+    operation, such as an invalid configuration or, under question 12's answer, an invalid schema. A relaxation of what is today a
+    validation error does not qualify, since a best-effort reader reads past validation errors (§9.5): if 1.1 accepted a space in
+    `date-time`, a 1.0 reader's `check` would report a `schema-violation`, but its `query` would return the record and compare the
+    value wrongly; such a change needs a major version. An unknown configuration member is then `feature-unsupported`, whose
+    message names the store's declared version. (b) the three forms stay, an unknown configuration member is `config-invalid`, and
+    a new member or a relaxation needs a major version or a new keyword; (c) unknown configuration members are ignored, which
+    would misread a newer store silently. Recommended: (a). Its reason is the one §9.1 gives for the three forms, that an older
+    reader fails rather than misreads, and the narrowing keeps it. The existing `x-vmd-*` form has the same exposure as any schema
+    construct, since an unknown keyword only makes the schema invalid; question 12's (a) is what makes it fail every read, and
+    with (b) of question 12 it would not be detectable either. Consequence: §9.1's "Every addition is detectable" and Appendix D's
+    `feature-unsupported` row change (*spec*, §9.1, Appendix D), and the answer depends on question 12's.
+
+Not a question but pending with the owner: #20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The
+design does not depend on it; I2.8's numbers do.
 
 ---
 
@@ -1323,22 +1371,22 @@ implements; a *spec* answer is in Draft v0.11 before the pull request starts.
 
 | PR | Task | After | Questions | Done when |
 |---|---|---|---|---|
-| A | I2.1 configuration (#21), with `check` in core and the runner's `check` | (none) | 5, 6, 10, 13, 20 | the 41 cases of section 7.6 pass; a `config-invalid` test per member and limit, each with its near miss; path rules and `filename-mismatch` with cases added to the suite; `ls`'s collection column; `--config` with its `schema/`; Stryker's survivors listed |
+| A | I2.1 configuration (#21), with `check` in core and the runner's `check` | (none) | 5, 6, 10, 13, 21 (and 12, on which 21 depends) | the 41 cases of section 7.6 pass; a `config-invalid` test per member and limit, each with its near miss; path rules and `filename-mismatch` with cases added to the suite; `ls`'s collection column; `--config` with its `schema/`; Stryker's survivors listed |
 | Y | YAML ambiguity warnings (#21) | A | (none) | `values/yaml-scalars` passes; `yaml_quoting` and an `issues` entry over them |
-| C | I2.2 schemas (#22) | A | 1, 2, 8 (the keyword checks), 12, 14, 15, 16, 17, 18, 19 | `values/logical-types` and `validation/bom-config` pass; property test 2; each `schema-invalid` and `feature-unsupported` fires once; the predicted bugs of section 10 for schemas |
+| C | I2.2 schemas (#22) | A | 1, 2, 8 (the keyword checks), 12, 14 to 20 | `values/logical-types` and `validation/bom-config` pass; property test 2; each `schema-invalid` and `feature-unsupported` fires once; the predicted bugs of section 10 for schemas |
 | E1 | I2.4 references: extraction, resolution, statuses, aliases, warnings, `refs` in the runner, `@refs` (#24) | A | 7 | the five `references/targets` cases of section 7.6 pass; property tests 3 and 4; a suite case per status and warning |
 | D | I2.3 keyed lists, uniqueness, the proof, canonical addresses, strict read in core (#23) | C | 8 (resolution), 11 (core's mode) | the rest of `addresses/cardinality` passes; property tests 1 and 6; #15's first deviation removed |
-| E2 | I2.4 typed references and `x-vmd-ref` (#24) | D, E1 | 3, 9 | the other `references/targets` cases and `addresses/explicit-refs` pass: all 108 Validate cases pass |
-| F | I2.5 local index (#25) | E2 | 4 | property test 5; the CI guard of section 9; the MAC of section 6.2.1, with its two tests; `ls`'s store-wide count and `outline`'s refs-in counts |
+| E2 | I2.4 typed references, `x-vmd-ref`, and the proof of §7.4 for every reference, links included (#24) | D, E1 | 3, 9 | the other `references/targets` cases and `addresses/explicit-refs` pass: all 108 Validate cases pass |
+| F | I2.5 local index (#25) | E2 | 4 | property test 5; the CI guard of section 9; the per-user cache with its eviction, and a test that nothing in the checkout is read or written as cache; `ls`'s store-wide count and `outline`'s refs-in counts |
 | G | I2.6 commands `check`, `refs`, `schema`, `index` (#26) | F | 4 (`--no-cache`), 11 (`--strict`) | command tests over a fixture store for each option, stream and exit code of section 7.5; `--changed` in a temporary git repository, a `git mv` among them |
 | H | I2.7 vampiredb trial (#27) | C (draft), G (final) | (none) | `examples/vampiredb/` holds the configuration and schema of section 8.2; `vmd check` runs over the store with them |
-| K | I2.8 demonstration (#28) | G, H | 21 (for its numbers) | `check-demo.mjs` and its record in #28: the comparison of section 8.3, the planted faults, cold and warm timings, the store unchanged |
+| K | I2.8 demonstration (#28) | G, H | (none; #20's open item 1 sets its numbers) | `check-demo.mjs` and its record in #28: the comparison of section 8.3, the planted faults, cold and warm timings, the store unchanged |
 
 A starts at once. After A, C, E1 and Y run in parallel, and D follows C. **The critical path is A, C, D, E2, F, G, K**: the
 binding needs schemas, typed references need the binding, the index caches what the binding gives, and the commands read the
 index. H's schema can be written as soon as C lands, and only its run waits for G.
 
-So the answers are needed in this order: 5, 6, 10, 13 and 20 before A; 1, 2, 8, 12 and 14 to 19 before C; 7 before E1; 11 before
+So the answers are needed in this order: 5, 6, 10, 12, 13 and 21 before A; 1, 2, 8 and 14 to 20 before C; 7 before E1; 11 before
 D; 3 and 9 before E2; 4 before F. Draft v0.11 can take them in one round before A, or in two, the second before C.
 
 The phase's exit, as the plan states it: the I0 fixtures for §8 and §9 pass (the 108 cases, and those the pull requests add), and
@@ -1357,15 +1405,18 @@ With the owner's answers, in the same pull request as the answers they follow fr
   - §21's I2 row: "over vampiredb's docs and tickets" predates the move of the tickets to eternal-circle (the plan, 2026-10-10),
     so it says docs only, as the plan's I2.8 does; "`x-vmd-list` compilation" becomes its native evaluation; and its command list,
     "`check`, `refs`, `schema`", gains `index`;
-  - §14.3's sentence on `git ls-files -s`, which contradicts I1 §2.6's hashing of the bytes the backend returns (section 6.3), and
-    where the cache of a store without `.vmd/` lives (question 4);
+  - §14.3: the sentence on `git ls-files -s`, which contradicts I1 §2.6's hashing of the bytes the backend returns (section 6.3),
+    and "a cache in `.vmd/cache/`, which is never committed", which becomes a per-user cache outside every store (question 4);
+    §17's table, whose row of untracked paths names `.vmd/cache/` (4);
   - §12.1: `--no-cache` (question 4), `--strict` (question 11), and `--config`'s schema directory (question 13);
   - §9.1: the schema directory (question 13), collection names (10), a record two collections match (5), a collection with an
-    invalid schema (12), the bound on schema files (19), and the list of additions (20);
-  - §9.2: `$id` (question 14) and YAML anchors in schemas (15); §9.3: the spine (2), keys (8), `targets` (9), `unevaluatedItems`
-    (16), `$sections` keys (17), `x-vmd-ref` and `x-vmd-summary` (18); §5.6 (8); §8.1, images (7); §8.5 (3);
+    invalid schema (12), the bound on schema files (20), and the list of additions (21); §5.4's sentence on readability and the
+    schema (12);
+  - §9.2: `$id` (question 14) and YAML anchors in schemas (15); §9.3: the spine and overlapping patterns (2), keys (8), `targets`
+    (9), `unevaluatedItems` (16), `$sections` keys (17), `x-vmd-ref` without `format` (18), `x-vmd-summary` (19); §5.6 (8); §8.1,
+    images (7); §8.5 (3);
   - Appendix C, the validator row (question 1); Appendix D: `collection-conflict` (5), `ref-ambiguous` (3), `feature-unsupported`
-    (20) and "Configuring severities" (6).
+    (21) and "Configuring severities" (6).
 - **The conformance README**: the `refs` operation's `targets` for an ambiguous reference (R8), once confirmed.
 - **This design**: section 12's answers, as the I1 design records card K in its section 9.
 
