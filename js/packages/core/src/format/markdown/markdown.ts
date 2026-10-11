@@ -336,12 +336,20 @@ export function buildMarkdownRecord(reading: MarkdownReading): Outcome<ParsedRec
   });
 }
 
-/** An HTML comment as CommonMark 0.31.2 reads one (section 6.6): `<!-->`, `<!--->`, or `<!--` to the first `-->`. */
-const HTML_COMMENT = /<!--(?:-?>|[\s\S]*?-->)/g;
+/**
+ * White space, then an HTML comment as CommonMark 0.31.2 reads one (section 6.6): `<!-->`, `<!--->`, or `<!--` to the first
+ * `-->`; matched where the last match ended.
+ */
+const SPACE_THEN_COMMENT = /[ \t\r\n]*<!--(?:-?>|[\s\S]*?-->)/y;
 
 /** Whether a block is an HTML block that holds only comments and white space. */
 function isCommentsOnly(block: RootContent | undefined): boolean {
-  return block?.type === "html" && /^[ \t\r\n]*$/.test(block.value.replace(HTML_COMMENT, ""));
+  if (block?.type !== "html") return false;
+  const html = block.value;
+  SPACE_THEN_COMMENT.lastIndex = 0;
+  let end = 0;
+  while (SPACE_THEN_COMMENT.test(html)) end = SPACE_THEN_COMMENT.lastIndex;
+  return end > 0 && /^[ \t\r\n]*$/.test(html.slice(end));
 }
 
 function unsupportedMessage(words: readonly string[]): string {
