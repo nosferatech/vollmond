@@ -60,25 +60,65 @@ const documentSource: fc.Arbitrary<DocumentSource> = fc.record({
   finalBreak: fc.boolean(),
 });
 
-/** Writes a generated document with LF line breaks. */
-function write(document: DocumentSource): string {
-  const blocks: string[] = [];
-  if (document.title !== null) blocks.push(`# ${document.title}`);
-  blocks.push(...document.rootBody);
-  for (const part of document.sections) {
-    const setext = part.setext && part.level === 2;
-    blocks.push(setext ? `${part.title}\n---` : `${"#".repeat(part.level)} ${part.title}${part.closing ? " ##" : ""}`);
-    if (part.data) blocks.push(`\`\`\`yaml data\nowner: ${JSON.stringify(part.title)}\nruns: [1, 2]\n\`\`\``);
-    blocks.push(...part.body);
-  }
-  let text = blocks.map((block, index) => (index === 0 ? block : `${separatorOf(document, index)}${block}`)).join("");
-  if (document.frontMatter) text = `---\nstatus: Open\nnotes: |\n  one\n  two\n---\n${text}`;
-  return document.finalBreak ? `${text}\n` : text;
+/** A block of the written document: its text, and the section that holds it, -1 for the root. */
+interface WrittenBlock {
+  readonly text: string;
+  readonly owner: number;
+  readonly kind: "heading" | "data" | "body";
 }
 
-function separatorOf(document: DocumentSource, index: number): string {
+/**
+ * Writes a generated document with LF line breaks, and gives the value view the grammar says it has: the front matter's
+ * fields, the titles, the data blocks' fields, each section under the nearest earlier heading of a lower level, and each
+ * `$body` as its blocks with the blank lines between them, trimmed at its end.
+ */
+function write(document: DocumentSource): { readonly text: string; readonly expected: ValueObject } {
+  const blocks: WrittenBlock[] = [];
+  if (document.title !== null) blocks.push({ text: `# ${document.title}`, owner: -1, kind: "heading" });
+  for (const text of document.rootBody) blocks.push({ text, owner: -1, kind: "body" });
+  document.sections.forEach((part, owner) => {
+    const setext = part.setext && part.level === 2;
+    const heading = setext ? `${part.title}\n---` : `${"#".repeat(part.level)} ${part.title}${part.closing ? " ##" : ""}`;
+    blocks.push({ text: heading, owner, kind: "heading" });
+    if (part.data) {
+      blocks.push({ text: `\`\`\`yaml data\nowner: ${JSON.stringify(part.title)}\nruns: [1, 2]\n\`\`\``, owner, kind: "data" });
+    }
+    for (const text of part.body) blocks.push({ text, owner, kind: "body" });
+  });
   const separators = document.sections.flatMap((part) => part.separators);
-  return separators[index % Math.max(separators.length, 1)] ?? "\n\n";
+  const separatorBefore = (index: number) => separators[index % Math.max(separators.length, 1)] ?? "\n\n";
+  let text = blocks.map((block, index) => (index === 0 ? block.text : `${separatorBefore(index)}${block.text}`)).join("");
+  if (document.frontMatter) text = `---\nstatus: Open\nnotes: |\n  one\n  two\n---\n${text}`;
+  if (document.finalBreak) text += "\n";
+
+  // Each owner's body: its body blocks, with the separator before each block but its first.
+  const bodyOf = (owner: number): string | undefined => {
+    let body = "";
+    blocks.forEach((block, index) => {
+      if (block.owner !== owner || block.kind !== "body") return;
+      body += body === "" ? block.text : `${separatorBefore(index)}${block.text}`;
+    });
+    const trimmed = body.replace(/[ \t\n]+$/, "");
+    return trimmed === "" ? undefined : trimmed;
+  };
+  const root: Record<string, Value> = {};
+  if (document.frontMatter) Object.assign(root, { status: "Open", notes: "one\ntwo\n" });
+  if (document.title !== null) root.$title = document.title;
+  const rootBody = bodyOf(-1);
+  if (rootBody !== undefined) root.$body = rootBody;
+  const open: { readonly level: number; readonly object: Record<string, Value> }[] = [{ level: 0, object: root }];
+  document.sections.forEach((part, owner) => {
+    const level = part.level;
+    while ((open.at(-1)?.level ?? 0) >= level) open.pop();
+    const parent = (open.at(-1) as (typeof open)[number]).object;
+    const object: Record<string, Value> = { $title: part.title };
+    if (part.data) Object.assign(object, { owner: part.title, runs: [1, 2] });
+    const body = bodyOf(owner);
+    if (body !== undefined) object.$body = body;
+    parent.$sections = [...((parent.$sections as Value[] | undefined) ?? []), object];
+    open.push({ level, object });
+  });
+  return { text, expected: root };
 }
 
 function parsed(text: string): ParsedRecord {
@@ -89,18 +129,6 @@ function parsed(text: string): ParsedRecord {
   return outcome.value;
 }
 
-/** Every `$body` in a value view, by the exact path of its section. */
-function bodies(value: Value): string[] {
-  const found: string[] = [];
-  const pending: Value[] = [value];
-  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-    const object = next as ValueObject;
-    if (typeof object.$body === "string") found.push(object.$body);
-    if (Array.isArray(object.$sections)) pending.push(...(object.$sections as Value[]));
-  }
-  return found;
-}
-
 const decoder = new TextDecoder();
 const lineBreaks = ["\n", "\r\n", "\r"] as const;
 
@@ -108,10 +136,13 @@ describe("property: Markdown documents", () => {
   test("parse to sections that tile the file, with trimmed bodies and the same value view whatever the line breaks", () => {
     fc.assert(
       fc.property(documentSource, fc.constantFrom(...lineBreaks), fc.boolean(), (document, lineBreak, bom) => {
-        const lf = write(document);
+        const { text: lf, expected } = write(document);
         const text = (bom ? "\u{FEFF}" : "") + lf.replaceAll("\n", lineBreak);
         const record = parsed(text);
         const bytes = record.source.bytes;
+
+        // The value view is what the grammar wrote, whatever the line breaks and the byte order mark.
+        expect(record.value).toEqual(expected);
 
         // Every top-level heading but the title is a section, in order.
         const sections = record.nodes.sections().slice(1);
@@ -139,12 +170,7 @@ describe("property: Markdown documents", () => {
           }
         }
 
-        // No body has a leading blank line or trailing white space, and each is its span read with LF line breaks.
-        for (const body of bodies(record.value)) {
-          expect(body).not.toBe("");
-          expect(body).not.toMatch(/^[ \t]*\n/);
-          expect(body).not.toMatch(/[ \t\n]$/);
-        }
+        // Each body is its span, read with LF line breaks.
         for (const node of record.nodes.sections()) {
           const body = record.nodes.node(`${node.at}/$body`);
           if (body === undefined) continue;

@@ -42,19 +42,28 @@ export function sliceUnitText(fileText: string, start: number, end: number): Uni
 const CR = 0x0d;
 const LF = 0x0a;
 
-/** A line of an indented unit: where it starts in the unit text and in the file, and how many spaces the unit left out. */
+/** A line of an indented unit: where it starts in the unit text and in the file, and what the unit left out of it. */
 interface IndentedLine {
   readonly unitStart: number;
-  /** The file index of the line's first character in the unit, after the spaces left out. */
+  /** The file index of the line's first character, before the indentation removed. */
+  readonly lineStart: number;
+  /** How many spaces at the line's start stand for the columns a partly removed tab has left. */
+  readonly virtual: number;
+  /** The file index of that tab; unused without virtual spaces. */
+  readonly tabIndex: number;
+  /** The file index of the first character the unit keeps from the file after the indentation, and the virtual spaces. */
   readonly fileStart: number;
-  readonly removed: number;
 }
 
+const TAB_STOP = 4;
+
 /**
- * Gives the unit text of `fileText.slice(start, end)` with up to `indent` spaces removed from the start of each line, as
- * CommonMark removes a fenced code block's indentation from its content lines: only spaces, so a tab stops the removal.
- * Lines end at LF, CRLF or a lone CR, which the text keeps. At the start of a line, `fileIndex` is after the spaces removed
- * and `fileEnd` before them, except at index 0, where both are after them.
+ * Gives the unit text of `fileText.slice(start, end)` with up to `indent` columns of indentation removed from the start of
+ * each line, as CommonMark (0.31.2, sections 2.2 and 4.5) removes a fenced code block's indentation from its content lines,
+ * each line starting at column 0: a space is one column, and a tab advances to the next multiple of 4. A tab that the
+ * removal consumes only partly leaves its other columns as spaces in the unit text, each mapped to the tab's index. Lines end
+ * at LF, CRLF or a lone CR, which the text keeps. At the start of a line, `fileIndex` is after the indentation removed and
+ * `fileEnd` before it, except at index 0, where both are after it.
  *
  * Throws a `RangeError` unless `0 <= start <= end <= fileText.length` and `indent` is a natural number.
  *
@@ -68,13 +77,26 @@ export function sliceIndentedUnitText(fileText: string, start: number, end: numb
   const lines: IndentedLine[] = [];
   let text = "";
   for (let line = start; line < end; ) {
-    let removed = 0;
-    while (removed < indent && line + removed < end && fileText.charCodeAt(line + removed) === 0x20) removed += 1;
-    let next = line + removed;
+    let column = 0;
+    let kept = line;
+    let virtual = 0;
+    let tabIndex = line;
+    while (column < indent && kept < end) {
+      const code = fileText.charCodeAt(kept);
+      const width = code === 0x20 ? 1 : code === 0x09 ? TAB_STOP - (column % TAB_STOP) : 0;
+      if (width === 0) break;
+      if (column + width > indent) {
+        virtual = column + width - indent;
+        tabIndex = kept;
+      }
+      column += width;
+      kept += 1;
+    }
+    let next = kept;
     while (next < end && fileText.charCodeAt(next) !== LF && fileText.charCodeAt(next) !== CR) next += 1;
     if (next < end) next += fileText.charCodeAt(next) === CR && fileText.charCodeAt(next + 1) === LF && next + 1 < end ? 2 : 1;
-    lines.push({ unitStart: text.length, fileStart: line + removed, removed });
-    text += fileText.slice(line + removed, next);
+    lines.push({ unitStart: text.length, lineStart: line, virtual, tabIndex, fileStart: kept });
+    text += " ".repeat(virtual) + fileText.slice(kept, next);
     line = next;
   }
   /** The last line that starts at or before `index` in the unit text. */
@@ -97,7 +119,9 @@ export function sliceIndentedUnitText(fileText: string, start: number, end: numb
   const fileIndex = (index: number): number => {
     checkIndex(index, text.length);
     const line = lineAt(index);
-    return line === undefined ? start : line.fileStart + (index - line.unitStart);
+    if (line === undefined) return start;
+    const offset = index - line.unitStart;
+    return offset < line.virtual ? line.tabIndex : line.fileStart + offset - line.virtual;
   };
   return {
     text,
@@ -105,9 +129,9 @@ export function sliceIndentedUnitText(fileText: string, start: number, end: numb
     fileEnd: (index) => {
       const after = fileIndex(index);
       const line = lineAt(index);
-      // At a line's start, a range ends before the spaces removed there.
+      // At a line's start, a range ends before the indentation removed there.
       if (line === undefined || line.unitStart !== index || index === 0) return after;
-      return after - line.removed;
+      return line.lineStart;
     },
   };
 }

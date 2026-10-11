@@ -41,7 +41,9 @@ describe("readOpenTag", () => {
     const started = performance.now();
     expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}x`, 0)).toBeNull();
     expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}/>`, 0)?.selfClosing).toBe(true);
-    expect(performance.now() - started).toBeLessThan(1000);
+    // A read that scans the white space again for each attempt takes time growing with its square: hours for 400,000
+    // characters. The bound is far from both, so that a loaded machine does not fail it.
+    expect(performance.now() - started).toBeLessThan(5000);
   });
 });
 
