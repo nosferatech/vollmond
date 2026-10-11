@@ -382,7 +382,7 @@ sections:
 | an object member (front matter, a data block, JSON, YAML) | its value | `memberRange`, from the key's start to the value's end; the separators around it (a comma, a line break) are I4's to handle per format |
 | an array item | the item | the item, with the same caveat |
 | `$title`, `$body` | their source spans; where the value differs from those bytes (a removed anchor element, CRLF), `get` in source form prints the span | |
-| a block anchor | its CommonMark block in the `$body`, without the block's trailing line break, as the suite's pending cases expect | |
+| a block anchor | its CommonMark block in the `$body`, without the block's trailing line break, as the suite's block-anchor cases expect | |
 
 A section's range covers its trailing blank lines so that removing a section leaves none behind. A member's range is its value
 because an exact path names the value, which `set` replaces, while `delete` must also remove the key.
@@ -518,7 +518,7 @@ export interface Store {
   then cannot hide itself. The runner exits with 2 on an `input` member that an operation does not take (Draft v0.6's suite
   README).
 - **Profiles.** The declaration claims `["read"]`, and states that I1 produces source maps once their cases exist (§19.2).
-- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; the two block-anchor cases are pending now.
+- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; none is pending once #61 has merged.
   PR A implements only `compare`, and skips every other operation by an `operation` entry. When a pull request brings an
   operation, it replaces that entry by `id` entries for the cases still out of reach (PR C turns `parse` into entries for the YAML
   and Markdown cases, which D and E remove). `unused_skips` shows leftovers, and a flag `--ids-failing` prints the failing ids.
@@ -594,7 +594,7 @@ accepting its near miss:
 | `dollar-member` | C, D | `$key` on a JSON section; `$schema` on a `$sections` item | `$schema` on the root; `$key` inside a field's value |
 | `feature-unsupported` | C, D | `$foo` on a JSON or YAML section | `$foo` inside a field's value, which is data (§5.4) |
 
-Draft v0.7's suite (#61) adds the same inputs as cases, so that other implementations are held to them too: `values/shape`
+Draft v0.7's suite (#61) adds the same inputs as cases, so that other implementations are held to them too: `data/shape`
 (the codes above, with their near misses), and, for the lone CR of section 3.3, `markdown/crlf/lone-cr-front-matter` and
 `values/line-breaks/lone-cr`. The unit tests stay, since they run without the runner.
 
@@ -650,11 +650,11 @@ Each task is its own pull request (plan §1.3).
 | A | I1.10 runner (#19) | (none) | CI runs it; `compare` is implemented and the other operations are skipped by `operation`; `selftest` passes, and fails when the comparison is broken on purpose; the versions check fires on an edited fixture |
 | B | I1.1 values (#10), with `SourceText`, issues, `Outcome` and `record/` | (none) | unit tests, property tests 1 and 5; RFC 8785's examples (U: its appendix of number samples); `gitBlobId` matches every entry of the suite's versions manifests; the Appendix D test |
 | U | Unicode tables and probe (from I1.5) | (none) | tables committed; the Node pin in CI; the comparison over every code point passes and is shown to have run |
-| C | I1.2 JSON (#11) | B | the JSON cases of `values/` pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
-| D | I1.3 YAML (#12) | B | the YAML cases of `values/` pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
+| C | I1.2 JSON (#11) | B | the JSON cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
+| D | I1.3 YAML (#12) | B | the YAML cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
 | G | I1.7 storage and filesystem backend (#16) | B | one contract test suite passes on both backends; versions equal `git hash-object --no-filters` in a temporary repository, also for a file that a clean filter changes; the regex checker's cases |
 | E | I1.4 Markdown (#13) | C, D; #61 for the spans | `markdown/` and the Markdown cases of `values/` pass; property test 4 |
-| F | I1.5 keys and anchors (#14) | E, U | `anchors/` passes, pending cases aside; property test 6 |
+| F | I1.5 keys and anchors (#14) | E, U | `anchors/` passes; property test 6 |
 | H | I1.8 CLI foundation (#17) | G | store discovery, global options, `--config` (decision K3); tests of line output, `~tok`, limits, cursors, the §12.3 format and exit codes |
 | I | I1.6 addresses and computed fields (#15) | F | `addresses/` and `meta` pass with the Read profile |
 | J | I1.9 read commands (#18) | H, I | command tests over a fixture store for `ls`, `cat --lines`, `grep`, `outline --depth` and `get` with each option |
