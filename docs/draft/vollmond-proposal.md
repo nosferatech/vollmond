@@ -1,9 +1,9 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.8 (2026-10-10). Supersedes Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit
-`d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit
-`b7c8a52`). The minor version rises with each round of decisions applied to the draft. The review of v0.1 and every round of
-decisions since are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
+Status: Draft v0.9 (2026-10-10). Supersedes Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit
+`c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit
+`5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft. The
+review of v0.1 and every round of decisions since are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -139,6 +139,11 @@ double cannot hold (§4.2), and in YAML `.inf` and `.nan`, non-string keys, anch
 defined included), merge keys, explicit tags, and multiple documents in one file. A YAML version other than 1.2 is an error of its
 own (§4.4).
 
+- **What is still checked.** A record with a structural error is checked as far as its structure allows, so that one run shows
+  everything to fix (C2). The contents of a root that is not an object are checked (§5.4), and so are the other members of a
+  malformed `$ref` object (§8.1). The value of a repeated member is not looked into, and nor is the value of a member whose name
+  holds an unpaired surrogate: neither has an exact path of its own.
+
 - **Surrogates.** A surrogate pair written as two escapes reads as the one character it encodes, in YAML (two `\u` escapes) as in
   JSON. YAML 1.2.2 (section 5.7) defines `\u` as a 16-bit escape and does not say that two of them combine, and the `yaml` package
   (2.9.1) combines them, so a reader that does not must combine the pair itself. A surrogate that is not part of a pair is
@@ -149,14 +154,19 @@ own (§4.4).
   interchange nor do they cause ill-formed Unicode text" ([unicode.org/versions/corrigendum9.html](https://www.unicode.org/versions/corrigendum9.html),
   read on 2026-10-10), while a surrogate that is not part of a pair is not a character at all. YAML's character set leaves out
   U+FFFE and U+FFFF (YAML 1.2.2, section 5.1, production `c-printable`), so in a YAML file and in front matter those two must be
-  written as escapes in a double-quoted string, and a raw one is a YAML syntax error (`syntax-error`). The other noncharacters may
-  appear raw in YAML.
+  written as escapes in a double-quoted string, and a raw one is a `syntax-error`, inside quotes too. There vmd departs from YAML,
+  whose quoted scalars accept any `nb-json` character, U+FFFE and U+FFFF included (section 5.1), as it departs for the byte order
+  mark (§5.1). The `yaml` package (2.9.1) accepts a raw U+FFFE inside double quotes. The other noncharacters may appear raw in
+  YAML.
 - **Merge keys.** A plain `<<` key is a merge key, whatever its value, and so an error. A quoted `"<<"` key is an ordinary
   member. YAML 1.1's merge type is recognized by its regular expression, `<<` ([yaml.org/type/merge.html](https://yaml.org/type/merge.html)),
   and implicit resolution by regular expression applies to plain scalars only, so a quoted `"<<"` is a string to YAML 1.1 readers
   too. The `yaml` package (2.9.1) reads it as an ordinary member, as measured for the value fixtures (#52).
 - **Tags.** Every explicit tag is an error: a custom tag, a core schema tag such as `!!str` or `!!int`, and the non-specific tag
-  `!` (YAML 1.2.2, section 6.9.1). Quoting already forces a string, and the value view cannot keep a tag.
+  `!` (YAML 1.2.2, section 6.9.1). Quoting already forces a string, and the value view cannot keep a tag. A tag whose handle no
+  `%TAG` directive declares, such as `!e!x`, is not a tag YAML can read, so it is a `syntax-error`, not `yaml-tag` (YAML 1.2.2,
+  section 6.8.2.1). So are two `%TAG` directives for one handle (section 6.8.2), a `%TAG` handle that does not start with `!`,
+  and a directive with no `---` after it (section 9.1.5).
 
 ### 4.2 Numbers
 
@@ -487,8 +497,16 @@ The section's key, `what-is-confirmed`, is a computed field, `@key` (§5.5, §5.
 ### 5.4 JSON and YAML
 
 A JSON or YAML record's value view is the parsed data, whose root must be an object (`root-not-object` otherwise). An empty YAML
-file, or one holding only whitespace and comments, is the empty record `{}`, as an empty Markdown file is. An empty JSON file is a
-syntax error, since it is not JSON.
+file, or one holding only whitespace and comments, is the empty record `{}`, as an empty Markdown file is (C8). A YAML file
+holding only `---` is not empty: it is a document whose root is an empty node, which is null (YAML 1.2.2, section 7.2), so it is
+`root-not-object`. An empty JSON file is a syntax error, since it is not JSON.
+
+**Nesting.** Arrays and objects nest at most 256 levels deep in every format, the root counting as the first level. A value nested
+deeper is a `syntax-error`, so that a reader's stack is bounded, whatever its parser.
+
+**Block scalars at the end of input.** A YAML block scalar that ends the input without a final line break gets no line feed added:
+`a: |` followed by `  text` and the end of the file is `"text"` (YAML 1.2.2, section 8.1.1.2, production `b-chomped-last`). The
+`yaml` package (2.9.1) adds one, so a reader built on it removes it again.
 
 The section members apply to the root object and to items of `$sections`. On a section, a member whose name begins with `$` and
 that is not a section member (§5.2) is a structural error. It is `dollar-member` for `$key` and for a section member out of its
@@ -990,7 +1008,7 @@ issues:                                      # severities by issue code (Appendi
   ref-derived-anchor: "off"
 collections:
   tickets:
-    match: ["tickets/*.md"]                  # globs over record paths; * is one segment, ** any depth
+    match: ["tickets/*.md"]                  # globs over record paths (§11.2)
     exclude: ["tickets/README.md"]
     schema: ticket.schema.yaml               # in .vmd/schema/
     filename: "^[0-9]{4}-[a-z0-9-]+\\.md$"
@@ -1220,7 +1238,7 @@ A dotted field is a semantic path (§7.3) with `.` for `/`: `benchmarks.append-4
 - **Full text** (`word`, `"phrase"`) matches case-insensitively, by the same simple case folding, against titles and every string
   in scope (§10.4). A word matches whole tokens; a phrase matches a substring.
 - **Pseudo-fields** are the computed fields of §5.10, with the same names and the same types. VQL can filter on these:
-  - `@path`, the record path, matched against a glob; `@collection`; `@key`, a section's key (§5.5); `@address`; `@at`; and
+  - `@path`, the record path, matched against a glob (§11.2); `@collection`; `@key`, a section's key (§5.5); `@address`; `@at`; and
     `@depth`, a section's depth (0 for the root);
   - `@anchors`, a list of `{name, kind}`, which a term matches by `name` (`@anchors:done`);
   - `@refs`, a list of references, which a term matches by resolved address, so `@refs:docs/design/Minimal_Log.md#room` finds
@@ -1310,7 +1328,7 @@ that does not validate needs no knowledge of Markdown or schemas.
 | `list(prefix, glob?, limit, cursor)` | paths with size, version and modification time |
 | `stat(path)` | size, version and modification time, without content |
 | `read(path, range?, at?)` | content, optionally a line or byte range, optionally at a past revision, with its version |
-| `grep(pattern, glob?, mode, context, limit)` | matching lines with paths and line numbers; `mode` is `literal` or `regex` |
+| `grep(pattern, glob?, mode, context, limit, cursor)` | matching lines with paths and line numbers; `mode` is `literal` or `regex` |
 | `write(path, content, if_version \| if_absent)` | replace or create a file; returns its new version |
 | `edit(path, edits[], if_version)` | exact-string replacements (§11.4); returns the file's new version |
 | `append(path, text, if_version?)` | add text at the end; returns the file's new version |
@@ -1322,6 +1340,18 @@ that does not validate needs no knowledge of Markdown or schemas.
 
 A read that the backend cannot complete, such as one refused by a permission error, fails with `storage-failed`, which is not
 `address-not-found`: the file may exist.
+
+**Cursors** are opaque: a client passes back what the previous page returned and makes no other use of it. `list` returns an exact
+count of the paths that remain; `grep` returns an estimate of the matches that remain, marked as one, as query totals are
+(§10.5). A file that `list` or `grep` cannot read is left out with an issue of severity `error`, and the operation still succeeds
+(§12.3).
+
+**Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1) and VQL's `@path` (§10.3). A glob
+matches a whole store path. `*` matches any characters within one segment, including a leading `.`, so dotfiles are not
+special; `**` as a whole segment matches any number of segments, none included; and every other character matches itself.
+
+**`grep` matches line by line.** Each line of a file is matched on its own, without its line break, so `^` and `$` are the line's
+start and end, and `.` matches any character of the line.
 
 ### 11.3 Version tokens
 
@@ -1351,8 +1381,17 @@ The current text, like the file version, is the bytes the backend returns, which
 `old` taken from another copy of the file may need its line endings adjusted.
 
 `grep` in `regex` mode uses the **portable regex** subset that RE2, Python `re` and ECMAScript all accept: literals and escapes,
-classes, `.`, anchors, groups, alternation, and greedy and lazy quantifiers, with flags `i` and `m`. Backreferences and lookaround
-are excluded. That makes matching linear in time on RE2, but not on JavaScript's or Python's engines, which backtrack:
+classes, `.`, anchors, groups, alternation, and greedy and lazy quantifiers, with the flag `i`; there is no `m`, since `grep`
+matches line by line (§11.2). Backreferences and lookaround are excluded.
+
+The classes `\d`, `\w` and `\s` and the boundary `\b` mean ASCII, as RE2 reads them: `\d` is `[0-9]`, `\w` is `[0-9A-Za-z_]`,
+`\s` is `[\t\n\f\r ]`, and `\b` is a boundary between `\w` and anything else (RE2's syntax,
+[github.com/google/re2/wiki/Syntax](https://github.com/google/re2/wiki/Syntax), read on 2026-10-10). The flag `i` is Unicode simple
+case folding. Each engine translates the pattern where it reads it otherwise. JavaScript reads `\s` as Unicode white space, `\v`
+included, so it is written out; and with the flags `u` and `i`, which its Unicode case folding needs, its `\w` and `\b` also match
+`ſ` (U+017F) and `K` (U+212A, the Kelvin sign) (measured in Node 24 on 2026-10-10), so they are written out under `i` too. Python
+reads all four as Unicode in a `str` pattern, so each is wrapped in a scoped `(?a:…)`; a global `(?a)` would make `i` ASCII-only
+as well. That makes matching linear in time on RE2, but not on JavaScript's or Python's engines, which backtrack:
 `(a+)+$` uses neither feature and takes exponential time on a long run of `a` followed by another character. The service
 backend, which runs other people's patterns, will use an RE2 engine, such as `re2js`, a JavaScript port of RE2 (not yet
 reviewed for licence, maintenance or speed). The local CLI runs the user's own patterns on the runtime's engine.
@@ -1410,8 +1449,9 @@ Global options: `--store` (a path, `github:owner/repo@branch`, an HTTP URL, or a
 ### 12.2 Output
 
 - One line per item, with sizes in bytes and approximate tokens (bytes ÷ 4, marked `~`).
-- `ls` and `grep` default to 100 and 50 items, `query` to 20. When more remain, the last line says how many and gives the
-  `--cursor`. `ls` and `query` also say how many records they could not read, when there are any (§9.5).
+- `ls` and `grep` default to 100 and 50 items, `query` to 20. When more remain, the last line says how many, exactly for `ls`
+  and as a marked estimate for `grep` and for query totals that are estimated (§10.5, §11.2), and gives the `--cursor`. `ls`
+  and `query` also say how many records they could not read, when there are any (§9.5).
 - `get` prints the node's source (§5.10) and stops at 20,000 characters unless `--max-chars` says otherwise; the cut says what
   remains and suggests `outline`.
 - `--json` prints the library's result objects unchanged.
@@ -1461,7 +1501,9 @@ tickets/0171-x.md:14:3 error ref-ambiguous: #notes matches 2 sections
 
 Issue codes, with their severities and classes, are listed in Appendix D. Lines and columns use the units of §5.9. Every issue
 found is counted (§9.2); at most 20 are printed by default, followed by the counts per code. Exit codes: `0` ok, `1` error, `2`
-usage, `3` conflict (re-read and retry), `4` validation failed, meaning at least one issue of severity `error`.
+usage, `3` conflict (re-read and retry), `4` validation failed, meaning at least one issue of severity `error`. An operation that
+succeeds can still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out (§11.2), and
+the command then exits with `4`.
 
 ### 12.4 Shell safety
 
@@ -2128,7 +2170,9 @@ The columns:
 - **Severity** is the default. Where it depends on the uniqueness mode (§5.7), both are given.
 - **Class** says what the issue does (§9.2, §9.5). A **structural** error makes the record unreadable. `parse` fails, and the
   record has no value view. A **validation** issue attaches to a readable record; an error fails `vmd check`. An **operation**
-  issue makes the operation that raised it fail, or warns about it, and is not about one record's content.
+  issue makes the operation that raised it fail, or warns about it, and is not about one record's content. An operation that
+  succeeds may still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out; the
+  command then exits with 4 (§12.3).
 - **At** is the node the issue is attached to, by exact path (§7.2). A structural error is still attached where it sits, as far as
   the parser can tell. An issue about "the record" is attached to its root, whose exact path is `""`, and "none" means that the
   issue has no node. An issue on a block anchor is attached to the `$body` that holds it (§6.2).
@@ -2137,8 +2181,8 @@ The columns:
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|
-| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter and a `%YAML` line in front matter; the record, or the data block's section |
-| `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first |
+| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a value nested more than 256 levels deep, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
+| `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first, whose value is not looked into |
 | `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member |
 | `number-not-representable` | error | structural | §4.2 | an integer by form (§4.2) whose double differs from it, a number too large for a double, or a non-zero number a double rounds to zero; the number |
 | `yaml-non-finite` | error | structural | §4.1 | `.inf`, `-.inf` or `.nan`; the number |
@@ -2148,7 +2192,7 @@ The columns:
 | `yaml-tag` | error | structural | §4.1 | an explicit tag: a custom tag, a core schema tag such as `!!str`, or the non-specific tag `!`; the tagged node |
 | `yaml-multiple-documents` | error | structural | §4.1 | several YAML documents in one file; the record |
 | `yaml-version-unsupported` | error | structural | §4.4 | a `%YAML` directive for a version other than 1.2, in a YAML file or a data block; the record, or the data block's section |
-| `root-not-object` | error | structural | §5.4 | a JSON or YAML record whose root is not an object; the root |
+| `root-not-object` | error | structural | §5.4 | a JSON or YAML record whose root is not an object, including a YAML file holding only `---`; the root. The root's contents are still checked |
 | `data-block-misplaced` | error | structural | §5.3 | a data block right after the title heading, or as the first block of a record without one; the root. A second data block right after a section's data block; the section |
 | `data-block-not-object` | error | structural | §5.3 | a data block, or front matter, that holds something other than an object; its section, the root for front matter |
 | `reserved-member-type` | error | structural | §5.2 | a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects, on a section or, for `$anchor` and `$tags`, on any object; the member |

@@ -112,6 +112,34 @@
       "description": "A $ref object with other members is ref-malformed at the object, and its other members are still checked, so a duplicate member and a number a double cannot hold inside it are reported too (§8.1, decisions C2 and L3).",
       "input": {"record": "ref-malformed-members-checked.json"},
       "expect": {"fails": true, "issues": [{"code": "ref-malformed", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent"}, {"code": "duplicate-member", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent/note/a"}, {"code": "number-not-representable", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent/big"}]}
+    },
+    {
+      "id": "root-not-object-contents-checked",
+      "spec": ["4.1", "5.4", "D"],
+      "description": "A root that is not an object is root-not-object, and its contents are still checked, so a duplicate member inside it is reported too (§4.1, §5.4, decision N2).",
+      "input": {"record": "root-array-checked.json"},
+      "expect": {"fails": true, "issues": [{"code": "root-not-object", "severity": "error", "path": "root-array-checked.json", "at": ""}, {"code": "duplicate-member", "severity": "error", "path": "root-array-checked.json", "at": "/0/a"}]}
+    },
+    {
+      "id": "repeated-member-value-not-checked",
+      "spec": ["4.1", "D"],
+      "description": "The value of a repeated member is not looked into, since it has no exact path of its own, so only the repeat is reported, not the duplicate inside it (§4.1, decision N3).",
+      "input": {"record": "repeated-member-value.json"},
+      "expect": {"fails": true, "issues": [{"code": "duplicate-member", "severity": "error", "path": "repeated-member-value.json", "at": "/a"}]}
+    },
+    {
+      "id": "surrogate-name-value-not-checked",
+      "spec": ["4.1", "D"],
+      "description": "The value of a member whose name holds an unpaired surrogate is not looked into either, so only the unpaired surrogate is reported, at the object (§4.1, decision N7).",
+      "input": {"record": "surrogate-name-value.json"},
+      "expect": {"fails": true, "issues": [{"code": "unpaired-surrogate", "severity": "error", "path": "surrogate-name-value.json", "at": ""}]}
+    },
+    {
+      "id": "document-marker-only",
+      "spec": ["5.4", "YAML 1.2.2 7.2", "D"],
+      "description": "A YAML file holding only --- is a document whose root is an empty node, null, so it is root-not-object, while an empty file is the empty record (§5.4, decisions C8 and N4).",
+      "input": {"record": "document-marker-only.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "root-not-object", "severity": "error", "path": "document-marker-only.yaml", "at": ""}]}
     }
   ]
 }
