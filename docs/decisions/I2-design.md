@@ -8,7 +8,7 @@ sections: ["§14.3", "§20"]
 decided_by: owner
 sources:
   card: "I2 design"
-  log: "Decisions from cards P to V (Draft v0.11) / I2 design. Approving the design of phase I2"
+  log: "Decisions from cards P to V (Draft v0.11), at 169c597: I2 design. Approving the design of phase I2"
   design: ["docs/design/i2-validate.md"]
   prs: [86, 87]
   commits: ["bd76d96", "169c597"]

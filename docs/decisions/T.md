@@ -9,7 +9,7 @@ sections: ["§6.2", "Appendix D"]
 decided_by: owner
 sources:
   card: "T"
-  log: "Decisions from cards P to V (Draft v0.11) / T. Block anchors in a list item's later paragraphs"
+  log: "Decisions from cards P to V (Draft v0.11), at 169c597: T. Block anchors in a list item's later paragraphs"
   prs: [85, 87]
   commits: ["169c597"]
 ---

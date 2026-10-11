@@ -1,8 +1,9 @@
 // Checks the decision records in docs/decisions, a vmd store, with vmd's reader: every record reads with no issue at all, its
 // id is its file name, its supersedes and superseded_by name existing records and pair up both ways, its status agrees with
 // superseded_by, every link between records points at one, and no timestamp is cited as both the owner's message and the
-// session's. It also checks the decision log's index: every record has one line there, and every line names a record. The
-// collection's schema is left to scripts/validate-decisions.mjs, until `vmd check` validates collections.
+// session's. It also checks the decision log's index: every record has one line there, every line names a record, and its
+// note on later decisions agrees with the record. The collection's schema is left to scripts/validate-decisions.mjs, until
+// `vmd check` validates collections.
 //
 // Run it in js/ after a build:
 //
@@ -127,7 +128,8 @@ async function checkIndex() {
   const text = await readFile(indexPath, "utf8").catch(() => undefined);
   if (text === undefined) return void problem(name, "the index cannot be read");
   const listed = new Map();
-  for (const [number, line] of text.split("\n").entries()) {
+  const lines = text.split("\n");
+  for (const [number, line] of lines.entries()) {
     const match = /^- \[([^\]]+)\]\(\.\.\/decisions\/([^)#]+)\)/.exec(line);
     if (match === null) continue;
     const [, label, target] = match;
@@ -136,8 +138,38 @@ async function checkIndex() {
     else if (label !== target.slice(0, -".md".length)) problem(at, `labels ${target} as ${label}`);
     if (listed.has(target)) problem(at, `lists ${target} again, after line ${listed.get(target)}`);
     else listed.set(target, number + 1);
+    if (records.has(target)) checkAnnotation(at, target, lines, number);
   }
   for (const path of records.keys()) if (!listed.has(path)) problem(path, `has no line in the index, ${name}`);
+}
+
+/**
+ * Checks that an index line's closing note, `(reversed in part by G3c; superseded by G3a)`, names exactly the record's
+ * superseded_by, and says "reversed in part" exactly when the record's status is reversed. The line may continue on the lines
+ * after it, indented by two spaces.
+ */
+function checkAnnotation(at, target, lines, number) {
+  let item = lines[number];
+  for (let next = number + 1; next < lines.length && lines[next].startsWith("  "); next++) item += ` ${lines[next].trim()}`;
+  const note = /\(((?:reversed in part by|superseded by) [^()]*)\)$/.exec(item.trim());
+  const named = new Set();
+  let reversed = false;
+  for (const part of note === null ? [] : note[1].split("; ")) {
+    const kind = /^(reversed in part by|superseded by) (.*)$/.exec(part);
+    if (kind === null) continue;
+    if (kind[1] === "reversed in part by") reversed = true;
+    for (const id of kind[2].split(", ")) named.add(`${id}.md`);
+  }
+  const value = records.get(target);
+  const later = new Set(list(value, "superseded_by"));
+  const same = later.size === named.size && [...later].every((path) => named.has(path));
+  if (!same) {
+    const says = [...named].join(", ") || "no later decision";
+    problem(at, `names ${says}, but ${target}'s superseded_by is ${[...later].join(", ") || "empty"}`);
+  }
+  if (reversed !== (value.status === "reversed")) {
+    problem(at, `says ${reversed ? "" : "not "}"reversed in part", but ${target}'s status is ${value.status}`);
+  }
 }
 
 /** Prints the issues that keep the store from opening or listing, and exits with 1. */

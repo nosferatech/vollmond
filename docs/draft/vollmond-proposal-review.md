@@ -250,7 +250,7 @@ questions of the conformance suite's README and the proposals of the parser surv
 - [C18](../decisions/C18.md) A singular address may still fail as ambiguous at evaluation, in two cases (superseded by H4.2)
 - [C19](../decisions/C19.md) A selector that matches nothing returns an empty result
 - [C20](../decisions/C20.md) How an address selects nodes by tag (superseded by F7)
-- [C23](../decisions/C23.md) What the serializer does with a `$key` it is given (reversed in part by F9)
+- [C23](../decisions/C23.md) What the serializer does with a `$key` it is given (superseded by F9)
 - [F7](../decisions/F7.md) Tag selection is deferred to a selector-language design
 - [F9](../decisions/F9.md) `$key` leaves the value view, and derived facts go into a metadata envelope (reversed in part by G9)
 
@@ -424,7 +424,7 @@ tasks are written "task I1.4" here.
   by J5)
 - [I1.5](../decisions/I1.5.md) A tag repeated in a data `$tags` array is kept, with a warning
 - [I1.6](../decisions/I1.6.md) Two `<a id>` elements at the start of one block are a structural error
-- [I1.7](../decisions/I1.7.md) Where a block anchor goes (superseded by J2, T)
+- [I1.7](../decisions/I1.7.md) Where a block anchor goes (reversed in part by T; superseded by J2)
 - [I1.8](../decisions/I1.8.md) A many-reference to a record that does not exist is dangling
 - [I1.9](../decisions/I1.9.md) A reference into a record with a structural error is a warning, not dangling (superseded by J3)
 - [I1.10](../decisions/I1.10.md) A `%YAML` line in front matter is a syntax error
@@ -450,11 +450,10 @@ measured on 2026-10-10, not as a decision.
 
 ## Answers from the phase I1 design (K)
 
-Recorded 2026-10-10, and applied to Draft v0.7. The design of phase I1 ([docs/design/i1-read.md](../design/i1-read.md), #59)
-ended with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation but
-K3's, which the design records. The
-answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that the design records, and
-K14 is decision J2.
+Recorded 2026-10-10, and applied to Draft v0.7. The design of phase I1 ([docs/design/i1-read.md](../design/i1-read.md), #59) ended
+with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation but K3's, which
+the design records. The answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that
+the design records, and K14 is decision J2.
 
 - [K1](../decisions/K1.md) Spans: section, member and block-anchor ranges
 - [K2](../decisions/K2.md) One syntax error per parse unit
