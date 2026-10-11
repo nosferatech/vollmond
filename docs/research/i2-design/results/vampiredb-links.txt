@@ -1,0 +1,57 @@
+node 24.21.0; store /Users/blamethesun/vampiredb/docs
+37 files, 3140238 bytes; 37 records
+parse every record: first 1179 ms in this process, then 1117, 1115, 1255 ms
+records with a structural error: 0
+validation issues found while parsing, at their default severities: {"anchor-element-ignored (warning)":17}
+git blob id of every file (crypto.subtle): 8.4 ms
+stat of every file: 0.4 ms
+
+mdast parse and walk of every Markdown record: 1174 ms
+
+resolving every reference, the records already parsed: 19 ms
+resolving them again, the resolvers' maps built: 11 ms
+
+links and definitions: 2006; without the autolinks, which are not references: 1965
+
+references by kind:
+  linkReference (uses a definition): 12
+  link: 1994
+  definition: 12
+  in a heading: 0
+  raw differs from url (escapes, entities, <...>): 0
+  written in <...>: 0
+  no destination range (autolink literal or autolink): 41
+
+references by target:
+  ok, first step through an explicit anchor: 1198
+      e.g. TODO.md:72 design/Storage_Component_Conventions.md#construction
+      e.g. design/Atomic_Durable_Record.md:612 #what-it-guarantees
+      e.g. design/Atomic_Durable_Record.md:553 #writing
+      e.g. design/Atomic_Durable_Record.md:503 #writing
+  ok, first step through a block anchor: 661
+      e.g. design/Atomic_Durable_Record.md:304 #recovery
+      e.g. design/Atomic_Durable_Record.md:49 #recovery
+      e.g. design/Concurrency_Primitives.md:1482 Minimal_Log.md#ring-open-ranges
+      e.g. design/Concurrency_Primitives.md:1481 #ring-ordering
+  record, no fragment: ok: 53
+      e.g. README.md:58 components.md
+      e.g. README.md:12 guidelines/README.md
+      e.g. README.md:8 design/README.md
+      e.g. design/Concurrency_Primitives.md:581 ../guidelines/Decision_Log.md
+  autolink or autolink literal: not a reference (the design's section 5.1): 41
+      e.g. draft/Fsync_Reliability_and_Recovery.md:1706 https://dev.to/syed_anzar/your-filesystem-is-lying-to-you-why-fsync-doesnt-guarantee-durability-1ik7
+      e.g. draft/Fsync_Reliability_and_Recovery.md:1704 https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1436283400&disposition=inline
+      e.g. draft/Fsync_Reliability_and_Recovery.md:1703 https://www.kingston.com/unitedkingdom/en/blog/servers-and-data-centers/ssd-power-loss-protection
+      e.g. draft/Fsync_Reliability_and_Recovery.md:1702 https://github.com/etcd-io/raft
+  dangling (address-not-found): 40
+      e.g. design/Concurrency_Primitives.md:857 Minimal_Log.md#no-stall
+      e.g. design/Minimal_Log.md:9091 #named-segment-past-prefix-dropped
+      e.g. design/Minimal_Log.md:8877 #no-partial-unit-unless-needed
+      e.g. design/Minimal_Log.md:8521 #ticket-0147-rule
+  absolute URI: leaves the store: 12
+      e.g. guidelines/Rustdoc_Guidelines.md:2177 https://doc.rust-lang.org/std/fs/struct.File.html#method.sync_all
+      e.g. guidelines/Rustdoc_Guidelines.md:2176 https://doc.rust-lang.org/std/net/struct.TcpStream.html#method.connect
+      e.g. guidelines/Rustdoc_Guidelines.md:2175 https://doc.rust-lang.org/std/io/enum.ErrorKind.html
+      e.g. guidelines/Rustdoc_Guidelines.md:2174 https://doc.rust-lang.org/std/sync/struct.PoisonError.html
+  climbs above the store root: leaves the store: 1
+      e.g. guidelines/Decision_Log.md:234 ../../.github/workflows/checkers.yml

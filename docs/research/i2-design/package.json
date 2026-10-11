@@ -1,0 +1,24 @@
+{
+  "name": "vollmond-i2-design-measurements",
+  "private": true,
+  "type": "module",
+  "description": "Measurements for docs/design/i2-validate.md: JSON Schema validators for 2020-12, Markdown references, and checking vampiredb's docs",
+  "dependencies": {
+    "@cfworker/json-schema": "4.1.1",
+    "@hyperjump/browser": "1.5.1",
+    "@hyperjump/json-schema": "1.18.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "json-schema-library": "11.6.5",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm-autolink-literal": "2.0.1",
+    "mdast-util-gfm-strikethrough": "2.0.1",
+    "mdast-util-gfm-table": "2.0.0",
+    "mdast-util-gfm-task-list-item": "2.0.0",
+    "micromark": "4.0.3",
+    "micromark-extension-gfm-autolink-literal": "2.1.0",
+    "micromark-extension-gfm-strikethrough": "2.1.0",
+    "micromark-extension-gfm-table": "2.1.2",
+    "micromark-extension-gfm-task-list-item": "2.1.0"
+  }
+}

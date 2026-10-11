@@ -1,0 +1,16 @@
+76 cases with unevaluated*, 3 left out ($dynamicRef, $id or a $ref to another document), 199 tests run
+ajv: 13 wrong
+  - unevaluatedItems with nested items: with no additional items
+  - unevaluatedItems with nested items: with invalid additional item
+  - unevaluatedItems depends on adjacent contains: contains passes, second item is not evaluated
+  - unevaluatedItems depends on multiple nested contains: 7 not evaluated, fails unevaluatedItems
+  - unevaluatedItems and contains interact to control item dependency relationship: only b's are invalid
+  - unevaluatedItems and contains interact to control item dependency relationship: only c's are invalid
+  - unevaluatedItems and contains interact to control item dependency relationship: only b's and c's are invalid
+  - unevaluatedItems and contains interact to control item dependency relationship: only a's and c's are invalid
+  - unevaluatedItems with minContains = 0: all items evaluated by contains
+  - unevaluatedItems can see annotations from if without then and else: valid in case if is evaluated
+  - unevaluatedProperties with if/then/else, then not defined: when if is true and has no unevaluated properties
+  - unevaluatedProperties with if/then/else, then not defined: when if is false and has unevaluated properties
+  - unevaluatedProperties can see annotations from if without then and else: valid in case if is evaluated
+hyperjump: 0 wrong

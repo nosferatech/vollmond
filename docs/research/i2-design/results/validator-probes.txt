@@ -1,0 +1,59 @@
+node 24.21.0
+ajv: import of ajv/dist/2020.js (ms, in this process)      21.7
+ajv strict: unknown format hostname                        throws: strict mode: required property "owner" is not defined at "#" (strictRequired)
+ajv strict: unknown keyword x-vmd-summary                  throws: strict mode: unknown keyword: "x-vmd-summary"
+ajv error required                                         {"instancePath":"","schemaPath":"#/required","params":{"missingProperty":"owner"},"message":"must have required property 'owner'"}
+ajv error additionalProperties                             {"instancePath":"","schemaPath":"#/additionalProperties","params":{"additionalProperty":"extra"},"message":"must NOT have additional properties"}
+ajv error enum                                             {"instancePath":"/status","schemaPath":"#/properties/status/enum","params":{"allowedValues":["Open","Closed"]},"message":"must be equal to one of the allowed values"}
+ajv error format                                           {"instancePath":"/due","schemaPath":"#/properties/due/format","params":{"format":"date"},"message":"must match format \"date\""}
+ajv error type                                             {"instancePath":"/tags/1","schemaPath":"#/properties/tags/items/type","params":{"type":"string"},"message":"must be string"}
+ajv __proto__: {__proto__: 5} (should be invalid)          valid
+ajv __proto__: {__proto__: 'x'} (should be valid)          valid
+ajv __proto__: {} (should be invalid: required)            ["must have required property '__proto__'"]
+strict mode: use allowUnionTypes to allow union type keyword at "#/items" (strictTypes)
+ajv format replaced by a keyword: int64 over ["42",7,"007",1.5] ["/2 format","/3 type","/3 format"]
+ajv custom keyword ran at                                  ["one-fails@/a","one-passes@/a","under-not@/b","else@/c","item@/d/0","item@/d/1"]
+ajv relative $ref to another schema file: {parent: 'x'}    ["/parent pattern common.schema.yaml#/$defs/id/pattern"]
+ajv getSchema by JSON Pointer into a document              valid
+strict mode: missing type "object" for keyword "properties" at "https://vmd.invalid/schema/broken.schema.yaml#" (strictTypes)
+ajv $ref to a missing file                                 throws: can't resolve reference missing.schema.yaml from id https://vmd.invalid/schema/b
+ajv compile of a 200-property schema (ms)                  14.7
+ajv 1000 validations of a 200-member record (ms)           8.3
+hyperjump: import (ms, in this process)                    36.2
+hyperjump: exports                                         ["FLAG","InvalidSchemaError","addSchema","getAllRegisteredSchemaUris","getMetaSchemaOutputFormat","getShouldValidateFormat","getShouldValidateSchema","hasSchema","registerSchema","restoreValidator","setMetaSchemaOutputFormat","setShouldValidateFormat","setShouldValidateSchema","unregisterSchema","validate"]
+hyperjump BASIC output valid                               false
+hyperjump error                                            {"keyword":"https://json-schema.org/keyword/required","instanceLocation":"#","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/required"}
+hyperjump error                                            {"keyword":"https://json-schema.org/keyword/enum","instanceLocation":"#/status","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/properties/status/enum"}
+hyperjump error                                            {"keyword":"https://json-schema.org/keyword/type","instanceLocation":"#/tags/1","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/properties/tags/items/type"}
+hyperjump error                                            {"keyword":"https://json-schema.org/evaluation/validate","instanceLocation":"#/extra","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/additionalProperties"}
+json-schema-library: import (ms, in this process)          4.6
+json-schema-library: exports (first 30)                    ["addKeywords","compileSchema","draft04","draft06","draft07","draft2019","draft2020","draftEditor","extendDraft","getSchemaType","getTypeOf","isAnnotation","isBooleanSchema","isJsonAnnotation","isJsonError","isJsonSchema","isReduceable","isSchemaNode","mergeNode","mergeSchema","oneOfFuzzyKeyword","oneOfKeyword","propertyDependenciesKeyword","render","sanitizeErrors","settings"]
+json-schema-library valid                                  false
+json-schema-library error enum-error                       {"pointer":"#/status","message":"Expected given value `Bad` in `#/status` to be one of `[\"Open\",\"Closed\"]`"}
+json-schema-library error format-date-error                {"pointer":"#/due","message":"Value `2026-13` at `#/due` is not a valid date"}
+json-schema-library error type-error                       {"pointer":"#/tags/1","message":"Expected `1` (number) in `#/tags/1` to be of type `string`"}
+json-schema-library error required-property-error          {"pointer":"#","message":"The required property `owner` is missing at `#`"}
+json-schema-library error no-additional-properties-error   {"pointer":"#/extra","message":"Additional property `extra` in `#/extra` is not allowed"}
+cfworker: import (ms, in this process)                     2.3
+cfworker: exports                                          ["OutputFormat","Validator","deepCompareStrict","dereference","encodePointer","escapePointer","format","ignoredKeyword","initialBaseURI","schemaArrayKeyword","schemaKeyword","schemaMapKeyword","ucs2length","validate"]
+cfworker valid                                             false
+cfworker error required                                    {"instanceLocation":"#","keywordLocation":"#/required","error":"Instance does not have required property \"owner\"."}
+cfworker error properties                                  {"instanceLocation":"#","keywordLocation":"#/properties","error":"Property \"status\" does not match schema."}
+cfworker error enum                                        {"instanceLocation":"#/status","keywordLocation":"#/properties/status/enum","error":"Instance does not match any of [\"Open\",\"Closed\"]."}
+cfworker error properties                                  {"instanceLocation":"#","keywordLocation":"#/properties","error":"Property \"due\" does not match schema."}
+cfworker error format                                      {"instanceLocation":"#/due","keywordLocation":"#/properties/due/format","error":"String does not match format \"date\"."}
+cfworker error properties                                  {"instanceLocation":"#","keywordLocation":"#/properties","error":"Property \"tags\" does not match schema."}
+cfworker error items                                       {"instanceLocation":"#/tags","keywordLocation":"#/properties/tags/items","error":"Items did not match schema."}
+cfworker error type                                        {"instanceLocation":"#/tags/1","keywordLocation":"#/properties/tags/items/type","error":"Instance type \"number\" is invalid. Expected \"string\"."}
+cfworker error properties                                  {"instanceLocation":"#","keywordLocation":"#/properties","error":"Property \"host\" does not match schema."}
+cfworker error format                                      {"instanceLocation":"#/host","keywordLocation":"#/properties/host/format","error":"String does not match format \"hostname\"."}
+cfworker error additionalProperties                        {"instanceLocation":"#","keywordLocation":"#/additionalProperties","error":"Property \"status\" does not match additional properties schema."}
+cfworker error false                                       {"instanceLocation":"#/status","keywordLocation":"#/status","error":"False boolean schema."}
+cfworker error additionalProperties                        {"instanceLocation":"#","keywordLocation":"#/additionalProperties","error":"Property \"due\" does not match additional properties schema."}
+cfworker error false                                       {"instanceLocation":"#/due","keywordLocation":"#/due","error":"False boolean schema."}
+cfworker error additionalProperties                        {"instanceLocation":"#","keywordLocation":"#/additionalProperties","error":"Property \"tags\" does not match additional properties schema."}
+cfworker error false                                       {"instanceLocation":"#/tags","keywordLocation":"#/tags","error":"False boolean schema."}
+cfworker error additionalProperties                        {"instanceLocation":"#","keywordLocation":"#/additionalProperties","error":"Property \"host\" does not match additional properties schema."}
+cfworker error false                                       {"instanceLocation":"#/host","keywordLocation":"#/host","error":"False boolean schema."}
+cfworker error additionalProperties                        {"instanceLocation":"#","keywordLocation":"#/additionalProperties","error":"Property \"extra\" does not match additional properties schema."}
+cfworker error false                                       {"instanceLocation":"#/extra","keywordLocation":"#/extra","error":"False boolean schema."}

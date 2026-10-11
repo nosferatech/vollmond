@@ -1,0 +1,159 @@
+bowtie 2026.7.4, run started 2026-10-11T05:46:46.295990+00:00
+js-ajv                           8.20.0   tests 1301 wrong 27 errored 227 skipped 0
+js-ajv-plus                      1.0.0    tests 1301 wrong 34 errored 28 skipped 0
+js-ata                           1.46.0   tests 1301 wrong 0 errored 0 skipped 0
+js-hyperjump                     1.17.7   tests 1301 wrong 0 errored 0 skipped 4
+js-json-schema                   4.1.1    tests 1301 wrong 42 errored 10 skipped 0
+js-jsu                           0.9.20   tests 1301 wrong 43 errored 30 skipped 0
+js-schemasafe                    1.3.0    tests 1301 wrong 1 errored 41 skipped 0
+ts-json-schema-library           11.6.2   tests 1301 wrong 0 errored 0 skipped 0
+ts-vscode-json-languageservice   5.7.2    tests 1301 wrong 103 errored 0 skipped 0
+
+js-ajv: tests not passed, by theme of the case
+  $dynamicRef and $dynamicAnchor: errored: 14
+  $dynamicRef and $dynamicAnchor: wrong: 15
+  contains, minContains, maxContains: errored: 10
+  format (strict mode: unknown formats): errored: 133
+  if, then, else: errored: 12
+  names an object's prototype has: wrong: 5
+  other: errored: 42
+  other: wrong: 1
+  unevaluatedItems and unevaluatedProperties: errored: 16
+  unevaluatedItems and unevaluatedProperties: wrong: 6
+
+js-ajv: cases with a wrong verdict or an error
+  - Location-independent identifier (errored)
+  - Location-independent identifier with absolute URI (errored)
+  - Location-independent identifier with base URI change in subschema (errored)
+  - same $anchor with different base uri (errored)
+  - A $dynamicRef to a $dynamicAnchor in the same schema resource behaves like a normal $ref to an $anchor
+  - A $dynamicRef to an $anchor in the same schema resource behaves like a normal $ref to an $anchor
+  - A $dynamicRef resolves to the first $dynamicAnchor still in scope that is encountered when the schema is evaluated
+  - A $dynamicRef without anchor in fragment behaves identical to $ref
+  - A $dynamicRef with intermediate scopes that don't include a matching $dynamicAnchor does not affect dynamic scope resolution
+  - An $anchor with the same name as a $dynamicAnchor is not used for dynamic scope resolution
+  - A $dynamicRef without a matching $dynamicAnchor in the same schema resource behaves like a normal $ref to $anchor
+  - A $dynamicRef with a non-matching $dynamicAnchor in the same schema resource behaves like a normal $ref to $anchor
+  - A $dynamicRef that initially resolves to a schema with a matching $dynamicAnchor resolves to the first $dynamicAnchor in the dynamic scope (errored)
+  - A $dynamicRef that initially resolves to a schema without a matching $dynamicAnchor behaves like a normal $ref to $anchor (errored)
+  - multiple dynamic paths to the $dynamicRef keyword
+  - after leaving a dynamic scope, it is not used by a $dynamicRef (errored)
+  - tests for implementation dynamic anchor and reference link
+  - $ref and $dynamicAnchor are independent of order - $defs first
+  - $ref and $dynamicAnchor are independent of order - $ref first
+  - $ref to $dynamicRef finds detached $dynamicAnchor (errored)
+  - $dynamicRef points to a boolean schema
+  - $dynamicRef skips over intermediate resources - direct reference
+  - $dynamicRef avoids the root of each schema, but scopes are still registered (errored)
+  - empty enum (errored)
+  - email format (errored)
+  - idn-email format (errored)
+  - regex format (errored)
+  - ipv4 format (errored)
+  - ipv6 format (errored)
+  - idn-hostname format (errored)
+  - hostname format (errored)
+  - date format (errored)
+  - date-time format (errored)
+  - time format (errored)
+  - json-pointer format (errored)
+  - relative-json-pointer format (errored)
+  - iri format (errored)
+  - iri-reference format (errored)
+  - uri format (errored)
+  - uri-reference format (errored)
+  - uri-template format (errored)
+  - uuid format (errored)
+  - duration format (errored)
+  - ignore if without then or else (errored)
+  - ignore then without if (errored)
+  - ignore else without if (errored)
+  - non-interference across combined schemas (errored)
+  - maxContains without contains is ignored (errored)
+  - minContains without contains is ignored (errored)
+  - maxContains < minContains (errored)
+  - minContains = 0 (errored)
+  - properties, patternProperties, additionalProperties interaction (errored)
+  - properties whose names are Javascript object property names
+  - refs with relative uris and defs (errored)
+  - relative refs with absolute uris and defs (errored)
+  - order of evaluation: $id and $anchor and $ref (errored)
+  - URN base URI with URN and anchor ref (errored)
+  - URN ref with nested pointer ref (errored)
+  - ref to if (errored)
+  - ref to then (errored)
+  - ref to else (errored)
+  - anchor within remote ref (errored)
+  - Location-independent identifier in remote ref (errored)
+  - $ref to $ref finds detached $anchor (errored)
+  - required properties whose names are Javascript object property names
+  - unevaluatedItems with nested items
+  - unevaluatedItems with $dynamicRef (errored)
+  - unevaluatedItems depends on adjacent contains
+  - unevaluatedItems depends on multiple nested contains
+  - unevaluatedItems and contains interact to control item dependency relationship (errored)
+  - unevaluatedItems with minContains = 0 (errored)
+  - unevaluatedItems can see annotations from if without then and else (errored)
+  - unevaluatedProperties with if/then/else, then not defined
+  - unevaluatedProperties with $dynamicRef (errored)
+  - unevaluatedProperties can see annotations from if without then and else (errored)
+  - schema that uses custom metaschema with with no validation vocabulary
+
+js-hyperjump: cases with a wrong verdict or an error
+
+js-json-schema: cases with a wrong verdict or an error
+  - same $anchor with different base uri (errored)
+  - validate definition against metaschema (errored)
+  - A $dynamicRef to a $dynamicAnchor in the same schema resource behaves like a normal $ref to an $anchor
+  - A $dynamicRef to an $anchor in the same schema resource behaves like a normal $ref to an $anchor
+  - A $ref to a $dynamicAnchor in the same schema resource behaves like a normal $ref to an $anchor (errored)
+  - A $dynamicRef resolves to the first $dynamicAnchor still in scope that is encountered when the schema is evaluated
+  - A $dynamicRef without anchor in fragment behaves identical to $ref
+  - A $dynamicRef with intermediate scopes that don't include a matching $dynamicAnchor does not affect dynamic scope resolution
+  - A $dynamicRef that initially resolves to a schema with a matching $dynamicAnchor resolves to the first $dynamicAnchor in the dynamic scope
+  - multiple dynamic paths to the $dynamicRef keyword
+  - after leaving a dynamic scope, it is not used by a $dynamicRef
+  - strict-tree schema, guards against misspelled properties
+  - tests for implementation dynamic anchor and reference link
+  - $ref and $dynamicAnchor are independent of order - $defs first
+  - $ref and $dynamicAnchor are independent of order - $ref first
+  - $ref to $dynamicRef finds detached $dynamicAnchor
+  - $dynamicRef points to a boolean schema
+  - $dynamicRef skips over intermediate resources - direct reference (errored)
+  - $dynamicRef avoids the root of each schema, but scopes are still registered
+  - email format
+  - regex format
+  - ipv4 format
+  - ipv6 format
+  - hostname format
+  - date format
+  - date-time format
+  - time format
+  - json-pointer format
+  - relative-json-pointer format
+  - uri format
+  - uri-reference format
+  - uri-template format
+  - uuid format
+  - duration format
+  - properties whose names are Javascript object property names
+  - remote ref, containing refs itself (errored)
+  - order of evaluation: $id and $anchor and $ref
+  - required properties whose names are Javascript object property names
+  - unevaluatedItems with $dynamicRef
+  - unevaluatedItems can see annotations from if without then and else
+  - unevaluatedProperties with $dynamicRef
+  - schema that uses custom metaschema with with no validation vocabulary
+
+js-schemasafe: cases with a wrong verdict or an error
+  - validate definition against metaschema (errored)
+  - $dynamicRef avoids the root of each schema, but scopes are still registered
+  - idn-email format (errored)
+  - idn-hostname format (errored)
+  - iri format (errored)
+  - iri-reference format (errored)
+  - remote ref, containing refs itself (errored)
+  - unevaluatedItems with $dynamicRef (errored)
+  - unevaluatedProperties with $dynamicRef (errored)
+  - schema that uses custom metaschema with with no validation vocabulary (errored)
+  - ignore unrecognized optional vocabulary (errored)

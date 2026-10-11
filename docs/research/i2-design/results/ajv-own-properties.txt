@@ -1,0 +1,27 @@
+ajv ownProperties: false: 23 wrong of 84
+  wrong: properties.toString: string on JSON.parse {}: invalid, should be valid
+  wrong: properties.toString: string on JSON.parse {"constructor": 5}: invalid, should be valid
+  wrong: properties.toString: string on JSON.parse {"__proto__": 5}: invalid, should be valid
+  wrong: properties.toString: string on JSON.parse {"__proto__": "x"}: invalid, should be valid
+  wrong: properties.toString: string on JSON.parse {"a": 1}: invalid, should be valid
+  wrong: properties.constructor: string on JSON.parse {}: invalid, should be valid
+  wrong: properties.constructor: string on JSON.parse {"toString": 5}: invalid, should be valid
+  wrong: properties.constructor: string on JSON.parse {"__proto__": 5}: invalid, should be valid
+  wrong: properties.constructor: string on JSON.parse {"__proto__": "x"}: invalid, should be valid
+  wrong: properties.constructor: string on JSON.parse {"a": 1}: invalid, should be valid
+  wrong: properties.__proto__: string on JSON.parse {"__proto__": 5}: valid, should be invalid
+  wrong: properties.__proto__: string on null-prototype {"__proto__": 5}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {"toString": 5}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {"constructor": 5}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {"__proto__": 5}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {"__proto__": "x"}: valid, should be invalid
+  wrong: required [toString, constructor] on JSON.parse {"a": 1}: valid, should be invalid
+  wrong: required [__proto__] on JSON.parse {}: valid, should be invalid
+  wrong: required [__proto__] on JSON.parse {"toString": 5}: valid, should be invalid
+  wrong: required [__proto__] on JSON.parse {"constructor": 5}: valid, should be invalid
+  wrong: required [__proto__] on JSON.parse {"a": 1}: valid, should be invalid
+  wrong: dependentRequired {a: [toString]} on JSON.parse {"a": 1}: valid, should be invalid
+ajv ownProperties: true: 2 wrong of 84
+  wrong: properties.__proto__: string on JSON.parse {"__proto__": 5}: valid, should be invalid
+  wrong: properties.__proto__: string on null-prototype {"__proto__": 5}: valid, should be invalid

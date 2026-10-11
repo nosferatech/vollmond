@@ -1,0 +1,11 @@
+contains, no item matches                  valid false ["# contains (#/contains)","#/0 const (#/contains/const)","#/1 const (#/contains/const)"]
+contains, one of three matches (valid)     valid true  []
+maxContains 1, two items match             valid false ["# contains (#/contains)","#/1 const (#/contains/const)"]
+minContains 2, one item matches            valid false ["# contains (#/contains)","#/1 const (#/contains/const)"]
+propertyNames pattern, one name fails      valid false ["#*/A-B pattern (#/propertyNames/pattern)"]
+propertyNames maxLength, one name fails    valid false ["#*/abc maxLength (#/propertyNames/maxLength)"]
+anyOf, both branches fail                  valid false ["# anyOf (#/anyOf)","# type (#/anyOf/0/type)","# minimum (#/anyOf/1/minimum)"]
+not, the subschema passes                  valid false ["# not (#/not)"]
+if/then, then fails                        valid false ["# maximum (#/then/maximum)"]
+registerSchema twice: throws Error: A schema has already been registered for 'https://vmd.invalid/twice. You can use 'unregisterSchema' to remove the old schema before registering the new one.
+after unregisterSchema, registering again: accepted, and 5 is valid: true

@@ -1,0 +1,3 @@
+a section without $body against the per-key schema, through a wrapper: valid false
+  # required https://vmd.invalid/schema/ticket.schema.yaml#/$defs/prose-section/required
+the same section with $body: valid true
