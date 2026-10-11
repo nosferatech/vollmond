@@ -1,7 +1,11 @@
 #!/usr/bin/env node
-import { runCli } from "./cli.js";
+import { runProcess } from "./process-io.js";
 
-const result = runCli(process.argv.slice(2));
-process.stdout.write(result.stdout);
-process.stderr.write(result.stderr);
-process.exitCode = result.exitCode;
+await runProcess({
+  args: process.argv.slice(2),
+  stdout: process.stdout,
+  stderr: process.stderr,
+  setExitCode: (code) => {
+    process.exitCode = code;
+  },
+});

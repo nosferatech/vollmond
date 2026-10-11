@@ -8,6 +8,6 @@
     "customConditions": []
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.testkit.ts"],
   "references": [{ "path": "../core/tsconfig.build.json" }]
 }

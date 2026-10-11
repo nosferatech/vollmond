@@ -1,6 +1,7 @@
 /** Name of this package, for messages that identify which library produced them. */
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
+export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
 export { parseRecord } from "./format/parse-record.js";
 export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type YamlUnitPlace } from "./format/yaml.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
@@ -39,6 +40,7 @@ export type {
   StorageHistory,
   StorageReader,
 } from "./storage/storage.js";
+export { readStoreConfiguration, type StoreConfiguration, SUPPORTED_FORMAT_VERSION } from "./store/configuration.js";
 export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
 export { readLineBreaksAsLf, sliceUnitText, type UnitText } from "./text/unit-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";
