@@ -551,7 +551,7 @@ a valid `uri-reference`; an invalid one is the `schema-violation` and no referen
 2. The path is merged with the citing record's path (section 5.2 of RFC 3986), or taken from the store root when it starts with
    `/` (§8.2's store-root form). Dot segments are removed by vmd's own walk, which reports a path that climbs above the root as
    outside the store: RFC 3986's `remove_dot_segments` drops the excess `..` silently, so that `../../../g` against
-   `http://a/b/c/d` is `http://a/g` (D: section 5.4.2).
+   `http://a/b/c/d;p?q` is `http://a/g` (D: section 5.4.2).
 3. The path is percent-decoded as UTF-8 into a store path; one that does not decode is `ref-dangling` with that message. An empty
    path is the citing record; a path ending in `/` names a directory.
 4. A query is ignored, so `x.md?plain=1#a`, which GitHub's file views use, resolves as `x.md#a` (reading R12). The fragment is
