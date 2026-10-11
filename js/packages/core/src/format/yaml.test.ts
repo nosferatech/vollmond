@@ -5,7 +5,7 @@ import type { Outcome } from "../issue/outcome.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ShapeUnit } from "../record/shape.js";
 import { decodeSource, type SourceText } from "../text/source-text.js";
-import { sliceUnitText } from "../text/unit-text.js";
+import { sliceUnitText, type UnitText } from "../text/unit-text.js";
 import type { Value } from "../value/value.js";
 import { parseRecord } from "./parse-record.js";
 import { parseYamlUnit, type YamlUnit } from "./yaml.js";
@@ -42,6 +42,42 @@ function unitOf(text: string, start: number, end: number, unit: ShapeUnit, at: s
   return parseYamlUnit(source, sliceUnitText(source.text, start, end), { path: "r.md", at, unit });
 }
 
+/**
+ * The unit text of lines `[start, end)` of a file, each indented by `indent` spaces that the unit leaves out, as a fenced
+ * block indented in a list item is read. An index at a line's start maps after the indentation as a start, before it as an end.
+ */
+function indentedUnit(fileText: string, start: number, end: number, indent: number): UnitText {
+  const lineStarts: number[] = [];
+  let text = "";
+  for (let at = start; at < end; ) {
+    const newline = fileText.indexOf("\n", at);
+    const lineEnd = newline < 0 || newline >= end ? end : newline + 1;
+    lineStarts.push(text.length);
+    text += fileText.slice(at + indent, lineEnd);
+    at = lineEnd;
+  }
+  const lineOf = (index: number) => lineStarts.findLastIndex((lineStart) => lineStart <= index);
+  // The file index of each line's first character after the indentation.
+  const fileStarts: number[] = [];
+  for (let at = start; at < end; ) {
+    fileStarts.push(at + indent);
+    const newline = fileText.indexOf("\n", at);
+    at = newline < 0 || newline >= end ? end : newline + 1;
+  }
+  const fileIndex = (index: number) => {
+    const line = lineOf(index);
+    return (fileStarts[line] as number) + index - (lineStarts[line] as number);
+  };
+  return {
+    text,
+    fileIndex,
+    fileEnd: (index) => {
+      const line = lineOf(index);
+      return index > 0 && lineStarts[line] === index ? fileIndex(index) - indent : fileIndex(index);
+    },
+  };
+}
+
 const codesAt = (issues: readonly Issue[]) => issues.map((issue) => [issue.code, issue.at]);
 
 describe("line breaks: the yaml package does not read a lone CR as one", () => {
@@ -73,6 +109,29 @@ describe("line breaks: the yaml package does not read a lone CR as one", () => {
     const outcome = parse("a: 1\r\nb: .inf\r\n");
     expect(outcome.ok).toBe(false);
     expect(outcome.issues[0]?.position).toEqual({ offset: 9, line: 2, col: 4 });
+  });
+});
+
+describe("block scalars at the end of the unit", () => {
+  test.each([
+    ["a literal scalar", "a: |\n  x", "x"],
+    ["a folded scalar", "a: >\n  x", "x"],
+    ["a kept literal scalar", "a: |+\n  x", "x"],
+    ["a literal scalar of two lines", "a: |\n  x\n  y", "x\ny"],
+    ["a literal scalar as a sequence item", "a:\n- |\n  x", ["x"]],
+    ["a literal scalar with CR line breaks", "a: |\r  x\r  y", "x\ny"],
+  ])("%s whose last line has no line break reads without one", (_name, text, value) => {
+    expect(valueView(text)).toEqual({ a: value });
+  });
+
+  test.each([
+    ["a line break at the end", "a: |\n  x\n", "x\n"],
+    ["trailing spaces on a last line of their own", "a: |\n  x\n  ", "x\n"],
+    ["strip chomping", "a: |-\n  x", "x"],
+    ["a literal scalar followed by a member", "a: |\n  x\nb: 1", "x\n"],
+    ["a kept scalar whose last line of spaces has no line break", "a: |+\n  x\n\n  ", "x\n\n"],
+  ])("near miss: %s", (_name, text, value) => {
+    expect((valueView(text) as { a: string }).a).toBe(value);
   });
 });
 
@@ -108,6 +167,28 @@ describe("%YAML directives", () => {
   test("a %YAML directive without a version, or with two parts, is a syntax error", () => {
     expect(issuesOf("%YAML\n---\na: 1\n")).toEqual([["syntax-error", ""]]);
     expect(issuesOf("%YAML 1.2 x\n---\na: 1\n")).toEqual([["syntax-error", ""]]);
+  });
+
+  test.each([
+    ["two %TAG directives for one handle", "%TAG !e! tag:a,2026:\n%TAG !e! tag:b,2026:\n---\na: 1\n"],
+    ["a %TAG handle without its first !", "%TAG e! tag:a,2026:\n---\na: 1\n"],
+    ["a named %TAG handle without its last !", "%TAG !e tag:a,2026:\n---\na: 1\n"],
+    ["a directive after a document end, with no --- after it", "a: 1\n...\n%TAG !e! tag:a,2026:\n"],
+    ["a %YAML directive after a document end, with no --- after it", "a: 1\n...\n%YAML 1.2\n"],
+    ["a directive followed by content, not ---", "%TAG ! tag:a,2026:\na: 1\n"],
+  ])("%s is a syntax-error", (_name, text) => {
+    expect(issuesOf(text)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: each document of several has its own directives", () => {
+    const text = "%YAML 1.2\n%TAG !e! tag:a,2026:\n---\na: 1\n...\n%YAML 1.2\n%TAG !e! tag:b,2026:\n---\nb: 1\n";
+    expect(issuesOf(text)).toEqual([["yaml-multiple-documents", ""]]);
+  });
+
+  test("near miss: handles !, !! and two named ones, each once, and a comment after a document end", () => {
+    const text = "%TAG ! tag:a,2026:\n%TAG !! tag:b,2026:\n%TAG !e! tag:c,2026:\n%TAG !f! tag:d,2026:\n--- # c\na: 1\n";
+    expect(valueView(text)).toEqual({ a: 1 });
+    expect(valueView("a: 1\n...\n# c\n")).toEqual({ a: 1 });
   });
 
   test("in a data block, %YAML 1.1 is yaml-version-unsupported at the section", () => {
@@ -205,8 +286,6 @@ describe("constructs outside the data model", () => {
     ["a core schema tag on a quoted scalar", 'a: !!int "1"\n', "/a"],
     ["the non-specific tag", "a: ! 12\n", "/a"],
     ["a custom tag", "a: !foo x\n", "/a"],
-    ["a tag the library cannot resolve, which it leaves without a tag", "a: !e!x 1\n", "/a"],
-    ["an invalid verbatim tag, which the library leaves without a tag", "a: !<!> x\n", "/a"],
     ["a tag on a mapping", "m: !point {x: 1}\n", "/m"],
     ["a tag on a sequence item", "a: [1, !!int 2]\n", "/a/1"],
     ["a tag on the root", "--- !foo\nk: v\n", ""],
@@ -215,6 +294,32 @@ describe("constructs outside the data model", () => {
     ["a tagged empty value", "a: !foo\nb: 1\n", "/a"],
   ])("yaml-tag for %s", (_name, text, at) => {
     expect(issuesOf(text)).toEqual([["yaml-tag", at]]);
+  });
+
+  test.each([
+    ["an undefined tag handle", "a: !e!x 1\n"],
+    ["an undefined tag handle on an empty root", "!e!x\n"],
+    ["an undefined tag handle after ---", "--- !e!x\n"],
+    ["an invalid verbatim tag", "a: !<!> x\n"],
+    ["an invalid verbatim tag on an empty root", "!<!>\n"],
+    ["an invalid verbatim tag after ---", "--- !<!>\n"],
+  ])("%s is a syntax-error", (_name, text) => {
+    expect(issuesOf(text)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: a tag handle that %TAG declares is only yaml-tag", () => {
+    expect(issuesOf("%TAG !e! tag:example.com,2026:\n---\na: !e!x 1\n")).toEqual([["yaml-tag", "/a"]]);
+  });
+
+  test("tags cost linear time: ten times the tags take well under a hundred times as long", () => {
+    const timed = (lines: number) => {
+      const text = Array.from({ length: lines }, (_, i) => `k${i}: !foo 1\n`).join("");
+      const started = performance.now();
+      expect(issuesOf(text)).toHaveLength(lines);
+      return performance.now() - started;
+    };
+    timed(4000);
+    expect(timed(40000) / timed(4000)).toBeLessThan(30);
   });
 
   test("near miss: a quoted '!foo' is a string", () => {
@@ -322,6 +427,31 @@ describe("constructs outside the data model", () => {
   });
 });
 
+describe("nesting", () => {
+  const flow = (depth: number) => `a: ${"[".repeat(depth - 1)}${"]".repeat(depth - 1)}\n`;
+  const block = (depth: number) => Array.from({ length: depth }, (_, i) => `${" ".repeat(i)}k:\n`).join("");
+
+  test("256 collections one inside another read, in flow and in block style", () => {
+    expect(issuesOf(flow(256))).toEqual([]);
+    expect(issuesOf(block(256))).toEqual([]);
+  });
+
+  test("257 are a syntax-error, in flow and in block style", () => {
+    expect(issuesOf(flow(257))).toEqual([["syntax-error", ""]]);
+    expect(issuesOf(block(257))).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a document nested 100,000 deep is a syntax-error, not a stack overflow, under a deep stack too", () => {
+    const text = `${"[".repeat(100000)}${"]".repeat(100000)}\n`;
+    const deep = (frames: number): [string, string | null][] => (frames === 0 ? issuesOf(text) : deep(frames - 1));
+    expect(deep(5000)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: a key that is a collection counts too", () => {
+    expect(issuesOf(`? ${"[".repeat(256)}${"]".repeat(256)}\n: 1\n`)).toEqual([["syntax-error", ""]]);
+  });
+});
+
 describe("numbers by form", () => {
   test.each([
     ["n: 9007199254740993\n"],
@@ -380,11 +510,12 @@ describe("strings and members", () => {
     ]);
   });
 
-  test("a repeat's value is still checked", () => {
-    expect(issuesOf("a: 1\na: !foo 2\n")).toEqual([
-      ["duplicate-member", "/a"],
-      ["yaml-tag", "/a"],
-    ]);
+  test("a repeat's value is not looked into", () => {
+    expect(issuesOf("a: 1\na: !foo 2\n")).toEqual([["duplicate-member", "/a"]]);
+  });
+
+  test("nor is the value of a member whose name holds an unpaired surrogate", () => {
+    expect(issuesOf('"\\ud800": !foo {b: .inf}\n')).toEqual([["unpaired-surrogate", ""]]);
   });
 
   test("near miss: names that differ, and __proto__, an ordinary member", () => {
@@ -445,9 +576,33 @@ describe("the shape of a YAML record", () => {
   test.each([
     ["an empty file", ""],
     ["a file of comments and blank lines", "# a comment\n\n  # another\n"],
-    ["a document marker alone", "---\n"],
   ])("near miss: %s is the empty record", (_name, text) => {
     expect(valueView(text)).toEqual({});
+  });
+
+  test("a document marker alone is an empty node, null, and so root-not-object", () => {
+    expect(issuesOf("---\n")).toEqual([["root-not-object", ""]]);
+    expect(issuesOf("---\n...\n")).toEqual([["root-not-object", ""]]);
+  });
+
+  test("an empty node with a tag or an anchor is not the empty record either", () => {
+    expect(issuesOf("--- !foo\n")).toEqual([
+      ["yaml-tag", ""],
+      ["root-not-object", ""],
+    ]);
+    expect(issuesOf("!foo\n")).toEqual([
+      ["yaml-tag", ""],
+      ["root-not-object", ""],
+    ]);
+  });
+
+  test("a document that is not a mapping is still walked for its other issues", () => {
+    expect(issuesOf("- !foo 1\n- &a 2\n- [.inf]\n")).toEqual([
+      ["yaml-tag", "/0"],
+      ["yaml-alias", "/1"],
+      ["yaml-non-finite", "/2/0"],
+      ["root-not-object", ""],
+    ]);
   });
 
   test("section-title-missing at an item of $sections without $title", () => {
@@ -558,6 +713,13 @@ describe("the node index", () => {
     expect(s.value.nodes.node("/s")?.range).toEqual({ start: 3, end: 10 });
   });
 
+  test("an explicit key's member range starts at its ?", () => {
+    const outcome = parse("? a\n: 1\n");
+    if (!outcome.ok) throw new Error("failed");
+    expect(outcome.value.nodes.node("/a")?.memberRange).toEqual({ start: 0, end: 7 });
+    expect(outcome.value.nodes.node("/a")?.range).toEqual({ start: 6, end: 7 });
+  });
+
   test("an empty value and a flow member without one have empty ranges after their keys", () => {
     const text = "a:\nm: {b}\n";
     const outcome = parse(text);
@@ -641,6 +803,19 @@ describe("units of a Markdown record", () => {
   test("U+FEFF at the start of front matter is a syntax-error, though the library would strip it", () => {
     const text = "---\n\uFEFFa: 1\n---\n";
     expect(codesAt(unitOf(text, 4, 12, "front-matter", "").issues)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a data block in a fence indented 2 spaces: a range ends before the next line's indentation", () => {
+    const text = "- item\n\n  ```yaml data\n  a: 1\n  b: |\n    x\n  c: 2\n  ```\n";
+    const start = text.indexOf("  a: 1");
+    const end = text.indexOf("  ```\n", start);
+    const source = decoded(text);
+    const unit = parseYamlUnit(source, indentedUnit(source.text, start, end, 2), { path: "r.md", at: "/x", unit: "data-block" });
+    expect(unit.value).toEqual({ a: 1, b: "x\n", c: 2 });
+    const range = (key: string) => unit.nodes.find((node) => node.key === key)?.init;
+    expect(text.slice(range("b")?.range.start, range("b")?.range.end)).toBe("|\n    x\n");
+    expect(text.slice(range("b")?.memberRange?.start, range("b")?.memberRange?.end)).toBe("b: |\n    x\n");
+    expect(text.slice(range("c")?.memberRange?.start, range("c")?.memberRange?.end)).toBe("c: 2");
   });
 
   test("a CRLF unit maps its offsets back to the file", () => {

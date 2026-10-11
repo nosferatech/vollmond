@@ -71,6 +71,26 @@ describe("readLineBreaksAsLf", () => {
   test("refuses an index outside the new text", () => {
     const unit = readLineBreaksAsLf(sliceUnitText("a\r\n", 0, 3));
     expect(() => unit.fileIndex(3)).toThrow(RangeError);
+    expect(() => unit.fileEnd(3)).toThrow(RangeError);
+  });
+
+  test("a slice's ends map as its starts do", () => {
+    const unit = sliceUnitText("ab\ncd", 1, 5);
+    expect([0, 1, 2, 3, 4].map((index) => unit.fileEnd(index))).toEqual([1, 2, 3, 4, 5]);
+    expect(() => unit.fileEnd(5)).toThrow(RangeError);
+  });
+
+  test("passes ends through to the unit it reads, which may map them apart from starts", () => {
+    // A unit that leaves out two spaces of indentation at the start of its second line, "  b".
+    const indented: UnitText = {
+      text: "a\r\nb",
+      fileIndex: (index) => (index < 3 ? index : index + 2),
+      fileEnd: (index) => (index <= 3 ? index : index + 2),
+    };
+    const unit = readLineBreaksAsLf(indented);
+    expect(unit.text).toBe("a\nb");
+    expect(fileIndexes(unit)).toEqual([0, 1, 5, 6]);
+    expect([0, 1, 2, 3].map((index) => unit.fileEnd(index))).toEqual([0, 1, 3, 6]);
   });
 
   test("agrees with a character-by-character reading on random texts", () => {

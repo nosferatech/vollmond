@@ -10,10 +10,10 @@ import { parseRecord } from "./parse-record.js";
 // integer-valued double from 2^53 to 1e21 is printed as an integer by form that the double does not equal (2^60 as
 // 1152921504606847000), which is not representable. Names beginning with `$` are section syntax, which the shape tests cover.
 const text = fc.oneof(
-  fc.string({ unit: "binary", maxLength: 12 }).filter((s) => s.isWellFormed() && !/[￾￿]/.test(s)),
+  fc.string({ unit: "binary", maxLength: 12 }).filter((s) => s.isWellFormed() && !/[\uFFFE\uFFFF]/.test(s)),
   // Words, which the writer folds over several lines when they pass its line width.
   fc
-    .array(fc.constantFrom("word", "été", "\u{1F600}", "a\u007Fb", "x﻿y", "tab\t"), { maxLength: 20 })
+    .array(fc.constantFrom("word", "\u00E9t\u00E9", "\u{1F600}", "a\u007Fb", "x\uFEFFy", "tab\t"), { maxLength: 20 })
     .map((words) => words.join(" ")),
 );
 const name = text.filter((s) => !s.startsWith("$") && s !== "__proto__");

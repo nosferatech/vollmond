@@ -1,4 +1,6 @@
 import {
+  Composer,
+  type CST,
   type Document,
   isAlias,
   isMap,
@@ -6,7 +8,7 @@ import {
   isScalar,
   isSeq,
   type Node,
-  parseDocument,
+  Parser,
   type Scalar,
   visit,
   type YAMLMap,
@@ -23,6 +25,7 @@ import type { ByteRange, Position, SourceText } from "../text/source-text.js";
 import { readLineBreaksAsLf, sliceUnitText, type UnitText } from "../text/unit-text.js";
 import { readNumberLiteral } from "../value/number.js";
 import { createValueObject, hasMember, type MutableValueObject, type Value, type ValueObject } from "../value/value.js";
+import { MAX_NESTING } from "./limits.js";
 
 /** Where a YAML unit sits in its record, which decides the rules for its mapping. */
 export interface YamlUnitPlace {
@@ -51,14 +54,15 @@ export interface YamlUnitNode {
 /** What a YAML unit holds. */
 export interface YamlUnit {
   /**
-   * The members of the unit's mapping, frozen, with null prototypes; the empty object for a unit with no document or an empty
-   * one. Absent when the unit has no value to give: a syntax error, an unsupported `%YAML` version, or a document that is not a
+   * The members of the unit's mapping, frozen, with null prototypes; the empty object for a unit with no document, only white
+   * space and comments. Absent when the unit has no value to give: a syntax error, an unsupported `%YAML` version, or a document that is not a
    * mapping. With other structural errors, it is what the walk read, and the record has no value view.
    */
   readonly value?: ValueObject;
   /**
    * The nodes under the unit's `at`, every parent before its children and siblings in source order, so that adding them in
-   * order builds the record's index. A repeated member has none. Their ranges are UTF-8 bytes of the file.
+   * order builds the record's index. A repeated member, and one whose name is not well formed, has none, and nor has its value.
+   * Their ranges are UTF-8 bytes of the file.
    */
   readonly nodes: readonly YamlUnitNode[];
   /** Every issue the unit raised, structural or not, in document order and then the shape's. */
@@ -76,7 +80,10 @@ const PARSE_OPTIONS = {
   prettyErrors: false,
 } as const;
 
-/** The library's codes for a problem with a tag, which the walk reports as `yaml-tag` at the tagged node. */
+/**
+ * The library's codes for a warning about a tag, which the walk reports as `yaml-tag` at the tagged node. The same codes as
+ * errors, an undefined tag handle among them, are syntax errors.
+ */
 const TAG_CODES: ReadonlySet<string> = new Set(["TAG_RESOLVE_FAILED", "BAD_COLLECTION_TYPE"]);
 
 /** The core schema's infinities and not-a-number (YAML 1.2.2, section 10.3.2). */
@@ -84,6 +91,15 @@ const NON_FINITE = /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/;
 
 /** A line that holds only white space or a comment, which may stand before and between directives. */
 const BLANK_OR_COMMENT = /^[ \t]*(?:#.*)?$/;
+
+/** A directives end marker, `---`, alone or before content on its line. */
+const DIRECTIVES_END = /^---(?:[ \t]|$)/;
+
+/** A document end marker, `...`, alone or before a comment on its line. */
+const DOCUMENT_END = /^\.\.\.(?:[ \t]|$)/;
+
+/** A tag handle: the primary `!`, the secondary `!!`, or a named `!name!` (YAML 1.2.2, section 6.8.2.1). */
+const TAG_HANDLE = /^!(?:[0-9A-Za-z-]*!)?$/;
 
 /** The most positions a `syntax-error`'s message lists. */
 const MAX_LISTED = 10;
@@ -94,12 +110,15 @@ const MAX_LISTED = 10;
  * are in the file: CRLF and a lone CR are read as LF here, and offsets go back to the file through `unit`.
  *
  * - A unit that is not YAML, holds a character YAML does not allow where it stands (a C0 control, U+FFFE or U+FFFF anywhere;
- *   U+FEFF, DEL or a C1 control outside a quoted scalar), has a directive in front matter, or a `%YAML` directive repeated or
- *   without one version, raises one `syntax-error` at `at`, which lists every problem's position, and nothing else.
+ *   U+FEFF, DEL or a C1 control outside a quoted scalar), nests collections deeper than `MAX_NESTING`, uses an undefined tag
+ *   handle, or breaks a rule of directives (one `%YAML` with one version and one `%TAG` per handle a document, a `---` after
+ *   them, none in front matter), raises one `syntax-error` at `at`, which lists every problem's position, and nothing else.
  * - A `%YAML` directive other than 1.2 raises `yaml-version-unsupported` at `at`, and nothing else.
  * - Otherwise, the walk raises `yaml-multiple-documents`, `yaml-tag`, `yaml-alias`, `yaml-merge-key`, `yaml-non-string-key`,
  *   `yaml-non-finite`, `number-not-representable`, `unpaired-surrogate` and `duplicate-member`, each where it occurs; then
- *   `root-not-object` or `data-block-not-object` for a document that is not a mapping, or the shape checker's issues.
+ *   `root-not-object` or `data-block-not-object` for a document that is not a mapping, which is still walked for the others, or
+ *   the shape checker's issues. A repeated member's value, and the value of a member whose name holds an unpaired surrogate, are
+ *   not looked into.
  *
  * Throws a `RangeError` when `unit` maps an index outside `source`, and an `Error` for a node the library gives that the
  * reading does not expect, which is a bug.
@@ -141,8 +160,6 @@ class YamlUnitReader {
   readonly #nodes: YamlUnitNode[] = [];
   /** The first byte of each emitted node's member range, or of its range, by exact path, for the shape checker's positions. */
   readonly #starts = new Map<string, number>();
-  /** Nodes whose explicit tag the library could not resolve, and so left without `tag`; found from its error's position. */
-  readonly #unresolvedTagNodes = new Set<unknown>();
 
   constructor(source: SourceText, unit: UnitText, place: YamlUnitPlace) {
     this.#source = source;
@@ -154,18 +171,16 @@ class YamlUnitReader {
   read(): YamlUnit {
     const at = this.#place.at;
     const problems = [...this.#charactersNotYaml()];
-    const doc = parseDocument(this.#text, PARSE_OPTIONS);
-    let multipleDocumentsAt: number | null = null;
-    const tagProblemEnds: number[] = [];
-    for (const error of doc.errors) {
-      if (error.code === "MULTIPLE_DOCS") {
-        multipleDocumentsAt = error.pos[0];
-      } else if (TAG_CODES.has(error.code)) {
-        tagProblemEnds.push(error.pos[1]);
-      } else {
-        problems.push({ index: error.pos[0], message: firstLine(error.message) });
-      }
+    // The library's lexer and parser keep their own stacks, but its composer recurses into each collection, so depth is
+    // checked on the parser's tokens before anything is composed.
+    const tokens = [...new Parser().parse(this.#text)];
+    const tooDeepAt = nestedBeyond(tokens, MAX_NESTING);
+    if (tooDeepAt !== null) {
+      problems.push({ index: tooDeepAt, message: `collections are nested more than ${MAX_NESTING} deep` });
+      return this.#syntaxError(problems);
     }
+    const { doc, nextDocumentAt } = composeFirstDocument(tokens, this.#text.length);
+    for (const error of doc.errors) problems.push({ index: error.pos[0], message: firstLine(error.message) });
     for (const warning of doc.warnings) {
       // Tags and anchors are the walk's to report, and `%YAML` lines the directive scan's. A reserved directive, such as
       // `%FOO`, is ignored, as YAML 1.2.2 (section 6.8) says.
@@ -181,21 +196,22 @@ class YamlUnitReader {
       return { nodes: this.#nodes, issues: this.#issues };
     }
 
-    if (multipleDocumentsAt !== null) {
+    if (nextDocumentAt !== null) {
       const message = "a YAML unit holds one document; another starts here";
-      this.#raise("yaml-multiple-documents", at, message, multipleDocumentsAt);
+      this.#raise("yaml-multiple-documents", at, message, nextDocumentAt);
     }
-    this.#findUnresolvedTagNodes(doc, tagProblemEnds);
     const contents = doc.contents;
     let value: ValueObject | undefined;
-    if (contents === null || isEmptyNode(contents)) {
+    // A unit with no document is the empty object; an empty node, as `---` alone, is null.
+    if (contents === null) {
       value = Object.freeze(createValueObject());
     } else if (isMap(contents)) {
       this.#props(contents, at);
       this.#starts.set(at, this.#byteAt(contents.range?.[0] ?? 0));
       value = this.#mapping(contents, at, true);
     } else {
-      this.#props(contents, at);
+      // The document is still walked for its other issues, though it has no nodes to give.
+      this.#value(contents, at, false);
       const code = this.#place.unit === "record" ? "root-not-object" : "data-block-not-object";
       this.#raise(code, at, "the document must be a mapping", startOf(contents));
     }
@@ -212,42 +228,69 @@ class YamlUnitReader {
   }
 
   /**
-   * Reads the directive lines before the first document, which the library keeps to itself: a `%YAML` directive is one
-   * version, at most once, and vmd reads only 1.2; front matter holds none, since its `---` would close the front matter.
-   * Other directives, `%TAG` and the reserved ones, are the library's. A version the library read as other than 1.2, or warned
-   * about, counts as unsupported too, so a line the scan misread cannot let one through.
+   * Reads the directive lines of the unit, which the library keeps to itself. They stand at the start, or after a `...`
+   * document end marker, and must be followed by a `---` line. A `%YAML` directive is one version, at most once a document,
+   * and vmd reads only 1.2; a `%TAG` handle is `!`, `!!` or `!name!`, at most once a document; front matter holds none, since
+   * its `---` would close the front matter. Reserved directives are left to the library, which ignores them. A version the
+   * library read as other than 1.2, or warned about, counts as unsupported too, so a line the scan misread cannot let one
+   * through.
    */
   #directives(doc: Document.Parsed): { readonly problems: SyntaxProblem[]; readonly unsupportedAt: number | null } {
     const text = this.#text;
     const problems: SyntaxProblem[] = [];
     const yamlLines: [number, number][] = [];
     let unsupportedAt: number | null = null;
+    let inPrefix = true;
+    // The first directive of the current prefix, until a `---` line follows it.
+    let unterminatedAt: number | null = null;
+    let yamlCount = 0;
+    const handles = new Set<string>();
     for (let start = 0; start <= text.length; ) {
       const newline = text.indexOf("\n", start);
       const end = newline < 0 ? text.length : newline;
       const line = text.slice(start, end);
-      if (!BLANK_OR_COMMENT.test(line)) {
-        if (!line.startsWith("%")) break;
+      if (!inPrefix) {
+        inPrefix = DOCUMENT_END.test(line);
+      } else if (line.startsWith("%")) {
+        unterminatedAt ??= start;
         if (this.#place.unit === "front-matter") {
-          problems.push({
-            index: start,
-            message: "front matter holds no directive: the --- after it would close the front matter",
-          });
+          const message = "front matter holds no directive: the --- after it would close the front matter";
+          problems.push({ index: start, message });
         }
         const parts = line.replace(/[ \t]+#.*$/, "").split(/[ \t]+/);
         if (parts[0] === "%YAML") {
           yamlLines.push([start, end]);
+          yamlCount += 1;
           const version = parts[1];
-          if (yamlLines.length > 1) {
+          if (yamlCount > 1) {
             problems.push({ index: start, message: "a document has at most one %YAML directive" });
           } else if (parts.length !== 2 || version === undefined || !/^[0-9]+\.[0-9]+$/.test(version)) {
             problems.push({ index: start, message: "a %YAML directive gives one version, as in %YAML 1.2" });
           } else if (version !== "1.2") {
-            unsupportedAt = start + line.indexOf(version);
+            unsupportedAt ??= start + line.indexOf(version);
           }
+        } else if (parts[0] === "%TAG" && parts[1] !== undefined) {
+          const handle = parts[1];
+          if (!TAG_HANDLE.test(handle)) {
+            problems.push({ index: start, message: `${handle} is not a tag handle, which is !, !! or !name!` });
+          } else if (handles.has(handle)) {
+            problems.push({ index: start, message: `a document declares the tag handle ${handle} at most once` });
+          }
+          handles.add(handle);
         }
+      } else if (!BLANK_OR_COMMENT.test(line)) {
+        if (unterminatedAt !== null && !DIRECTIVES_END.test(line)) {
+          problems.push({ index: unterminatedAt, message: "directives must be followed by a --- line" });
+        }
+        inPrefix = DOCUMENT_END.test(line);
+        unterminatedAt = null;
+        yamlCount = 0;
+        handles.clear();
       }
       start = end + 1;
+    }
+    if (unterminatedAt !== null) {
+      problems.push({ index: unterminatedAt, message: "directives must be followed by a --- line" });
     }
     const read = doc.directives?.yaml;
     const warnedAt = doc.warnings.find(
@@ -303,20 +346,6 @@ class YamlUnitReader {
     return problems;
   }
 
-  /** Marks the node each unresolved tag stands before: the first node in document order that starts after the tag. */
-  #findUnresolvedTagNodes(doc: Document.Parsed, tagEnds: readonly number[]): void {
-    if (tagEnds.length === 0) return;
-    const nodes: Node[] = [];
-    visit(doc, (_key, node) => {
-      if (isNode(node)) nodes.push(node);
-    });
-    for (const end of tagEnds) {
-      const tagged = nodes.find((node) => (node.range?.[0] ?? -1) >= end);
-      if (tagged === undefined) throw new Error(`no node after the tag that ends at ${end}`);
-      this.#unresolvedTagNodes.add(tagged);
-    }
-  }
-
   /** Raises the one `syntax-error` of the unit, listing its problems in order. */
   #syntaxError(problems: SyntaxProblem[]): YamlUnit {
     problems.sort((a, b) => a.index - b.index);
@@ -338,11 +367,16 @@ class YamlUnitReader {
       if (name === null) continue;
       const memberAt = childPath(at, name);
       const key = pair.key as Node;
-      const keyRange: [number, number] = [startOf(key) ?? 0, valueEnd(key)];
-      const repeated = hasMember(object, name);
-      if (repeated) this.#raise("duplicate-member", memberAt, `the member ${JSON.stringify(name)} is repeated`, keyRange[0]);
-      const member = this.#member(pair.value, keyRange, at, name, emit && !repeated);
-      if (!repeated) object[name] = member;
+      // An explicit key's member starts at its `?`.
+      const indicator = pair.srcToken?.start.find((token) => token.type === "explicit-key-ind");
+      const keyRange: [number, number] = [indicator?.offset ?? startOf(key) ?? 0, valueEnd(key)];
+      // A repeat's value, and the value of a member whose name is not well formed, are not looked into.
+      if (hasMember(object, name)) {
+        this.#raise("duplicate-member", memberAt, `the member ${JSON.stringify(name)} is repeated`, keyRange[0]);
+        continue;
+      }
+      if (!name.isWellFormed()) continue;
+      object[name] = this.#member(pair.value, keyRange, at, name, emit);
     }
     return Object.freeze(object);
   }
@@ -375,7 +409,7 @@ class YamlUnitReader {
 
   /**
    * Reads a member's value, or an item, as the node `key` under `parent`, and when `emit` adds its node before its children's.
-   * `keyRange` is a member's key in the unit text, null for an item. A member without a value, as `a` in `{a, b: 1}`, is null,
+   * `keyRange` is a member's key in the unit text, from its `?` for an explicit key, null for an item. A member without a value, as `a` in `{a, b: 1}`, is null,
    * with an empty range where its key ends.
    */
   #member(node: unknown, keyRange: [number, number] | null, parent: string, key: string | number, emit: boolean): Value {
@@ -421,7 +455,7 @@ class YamlUnitReader {
         if (!value.isWellFormed()) {
           this.#raise("unpaired-surrogate", at, "the string holds a surrogate that is not part of a pair", startOf(scalar));
         }
-        return value;
+        return this.#endsAtEndOfInput(scalar) && value.endsWith("\n") ? value.slice(0, -1) : value;
       case "boolean":
         return value;
       case "number":
@@ -466,8 +500,19 @@ class YamlUnitReader {
     return tagged;
   }
 
+  /**
+   * Whether a block scalar's last line ends at the end of the unit rather than with a line break, which YAML 1.2.2 (section
+   * 8.1.1.2, `b-chomped-last`) does not read as a line feed, while the library adds one. Only the end of the unit can end a
+   * block scalar's last line otherwise; spaces on a line after it, which a kept scalar's source holds, are not a line.
+   */
+  #endsAtEndOfInput(scalar: Scalar): boolean {
+    if (scalar.type !== "BLOCK_LITERAL" && scalar.type !== "BLOCK_FOLDED") return false;
+    const range = scalar.range as [number, number, number];
+    return !/\n[ \t]*$/.test(this.#text.slice(range[0], range[1]));
+  }
+
   #isTagged(node: unknown): boolean {
-    return isNode(node) && (node.tag !== undefined || this.#unresolvedTagNodes.has(node));
+    return isNode(node) && node.tag !== undefined;
   }
 
   #raise(code: IssueCode, at: string, message: string, index: number | null | undefined, extra?: { hint: string }): void {
@@ -481,8 +526,9 @@ class YamlUnitReader {
     return this.#source.byteOffset(this.#unit.fileIndex(index));
   }
 
+  /** Converts a range of the unit text to bytes of the file, its end as an end, so that it takes no indentation after it. */
   #bytes(start: number, end: number): ByteRange {
-    return { start: this.#byteAt(start), end: this.#byteAt(end) };
+    return { start: this.#byteAt(start), end: this.#source.byteOffset(this.#unit.fileEnd(end)) };
   }
 }
 
@@ -529,9 +575,43 @@ function startOf(node: unknown): number | null {
   return isNode(node) && node.range ? node.range[0] : null;
 }
 
-/** Whether the document's contents are the empty node: an empty plain scalar without an anchor or a tag, as `---` alone. */
-function isEmptyNode(contents: Node): boolean {
-  return isScalar(contents) && contents.type === "PLAIN" && contents.source === "" && !contents.anchor && !contents.tag;
+/**
+ * Finds the first collection of the parser's tokens that is nested deeper than `limit`, without recursion, and returns its
+ * offset, or null when there is none.
+ */
+function nestedBeyond(tokens: readonly CST.Token[], limit: number): number | null {
+  const pending: [CST.Token | undefined, number][] = tokens.map((token) => [token, 0]);
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const [token, depth] = next;
+    if (token === undefined) continue;
+    if (token.type === "document") {
+      pending.push([token.value, depth]);
+    } else if (token.type === "block-map" || token.type === "block-seq" || token.type === "flow-collection") {
+      if (depth + 1 > limit) return token.offset;
+      for (const item of token.items) {
+        if ("key" in item) pending.push([item.key ?? undefined, depth + 1]);
+        pending.push([item.value, depth + 1]);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Composes the first document of the parser's tokens, as the library's `parseDocument` does, and returns where a second one
+ * starts, or null.
+ */
+function composeFirstDocument(
+  tokens: readonly CST.Token[],
+  length: number,
+): { readonly doc: Document.Parsed; readonly nextDocumentAt: number | null } {
+  let first: Document.Parsed | undefined;
+  for (const doc of new Composer(PARSE_OPTIONS).compose(tokens, true, length)) {
+    if (first !== undefined) return { doc: first, nextDocumentAt: doc.range[0] };
+    first = doc;
+  }
+  if (first === undefined) throw new Error("the YAML library composed no document");
+  return { doc: first, nextDocumentAt: null };
 }
 
 function firstLine(message: string): string {

@@ -6,37 +6,46 @@ import { parseRecord } from "./parse-record.js";
 const library = vi.hoisted(() => ({
   warning: null as { code: string; pos: [number, number] } | null,
   hideDirectives: false,
+  hideErrors: false,
   version: null as string | null,
 }));
 
 vi.mock("yaml", async (importOriginal) => {
   const yaml = await importOriginal<typeof import("yaml")>();
-  return {
-    ...yaml,
-    parseDocument: (...args: Parameters<typeof yaml.parseDocument>) => {
-      const doc = yaml.parseDocument(...args);
-      if (library.warning !== null) {
-        doc.warnings.push(new yaml.YAMLWarning(library.warning.pos, library.warning.code as never, "a warning"));
-      }
-      const directive = doc.directives.yaml as { version: string; explicit?: boolean };
-      if (library.hideDirectives) {
-        doc.errors = doc.errors.filter((error) => error.code !== "BAD_DIRECTIVE");
-        doc.warnings = doc.warnings.filter((warning) => warning.code !== "BAD_DIRECTIVE");
-        directive.version = "1.2";
-        directive.explicit = false;
-      }
-      if (library.version !== null) {
-        directive.version = library.version;
-        directive.explicit = true;
-      }
-      return doc;
-    },
+  /** Changes each composed document as the test asks. */
+  const change = (doc: InstanceType<typeof yaml.Document>) => {
+    if (library.warning !== null) {
+      doc.warnings.push(new yaml.YAMLWarning(library.warning.pos, library.warning.code as never, "a warning"));
+    }
+    if (doc.directives === undefined) return;
+    const directive = doc.directives.yaml as { version: string; explicit?: boolean };
+    if (library.hideDirectives) {
+      doc.errors = doc.errors.filter((error) => error.code !== "BAD_DIRECTIVE");
+      doc.warnings = doc.warnings.filter((warning) => warning.code !== "BAD_DIRECTIVE");
+      directive.version = "1.2";
+      directive.explicit = false;
+    }
+    if (library.hideErrors) doc.errors = [];
+    if (library.version !== null) {
+      directive.version = library.version;
+      directive.explicit = true;
+    }
   };
+  class Composer extends yaml.Composer {
+    override *compose(...args: Parameters<InstanceType<typeof yaml.Composer>["compose"]>) {
+      for (const doc of super.compose(...args)) {
+        change(doc);
+        yield doc;
+      }
+    }
+  }
+  return { ...yaml, Composer };
 });
 
 afterEach(() => {
   library.warning = null;
   library.hideDirectives = false;
+  library.hideErrors = false;
   library.version = null;
 });
 
@@ -77,6 +86,21 @@ describe("the directive scan, without the library's reading", () => {
   test("near miss: %YAML 1.2", () => {
     library.hideDirectives = true;
     expect(codes("%YAML 1.2\n---\na: 1\n")).toEqual([]);
+  });
+});
+
+describe("the directive scan, without the library's errors", () => {
+  test.each([
+    ["directives followed by content", "%TAG ! tag:a,2026:\na: 1\n"],
+    ["directives at the end", "%TAG ! tag:a,2026:\n"],
+  ])("finds %s, with no --- after them, alone", (_name, text) => {
+    library.hideErrors = true;
+    expect(codes(text)).toEqual(["syntax-error"]);
+  });
+
+  test("near miss: a directive followed by ---", () => {
+    library.hideErrors = true;
+    expect(codes("%TAG ! tag:a,2026:\n---\na: 1\n")).toEqual([]);
   });
 });
 
