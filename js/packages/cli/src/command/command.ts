@@ -27,6 +27,8 @@ export interface CommandArguments {
   /** The command's own options, by the names its {@link Command.options} gives them; absent when not given. */
   readonly options: Readonly<Record<string, OptionValue>>;
   readonly globals: GlobalOptions;
+  /** Whether stdout is a terminal, for text output that is escaped there and written raw to a pipe or a file. */
+  readonly stdoutIsTerminal: boolean;
 }
 
 /** One run of a command: its command line and its store. */
@@ -107,6 +109,8 @@ export interface Command {
   readonly usage: string;
   /** One line that says what it does. */
   readonly summary: string;
+  /** What its help says beyond its usage and summary: its options, each line ending with a line break. */
+  readonly help?: string;
   /**
    * Its own options, by name. No name, and no short form, may be that of a global option; the CLI checks this before it reads
    * any command line, and throws an `Error` when one is.

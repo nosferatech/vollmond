@@ -42,6 +42,8 @@ jobs:
           VMD_REQUIRE_UNICODE_COMPARISON: "1"
       # The read commands run over the suite's store of Appendix A, as built, with the parsers loaded as they are in a release.
       - name: Smoke test the built command
+        # An explicit bash runs with -eo pipefail, so a command that fails before its grep fails the step.
+        shell: bash
         run: |
           node packages/cli/dist/main.js --version
           store=../conformance/cases/addresses/appendix-a

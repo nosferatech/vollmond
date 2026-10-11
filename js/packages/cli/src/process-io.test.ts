@@ -80,6 +80,23 @@ describe("runProcess", () => {
     expect(stdout.bytes).toEqual(Buffer.from(bytes));
   });
 
+  test("tells the command whether stdout is a terminal", async () => {
+    const tell: Command = {
+      name: "tell",
+      usage: "",
+      summary: "says whether stdout is a terminal",
+      options: {},
+      readsStore: false,
+      prepare: (line) => runWith(line, async () => outcomeOutput(succeed(line.stdoutIsTerminal), (value) => `${value}\n`)),
+    };
+    const pipe = stream();
+    await run(["tell"], pipe, stream(), { commands: [tell] });
+    expect(pipe.text).toBe("false\n");
+    const terminal = Object.assign(stream(), { isTTY: true });
+    await run(["tell"], terminal, stream(), { commands: [tell] });
+    expect(terminal.text).toBe("true\n");
+  });
+
   test("ends quietly, keeping the command's exit code, when the reader closes the pipe early", async () => {
     const stdout = stream("EPIPE");
     expect(await run(["--version"], stdout, stream())).toBe(0);

@@ -15,6 +15,7 @@ export const CAT_COMMAND: Command = {
   usage: "PATH [--lines A:B]",
   summary: "print a file's content, or some of its lines",
   options: { lines: { type: "string" } },
+  help: "  --lines A:B  lines A to B, B left out, counted from 1: 1:4 prints lines 1, 2 and 3\n",
   readsStore: true,
   prepare: ({ positionals, options }) => {
     const problem = argumentCountProblem(positionals, 1, 1, "the path of a file");

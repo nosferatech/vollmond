@@ -259,6 +259,17 @@ describe("Store.list", () => {
     expect(successValue(outcome).unreadable.count).toBe(1);
     expect(outcome.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
+
+  test("reports an asset the backend cannot read without counting it as an unreadable record", async () => {
+    const store = await storeOf({
+      ".vmd/config.yaml": CONFIG,
+      "a.md": "# A\n",
+      "b.png": { content: "x", unreadable: true },
+    });
+    const outcome = await store.list({ limit: 10 });
+    expect(successValue(outcome).unreadable.count).toBe(0);
+    expect(outcome.issues.map((issue) => [issue.code, issue.path])).toEqual([["storage-failed", "b.png"]]);
+  });
 });
 
 describe("Store.grep", () => {

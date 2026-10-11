@@ -37,6 +37,8 @@ export interface CliEnvironment {
   readonly unicodeProbe: () => UnicodeRuntimeProbe;
   /** The runtime's Unicode version, for the probe's warning, when the runtime says it. */
   readonly runtimeUnicodeVersion: string | undefined;
+  /** Whether stdout is a terminal, which a command's text output may escape for; false when not said. */
+  readonly stdoutIsTerminal: boolean;
 }
 
 /** Reads the version of the `@vollmond/cli` package from its `package.json`. */
@@ -58,6 +60,7 @@ function processEnvironment(environment: Partial<CliEnvironment>): CliEnvironmen
     commands: environment.commands ?? BUILT_IN_COMMANDS,
     unicodeProbe: environment.unicodeProbe ?? unicodeRuntimeProbe,
     runtimeUnicodeVersion: "runtimeUnicodeVersion" in environment ? environment.runtimeUnicodeVersion : process.versions.unicode,
+    stdoutIsTerminal: environment.stdoutIsTerminal ?? false,
   };
 }
 
@@ -125,7 +128,12 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
   if (line.value.version) return { stdout: `${readPackageVersion()}\n`, stderr: "", exitCode: ExitCode.ok };
   if (line.value.help) return { stdout: commandHelp(command), stderr: "", exitCode: ExitCode.ok };
   const { globals } = line.value;
-  const plan = command.prepare({ positionals: line.value.positionals, options: line.value.options, globals });
+  const plan = command.prepare({
+    positionals: line.value.positionals,
+    options: line.value.options,
+    globals,
+    stdoutIsTerminal: env.stdoutIsTerminal,
+  });
   if (plan.kind === "usage") return render(usage(plan.message, commandHint), globals);
 
   let store: OpenedStore | null = null;
@@ -353,5 +361,5 @@ function generalHelp(commands: readonly Command[]): string {
 
 /** The help of one command. */
 function commandHelp(command: Command): string {
-  return `usage: vmd ${command.name} ${command.usage}\n${command.summary}\n`;
+  return `usage: vmd ${command.name} ${command.usage}\n${command.summary}\n${command.help === undefined ? "" : `\n${command.help}`}`;
 }

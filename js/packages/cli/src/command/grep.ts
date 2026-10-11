@@ -1,7 +1,7 @@
 // `vmd grep PATTERN [GLOB] [-F] [-i] [-C N] [-n N] [--cursor C]`: the lines of the store's files that match a pattern.
 
 import type { CountedPage, GrepMatch } from "@vollmond/core";
-import { oneLine } from "../output/lines.js";
+import { oneLine, oneLineWithTabs } from "../output/lines.js";
 import { DEFAULT_LIMITS, formatPageRemainder, MAX_LIMIT, PAGE_OPTIONS, readLimit } from "../output/paging.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
 import { argumentCountProblem, readWholeNumber } from "./options.js";
@@ -25,6 +25,15 @@ export const GREP_COMMAND: Command = {
     "ignore-case": { type: "boolean", short: "i" },
     context: { type: "string", short: "C" },
   },
+  help:
+    "  PATTERN  a portable regex: the subset RE2, Python re and ECMAScript all accept, as RE2 reads it (literals and\n" +
+    "           escapes, classes, ., anchors, groups, alternation, quantifiers; no backreferences or lookaround), matched\n" +
+    "           against each line on its own; \\d, \\w, \\s and \\b are ASCII\n" +
+    "  GLOB     the store paths to search, such as docs/**/*.md\n" +
+    "  -F       take PATTERN as a literal string\n" +
+    "  -i       match regardless of case\n" +
+    "  -C N     print N lines of context around each match\n" +
+    "  -n N     print at most N matches, 50 by default; --cursor C continues after them\n",
   readsStore: true,
   prepare: ({ positionals, options }) => {
     const problem = argumentCountProblem(positionals, 1, 2, "the pattern");
@@ -80,7 +89,8 @@ function formatMatches(page: CountedPage<GrepMatch>, grouped: boolean): string {
   for (const entry of printed.values()) {
     if (grouped && previous !== null && (previous.path !== entry.path || previous.line + 1 !== entry.line)) lines.push("--\n");
     const separator = entry.match ? ":" : "-";
-    lines.push(`${oneLine(entry.path)}${separator}${entry.line}${separator}${oneLine(entry.text)}\n`);
+    // A tab is kept, so that a line copied from the output matches the file.
+    lines.push(`${oneLine(entry.path)}${separator}${entry.line}${separator}${oneLineWithTabs(entry.text)}\n`);
     previous = entry;
   }
   let text = lines.join("");

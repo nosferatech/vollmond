@@ -12,12 +12,14 @@ export interface ProcessIo {
 }
 
 /**
- * Runs `vmd` in a process: prints what {@link runCli} returns, text or bytes as they are, and sets the exit code. A reader that closes the output early, as
+ * Runs `vmd` in a process: prints what {@link runCli} returns, text or bytes as they are, and sets the exit code. Commands are
+ * told whether stdout is a terminal, unless `environment` says. A reader that closes the output early, as
  * `head` does, ends the output without an error: the broken pipe (`EPIPE`) is not reported, and the exit code stays the
  * command's. Another error writing an output sets exit code 1.
  */
 export async function runProcess(io: ProcessIo, environment: Partial<CliEnvironment> = {}): Promise<void> {
-  const result = await runCli(io.args, environment);
+  const stdoutIsTerminal = (io.stdout as { readonly isTTY?: boolean }).isTTY === true;
+  const result = await runCli(io.args, { stdoutIsTerminal, ...environment });
   for (const stream of [io.stdout, io.stderr]) {
     stream.on("error", (error: NodeJS.ErrnoException) => {
       if (error.code !== "EPIPE") io.setExitCode(1);

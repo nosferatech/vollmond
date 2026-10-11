@@ -385,7 +385,11 @@ describe("get", () => {
     expect(result.stdout).toBe(
       "@address  #use\n@depth    1\n@key      use\n@refs     (not computed yet)\n" +
         `@source   {"range":[${at("## Use")},${SIZE.guide}],"line":16,"col":1}\n` +
-        "## Use\n\n",
+        "\n## Use\n\n",
+    );
+    // The root's address is empty, which is written as JSON so that the line shows it.
+    expect((await vmd("get", "docs/twin.md", "--meta", "address", "--max-chars", "6")).stdout).toMatch(
+      /^@address {2}""\n\n# Twin\n/,
     );
   });
 
@@ -468,5 +472,47 @@ describe("get", () => {
     expect(fields).toEqual(["@path", "@at", "@address", "@key", "@anchors", "@version", "@source", "@issues", "@depth"]);
     const withNodes = await vmdJson("get", "docs/guide.md#install", "--meta", "all,@nodes");
     expect(Object.keys((withNodes.outcome.value as { meta: object }).meta)).toEqual([...fields, "@nodes"]);
+  });
+});
+
+describe("text on a terminal", () => {
+  // An escape sequence that colours the terminal, a right-to-left override, a carriage return, a tab and line feeds.
+  const CONTROLS = "# C\n\nred \u001b[31mtext\u001b[0m‮ end\r\ncol\tumn\n";
+  const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "vmd: 1\n", "c.md": CONTROLS });
+  const terminal = (stdoutIsTerminal: boolean): Partial<CliEnvironment> => ({ ...env(root), stdoutIsTerminal });
+
+  test("get escapes controls, separators and bidirectional controls there, keeping line feeds and tabs", async () => {
+    const result = await runCli(["get", "c.md"], terminal(true));
+    expect(result.stdout).toBe("# C\n\nred \\u001b[31mtext\\u001b[0m\\u202e end\\r\ncol\tumn\n");
+  });
+
+  test("get writes the node raw to a pipe or a file, and cat writes the file raw even to a terminal", async () => {
+    expect((await runCli(["get", "c.md"], terminal(false))).stdout).toBe(CONTROLS);
+    expect(textOf(await runCli(["cat", "c.md"], terminal(true)))).toBe(CONTROLS);
+  });
+
+  test("grep keeps a tab in the line, so that a copied line matches the file, and escapes the rest", async () => {
+    expect((await runCli(["grep", "col"], terminal(true))).stdout).toBe("c.md:4:col\tumn\n");
+    expect((await runCli(["grep", "red"], terminal(false))).stdout).toBe("c.md:3:red \\u001b[31mtext\\u001b[0m\\u202e end\n");
+  });
+});
+
+describe("ls of a directory", () => {
+  test("suggests GLOB/** for a glob without a wildcard that matches nothing but names a directory", async () => {
+    expect((await vmd("ls", "docs")).stdout).toBe("no path matches docs, a directory: vmd ls 'docs/**' lists what is below it\n");
+    expect((await vmd("ls", "nothing")).stdout).toBe("");
+    expect((await vmd("ls", "doc*")).stdout).toBe("");
+    // The value under --json is the empty page alone.
+    expect((await vmdJson("ls", "docs")).outcome.value).toMatchObject({ items: [], cursor: null });
+  });
+});
+
+describe("help", () => {
+  test("says what each option means: --lines half-open, the regex, the computed fields, globs", async () => {
+    const help = async (name: string) => (await vmd(name, "--help")).stdout;
+    expect(await help("cat")).toContain("1:4 prints lines 1, 2 and 3");
+    expect(await help("grep")).toContain("a portable regex: the subset RE2, Python re and ECMAScript all accept");
+    expect(await help("get")).toContain("@path, @at, @address, @key, @anchors, @version, @source, @range, @issues");
+    expect(await help("ls")).toContain("docs/** lists");
   });
 });

@@ -9,7 +9,7 @@ import {
   type NodeForm,
   succeed,
 } from "@vollmond/core";
-import { formatColumns } from "../output/lines.js";
+import { formatColumns, terminalText } from "../output/lines.js";
 import { shellWord } from "../output/paging.js";
 import { formatCount, formatTokens } from "../output/sizes.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
@@ -33,7 +33,8 @@ const NOT_YET_COMPUTED: ReadonlySet<ComputedFieldName> = new Set(["@refs", "@col
  * value is the node's value view, or its `$body` with `--body`. `--meta` requests computed fields by name, with or without
  * their `@`, or `all` of them but `@nodes`: the text output prints one line per field before the node, and the JSON output's
  * value is then `{"value": …, "meta": {…}}`. The text output stops after `--max-chars` characters (20,000 by default), and the
- * line that says so tells how much remains and suggests `vmd outline`.
+ * line that says so tells how much remains and suggests `vmd outline`. On a terminal, the node's text is escaped as
+ * {@link terminalText} does; to a pipe or a file it is written raw.
  */
 export const GET_COMMAND: Command = {
   name: "get",
@@ -46,7 +47,12 @@ export const GET_COMMAND: Command = {
     meta: { type: "string" },
   },
   readsStore: true,
-  prepare: ({ positionals, options, globals }) => {
+  help:
+    "  --value        the node's value view, as JSON\n" +
+    "  --body         a section's $body, or a block anchor's text\n" +
+    "  --max-chars N  stop after N characters, 20,000 by default\n" +
+    `  --meta F,..    computed fields, with or without their @, or all of them but @nodes:\n                 ${COMPUTED_FIELD_NAMES.join(", ")}\n`,
+  prepare: ({ positionals, options, globals, stdoutIsTerminal }) => {
     const problem = argumentCountProblem(positionals, 1, 1, "an address");
     if (problem !== null) return usagePlan(problem);
     if (options.value === true && options.body === true) return usagePlan("--value and --body cannot be given together");
@@ -73,7 +79,14 @@ export const GET_COMMAND: Command = {
         const details = storeIssueDetails(store);
         if (!result.ok) return outcomeOutput(result, () => "", details);
         const printed = printedResult(result.value);
-        const text = () => formatResult(result.value, { form, maxChars: maxChars.value, address, meta: meta.value });
+        const text = () =>
+          formatResult(result.value, {
+            form,
+            maxChars: maxChars.value,
+            address,
+            meta: meta.value,
+            terminal: stdoutIsTerminal,
+          });
         return outcomeOutput(succeed(printed, result.issues), text, details);
       },
     };
@@ -134,6 +147,8 @@ function formatResult(
     readonly maxChars: number;
     readonly address: string;
     readonly meta: readonly ComputedFieldName[] | undefined;
+    /** Whether stdout is a terminal, where the node's text is escaped. */
+    readonly terminal: boolean;
   },
 ): string {
   let text = "";
@@ -143,13 +158,18 @@ function formatResult(
       if (NOT_YET_COMPUTED.has(name)) return [{ cells: [name, "(not computed yet)"] }];
       const value = fields[name];
       if (value === undefined) return [];
-      return [{ cells: [name, typeof value === "string" ? value : JSON.stringify(value)] }];
+      // An empty string is written as JSON, so that the line shows that the field is there.
+      return [{ cells: [name, typeof value === "string" && value !== "" ? value : JSON.stringify(value)] }];
     });
-    text += formatColumns(rows);
+    text += `${formatColumns(rows)}\n`;
   }
   const content = options.form === "value" ? JSON.stringify(result.value, null, 2) : (result.value as string);
   const { shown, rest } = cutAfter(content, options.maxChars);
-  text += shown.endsWith("\n") || shown === "" ? shown : `${shown}\n`;
+  // Deviation from the specification, recorded in issue #18, until the project owner decides the rule: on a terminal the
+  // node's text has its controls, line separators and bidirectional controls escaped, line feeds and tabs kept, so that a
+  // record cannot act on the terminal; to a pipe or a file it is written raw, as `cat` always writes.
+  const written = options.terminal ? terminalText(shown) : shown;
+  text += written.endsWith("\n") || written === "" ? written : `${written}\n`;
   if (rest !== "") {
     const restBytes = new TextEncoder().encode(rest).length;
     text +=
