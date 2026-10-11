@@ -101,8 +101,9 @@ describe("compileLineTest runs in time linear in the line", () => {
     if (!outcome.ok) expect.fail("not portable");
     const start = performance.now();
     expect(outcome.value(`${"a".repeat(40)} `)).toBe(false);
-    // Overlapping branches take time doubling with each a: about 700 ms at 26 of them, and days at 40.
-    expect(performance.now() - start).toBeLessThan(500);
+    // Overlapping branches take time doubling with each a: about 700 ms at 26 of them, and days at 40. The bound is far from
+    // both, so that a loaded machine does not fail it: it tells milliseconds from days.
+    expect(performance.now() - start).toBeLessThan(5000);
   });
 });
 

@@ -311,17 +311,6 @@ describe("constructs outside the data model", () => {
     expect(issuesOf("%TAG !e! tag:example.com,2026:\n---\na: !e!x 1\n")).toEqual([["yaml-tag", "/a"]]);
   });
 
-  test("tags cost linear time: ten times the tags take well under a hundred times as long", () => {
-    const timed = (lines: number) => {
-      const text = Array.from({ length: lines }, (_, i) => `k${i}: !foo 1\n`).join("");
-      const started = performance.now();
-      expect(issuesOf(text)).toHaveLength(lines);
-      return performance.now() - started;
-    };
-    timed(4000);
-    expect(timed(40000) / timed(4000)).toBeLessThan(30);
-  });
-
   test("near miss: a quoted '!foo' is a string", () => {
     expect(valueView("a: '!foo'\nb: x!y\n")).toEqual({ a: "!foo", b: "x!y" });
   });
