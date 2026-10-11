@@ -153,8 +153,7 @@ unchanged.
 
 `config` is optional. It names a configuration file in the store's `.vmd/` directory, such as `config-lenient.yaml`, which the
 implementation uses in place of `.vmd/config.yaml`. It exists so that one store serves both uniqueness modes (§5.7), with the
-same records read under `uniqueness: strict` and under `uniqueness: lenient`. It does what `vmd --config PATH` does in the
-plan's I2.1.
+same records read under `uniqueness: strict` and under `uniqueness: lenient`. It does what `vmd --config PATH` does (§12.1).
 
 **Two copies of the store were rejected.** They state each record twice, and the copies drift apart when one is edited.
 
@@ -627,7 +626,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.9.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.10.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -694,13 +693,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.9.0-dev", "case_format": 1 }
+{ "version": "0.10.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.9 gives `0.9`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.10 gives `0.10`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.9.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.10.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
