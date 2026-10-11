@@ -3,7 +3,7 @@ import { setImmediate } from "node:timers/promises";
 import { succeed } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
 import type { CliEnvironment } from "./cli.js";
-import { type Command, outcomeOutput } from "./command/command.js";
+import { type Command, outcomeOutput, runWith } from "./command/command.js";
 import { runProcess } from "./process-io.js";
 
 /** A stream for the tests, which collects what is written to it or fails every write. */
@@ -73,7 +73,7 @@ describe("runProcess", () => {
       summary: "gives bytes",
       options: {},
       readsStore: false,
-      run: async () => outcomeOutput(succeed(bytes), (value) => value),
+      prepare: (line) => runWith(line, async () => outcomeOutput(succeed(bytes), (value) => value)),
     };
     const stdout = stream();
     expect(await run(["give"], stdout, stream(), { commands: [give] })).toBe(0);

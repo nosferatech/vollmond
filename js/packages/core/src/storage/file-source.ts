@@ -3,7 +3,7 @@ import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import type { ByteRange } from "../text/source-text.js";
 import { gitBlobId } from "../value/digest.js";
 import { compileLineTest, decodeForGrep, grepCursor, grepText, readGrepCursor } from "./grep.js";
-import { checkStoragePath, compareUtf8, compileGlob, prefixDirectory } from "./path.js";
+import { checkStoragePath, compareUtf8, compileGlob, type GlobTest, prefixDirectory } from "./path.js";
 import type {
   ContentRange,
   CountedPage,
@@ -80,16 +80,15 @@ class FileSourceReader implements StorageReader {
         }),
       ]);
     }
-    const glob = query.glob === undefined ? null : compileGlob(query.glob);
-    if (glob !== null && !glob.ok) return glob;
-    const matches = glob === null ? null : glob.value;
+    const selects = compileSelection(query);
+    if (!selects.ok) return selects;
     const listed = await this.#source.listFiles(prefix.directory);
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
     const cursor = query.cursor;
     const candidates = listed.value
       .filter((path) => path.startsWith(query.prefix))
-      .filter((path) => matches === null || matches(path))
+      .filter(selects.value)
       .filter((path) => cursor === undefined || compareUtf8(path, cursor) > 0)
       .sort(compareUtf8);
     const items: FileInfo[] = [];
@@ -157,14 +156,13 @@ class FileSourceReader implements StorageReader {
         ]);
       }
     }
-    const glob = query.glob === undefined ? null : compileGlob(query.glob);
-    if (glob !== null && !glob.ok) return glob;
-    const matches = glob === null ? null : glob.value;
+    const selects = compileSelection(query);
+    if (!selects.ok) return selects;
     const listed = await this.#source.listFiles("");
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
     const paths = listed.value
-      .filter((path) => matches === null || matches(path))
+      .filter(selects.value)
       .filter((path) => after === null || compareUtf8(path, after.path) >= 0)
       .sort(compareUtf8);
     const items: GrepMatch[] = [];
@@ -208,6 +206,23 @@ class FileSourceReader implements StorageReader {
     if (pathIssue !== null) return fail([pathIssue]);
     return this.#source.readFile(path);
   }
+}
+
+/**
+ * Compiles the glob and the exclude globs of a query into one test: a path is selected when the glob, if any, matches it and
+ * no exclude glob does. Fails with `query-invalid` for the first malformed glob.
+ */
+function compileSelection(query: { readonly glob?: string; readonly exclude?: readonly string[] }): Outcome<GlobTest> {
+  const glob = query.glob === undefined ? null : compileGlob(query.glob);
+  if (glob !== null && !glob.ok) return glob;
+  const excluded: GlobTest[] = [];
+  for (const pattern of query.exclude ?? []) {
+    const compiled = compileGlob(pattern);
+    if (!compiled.ok) return compiled;
+    excluded.push(compiled.value);
+  }
+  const matches = glob === null ? null : glob.value;
+  return succeed((path) => (matches === null || matches(path)) && !excluded.some((test) => test(path)));
 }
 
 async function fileInfo(path: string, file: StoredFile): Promise<FileInfo> {

@@ -81,6 +81,20 @@ export {
   type StoreConfiguration,
   SUPPORTED_FORMAT_VERSION,
 } from "./store/configuration.js";
+export {
+  type GetOptions,
+  type GetResult,
+  type NodeForm,
+  type Outline,
+  type OutlineEntry,
+  openStore,
+  type Store,
+  type StoreEntry,
+  type StoreListQuery,
+  type StorePage,
+  type UnreadableCount,
+} from "./store/store.js";
+export { IGNORED_PATH_GLOBS, type StorePathKind, storePathKind } from "./store/store-path.js";
 export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
 export { readLineBreaksAsLf, sliceUnitText, type UnitText } from "./text/unit-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";

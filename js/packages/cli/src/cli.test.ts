@@ -13,7 +13,15 @@ import {
 } from "@vollmond/core";
 import { describe, expect, test, vi } from "vitest";
 import { type CliEnvironment, runCli } from "./cli.js";
-import { type Command, type CommandInvocation, outcomeOutput, usageOutput } from "./command/command.js";
+import {
+  type Command,
+  type CommandArguments,
+  type CommandInvocation,
+  type CommandOutput,
+  outcomeOutput,
+  runWith,
+  usageOutput,
+} from "./command/command.js";
 import { makeDirectories, temporaryDirectory, writeFiles } from "./directories.testkit.js";
 import { formatColumns } from "./output/lines.js";
 import { formatPageRemainder, PAGE_OPTIONS, readLimit } from "./output/paging.js";
@@ -29,8 +37,13 @@ const OLDER: UnicodeRuntimeProbe = Object.freeze({
 });
 
 /** A command for these tests, which reads a store unless told otherwise and gives what `run` gives. */
-function command(name: string, run: Command["run"], overrides: Partial<Command> = {}): Command {
-  return { name, usage: "", summary: `the ${name} command of the tests`, options: {}, readsStore: true, run, ...overrides };
+function command(
+  name: string,
+  run: (invocation: CommandInvocation) => Promise<CommandOutput>,
+  overrides: Partial<Command> = {},
+): Command {
+  const prepare = (line: CommandArguments) => runWith(line, run);
+  return { name, usage: "", summary: `the ${name} command of the tests`, options: {}, readsStore: true, prepare, ...overrides };
 }
 
 /** A command that gives `outcome`, with its value written as one line. */
