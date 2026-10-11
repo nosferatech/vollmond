@@ -978,8 +978,11 @@ then, as the card describes it.
 
 **Why.** The card's note for items 2 to 10: "the rest picks the reading that loses no data silently".
 
-**Owner's note.** "re 3: a kinda related question: what do we do with comments in json blocks or files? Would be nice if we
-permitted them." It became card V1 (below).
+**Owner's note.** Verbatim:
+
+> re 3: a kinda related question: what do we do with comments in json blocks or files? Would be nice if we permitted them.
+
+It became card V1 (below).
 
 **Applied.** §5.3 (the title heading). Where the value view keeps such a comment the card did not say; it is open question 9 of
 §20.
@@ -1165,8 +1168,11 @@ in Markdown (at the root, since its title comes after front matter) than in JSON
 
 **Decision.** (a).
 
-**Why.** The card: "as Appendix D's 'once per occurrence' reads literally". The card's note: "Each keeps one key and one issue
-location per section across all three formats."
+**Why.** The card:
+
+> as Appendix D's "once per occurrence" reads literally
+
+The card's note: "Each keeps one key and one issue location per section across all three formats."
 
 **Applied.** Appendix D `anchor-invalid`.
 
@@ -1255,7 +1261,10 @@ same across implementations."
 **Decision.** Document order.
 
 **Why.** The card: "so results are stable across implementations". The card's note: "Each matches what the code already does and
-keeps results the same across implementations."
+keeps results the same across implementations." Correction: for R5 the note does not hold. Core does not yet return a selector's
+matches in document order in every case: under the suite's ordered comparison,
+`addresses/cardinality/lenient-anchor-and-derived-selector` gets an explicit anchor's match before an earlier derived one (#89).
+The case is skipped until the address code follows R5.
 
 **Applied.** §7.4, §10.5 (document order is the pre-order of Q2), the conformance README (a selector's matches and a reference's
 `targets` are compared in order), the runner's comparison of `resolve` results.
@@ -1442,10 +1451,12 @@ clear boundary (no block quotes) and loses nothing."
 
 **Why.** The card: "Three review rounds; the remaining choices are yours, as cards."
 
-**Owner's note.** "This review brought a question on where the index lives? And I think answer is 'depends'. In case of
-lightweight setup, where the backend is pure simple git repo, the index should live locally, as otherwise it would cause merge
-conflicts. However, for more advanced git setup (a custom merger, lambda, actions etc) the index should live somewhere in the
-backend, either git repo, or some other configured storage."
+**Owner's note.** Verbatim:
+
+> This review brought a question on where the index lives? And I think answer is "depends". In case of lightweight setup, where
+> the backend is pure simple git repo, the index should live locally, as otherwise it would cause merge conflicts. However, for
+> more advanced git setup (a custom merger, lambda, actions etc) the index should live somewhere in the backend, either git repo,
+> or some other configured storage.
 
 **Applied.** The design (#86). §14.3 records the note as the owner's stated view, not a decided rule, and §20's open question 8
 asks how an advanced backend keeps the index (see U4).
@@ -1542,10 +1553,12 @@ hold up: a CI restore of the cache brings its key along.
 
 **Why.** The card: "Removes the attack instead of defending against it, with no extra mechanism."
 
-**Owner's note.** The owner's note on the I2 design card, about where the index lives, verbatim: "This review brought a question
-on where the index lives? And I think answer is 'depends'. In case of lightweight setup, where the backend is pure simple git
-repo, the index should live locally, as otherwise it would cause merge conflicts. However, for more advanced git setup (a custom
-merger, lambda, actions etc) the index should live somewhere in the backend, either git repo, or some other configured storage."
+**Owner's note.** The owner's note on the I2 design card, about where the index lives, verbatim:
+
+> This review brought a question on where the index lives? And I think answer is "depends". In case of lightweight setup, where
+> the backend is pure simple git repo, the index should live locally, as otherwise it would cause merge conflicts. However, for
+> more advanced git setup (a custom merger, lambda, actions etc) the index should live somewhere in the backend, either git repo,
+> or some other configured storage.
 
 **Agent's reading, for the owner to confirm.** The lightweight setup's local index is this per-user cache, and the published index
 of §14.4 and §16 is one place an advanced backend may keep it. §14.3 records the note as the owner's stated view, not a decided
@@ -1571,7 +1584,9 @@ against Apple's documentation), §12.1 (`--no-cache`), §17, §20 (open question
 
 **Why.** The card: "Reports the mistake where it is, without breaking the store or picking silently."
 
-**Owner's note.** "Do we have a utility to check if two globs intersect?"
+**Owner's note.** Verbatim:
+
+> Do we have a utility to check if two globs intersect?
 
 **Applied.** §9.1, Appendix D (`collection-conflict`), core's table of codes.
 
@@ -1629,7 +1644,9 @@ screenshots will.
 
 **Why.** The card: "No case needs composite keys; allowing them later is an addition under U21."
 
-**Owner's note.** "How would even a composite key look like?"
+**Owner's note.** Verbatim:
+
+> How would even a composite key look like?
 
 **Applied.** §5.6, §9.3, Appendix D `schema-invalid`.
 
@@ -1666,7 +1683,9 @@ shorthand, so `/`, `*` or `:` in a name would be ambiguous.
 
 **Why.** The card: "No real name needs more, and it removes the ambiguity at the source."
 
-**Owner's note.** "At least for now."
+**Owner's note.** Verbatim:
+
+> At least for now.
 
 **Applied.** §9.1, Appendix D `config-invalid`.
 
@@ -1922,14 +1941,17 @@ comments when it edits a value. "None of the options changes values, canonical f
 **Why.** The card: "It gives comments to those who want them, keeps `.json` honest for other tools, and stays detectable for older
 readers."
 
-**Owner's note.** "I agree. I personally believe that json format not providing comments from the start was a mistake, as when
-machines talk json they wont write comments, so it costs them nothing. But when humans or agents want to work with json files
-(like config files) being able to document a reason for settings is very valueable. A json vs jsonc is a good compromise here."
+**Owner's note.** Verbatim:
+
+> I agree. I personally believe that json format not providing comments from the start was a mistake, as when machines talk json
+> they wont write comments, so it costs them nothing. But when humans or agents want to work with json files (like config files)
+> being able to document a reason for settings is very valueable. A json vs jsonc is a good compromise here.
 
 **Agent's reading, for the owner to confirm.** The card left the configuration member unnamed. The draft names it `jsonc`, a
-boolean that defaults to `false`. It also says that comments may stand wherever JSON allows white space, and that a trailing comma
-is a `syntax-error`, as in JSON. All three are the agent's. The card put the specification in a later draft; it is applied in
-Draft v0.11, as the review of #87 asked.
+boolean that defaults to `false` and is left out unless it is `true`, since a reader that predates it refuses it whatever its
+value. The draft also says that comments may stand wherever JSON allows white space, and that a `jsonc data` block of only
+comments and white space gives no fields, as an empty block does (H3.5, P7). These are the agent's. Applied in Draft v0.11 at the
+engineering manager's request, earlier than the card's "later draft"; flagged for the owner.
 
 **Applied.** §3.1 (`.jsonc`), §5.3 (`jsonc data`), §5.4 ("JSONC"), §5.8, §9.1 (the `jsonc` member), §13.3 (an edit keeps a JSONC
 file's comments), Appendix D `feature-unsupported`.

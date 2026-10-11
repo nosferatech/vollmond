@@ -524,7 +524,9 @@ not allowed, and are a `syntax-error` as in JSON. Comments are not data: the val
 address never depends on them. `.json` files and `json data` blocks stay strict JSON (RFC 8259, whose grammar has no comments), so
 that tools that read strict JSON never meet comments there. A `.jsonc` file needs the configuration member because an extension
 alone is not detectable: an older reader would take `notes.jsonc` for an asset, while it refuses the unknown member
-(`feature-unsupported`, §9.1). An edit keeps a JSONC file's comments (§13.3).
+(`feature-unsupported`, §9.1). For the same reason, a configuration leaves the member out unless it is `true`: a reader that
+predates it refuses it whatever its value. A `jsonc data` block of only comments and white space gives no fields, as an empty
+block does (§5.3). An edit keeps a JSONC file's comments (§13.3).
 
 **Resource limits.** Every format has the same three limits, beyond which a record is a `syntax-error`, so that a reader's time
 and stack are bounded whatever its parser:
@@ -1080,7 +1082,7 @@ since a resolve returns the node's value, while a reference's status only says w
 vmd: 1                                       # the format version; the only required member
 uniqueness: strict                           # or lenient (§5.7)
 yaml_quoting: compatible                     # or minimal (§4.4)
-jsonc: false                                 # true reads .jsonc files as records (§5.4)
+jsonc: true                                  # reads .jsonc files as records; omit unless true (§5.4)
 issues:                                      # severities by issue code (Appendix D)
   heading-html: error
   ref-derived-anchor: "off"

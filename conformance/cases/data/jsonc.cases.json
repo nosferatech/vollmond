@@ -124,6 +124,29 @@
           ]
         }
       }
+    },
+    {
+      "id": "jsonc-data-block-of-comments",
+      "spec": [
+        "5.3",
+        "5.4"
+      ],
+      "description": "A jsonc data block of only comments and white space gives no fields, as an empty block does (§5.4, decision V1).",
+      "input": {
+        "record": "comments-only.md"
+      },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "$body": "Part text."
+            }
+          ]
+        }
+      }
     }
   ]
 }
