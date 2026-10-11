@@ -52,7 +52,7 @@ describe("the real suite", () => {
     }
     const { results, unused_skips } = result.report;
     const selfTests = results.filter((item) => item.id.startsWith("selftest/"));
-    expect(selfTests.length).toBe(14);
+    expect(selfTests.length).toBe(16);
     expect(selfTests.every((item) => item.verdict === "pass")).toBe(true);
     expect(results.filter((item) => !item.id.startsWith("selftest/") && item.verdict !== "skip")).toEqual([]);
     expect(results.length).toBeGreaterThan(1000);

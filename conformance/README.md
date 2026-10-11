@@ -52,6 +52,7 @@ The topics to start with, each a directory under `cases/`:
 
 | Topic | Sections | Contents |
 |---|---|---|
+| `paths` | §3 | record identity and path rules |
 | `values` | §4 | the I-JSON subset, constructs outside the data model, numbers, logical types |
 | `markdown` | §5.3 | front matter, the title heading, sections, data blocks, `$body`, container blocks |
 | `data` | §5.2, §5.4, §5.5, §9.2 | JSON and YAML records, the section shape, `$` members, section keys of data titles, parse units |
@@ -622,7 +623,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.7.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.8.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -675,7 +676,8 @@ is as easy to write in any language, and its members are defined here once.
 The `selftest` cases check the runner's comparison, not the implementation. They use the `compare` operation, need no profile, and
 are always selected. They exist because the likeliest runner bugs make every case pass, or fail, without complaint. A comparison
 that compares the decimal text of numbers rather than their doubles, that tells `-0` from `0`, that lets `true` equal `1`, that
-ignores a member whose value is `null`, or that compares unordered lists as sets gives wrong verdicts. Each self-test case pairs
+ignores a member whose value is `null`, that compares arrays of different lengths item by item as far as the shorter goes, or
+that compares unordered lists as sets gives wrong verdicts. Each self-test case pairs
 two values that one specific wrong comparison would misjudge. The cases on numbers check the reader and the comparison together: a
 runner reads every number as its double, `-0` as `0` ([Reading case files](#reading-case-files)), before it compares, so
 `negative-zero` fails only when the reader keeps `-0` and the comparison tells it from `0`, and a runner's own tests check each
@@ -688,13 +690,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.7.0-dev", "case_format": 1 }
+{ "version": "0.8.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.7 gives `0.7`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.8 gives `0.8`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.7.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.8.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -740,35 +742,31 @@ Alternatives that lost:
 8. Compare as [Comparing results](#comparing-results) and [Expected issues](#expected-issues) say.
 9. Write the report, and exit with the status [Reporting results](#reporting-results) gives.
 
-### Defaults where this README is silent
+### Points the first runner settled
 
-The TypeScript runner met these points, which the rules above leave open. Each is the runner's default until the project owner
-decides it, and another runner should do the same in the meantime, so that reports compare.
+The TypeScript runner met these points, which the rules above left open. Its defaults are confirmed by the project owner
+(decision L1), so they are rules for every runner, and reports from different runners compare.
 
-- **A case file that cannot be read at all** has no case ids to report. It gives one `error` whose id is the file's id followed
-  by `/`, such as `markdown/broken/`, and a case without a usable `id` is reported as the file's id, `/#` and the case's index,
-  such as `markdown/broken/#3`, since `#` cannot occur in a local id. (Runner default, to be confirmed by the project owner.)
+- **A case file that cannot be read at all** has no case ids to report. It gives one `error` whose id is the file's id followed by
+  `/`, such as `markdown/broken/`, and a case without a usable `id` is reported as the file's id, `/#` and the case's index, such
+  as `markdown/broken/#3`, since `#` cannot occur in a local id.
 - **A malformed case and the selection.** A criterion that a malformed case cannot be matched against, because its `profiles` or
-  `spec` cannot be read, counts as met, so that a selection never hides an error. (Runner default, to be confirmed by the project
-  owner.)
-- **An operation this README does not define**, such as the reserved `serialize` and `edit` or one from a newer suite. Its
-  unknown `input` members are rejected as for any case, but whether a known member is one it takes, and which members it
-  requires, cannot be checked, so neither is. Its cases are `error` unless a skip entry covers them. (Runner default, to be
-  confirmed by the project owner.)
+  `spec` cannot be read, counts as met, so that a selection never hides an error.
+- **An operation this README does not define**, such as the reserved `serialize` and `edit` or one from a newer suite. Its unknown
+  `input` members are rejected as for any case, but whether a known member is one it takes, and which members it requires, cannot
+  be checked, so neither is. Its cases are `error` unless a skip entry covers them.
 - **The parameters of `query`** are the five that [query](#query) names. The other parameters of §10.5, `show`, `max_chars` and
-  `cursor`, are unknown members, which make a case an `error`. (Runner default, to be confirmed by the project owner.)
+  `cursor`, are unknown members, which make a case an `error`.
 - **`unused_skips` on a partial run** is left out of the report, not given as an empty list, which a reader could take for "no
-  stale entries". (Runner default, to be confirmed by the project owner.)
-- **The declaration** requires `name`, `version` and `profiles`; `skip` may be left out, meaning no entries. (Runner default, to
-  be confirmed by the project owner.)
+  stale entries".
+- **The declaration** requires `name`, `version` and `profiles`; `skip` may be left out, meaning no entries.
 - **An invalid selection** is one that names a profile §19.2 does not define, gives a criterion with no entries, or gives an empty
-  entry. (Runner default, to be confirmed by the project owner.)
-- **A missing `cases/`**, or one that cannot be listed, stops the runner with exit status 2, like a missing `suite.json`. (Runner
-  default, to be confirmed by the project owner.)
+  entry.
+- **A missing `cases/`**, or one that cannot be listed, stops the runner with exit status 2, like a missing `suite.json`.
 - **A byte order mark** at the start of a case file, a declaration or a manifest makes it unreadable. RFC 8259 lets a parser
-  ignore one, but the suite's JSON files have none. (Runner default, to be confirmed by the project owner.)
-- **`suite.commit`** is left out when the suite's directory has an uncommitted change or an untracked file, since the commit
-  would then misname the suite. (Runner default, to be confirmed by the project owner.)
+  ignore one, but the suite's JSON files have none.
+- **`suite.commit`** is left out when the suite's directory has an uncommitted change or an untracked file, since the commit would
+  then misname the suite.
 
 ---
 

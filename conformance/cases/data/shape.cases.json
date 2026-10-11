@@ -105,6 +105,13 @@
       "description": "The same in YAML (§5.4).",
       "input": {"record": "near-misses.yaml"},
       "expect": {"result": {"data": {"$key": 1, "$schema": 2, "$foo": 3, "$title": 4}, "list": [{"$sections": 5, "$body": 6}]}}
+    },
+    {
+      "id": "ref-malformed-members-checked",
+      "spec": ["8.1", "4.1", "4.2", "D"],
+      "description": "A $ref object with other members is ref-malformed at the object, and its other members are still checked, so a duplicate member and a number a double cannot hold inside it are reported too (§8.1, decisions C2 and L3).",
+      "input": {"record": "ref-malformed-members-checked.json"},
+      "expect": {"fails": true, "issues": [{"code": "ref-malformed", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent"}, {"code": "duplicate-member", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent/note/a"}, {"code": "number-not-representable", "severity": "error", "path": "ref-malformed-members-checked.json", "at": "/parent/big"}]}
     }
   ]
 }

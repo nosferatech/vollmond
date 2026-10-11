@@ -88,6 +88,18 @@
       "description": "Unordered lists are multisets; a comparison by set sees these two as equal.",
       "input": { "a": ["a", "a", "b"], "b": ["a", "b", "b"], "unordered": true },
       "expect": { "result": false }
+    },
+    {
+      "id": "array-shorter",
+      "description": "Arrays of different lengths differ; a comparison that walks only the shorter one sees [1] equal [1, 2].",
+      "input": {"a": [1], "b": [1, 2]},
+      "expect": {"result": false}
+    },
+    {
+      "id": "array-longer",
+      "description": "The same the other way round, for a comparison that walks only its first argument.",
+      "input": {"a": [1, 2], "b": [1]},
+      "expect": {"result": false}
     }
   ]
 }

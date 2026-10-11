@@ -17,7 +17,7 @@ describe("runConformance", () => {
     const directory = await makeSuite({});
     const result = await runConformance([], directory);
     expect(result).toEqual({
-      stdout: expect.stringMatching(/^conformance: 14 pass, 0 fail, 0 error, \d+ skip; report in /),
+      stdout: expect.stringMatching(/^conformance: 16 pass, 0 fail, 0 error, \d+ skip; report in /),
       stderr: "",
       exitCode: 0,
     });

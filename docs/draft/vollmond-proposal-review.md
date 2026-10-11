@@ -776,3 +776,22 @@ K14 is decision J2.
 - **K13. The portable regex** (§11.4). The claim that excluding backreferences and lookaround makes matching linear everywhere is
   corrected: it holds for RE2, while JavaScript's and Python's engines backtrack, and `(a+)+$` needs neither feature. The service
   backend will use an RE2 engine (`re2js`, unreviewed); the local CLI runs the user's own patterns.
+
+## Decisions from the runner and the value model (L)
+
+Recorded 2026-10-10, and applied to Draft v0.8. The conformance runner (#65) and the value model (#66) met five points the draft
+and the suite left open, and the project owner accepted every recommendation on card L. Since the round changes normative rules,
+the draft's minor version rises (C27), and the suite moves to `0.8.0-dev`.
+
+- **L1. The ten runner defaults** of the suite README's section on the points the first runner settled (formerly "Defaults where
+  this README is silent", #65) are confirmed. Their marks "(runner default, to be confirmed by the project owner)" are gone, and
+  they are rules for every runner.
+- **L2. Array length in the self-test.** A `compare` case in each direction asserts that `[1]` does not equal `[1, 2]`, so every
+  runner is held to comparing array lengths.
+- **L3. A `$ref` object with other members** is `ref-malformed` at the object, and its other members are still checked and their
+  issues reported, as C2 asks (§8.1, Appendix D), with a case.
+- **L4. Record extensions are compared exactly** (`.md`, `.json`, `.yaml`, `.yml`), like the rest of a path, so `a.MD` is an
+  asset, not a record (§3.1), with a case in a new suite topic, `paths`.
+- **L5. Spans.** A Markdown `$sections` array's range runs from the start of its first section to the end of its parent's range,
+  so ranges still tile the file, and an `$anchor` or `$tags` that comes from an `<a>` element has the element's own range
+  (§5.9's table). The `source_map` cases still wait for the nodes that task I1.4 lists, so no case is added.
