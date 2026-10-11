@@ -7,6 +7,13 @@
       "description": "A YAML file with CR line endings holding a block scalar of two lines and a plain scalar over two lines: a lone CR is a YAML line break (b-break), so the block scalar is its lines joined by \\n and the plain scalar folds to one line (§5.1).",
       "input": {"record": "lone-cr.yaml"},
       "expect": {"result": {"notes": "line one\nline two\n", "title": "a long plain scalar"}}
+    },
+    {
+      "id": "block-scalar-at-end-of-input",
+      "spec": ["5.1", "YAML 1.2.2 8.1.1.2"],
+      "description": "A YAML file that ends without a line break, in a folded block scalar: the last line of a block scalar keeps its line break only when it has one (b-chomped-last is a line feed or the end of input), so the folded scalar at the end is \"y\", while the literal scalar before it, whose line ends with a line break, is \"x\\n\". The yaml package (2.9.1) adds a line feed at the end of input.",
+      "input": {"record": "block-scalar-at-end.yaml"},
+      "expect": {"result": {"a": "x\n", "b": "y"}}
     }
   ]
 }

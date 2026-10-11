@@ -29,8 +29,21 @@ describe("parseRecord", () => {
     expect(() => parseRecord(path, bytes("{}"))).toThrow(/is not the path of a record/);
   });
 
-  // Deviation from the I1 design, recorded in issue #11: until their parsers land, YAML and Markdown records throw.
-  test.each(["a.yaml", "a.yml", "a.md"])("throws for %j, whose format has no parser yet", (path) => {
-    expect(() => parseRecord(path, bytes("a: 1\n"))).toThrow(/cannot be parsed yet/);
+  test.each(["notes/a.yaml", "notes/a.yml"])("parses %j as YAML", (path) => {
+    const outcome = parseRecord(path, bytes("a: 1\n"));
+    expect(outcome.ok && outcome.value).toMatchObject({ path, format: "yaml", value: { a: 1 } });
+  });
+
+  test("fails with the YAML parser's structural errors", () => {
+    expect(parseRecord("a.yaml", bytes("- 1\n")).issues.map((issue) => issue.code)).toEqual(["root-not-object"]);
+  });
+
+  test("a .YAML file is not a record: extensions are compared exactly", () => {
+    expect(() => parseRecord("a.YAML", bytes("a: 1\n"))).toThrow(/is not the path of a record/);
+  });
+
+  // Deviation from the I1 design, recorded in issue #11: until its parser lands, a Markdown record throws.
+  test("throws for a .md record, whose format has no parser yet", () => {
+    expect(() => parseRecord("a.md", bytes("a: 1\n"))).toThrow(/cannot be parsed yet/);
   });
 });

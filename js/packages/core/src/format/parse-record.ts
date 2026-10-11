@@ -2,15 +2,17 @@ import { fail, type Outcome } from "../issue/outcome.js";
 import { type ParsedRecord, type RecordFormat, recordFormatOf } from "../record/record.js";
 import { decodeSource, type SourceText } from "../text/source-text.js";
 import { parseJsonRecord } from "./json.js";
+import { parseYamlRecord } from "./yaml.js";
 
 /** Parses a decoded record file of one format into its value view, or fails with its structural errors. */
 type FormatParser = (path: string, source: SourceText) => Outcome<ParsedRecord>;
 
-// Deviation from the I1 design, recorded in issue #11: YAML and Markdown records have no parser yet, since their pull
-// requests add their entries here.
+// Deviation from the I1 design, recorded in issue #11: Markdown records have no parser yet, since its pull request adds
+// its entry here.
 /** The parser of each record format. */
 const FORMAT_PARSERS: { readonly [Format in RecordFormat]?: FormatParser } = {
   json: parseJsonRecord,
+  yaml: parseYamlRecord,
 };
 
 /**

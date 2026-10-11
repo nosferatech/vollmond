@@ -3,7 +3,8 @@ import type { ComparedIssue, OperationAdapter } from "../operation.js";
 
 /**
  * The `parse` operation: the record's value view, through core's `parseRecord`, or the structural errors that make it fail.
- * A record that the store does not hold is a mistake in the suite, and the case crashes.
+ * The validation issues of a record that parses are not part of the suite's `parse` results, so a success reports none. A
+ * record that the store does not hold is a mistake in the suite, and the case crashes.
  */
 export const parseOperation: OperationAdapter = {
   validate: (input) => (typeof input.record === "string" ? undefined : "input.record must be a store path"),
@@ -15,7 +16,7 @@ export const parseOperation: OperationAdapter = {
     }
     const outcome = parseRecord(path, bytes);
     return outcome.ok
-      ? { ok: true, result: outcome.value.value, issues: outcome.issues.map(compared) }
+      ? { ok: true, result: outcome.value.value, issues: [] }
       : { ok: false, issues: outcome.issues.map(compared) };
   },
 };

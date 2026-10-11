@@ -2,6 +2,7 @@
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
 export { parseRecord } from "./format/parse-record.js";
+export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type YamlUnitPlace } from "./format/yaml.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
 export { hasStructuralError, type Issue, type IssueInit, makeIssue, type NameOccurrence, repeatedNodes } from "./issue/issue.js";
 export { fail, type Outcome, succeed } from "./issue/outcome.js";
@@ -39,6 +40,7 @@ export type {
   StorageReader,
 } from "./storage/storage.js";
 export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
+export { readLineBreaksAsLf, sliceUnitText, type UnitText } from "./text/unit-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";
 export { jcs } from "./value/jcs.js";
 export { type NotRepresentableReason, type NumberLiteralReading, type NumberSyntax, readNumberLiteral } from "./value/number.js";
