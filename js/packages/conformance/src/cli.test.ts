@@ -18,10 +18,12 @@ describe("runConformance", () => {
     const result = await runConformance([], directory);
     const selfTests = await countSelfTestCases();
     expect(result).toEqual({
-      stdout: expect.stringMatching(new RegExp(`^conformance: ${selfTests} pass, 0 fail, 0 error, \\d+ skip; report in `)),
+      stdout: expect.stringMatching(/^conformance: \d+ pass, 0 fail, 0 error, \d+ skip; report in /),
       stderr: "",
       exitCode: 0,
     });
+    // The self-test passes, and so do the cases of the operations the runner implements.
+    expect(Number(/^conformance: (\d+) pass/.exec(result.stdout)?.[1])).toBeGreaterThan(selfTests);
     expect(result.stdout).toContain(join(directory, "conformance-report.json"));
     const report = JSON.parse(await readFile(join(directory, "conformance-report.json"), "utf8"));
     expect(report.implementation).toEqual({ name: "vollmond-ts", version: "0.0.0", profiles: ["read"] });

@@ -1,6 +1,7 @@
 /** Name of this package, for messages that identify which library produced them. */
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
+export { parseRecord } from "./format/parse-record.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
 export { hasStructuralError, type Issue, type IssueInit, makeIssue, type NameOccurrence, repeatedNodes } from "./issue/issue.js";
 export { fail, type Outcome, succeed } from "./issue/outcome.js";
