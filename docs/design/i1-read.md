@@ -2,9 +2,9 @@
 
 Status: approved by the project owner, 2026-10-10 (#59), with the owner's answers to its questions on card K applied (section 9).
 It designs tasks I1.1 to I1.11 of [the implementation plan](../plan/implementation-plan.md) (issues #10 to #20) against Draft v0.6
-of [the proposal](../draft/vollmond-proposal.md). Draft v0.7 (#61) applies the answers of card K that change the specification,
-with the decision-log section "Answers from the phase I1 design (K)", and card J's J2, which answers one more of its questions.
-Sections of the proposal are cited as §n, and decisions by their cards in the [decision
+of [the proposal](../draft/vollmond-proposal.md). Draft v0.7 (#61, commit `c3032a6` on `main`) applies the answers of card K that
+change the specification, with the decision-log section "Answers from the phase I1 design (K)", and card J's J2, which answers one
+more of its questions. Sections of the proposal are cited as §n, and decisions by their cards in the [decision
 log](../draft/vollmond-proposal-review.md). Card I1's decision ids collide with the plan's task ids, so here "I1.4" alone is a
 task, and "decision I1.4" is a decision.
 
@@ -518,10 +518,11 @@ export interface Store {
   then cannot hide itself. The runner exits with 2 on an `input` member that an operation does not take (Draft v0.6's suite
   README).
 - **Profiles.** The declaration claims `["read"]`, and states that I1 produces source maps once their cases exist (§19.2).
-- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; none is pending once #61 has merged.
-  PR A implements only `compare`, and skips every other operation by an `operation` entry. When a pull request brings an
-  operation, it replaces that entry by `id` entries for the cases still out of reach (PR C turns `parse` into entries for the YAML
-  and Markdown cases, which D and E remove). `unused_skips` shows leftovers, and a flag `--ids-failing` prints the failing ids.
+- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; none is pending since Draft v0.7
+  (`c3032a6`). PR A implements only `compare`, and skips every other operation by an `operation` entry. When a pull request brings
+  an operation, it replaces that entry by `id` entries for the cases still out of reach (PR C turns `parse` into entries for the
+  YAML and Markdown cases, which D and E remove). `unused_skips` shows leftovers, and a flag `--ids-failing` prints the failing
+  ids.
 - **CI.** The `js` job runs `npm run conformance` after `npm test`, and any `fail` or `error` fails it. The report is uploaded
   with `actions/upload-artifact`, pinned by commit hash like the workflow's other actions.
 
