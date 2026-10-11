@@ -62,10 +62,11 @@ describe("compileGlob", () => {
     const path = Array.from({ length: 25 }, () => "a").join("/");
     const start = performance.now();
     // A backtracking regex takes about 100 s on the first, which a merge alone would fix, and on the second, which it would not.
+    // The bound is far from both, so that a loaded machine does not fail it: it tells milliseconds from minutes.
     expect(globTest(`${Array.from({ length: 12 }, () => "**").join("/")}/b`)(path)).toBe(false);
     expect(globTest(`${Array.from({ length: 12 }, () => "**/a").join("/")}/b`)(path)).toBe(false);
     expect(globTest(`${Array.from({ length: 12 }, () => "*a*").join("*/")}/b`)(path)).toBe(false);
-    expect(performance.now() - start).toBeLessThan(500);
+    expect(performance.now() - start).toBeLessThan(5000);
   });
 });
 

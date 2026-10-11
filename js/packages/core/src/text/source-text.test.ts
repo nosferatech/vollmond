@@ -91,14 +91,15 @@ describe("positions", () => {
   });
 
   test("cost does not grow with the length of the line", () => {
-    // A 2 MB single line with characters of every width; 2,000 positions near its end would take seconds at one step per
-    // character, and take milliseconds through the table.
+    // A 2 MB single line with characters of every width; 20,000 positions near its end would take minutes at one step per
+    // character, and take milliseconds through the table. The bound is far from both, so that a loaded machine does not
+    // fail it.
     const line = "a\u{E9}\u{20AC}\u{1F600}".repeat(200_000);
     const text = source(line);
     const end = text.bytes.length;
     const started = performance.now();
-    for (let k = 0; k < 2000; k++) text.position(end - 10 * k);
-    expect(performance.now() - started).toBeLessThan(500);
+    for (let k = 0; k < 20_000; k++) text.position(end - 10 * k);
+    expect(performance.now() - started).toBeLessThan(5000);
     expect(text.position(end)).toEqual({ offset: end, line: 1, col: 4 * 200_000 + 1 });
   });
 
