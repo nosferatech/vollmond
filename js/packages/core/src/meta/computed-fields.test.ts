@@ -4,7 +4,7 @@ import { resolveAddress, type Target } from "../address/resolve.js";
 import { parseRecord } from "../format/parse-record.js";
 import type { ParsedRecord } from "../record/record.js";
 import { nodeVersion } from "../value/digest.js";
-import { COMPUTED_FIELD_NAMES, computeFields } from "./computed-fields.js";
+import { COMPUTED_FIELD_NAMES, computeFields, NOT_COMPUTED_FIELDS } from "./computed-fields.js";
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
 
@@ -60,6 +60,8 @@ describe("computed fields", () => {
       "@version": await nodeVersion(value[1] as never),
       "@source": { range: { start, end: TICKET.length }, line: 14, col: 1 },
       "@issues": [],
+      "@refs": null,
+      "@collection": null,
       "@depth": 1,
     });
     expect(Object.keys(fields)).toEqual([
@@ -71,6 +73,8 @@ describe("computed fields", () => {
       "@version",
       "@source",
       "@issues",
+      "@refs",
+      "@collection",
       "@depth",
     ]);
   });
@@ -103,10 +107,13 @@ describe("computed fields", () => {
     expect(Object.keys(fields)).toEqual(["@key", "@path"]);
   });
 
-  test("leave out @refs and @collection, which need references and the configuration", async () => {
+  test("give @refs and @collection, which are not computed yet, as null, so that absent and not computed differ", async () => {
     expect(await computeFields(ticket, "/status", ["@refs", "@collection", "@path"])).toEqual({
+      "@refs": null,
+      "@collection": null,
       "@path": "tickets/0171.md",
     });
+    expect(NOT_COMPUTED_FIELDS).toEqual(["@refs", "@collection"]);
   });
 
   test("hash the value, not its source text, for @version", async () => {
@@ -151,6 +158,8 @@ describe("computed fields", () => {
       "@source": { range: { start, end: start + item.length }, line: 3, col: 1 },
       "@range": { start: 0, end: item.length },
       "@issues": [],
+      "@refs": null,
+      "@collection": null,
     });
   });
 

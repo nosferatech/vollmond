@@ -11,9 +11,12 @@ import { argumentCountProblem, readWholeNumber } from "./options.js";
 /**
  * Searches the store's records and assets, those whose paths the glob matches, for lines that match a pattern in the portable
  * regex subset, or a literal string with `-F`; `-i` matches regardless of case. `.vmd/` and dotfiles are not searched. Each
- * match is a line `path:line:text`, preceded and followed by up to `-C` lines of context, written `path-line-text`; with context,
- * groups that do not touch are separated by `--`, and a line is printed once even when it is context for two matches. At most `-n`
- * matches (50 by default) are printed, then, when more remain, an estimate of their number and the cursor.
+ * match is a line `path:line:text`, preceded and followed by up to `-C` lines of context, written `path-line-text`, in GNU
+ * grep's format, which agents and people already read; `--json` gives the exact form, since a path that holds `:12:` makes
+ * the text ambiguous.
+ * With `-C`, even `-C 0`, groups that do not touch are separated by `--`, as GNU grep does; a line is printed once even when
+ * it is context for two matches. At most `-n` matches (50 by default) are printed, then, when more remain, an estimate of their
+ * number and the cursor.
  */
 export const GREP_COMMAND: Command = {
   name: "grep",
@@ -32,8 +35,9 @@ export const GREP_COMMAND: Command = {
     "  GLOB     the store paths to search, such as docs/**/*.md\n" +
     "  -F       take PATTERN as a literal string\n" +
     "  -i       match regardless of case\n" +
-    "  -C N     print N lines of context around each match\n" +
-    "  -n N     print at most N matches, 50 by default; --cursor C continues after them\n",
+    "  -C N     print N lines of context around each match, and -- between groups that do not touch\n" +
+    "  -n N     print at most N matches, 50 by default; --cursor C continues after them\n" +
+    "Lines are path:line:text, and context lines path-line-text, as GNU grep prints them; --json gives the exact form.\n",
   readsStore: true,
   prepare: ({ positionals, options }) => {
     const problem = argumentCountProblem(positionals, 1, 2, "the pattern");
@@ -57,7 +61,9 @@ export const GREP_COMMAND: Command = {
           ...(glob === undefined ? {} : { glob }),
           ...(cursor === undefined ? {} : { cursor }),
         });
-        return outcomeOutput(page, (value) => formatMatches(value, context.value > 0));
+        // GNU grep separates groups whenever context is given, -C 0 included (src/grep.c, prtext: `0 <= out_before ||
+        // 0 <= out_after`, read on 2026-10-11 at cgit.git.savannah.gnu.org/cgit/grep.git/plain/src/grep.c).
+        return outcomeOutput(page, (value) => formatMatches(value, options.context !== undefined));
       },
     };
   },

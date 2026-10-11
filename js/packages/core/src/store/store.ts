@@ -1,11 +1,24 @@
 import type { AddressReading } from "../address/address.js";
-import { type AddressUse, canonicalAddress, resolveStoreAddress, type StoreResolution, type Target } from "../address/resolve.js";
+import {
+  type AddressUse,
+  blockAnchorAddress,
+  canonicalAddress,
+  resolveStoreAddress,
+  type StoreResolution,
+  type Target,
+} from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import { parseRecord } from "../format/parse-record.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
-import { type ComputedFieldName, type ComputedFields, computeFields } from "../meta/computed-fields.js";
-import type { NodeInfo } from "../record/node-index.js";
+import {
+  COMPUTED_FIELD_NAMES,
+  type ComputedFieldName,
+  type ComputedFields,
+  computeFields,
+  NOT_COMPUTED_FIELDS,
+} from "../meta/computed-fields.js";
+import type { NodeInfo, SectionInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, StorageReader } from "../storage/storage.js";
@@ -69,29 +82,41 @@ export interface GetResult {
   readonly meta?: ComputedFields;
 }
 
-/** A node as an outline lists it: where it is, what it is called, and how large it is, without its content. */
+/**
+ * A node or a block anchor as an outline lists it: where it is, what it is called, and how large it is, without its content.
+ */
 export interface OutlineEntry {
   /** The node's exact path; for a block anchor, of its `$body`. */
   readonly at: string;
-  /** The node's canonical address, as a fragment with its `#`, or `""` for the root. */
+  /** The node's canonical address, as a fragment with its `#`, or `""` for the root; a block anchor's own. */
   readonly address: string;
-  /** A section's key; absent for the root and for other nodes. */
+  /** A section's key, or a member's name; absent for the root, a block anchor and an array item. */
   readonly key?: string;
   /** A section's `$title`, when it has one. */
   readonly title?: string;
   /** A section's depth, 0 for the root; absent for other nodes. */
   readonly depth?: number;
-  /** The size of the node's source in the file, in bytes. */
+  /** The size of the node's source in the file, in bytes; for a block anchor, of its block. */
   readonly size: number;
+  /**
+   * For a section, the block anchors of its own `$body`, in document order, when the outline goes down to them:
+   * they are one level below the section. Absent for other nodes, and for a section at the outline's last level.
+   */
+  readonly blocks?: readonly OutlineEntry[];
 }
 
-/** The outline of a node: the node itself, and the sections below it. */
+/** The outline of a node: the node itself, the sections below it, and a data record's members. */
 export interface Outline {
   /** The record's store path. */
   readonly path: string;
   readonly node: OutlineEntry;
   /** The sections below the node, at any depth up to the requested one, in document order. */
   readonly sections: readonly OutlineEntry[];
+  /**
+   * For the root of a JSON or YAML record, its top-level members but `$sections`, whose sections are listed in `sections`,
+   * in document order, when the outline goes down one level; absent for any other node and for a Markdown record.
+   */
+  readonly members?: readonly OutlineEntry[];
 }
 
 /**
@@ -114,13 +139,17 @@ export interface Store {
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>>;
   /**
    * Reads the node a singular address names, in the requested form, with the requested computed fields. Fails as resolving
-   * does, and with `address-not-found` for the body form of a node that is neither a section, a `$body` nor a block anchor.
-   * A section without a `$body` gives the empty string. `@refs` and `@collection` are never given yet.
+   * does, and with `usage-invalid` for the body form of a node that is neither a section, a `$body` nor a block anchor, since
+   * the address is fine and the form does not apply. A section without a `$body` gives the empty string.
+   * Requested fields that are not computed yet ({@link NOT_COMPUTED_FIELDS}) are given as `null`, with one warning
+   * `field-not-computed` that names them.
    */
   get(address: string, options?: GetOptions): Promise<Outcome<GetResult>>;
   /**
    * Outlines the node a singular address names: the node, and each section below it whose depth below the node is at most
-   * `depth`, every one when `depth` is absent. A node that is not a section has no sections below it. Fails as resolving does.
+   * `depth`, every one when `depth` is absent; each section's block anchors, which are one level below it; and for the root of
+   * a JSON or YAML record, its top-level members, one level below it. `depth` bounds them all alike, so that nothing is listed
+   * more than `depth` levels below the node. A node that is not a section has no sections below it. Fails as resolving does.
    *
    * Throws a `RangeError` for a `depth` that is not an integer of at least 0.
    */
@@ -205,7 +234,10 @@ class BackendStore implements Store {
     const value = formOf(record, target, options.form ?? "value");
     if (!value.ok) return fail(value.issues);
     if (options.meta === undefined) return succeed({ value: value.value });
-    return succeed({ value: value.value, meta: await computeFields(record, target, options.meta) });
+    const meta = await computeFields(record, target, options.meta);
+    const requested: readonly ComputedFieldName[] = options.meta === "all" ? COMPUTED_FIELD_NAMES : options.meta;
+    const pending = NOT_COMPUTED_FIELDS.filter((name) => requested.includes(name));
+    return succeed({ value: value.value, meta }, pending.length === 0 ? [] : [notComputedWarning(pending)]);
   }
 
   async outline(
@@ -226,15 +258,25 @@ class BackendStore implements Store {
       const entry: OutlineEntry = { at: target.at, address: target.address, size: sizeOf(block.fileRange) };
       return succeed({ path: record.path, node: entry, sections: [] });
     }
+    // Whether the outline goes down to `levels` below the node.
+    const reaches = (levels: number) => depth === undefined || levels <= depth;
+    const entry = (section: NodeInfo) =>
+      outlineEntry(record, section, section.kind === "section" && reaches(section.depth - (node as SectionInfo).depth + 1));
     const sections =
       node.kind !== "section"
         ? []
         : record.nodes
             .sections()
             .filter((section) => section.at.startsWith(`${node.at}/`))
-            .filter((section) => depth === undefined || section.depth - node.depth <= depth)
-            .map((section) => outlineEntry(record, section));
-    return succeed({ path: record.path, node: outlineEntry(record, node), sections });
+            .filter((section) => reaches(section.depth - node.depth))
+            .map(entry);
+    const outline: Outline = { path: record.path, node: entry(node), sections };
+    if (node.at !== "" || record.format === "md" || !reaches(1)) return succeed(outline);
+    const members = record.nodes
+      .children("")
+      .filter((member) => member.key !== "$sections")
+      .map((member) => outlineEntry(record, member, false));
+    return succeed({ ...outline, members });
   }
 
   async list(query: StoreListQuery): Promise<Outcome<StorePage>> {
@@ -273,7 +315,7 @@ class BackendStore implements Store {
   }
 }
 
-/** Gives a resolved node in a form, or fails with `address-not-found` for a body the node does not have. */
+/** Gives a resolved node in a form, or fails with `usage-invalid` for a body the node does not have. */
 function formOf(record: ParsedRecord, target: Target, form: NodeForm): Outcome<Value> {
   const block = blockAnchorOf(record, target);
   const node = record.nodes.node(target.at) as NodeInfo;
@@ -289,13 +331,25 @@ function formOf(record: ParsedRecord, target: Target, form: NodeForm): Outcome<V
   const shown = `${record.path}${target.address}`;
   return fail([
     makeIssue({
-      code: "address-not-found",
+      code: "usage-invalid",
       path: record.path,
       at: null,
       message: `${shown} is not a section, so it has no $body`,
-      hint: "read it without --body",
+      hint: "--body reads a section, a $body or a block anchor; read this node without it",
     }),
   ]);
+}
+
+/** The warning for requested computed fields that are not computed yet, which a read gives as `null`. */
+function notComputedWarning(names: readonly ComputedFieldName[]): Issue {
+  const one = names.length === 1;
+  const listed = one ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  return makeIssue({
+    code: "field-not-computed",
+    path: null,
+    at: null,
+    message: `${listed} ${one ? "is" : "are"} not computed yet, so ${one ? "it is" : "they are"} given as null`,
+  });
 }
 
 /** Finds the block anchor a target names, or undefined for a target that is a node. */
@@ -308,18 +362,24 @@ function blockAnchorOf(record: ParsedRecord, target: Target): BlockAnchorEntry |
   );
 }
 
-/** Gives the outline entry of a node. */
-function outlineEntry(record: ParsedRecord, node: NodeInfo): OutlineEntry {
+/** Gives the outline entry of a node: for a member, with its name; for a section, with its block anchors when `withBlocks`. */
+function outlineEntry(record: ParsedRecord, node: NodeInfo, withBlocks: boolean): OutlineEntry {
   const base = { at: node.at, address: canonicalAddress(record, node.at), size: sizeOf(node.range) };
-  if (node.kind !== "section") return base;
+  if (node.kind !== "section") return typeof node.key === "string" ? { ...base, key: node.key } : base;
   const key = record.sectionKeys.get(node.at);
   const title = (valueAt(record, node.at) as ValueObject).$title;
-  return {
+  const section: OutlineEntry = {
     ...base,
     ...(key === undefined ? {} : { key }),
     ...(typeof title === "string" ? { title } : {}),
     depth: node.depth,
   };
+  if (!withBlocks) return section;
+  const body = `${node.at}/$body`;
+  const blocks = record.anchors.anchors
+    .filter((entry): entry is BlockAnchorEntry => entry.kind === "block" && entry.at === body)
+    .map((entry) => ({ at: entry.at, address: blockAnchorAddress(record, entry), size: sizeOf(entry.fileRange) }));
+  return { ...section, blocks };
 }
 
 /** The number of bytes in a range. */

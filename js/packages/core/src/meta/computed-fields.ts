@@ -27,6 +27,14 @@ export const COMPUTED_FIELD_NAMES = [
 /** The name of a computed field. */
 export type ComputedFieldName = (typeof COMPUTED_FIELD_NAMES)[number];
 
+// TODO(#24): `@refs` needs references, and TODO(#21): `@collection` needs the configuration's collections.
+/**
+ * The computed fields that are not computed yet, in the order of {@link COMPUTED_FIELD_NAMES}. Until they are, a read that
+ * requests them gives them as `null`, with a warning `field-not-computed` that names them, so that a field that is absent and
+ * one not computed yet cannot be confused.
+ */
+export const NOT_COMPUTED_FIELDS: readonly ComputedFieldName[] = ["@refs", "@collection"];
+
 /** An anchor as `@anchors` lists it. */
 export interface ComputedAnchor {
   readonly name: string;
@@ -77,6 +85,10 @@ export interface ComputedFields {
   readonly "@range"?: ByteRange;
   /** The issues found while parsing that are attached to the node; for a block anchor, those at its offsets. */
   readonly "@issues"?: readonly ComputedIssue[];
+  /** The references the node contains: null, since they are not computed yet ({@link NOT_COMPUTED_FIELDS}). */
+  readonly "@refs"?: null;
+  /** The record's collection: null, since it is not computed yet ({@link NOT_COMPUTED_FIELDS}). */
+  readonly "@collection"?: null;
   /** A section's depth, 0 for the root. */
   readonly "@depth"?: number;
   /** For a section, the same requested fields of each section below it, at any depth, by exact path. */
@@ -86,13 +98,11 @@ export interface ComputedFields {
 // Deviation from the I1 design, recorded in issue #15: the subject is a node's exact path or a target, not a path alone, since a
 // block anchor has computed fields of its own (`@range`, its anchor) and shares its `$body`'s path. A target, and not any
 // object with a range, so that a node of the index, whose range is in the file, cannot be taken for a block anchor.
-// TODO(#24): `@refs` needs references, and TODO(#21): `@collection` needs the configuration's collections; until then both
-// are left out when requested.
 /**
  * Computes the requested fields of a node of a parsed record, given by its exact path, or of a target that resolving an
  * address in the record gave, which may be a block anchor. `all` requests every field but `@nodes`, which is requested by
- * name. `@refs` and `@collection` are never given yet. `@issues` holds the issues found while parsing, with their default
- * severities.
+ * name. `@refs` and `@collection` are not computed yet, and are given as `null` ({@link NOT_COMPUTED_FIELDS}), which the
+ * caller warns about. `@issues` holds the issues found while parsing, with their default severities.
  *
  * Throws a `RangeError` when the record has no node at the path, for a target of another record, and for a target with a
  * range that is not one of the record's block anchors. `@version` hashes the value with the runtime's Web Crypto API.
@@ -176,7 +186,7 @@ async function fieldOf(
     }
     case "@refs":
     case "@collection":
-      return undefined;
+      return null;
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { displayWidth, formatColumns, oneLine } from "./lines.js";
+import { displayWidth, formatColumns, oneLine, terminalText } from "./lines.js";
 
 describe("oneLine", () => {
   test("keeps a title with a line break on one line", () => {
@@ -17,6 +17,26 @@ describe("oneLine", () => {
   test("keeps every other character, a tab-free line with non-ASCII text and a backslash included", () => {
     const text = "Überblick — 概要 😀 \\n é";
     expect(oneLine(text)).toBe(text);
+  });
+});
+
+describe("terminalText", () => {
+  test("escapes every control but the line feed and the tab: C0, DEL and C1, a carriage return included", () => {
+    expect(terminalText("a\nb\tc\rd\u0000e\u001bf\u007fg\u0080h\u009fi")).toBe(
+      "a\nb\tc\\rd\\u0000e\\u001bf\\u007fg\\u0080h\\u009fi",
+    );
+  });
+
+  test("escapes each of the twelve bidirectional formatting characters", () => {
+    const bidi = [0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069];
+    for (const code of bidi) {
+      expect(terminalText(String.fromCodePoint(code))).toBe(`\\u${code.toString(16).padStart(4, "0")}`);
+    }
+  });
+
+  test("keeps every other character: the line and paragraph separators, other format characters, a backslash", () => {
+    const text = "\u2028\u2029\u200b\u200d\u00ad\ufeff Überblick 概要 😀 \\u001b";
+    expect(terminalText(text)).toBe(text);
   });
 });
 

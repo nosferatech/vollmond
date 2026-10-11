@@ -153,18 +153,58 @@ describe("Store.get", () => {
     expect(successValue(await store.get("docs/guide.md#step", { form: "source" })).value).toBe('- <a id="step"></a>First step.');
   });
 
-  test("fails with address-not-found for the body of a node that is not a section", async () => {
+  test("fails with usage-invalid, with a hint, for the body of a node that is not a section (decision S7)", async () => {
     const store = await storeOf();
-    expect(codesOf(await store.get("data.json#status", { form: "body" }))).toEqual(["address-not-found"]);
+    const outcome = await store.get("data.json#status", { form: "body" });
+    expect(codesOf(outcome)).toEqual(["usage-invalid"]);
+    expect(outcome.issues[0]?.hint).toBeDefined();
+    // The address is fine: the same node reads in the other forms.
+    expect(successValue(await store.get("data.json#status", { form: "source" })).value).toBe('"open"');
   });
 
   test("gives the requested computed fields beside the value", async () => {
     const store = await storeOf();
-    const result = successValue(await store.get("docs/guide.md#install", { meta: ["@address", "@depth", "@refs"] }));
-    expect(result.meta).toEqual({ "@address": "#install", "@depth": 1 });
+    const result = await store.get("docs/guide.md#install", { meta: ["@address", "@depth"] });
+    expect(successValue(result).meta).toEqual({ "@address": "#install", "@depth": 1 });
+    expect(result.issues).toEqual([]);
     const all = successValue(await store.get("docs/guide.md#step", { meta: "all" }));
     expect(all.meta?.["@range"]).toBeDefined();
     expect(all.meta?.["@anchors"]).toEqual([{ name: "step", kind: "block" }]);
+  });
+
+  test("gives the fields not computed yet as null, with one field-not-computed warning naming them (§5.10)", async () => {
+    const store = await storeOf();
+    const one = await store.get("docs/guide.md#install", { meta: ["@address", "@refs", "@depth"] });
+    expect(successValue(one).meta).toEqual({ "@address": "#install", "@refs": null, "@depth": 1 });
+    expect(one.issues.map(({ code, severity }) => ({ code, severity }))).toEqual([
+      { code: "field-not-computed", severity: "warning" },
+    ]);
+    expect(one.issues[0]?.message).toContain("@refs");
+    expect(one.issues[0]?.message).not.toContain("@collection");
+    const all = await store.get("docs/guide.md#install", { meta: "all" });
+    expect(Object.keys(successValue(all).meta ?? {})).toEqual([
+      "@path",
+      "@at",
+      "@address",
+      "@key",
+      "@anchors",
+      "@version",
+      "@source",
+      "@issues",
+      "@refs",
+      "@collection",
+      "@depth",
+    ]);
+    expect(successValue(all).meta?.["@collection"]).toBeNull();
+    expect(all.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
+    expect(all.issues[0]?.message).toMatch(/@refs and @collection/);
+    // The sections below a node, with @nodes, give them as null too, under the one warning.
+    const nodes = await store.get("docs/guide.md#install", { meta: ["@collection", "@nodes"] });
+    expect(successValue(nodes).meta).toEqual({
+      "@collection": null,
+      "@nodes": { "/$sections/0/$sections/0": { "@collection": null } },
+    });
+    expect(nodes.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
   });
 
   test("fails as resolving does: a missing record, a malformed address, an ambiguous one", async () => {
@@ -184,15 +224,66 @@ describe("Store.outline", () => {
     const store = await storeOf();
     const outline = successValue(await store.outline("docs/guide.md"));
     expect(outline.path).toBe("docs/guide.md");
-    expect(outline.node).toEqual({ at: "", address: "", title: "Guide", depth: 0, size: GUIDE.length });
+    expect(outline.node).toEqual({ at: "", address: "", title: "Guide", depth: 0, size: GUIDE.length, blocks: [] });
     // A section's range holds the sections below it.
     const install = GUIDE.slice(GUIDE.indexOf("## Install"), GUIDE.indexOf("## Use")).length;
     const linux = GUIDE.slice(GUIDE.indexOf("### Linux"), GUIDE.indexOf("## Use")).length;
+    const step = { at: "/$sections/0/$body", address: "#step", size: '- <a id="step"></a>First step.'.length };
     expect(outline.sections).toEqual([
-      { at: "/$sections/0", address: "#install", key: "install", title: "Install", depth: 1, size: install },
-      { at: "/$sections/0/$sections/0", address: "#install/linux", key: "linux", title: "Linux", depth: 2, size: linux },
-      { at: "/$sections/1", address: "#use", key: "use", title: "Use", depth: 1, size: "## Use\n\n".length },
+      { at: "/$sections/0", address: "#install", key: "install", title: "Install", depth: 1, size: install, blocks: [step] },
+      {
+        at: "/$sections/0/$sections/0",
+        address: "#install/linux",
+        key: "linux",
+        title: "Linux",
+        depth: 2,
+        size: linux,
+        blocks: [],
+      },
+      { at: "/$sections/1", address: "#use", key: "use", title: "Use", depth: 1, size: "## Use\n\n".length, blocks: [] },
     ]);
+    // A Markdown record's front matter is not listed as members: only a JSON or YAML record's are (decision S3).
+    expect(outline.members).toBeUndefined();
+  });
+
+  test("lists each section's block anchors under it, in document order, and the outlined section's own (decision S3)", async () => {
+    const page = '# P\n\n<a id="lead"></a>Lead.\n\n- <a id="one"></a>One.\n- <a id="two"></a>Two.\n\n## S\n\nText.\n';
+    const store = await storeOf({ ...FILES, "page.md": page });
+    const outline = successValue(await store.outline("page.md"));
+    expect(outline.node.blocks?.map((block) => [block.address, block.at, block.size])).toEqual([
+      ["#lead", "/$body", '<a id="lead"></a>Lead.'.length],
+      ["#one", "/$body", '- <a id="one"></a>One.'.length],
+      ["#two", "/$body", '- <a id="two"></a>Two.'.length],
+    ]);
+    expect(outline.sections.map((section) => section.blocks)).toEqual([[]]);
+    // A block is one level below its section, so `depth` bounds it as it bounds the sections.
+    const one = successValue(await store.outline("page.md", { depth: 1 }));
+    expect(one.node.blocks).toHaveLength(3);
+    expect(one.sections).toEqual([expect.not.objectContaining({ blocks: expect.anything() })]);
+    expect(successValue(await store.outline("page.md", { depth: 0 })).node).not.toHaveProperty("blocks");
+  });
+
+  test("lists a JSON or YAML record's top-level members, but not $sections, whose sections it lists (decision S3)", async () => {
+    const yaml = "status: open\ntags:\n  - a\n  - b\n";
+    const store = await storeOf({ ...FILES, "r.yaml": yaml });
+    const json = successValue(await store.outline("data.json"));
+    expect(json.members).toEqual([{ at: "/status", address: "#status", key: "status", size: '"open"'.length }]);
+    expect(json.sections.map((section) => section.title)).toEqual(["Notes"]);
+    const fromYaml = successValue(await store.outline("r.yaml"));
+    expect(fromYaml.members?.map((member) => [member.address, member.key, member.size])).toEqual([
+      ["#status", "status", "open".length],
+      // A YAML value's range starts at its first item, after the indentation.
+      ["#tags", "tags", "- a\n  - b".length],
+    ]);
+    // A Markdown record's front matter is in its root too, but only a data record lists members.
+    const markdown = await storeOf({ ...FILES, "fm.md": "---\nstatus: open\n---\n\n# T\n" });
+    expect(successValue(await markdown.outline("fm.md")).members).toBeUndefined();
+    // Members are the record's: a section of the record, or a member, has none listed.
+    expect(successValue(await store.outline("data.json#notes")).members).toBeUndefined();
+    expect(successValue(await store.outline("data.json#status")).members).toBeUndefined();
+    // A member is one level below the root, so `depth` bounds it as it bounds the sections.
+    expect(successValue(await store.outline("data.json", { depth: 1 })).members).toHaveLength(1);
+    expect(successValue(await store.outline("data.json", { depth: 0 })).members).toBeUndefined();
   });
 
   test("goes down at most `depth` levels below the node", async () => {
@@ -210,7 +301,7 @@ describe("Store.outline", () => {
     const store = await storeOf();
     expect(successValue(await store.outline("data.json#status"))).toEqual({
       path: "data.json",
-      node: { at: "/status", address: "#status", size: 6 },
+      node: { at: "/status", address: "#status", key: "status", size: 6 },
       sections: [],
     });
     const block = successValue(await store.outline("docs/guide.md#step"));

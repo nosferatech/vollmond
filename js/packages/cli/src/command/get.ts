@@ -1,5 +1,5 @@
-// `vmd get ADDR [--value|--body] [--max-chars N] [--meta F,..|all]`: one node, in its source or as a value, with its computed
-// fields.
+// `vmd get ADDR [--value|--body|--source] [--max-chars N] [--meta F,..|all]`: one node, in its source or as a value, with its
+// computed fields.
 
 import {
   COMPUTED_FIELD_NAMES,
@@ -21,41 +21,42 @@ export const DEFAULT_MAX_CHARS = 20_000;
 /** The computed fields `all` stands for: every one but `@nodes`, which is requested by name. */
 const ALL_FIELDS: readonly ComputedFieldName[] = COMPUTED_FIELD_NAMES.filter((name) => name !== "@nodes");
 
-/** The computed fields that are not computed yet, which the text output says it leaves out. */
-const NOT_YET_COMPUTED: ReadonlySet<ComputedFieldName> = new Set(["@refs", "@collection"]);
-
-// Deviations from the specification, recorded in issue #18: `--fields` and `--no-value` are not offered yet, and under
-// `--json` the node is given as its value unless `--body` is given, as the specification's example of `--meta all --json`
-// shows; `--max-chars` cuts the text output only.
+// Deviation from the specification, recorded in issue #18: `--fields` and `--no-value` are not offered yet.
 /**
  * Prints the node a singular address names, a record's root without a fragment. Without `--json` it prints the node's source
- * by default, `--value` its value view as JSON, and `--body` a section's `$body` (a block anchor's text); with `--json` the
- * value is the node's value view, or its `$body` with `--body`. `--meta` requests computed fields by name, with or without
- * their `@`, or `all` of them but `@nodes`: the text output prints one line per field before the node, and the JSON output's
- * value is then `{"value": …, "meta": {…}}`. The text output stops after `--max-chars` characters (20,000 by default), and the
- * line that says so tells how much remains and suggests `vmd outline`. On a terminal, the node's text is escaped as
- * {@link terminalText} does; to a pipe or a file it is written raw.
+ * by default and with `--source`, `--value` its value view as JSON, and `--body` a section's `$body` (a block anchor's text);
+ * with `--json` the value is the node's value view by default, its source text with `--source`, or its `$body` with `--body`.
+ * `--body` on a node that is not a section is `usage-invalid`, since the address is fine and the option does not apply.
+ * `--meta` requests computed fields by name, with or without their `@`, or `all` of them but `@nodes`: the text output prints
+ * one line per field before the node, a field not computed yet as `null` with a warning (`field-not-computed`), and the JSON
+ * output's value is then `{"value": …, "meta": {…}}`. The text output stops after `--max-chars` characters (20,000 by
+ * default), and the line that says so tells how much remains and suggests `vmd outline`; the JSON output is never cut, since
+ * a program that asks for JSON wants all of it. On a terminal, the node's text is escaped as {@link terminalText} does; to a
+ * pipe or a file it is written raw.
  */
 export const GET_COMMAND: Command = {
   name: "get",
-  usage: "ADDR [--value|--body] [--max-chars N] [--meta F,..|all]",
+  usage: "ADDR [--value|--body|--source] [--max-chars N] [--meta F,..|all]",
   summary: "print one node: its source, its value or its body, with computed fields",
   options: {
     value: { type: "boolean" },
     body: { type: "boolean" },
+    source: { type: "boolean" },
     "max-chars": { type: "string" },
     meta: { type: "string" },
   },
   readsStore: true,
   help:
-    "  --value        the node's value view, as JSON\n" +
+    "  --value        the node's value view, as JSON; with --json, the default\n" +
     "  --body         a section's $body, or a block anchor's text\n" +
-    "  --max-chars N  stop after N characters, 20,000 by default\n" +
+    "  --source       the node's source text, as in its file; without --json, the default\n" +
+    "  --max-chars N  stop the text output after N characters, 20,000 by default; --json is never cut\n" +
     `  --meta F,..    computed fields, with or without their @, or all of them but @nodes:\n                 ${COMPUTED_FIELD_NAMES.join(", ")}\n`,
   prepare: ({ positionals, options, globals, stdoutIsTerminal }) => {
     const problem = argumentCountProblem(positionals, 1, 1, "an address");
     if (problem !== null) return usagePlan(problem);
-    if (options.value === true && options.body === true) return usagePlan("--value and --body cannot be given together");
+    const forms = (["value", "body", "source"] as const).filter((name) => options[name] === true);
+    if (forms.length > 1) return usagePlan(`${forms.map((name) => `--${name}`).join(" and ")} cannot be given together`);
     const maxChars = readWholeNumber(
       options["max-chars"],
       "--max-chars",
@@ -66,7 +67,7 @@ export const GET_COMMAND: Command = {
     const meta = readFieldNames(options.meta as string | undefined);
     if (!meta.ok) return usagePlan(meta.message);
     const address = positionals[0] as string;
-    const form: NodeForm = options.body === true ? "body" : options.value === true || globals.json ? "value" : "source";
+    const form: NodeForm = forms[0] ?? (globals.json ? "value" : "source");
     return {
       kind: "run",
       run: async (opened) => {
@@ -155,19 +156,18 @@ function formatResult(
   if (options.meta !== undefined && result.meta !== undefined) {
     const fields = jsonFields(result.meta);
     const rows = options.meta.flatMap((name) => {
-      if (NOT_YET_COMPUTED.has(name)) return [{ cells: [name, "(not computed yet)"] }];
       const value = fields[name];
       if (value === undefined) return [];
-      // An empty string is written as JSON, so that the line shows that the field is there.
+      // An empty string is written as JSON, so that the line shows that the field is there; a field not computed yet is null.
       return [{ cells: [name, typeof value === "string" && value !== "" ? value : JSON.stringify(value)] }];
     });
     text += `${formatColumns(rows)}\n`;
   }
   const content = options.form === "value" ? JSON.stringify(result.value, null, 2) : (result.value as string);
   const { shown, rest } = cutAfter(content, options.maxChars);
-  // Deviation from the specification, recorded in issue #18, until the project owner decides the rule: on a terminal the
-  // node's text has its controls, line separators and bidirectional controls escaped, line feeds and tabs kept, so that a
-  // record cannot act on the terminal; to a pipe or a file it is written raw, as `cat` always writes.
+  // On a terminal the node's text has its controls and bidirectional formatting characters escaped, line feeds and tabs kept,
+  // so that a record cannot retitle the terminal or reorder what it shows; to a pipe or a file it is written raw, as `cat`
+  // writes.
   const written = options.terminal ? terminalText(shown) : shown;
   text += written.endsWith("\n") || written === "" ? written : `${written}\n`;
   if (rest !== "") {
