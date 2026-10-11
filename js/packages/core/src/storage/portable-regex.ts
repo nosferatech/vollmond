@@ -31,7 +31,8 @@ export function checkPortableRegex(pattern: string): readonly Issue[] {
  * as, for the flags `u` and `s`, and `i` when `ignoreCase` is set. The translation follows RE2's ASCII classes:
  *
  * - `\s` and `\S` are written out as `[\t\n\f\r ]` and `[^\t\n\f\r ]`, and in a class as those characters, since
- *   JavaScript's `\s` is Unicode white space, `\v` included; a class holding `\S` becomes an alternation or a lookahead;
+ *   JavaScript's `\s` is Unicode white space, `\v` included; a class holding `\S` stays one class, `[^X]`, or `[X]` when
+ *   negated, where X are the space characters its other items do not match;
  * - under `i`, `\b` and `\B` are rewritten with the word class `(?-i:[0-9A-Za-z_])`, since JavaScript's `\b` under `ui`
  *   counts U+017F and U+212A as word characters, and RE2's boundaries stay ASCII;
  * - `\d`, `\D`, `\w` and `\W` are left as they are: JavaScript's are ASCII, and under `ui` its `\w` folds as RE2's does.
@@ -453,8 +454,13 @@ class PortableRegexChecker {
       const character = this.#peek();
       if (character === "]") {
         this.#index += 1;
-        if (spaceWrittenOut || nonSpace) {
-          this.#replacements.push({ start, end: this.#index, text: classWithoutNonSpace(items, negated, nonSpace) });
+        // A pattern with an issue is not translated, and its class may not compile.
+        if ((spaceWrittenOut || nonSpace) && this.issues.length === 0) {
+          this.#replacements.push({
+            start,
+            end: this.#index,
+            text: classWithoutNonSpace(items, negated, nonSpace, this.#ignoreCase),
+          });
         }
         return;
       }
@@ -550,15 +556,29 @@ class PortableRegexChecker {
   }
 }
 
+/** RE2's space characters, each with the escape that writes it in a JavaScript class. */
+const SPACES: readonly (readonly [string, string])[] = [
+  ["\t", "\\t"],
+  ["\n", "\\n"],
+  ["\f", "\\f"],
+  ["\r", "\\r"],
+  [" ", " "],
+];
+
 /**
  * Writes a class for JavaScript from its items, with `\s` already written out in `items`. Without `\S`, it is the class of
- * those items. With `\S`, which a JavaScript class cannot hold written out, it is the items or a non-space character, or,
- * negated, a space character that is none of the items.
+ * those items. With `\S`, it is still one class, so that matching does not backtrack between overlapping branches: the items
+ * and every non-space character together are every character but the space characters the items miss, so the class is
+ * `[^X]` for those characters X, and its negation `[X]`. The items are tested with `i` as the query gives it.
  */
-function classWithoutNonSpace(items: string, negated: boolean, nonSpace: boolean): string {
+function classWithoutNonSpace(items: string, negated: boolean, nonSpace: boolean, ignoreCase: boolean): string {
   // A `^` first would negate the class it is moved into.
   const body = items.startsWith("^") ? `\\${items}` : items;
   if (!nonSpace) return `[${negated ? "^" : ""}${body}]`;
-  if (negated) return body === "" ? `[${SPACE_CHARACTERS}]` : `(?:(?![${body}])[${SPACE_CHARACTERS}])`;
-  return body === "" ? `[^${SPACE_CHARACTERS}]` : `(?:[${body}]|[^${SPACE_CHARACTERS}])`;
+  const itemClass = new RegExp(`[${body}]`, ignoreCase ? "ui" : "u");
+  const missed = SPACES.filter(([space]) => !itemClass.test(space))
+    .map(([, written]) => written)
+    .join("");
+  // With every space character among the items, `[^]` matches any character and `[]` none.
+  return negated ? `[${missed}]` : `[^${missed}]`;
 }

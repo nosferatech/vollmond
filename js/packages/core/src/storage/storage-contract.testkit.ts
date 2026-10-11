@@ -89,6 +89,16 @@ export function describeStorageContract(backend: ContractBackend): void {
         expect(await paths("a?md")).toEqual([]);
       });
 
+      test("fails with query-invalid for a glob no store path could match, in list and in grep", async () => {
+        const storage = await create(files);
+        for (const glob of ["a/", "/a.md", "a//b.md"]) {
+          expect(failureCodes(await storage.list({ prefix: "", glob, limit: 10 }))).toEqual(["query-invalid"]);
+          expect(failureCodes(await storage.grep({ pattern: "a", mode: "literal", glob, context: 0, limit: 10 }))).toEqual([
+            "query-invalid",
+          ]);
+        }
+      });
+
       test("pages with a cursor, which is null on the last page", async () => {
         const storage = await create(files);
         const first = successValue(await storage.list({ prefix: "", limit: 2 }));
@@ -324,9 +334,9 @@ export function describeStorageContract(backend: ContractBackend): void {
       test("estimates the matches that remain, marked as an estimate while files are left unread", async () => {
         const storage = await create({ "a.md": "x\nx\nx\n", "b.md": "x\n", "c.md": "x\n" });
         const first = await grep(storage, "x", { limit: 2 });
-        // a.md's third line is known to remain; b.md and c.md are not read, so the count is an estimate.
-        expect(first.remaining.exact).toBe(false);
-        expect(first.remaining.count).toBeGreaterThanOrEqual(1);
+        // a.md's third line is known to remain; b.md and c.md are not read, so the count is an estimate: the one known match,
+        // and a.md's three matches per file for the two files left.
+        expect(first.remaining).toEqual({ count: 7, exact: false });
         const last = await grep(storage, "x", { limit: 5, cursor: first.cursor as string });
         expect(where(last)).toEqual(["a.md:3", "b.md:1", "c.md:1"]);
         expect(last.remaining).toEqual({ count: 0, exact: true });

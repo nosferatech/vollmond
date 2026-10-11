@@ -45,20 +45,23 @@ export function decodeForGrep(bytes: Uint8Array): string {
 }
 
 /**
- * Finds the matching lines of one file's text, from line `afterLine + 1` on (0 for the whole file), and returns at most
- * `limit` of them with `context` lines around each.
+ * Finds the matching lines of one file's text, from line `afterLine + 1` on (0 for the whole file). Returns the first
+ * `limit` of them with `context` lines around each, and the number of all of them, the others tested but not built.
  */
 export function grepText(
   path: string,
   text: string,
   test: LineTest,
   options: { readonly context: number; readonly limit: number; readonly afterLine: number },
-): GrepMatch[] {
+): { readonly matches: GrepMatch[]; readonly count: number } {
   const lines = splitLines(text);
   const matches: GrepMatch[] = [];
-  for (let index = options.afterLine; index < lines.length && matches.length < options.limit; index++) {
+  let count = 0;
+  for (let index = options.afterLine; index < lines.length; index++) {
     const line = lines[index] as string;
     if (!test(line)) continue;
+    count += 1;
+    if (matches.length === options.limit) continue;
     matches.push({
       path,
       line: index + 1,
@@ -67,7 +70,7 @@ export function grepText(
       after: lines.slice(index + 1, index + 1 + options.context),
     });
   }
-  return matches;
+  return { matches, count };
 }
 
 /** Encodes the cursor of a grep page, which ends at a line of a file. */

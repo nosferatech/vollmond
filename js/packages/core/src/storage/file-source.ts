@@ -6,12 +6,12 @@ import { compileLineTest, decodeForGrep, grepCursor, grepText, readGrepCursor } 
 import { checkStoragePath, compareUtf8, compileGlob, prefixDirectory } from "./path.js";
 import type {
   ContentRange,
+  CountedPage,
   FileContent,
   FileInfo,
   GrepMatch,
   GrepQuery,
   ListQuery,
-  Page,
   StorageHistory,
   StorageReader,
 } from "./storage.js";
@@ -65,7 +65,7 @@ class FileSourceReader implements StorageReader {
     this.history = source.history;
   }
 
-  async list(query: ListQuery): Promise<Outcome<Page<FileInfo>>> {
+  async list(query: ListQuery): Promise<Outcome<CountedPage<FileInfo>>> {
     requireCount("limit", query.limit, 1);
     const prefix = prefixDirectory(query.prefix);
     if ("issue" in prefix) return fail([prefix.issue]);
@@ -80,10 +80,12 @@ class FileSourceReader implements StorageReader {
         }),
       ]);
     }
+    const glob = query.glob === undefined ? null : compileGlob(query.glob);
+    if (glob !== null && !glob.ok) return glob;
+    const matches = glob === null ? null : glob.value;
     const listed = await this.#source.listFiles(prefix.directory);
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
-    const matches = query.glob === undefined ? null : compileGlob(query.glob);
     const cursor = query.cursor;
     const candidates = listed.value
       .filter((path) => path.startsWith(query.prefix))
@@ -136,7 +138,7 @@ class FileSourceReader implements StorageReader {
     return succeed({ ...(await fileInfo(path, file.value)), content, range }, file.issues);
   }
 
-  async grep(query: GrepQuery): Promise<Outcome<Page<GrepMatch>>> {
+  async grep(query: GrepQuery): Promise<Outcome<CountedPage<GrepMatch>>> {
     requireCount("context", query.context, 0);
     requireCount("limit", query.limit, 1);
     const test = compileLineTest(query);
@@ -155,10 +157,12 @@ class FileSourceReader implements StorageReader {
         ]);
       }
     }
+    const glob = query.glob === undefined ? null : compileGlob(query.glob);
+    if (glob !== null && !glob.ok) return glob;
+    const matches = glob === null ? null : glob.value;
     const listed = await this.#source.listFiles("");
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
-    const matches = query.glob === undefined ? null : compileGlob(query.glob);
     const paths = listed.value
       .filter((path) => matches === null || matches(path))
       .filter((path) => after === null || compareUtf8(path, after.path) >= 0)
@@ -173,17 +177,17 @@ class FileSourceReader implements StorageReader {
         continue;
       }
       const afterLine = after !== null && after.path === path ? after.line : 0;
-      // Every match of the file, so that those beyond the page are counted exactly.
+      // The matches that fit on the page, and the number of all of them, so that those beyond the page are counted exactly.
+      const room = query.limit - items.length;
       const found = grepText(path, decodeForGrep(file.value.bytes), test.value, {
         context: query.context,
-        limit: Number.POSITIVE_INFINITY,
+        limit: room,
         afterLine,
       });
       filesRead += 1;
-      matchesFound += found.length;
-      const room = query.limit - items.length;
-      items.push(...found.slice(0, room));
-      const beyond = found.length - room;
+      matchesFound += found.count;
+      items.push(...found.matches);
+      const beyond = found.count - room;
       if (beyond > 0) {
         // The files not read yet are estimated at the rate of matches per file read so far.
         const unread = paths.length - index - 1;

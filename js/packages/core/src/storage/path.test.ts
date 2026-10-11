@@ -8,6 +8,8 @@ describe("compileGlob", () => {
     ["docs/**", "docs/a.md", true],
     ["docs/**", "docs/a/b.md", true],
     ["docs/**", "docs", false],
+    // A final /** is one or more segments, so not the empty rest after docs/.
+    ["docs/**", "docs/", false],
     ["docs/**", "docsx/a.md", false],
     ["**/a.md", "a.md", true],
     ["**/a.md", "x/y/a.md", true],
@@ -35,6 +37,41 @@ describe("compileGlob", () => {
     ["a.md", "aXmd", false],
     ["(a|b)+$", "(a|b)+$", true],
   ])("%j against %j gives %s", (glob, path, expected) => {
-    expect(compileGlob(glob)(path)).toBe(expected);
+    expect(globTest(glob)(path)).toBe(expected);
+  });
+
+  test.each([
+    ["a/", "it ends with /"],
+    ["/a", "it starts with /"],
+    ["a//b", "it has an empty segment"],
+    ["", "it is empty"],
+  ])("reports %j as malformed: %s", (glob, problem) => {
+    const outcome = compileGlob(glob);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.issues.map((issue) => issue.code)).toEqual(["query-invalid"]);
+    expect(outcome.issues[0]?.message).toContain(problem);
+  });
+
+  test("merges consecutive ** segments", () => {
+    expect(globTest("a/**/**/b.md")("a/b.md")).toBe(true);
+    expect(globTest("**/**")("x/y")).toBe(true);
+    expect(globTest("a/**/**")("a")).toBe(false);
+  });
+
+  test("matches in time linear in the path, whatever the globstars", () => {
+    const path = Array.from({ length: 25 }, () => "a").join("/");
+    const start = performance.now();
+    // A backtracking regex takes about 100 s on the first, which a merge alone would fix, and on the second, which it would not.
+    expect(globTest(`${Array.from({ length: 12 }, () => "**").join("/")}/b`)(path)).toBe(false);
+    expect(globTest(`${Array.from({ length: 12 }, () => "**/a").join("/")}/b`)(path)).toBe(false);
+    expect(globTest(`${Array.from({ length: 12 }, () => "*a*").join("*/")}/b`)(path)).toBe(false);
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });
+
+/** Compiles a glob that is well formed, and fails the test otherwise. */
+function globTest(glob: string): (path: string) => boolean {
+  const outcome = compileGlob(glob);
+  if (!outcome.ok) expect.fail(`${glob} is malformed: ${outcome.issues[0]?.message}`);
+  return outcome.value;
+}
