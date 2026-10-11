@@ -22,17 +22,14 @@ export interface HtmlOpenTag {
 
 const TAG_NAME = /[A-Za-z][A-Za-z0-9-]*/y;
 const ATTRIBUTE_NAME = /[A-Za-z_:][A-Za-z0-9_.:-]*/y;
-const VALUE_SEPARATOR = /[ \t\r\n]*=[ \t\r\n]*/y;
 const ATTRIBUTE_VALUE = /"([^"]*)"|'([^']*)'|([^ \t\r\n"'=<>`]+)/y;
-const WHITE_SPACE = /[ \t\r\n]+/y;
-const TAG_END = /[ \t\r\n]*(\/?)>/y;
 const CLOSING_TAG = /^<\/([A-Za-z][A-Za-z0-9-]*)[ \t\r\n]*>$/;
 
 /**
  * Reads the HTML open tag that starts at `start` of `text`, by the syntax of CommonMark 0.31.2 (section 6.6): `<`, a tag name,
  * attributes each after white space, with an optional value that is unquoted, single-quoted or double-quoted, then optional
  * white space, an optional `/` and `>`. White space is spaces, tabs and line breaks. Returns null where no open tag starts,
- * such as at a closing tag, a comment or a declaration.
+ * such as at a closing tag, a comment or a declaration. Its cost is linear in the tag's length.
  */
 export function readOpenTag(text: string, start: number): HtmlOpenTag | null {
   if (text.charCodeAt(start) !== 0x3c) return null;
@@ -42,30 +39,43 @@ export function readOpenTag(text: string, start: number): HtmlOpenTag | null {
   const attributes: HtmlAttribute[] = [];
   let index = TAG_NAME.lastIndex;
   for (;;) {
-    TAG_END.lastIndex = index;
-    const end = TAG_END.exec(text);
-    if (end !== null) {
-      return { name: name[0].toLowerCase(), attributes, selfClosing: end[1] === "/", end: TAG_END.lastIndex };
+    const afterSpace = skipWhiteSpace(text, index);
+    if (text.charCodeAt(afterSpace) === 0x3e) {
+      return { name: name[0].toLowerCase(), attributes, selfClosing: false, end: afterSpace + 1 };
     }
-    WHITE_SPACE.lastIndex = index;
-    if (WHITE_SPACE.exec(text) === null) return null;
-    ATTRIBUTE_NAME.lastIndex = WHITE_SPACE.lastIndex;
+    if (text.startsWith("/>", afterSpace)) {
+      return { name: name[0].toLowerCase(), attributes, selfClosing: true, end: afterSpace + 2 };
+    }
+    // An attribute follows white space.
+    if (afterSpace === index) return null;
+    ATTRIBUTE_NAME.lastIndex = afterSpace;
     const attributeName = ATTRIBUTE_NAME.exec(text);
     if (attributeName === null) return null;
     index = ATTRIBUTE_NAME.lastIndex;
-    VALUE_SEPARATOR.lastIndex = index;
     let value = "";
     let valueStart = index;
-    if (VALUE_SEPARATOR.exec(text) !== null) {
-      ATTRIBUTE_VALUE.lastIndex = VALUE_SEPARATOR.lastIndex;
+    const separator = skipWhiteSpace(text, index);
+    if (text.charCodeAt(separator) === 0x3d) {
+      const valueAt = skipWhiteSpace(text, separator + 1);
+      ATTRIBUTE_VALUE.lastIndex = valueAt;
       const written = ATTRIBUTE_VALUE.exec(text);
       if (written === null) return null;
       value = written[1] ?? written[2] ?? written[3] ?? "";
-      valueStart = written[3] === undefined ? VALUE_SEPARATOR.lastIndex + 1 : VALUE_SEPARATOR.lastIndex;
+      valueStart = written[3] === undefined ? valueAt + 1 : valueAt;
       index = ATTRIBUTE_VALUE.lastIndex;
     }
     attributes.push({ name: attributeName[0].toLowerCase(), value, valueStart });
   }
+}
+
+/** Returns the index after the spaces, tabs and line breaks that start at `index` of `text`. */
+function skipWhiteSpace(text: string, index: number): number {
+  let end = index;
+  for (let code = text.charCodeAt(end); code === 0x20 || code === 0x09 || code === 0x0a || code === 0x0d; ) {
+    end += 1;
+    code = text.charCodeAt(end);
+  }
+  return end;
 }
 
 /** Reads the name, in ASCII lower case, of the HTML closing tag that `text` is, such as `</a>`; null when it is not one. */

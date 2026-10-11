@@ -35,6 +35,14 @@ describe("readOpenTag", () => {
   ])("finds no open tag in %s", (_, text) => {
     expect(readOpenTag(text, 0)).toBeNull();
   });
+
+  test("reads in linear time, however much white space a tag holds", () => {
+    const space = " \t\r\n".repeat(50_000);
+    const started = performance.now();
+    expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}x`, 0)).toBeNull();
+    expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}/>`, 0)?.selfClosing).toBe(true);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });
 
 describe("readClosingTagName", () => {
