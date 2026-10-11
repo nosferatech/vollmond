@@ -52,7 +52,12 @@ export function nameRecord(record: UnnamedRecord, markdown?: MarkdownNames): Par
   // The walks keep their own stacks, so their issues are put in the file's order here; a stable sort keeps the order of
   // issues at one place.
   const issues = names.issues.sort((a, b) => (a.position?.offset ?? 0) - (b.position?.offset ?? 0));
-  return { ...record, anchors: anchorTableOf(anchors, tags), sectionKeys, issues: [...record.issues, ...issues] };
+  return {
+    ...record,
+    anchors: anchorTableOf(anchors, tags),
+    sectionKeys: frozenMapOf(sectionKeys),
+    issues: [...record.issues, ...issues],
+  };
 }
 
 /** An anchor with its place in the file, for document order. */
@@ -251,6 +256,32 @@ class RecordNames {
     const position = source.position(block.fileRange.start);
     this.issues.push(makeIssue({ code, path, at: block.at, message, position, offset: block.range.start }));
   }
+}
+
+/** The maps that {@link frozenMapOf} has made, which refuse every change. */
+const FROZEN_MAPS = new WeakSet<Map<unknown, unknown>>();
+
+/** A map that throws a `TypeError` on `set`, `delete` and `clear` once built, so that a record's keys stay as parsed. */
+class FrozenMap<Key, Item> extends Map<Key, Item> {
+  override set(key: Key, item: Item): this {
+    if (FROZEN_MAPS.has(this)) throw new TypeError("the map is frozen");
+    return super.set(key, item);
+  }
+
+  override delete(_key: Key): boolean {
+    throw new TypeError("the map is frozen");
+  }
+
+  override clear(): void {
+    throw new TypeError("the map is frozen");
+  }
+}
+
+/** Copies a map into one that refuses every change, and freezes the object too. */
+function frozenMapOf<Key, Item>(map: ReadonlyMap<Key, Item>): ReadonlyMap<Key, Item> {
+  const frozen = new FrozenMap(map);
+  FROZEN_MAPS.add(frozen);
+  return Object.freeze(frozen);
 }
 
 function isObject(value: Value): value is ValueObject {

@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { deriveAnchors } from "./derived-anchors.js";
 
@@ -21,6 +22,26 @@ describe("derived anchors with repeat suffixes", () => {
   test("an empty slug gives no derived anchor, but its candidates still count as used", () => {
     expect(deriveAnchors(["", "", "-1", "tail"])).toEqual([null, null, "-1-1", "tail"]);
     expect(deriveAnchors(["", "-1"])).toEqual([null, "-1"]);
+  });
+
+  test("property: gives what the definition gives, searching every n from 1 for each heading", () => {
+    /** Step 7 as written: the smallest n of 1 or more whose candidate no earlier heading took. */
+    const byDefinition = (slugs: readonly string[]) => {
+      const used = new Set<string>();
+      return slugs.map((slug) => {
+        let candidate = slug;
+        for (let n = 1; used.has(candidate); n++) candidate = `${slug}-${n}`;
+        used.add(candidate);
+        return slug === "" ? null : candidate;
+      });
+    };
+    const slug = fc.constantFrom("", "a", "a-1", "a-2", "a-1-1", "-1", "-1-1", "b", "b-1", "a-10");
+    fc.assert(
+      fc.property(fc.array(slug, { maxLength: 40 }), (slugs) => {
+        expect(deriveAnchors(slugs)).toEqual(byDefinition(slugs));
+      }),
+      { numRuns: 2000 },
+    );
   });
 
   test("the search resumes from the last n of each slug: ten times the headings cost ten times the work, but for a constant", () => {

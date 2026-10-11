@@ -21,9 +21,9 @@
 //   UnicodeData.txt                       field 13, Simple_Lowercase_Mapping
 //   SpecialCasing.txt                     field 1, the lower-case mapping, of entries with no condition list (field 4)
 //
-// The file lists Cn explicitly, and its `@missing` line gives Cn to every code point it does not list. The unassigned set is
-// taken as every code point not listed with another category, and the generator checks that it equals the explicit Cn lines,
-// so the two readings of the file cannot differ silently. Noncharacters are Cn.
+// The file of 17.0.0 lists every Cn range explicitly, 735 of them, noncharacters included. The unassigned set is taken as every
+// code point not listed with another category, and the generator checks that it equals the explicit Cn lines, so that a file
+// that left some Cn code points unlisted could not shrink the table silently.
 //
 // Step 3 maps each code point by the unconditional entry of SpecialCasing.txt where there is one, and otherwise by
 // UnicodeData.txt's simple mapping. Conditional entries (Final_Sigma, the language-specific ones) are left out.

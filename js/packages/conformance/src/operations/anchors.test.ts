@@ -69,6 +69,7 @@ const BEYOND_PARSING: ReadonlyMap<string, string> = new Map([
   ["addresses/cardinality/keyed-list-duplicate-lenient", "a key repeated in a list that a schema declares a keyed list"],
 ]);
 
+// TODO(#14): delete these comparisons when the runner performs `check`, whose cases then hold the parser to them directly.
 // `check` needs the Validate profile, which this runner does not claim yet. Its cases are still the suite's statement of where
 // the names' issues go, so each one's issues of those codes are compared here with what parsing its records raises. The
 // severity is compared only under the default configuration, since applying the uniqueness mode is configuration's work.

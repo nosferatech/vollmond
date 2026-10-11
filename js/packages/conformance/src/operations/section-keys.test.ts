@@ -7,6 +7,7 @@ import { FixtureStores } from "../store.js";
 
 const REAL_SUITE = fileURLToPath(new URL("../../../../../conformance/", import.meta.url));
 
+// TODO(#14): delete this file when the runner performs `meta`, whose cases then hold the keys to the suite directly.
 // The suite tests section keys through `meta`, whose `@address` needs canonical addresses, which this runner does not have yet.
 // Each `meta` case's `@key` of every section it lists is compared here with the record's section keys, the root having none,
 // so that the keys are held to the suite before the operation lands.

@@ -137,6 +137,15 @@ describe("section keys", () => {
     ]);
   });
 
+  test("are frozen, as the anchor table is", () => {
+    const keys = record("r.md", "## A\n").sectionKeys as Map<string, string>;
+    expect(Object.isFrozen(keys)).toBe(true);
+    expect(() => keys.set("/$sections/0", "b")).toThrow(TypeError);
+    expect(() => keys.delete("/$sections/0")).toThrow(TypeError);
+    expect(() => keys.clear()).toThrow(TypeError);
+    expect([...keys]).toEqual([["/$sections/0", "a"]]);
+  });
+
   test("a heading whose slug is empty has the empty key", () => {
     expect([...record("r.md", "## !\n").sectionKeys]).toEqual([["/$sections/0", ""]]);
   });

@@ -69,7 +69,8 @@ test("property 6: a record's derived anchors are distinct, and each is a slug, o
           const cp = c.codePointAt(0) as number;
           expect(cp === 0x2d || isLetterMarkDigitOrConnector(cp)).toBe(true);
         }
-        // A section without an explicit anchor has its slug as its key, which its derived anchor extends with a suffix.
+        // A section without an explicit anchor has its slug as its key, which its derived anchor extends with suffixes; which
+        // suffix is right is the property of `deriveAnchors` in its own test.
         const key = record.sectionKeys.get(entry.at);
         const section = record.nodes.node(entry.at);
         if (key !== undefined && record.anchors.of(entry.at).every((anchor) => anchor.kind === "derived")) {
