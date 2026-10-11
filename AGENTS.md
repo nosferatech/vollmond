@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Vollmond MD (vmd) is a record format and an access framework over Markdown, YAML and JSON, for agents, humans and programs. The
-specification is a draft and the implementation is in progress: a TypeScript npm workspace in `js/packages/` (`core` and `cli`).
+specification is a draft and the implementation is in progress: a TypeScript npm workspace in `js/packages/` (`core`, `cli`, and
+the private conformance runner `conformance`).
 A Python implementation will go in `python/`. `docs/` and `conformance/` are shared by all languages. Node 24 or later is
 required for the TypeScript code.
 
@@ -12,6 +13,7 @@ Commands for the TypeScript code, run in `js/` (details in `README.md`):
 - `npm run typecheck`: type check every package, tests included.
 - `npm run lint`: Biome lint and format check (`npm run format` fixes formatting).
 - `npm test`: run the Vitest tests; no build needed.
+- `npm run conformance`: run the conformance suite, after a build.
 
 ## Where things are
 

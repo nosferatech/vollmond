@@ -37,6 +37,16 @@ jobs:
       - run: npm test
       - name: Smoke test the built command
         run: node packages/cli/dist/main.js --version
+      # Any case that fails or is in error fails the job. The report is uploaded either way, to show which.
+      - name: Run the conformance suite
+        run: npm run conformance
+      - name: Upload the conformance report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: conformance-report
+          path: js/conformance-report.json
+          if-no-files-found: ignore
 
   # The status check that the ruleset on main requires. It is the only job named `check`. It has no path filter and
   # runs on every pull request, so it always reports, and it succeeds only when every job in `needs` succeeded. To add a

@@ -27,13 +27,15 @@ One top-level directory per language (project owner, 2026-10-10), the model bein
 will go in `python/` later. `docs/` and `conformance/` stay at the root and are shared by all languages. Each language's
 conformance runner lives next to its implementation (decision log, phase I0), not in `conformance/`.
 
-The TypeScript workspace in `js/` is an npm workspace with two packages to start, split further only when a consumer needs a part
-without the rest:
+The TypeScript workspace in `js/` is an npm workspace with two published packages to start, split further only when a consumer
+needs a part without the rest, and the conformance runner as a third, private package (the [design of phase I1](../design/i1-read.md),
+question 11), so that it stays out of the published `vmd` command:
 
 | Location | Contents | Runs in |
 |---|---|---|
 | `js/packages/core` (`@vollmond/core`) | the data model, the three parsers and serializers, addresses, references, schemas, VQL, the index tables, the storage contract's types. No Node APIs | Node, browsers, Lambda |
 | `js/packages/cli` (`@vollmond/cli`) | the `vmd` command, the local filesystem and git working-copy backends, the local index cache | Node |
+| `js/packages/conformance` (`@vollmond/conformance`, private) | the TypeScript runner of the conformance suite (I1.10) and the implementation's declaration; run with `npm run conformance` in `js/`. Never published | Node |
 | `conformance/` | the language-neutral conformance suite (§19.1 of the proposal): fixtures and the runner contract, no code. Each language's runner is in that language's directory | any implementation |
 
 `core` stays free of Node APIs so that the website and the Lambda functions of I6 and I7 use the same code. Anything that needs the
