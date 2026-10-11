@@ -1,10 +1,17 @@
-import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { type Outcome, readStoreConfiguration, type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "@vollmond/core";
+import {
+  fail,
+  makeIssue,
+  type Outcome,
+  readStoreConfiguration,
+  type UnicodeRuntimeProbe,
+  unicodeRuntimeProbe,
+} from "@vollmond/core";
 import { GLOBAL_OPTIONS, type GlobalOptions, type OptionSpec, readCommandLine, readCommandLineHead } from "./arguments.js";
 import { createFilesystemStorage } from "./backend/filesystem.js";
 import type { Command, CommandOutput, OpenedStore } from "./command/command.js";
 import { BUILT_IN_COMMANDS } from "./command/index.js";
+import { readConfigurationFile } from "./configuration-file.js";
 import { ExitCode, exitCodeOf } from "./exit-code.js";
 import { formatIssues, type IssueDetailsSource } from "./output/issues.js";
 import { oneLine } from "./output/lines.js";
@@ -12,7 +19,8 @@ import { discoverStore } from "./store-discovery.js";
 
 /** Outcome of one `vmd` invocation: what to print and the process exit code. */
 export interface CliResult {
-  readonly stdout: string;
+  /** Text, or bytes written as they are, such as a file's content, which may not be UTF-8. */
+  readonly stdout: string | Uint8Array;
   readonly stderr: string;
   readonly exitCode: number;
 }
@@ -36,13 +44,18 @@ function readPackageVersion(): string {
   return manifest.version;
 }
 
-/** The environment of this process. */
-function processEnvironment(): CliEnvironment {
+/**
+ * The environment of this process, with the parts `environment` gives replaced. The working directory is read only when a
+ * command needs it, and throws there when it was deleted.
+ */
+function processEnvironment(environment: Partial<CliEnvironment>): CliEnvironment {
   return {
-    cwd: process.cwd(),
-    commands: BUILT_IN_COMMANDS,
-    unicodeProbe: unicodeRuntimeProbe,
-    runtimeUnicodeVersion: process.versions.unicode,
+    get cwd() {
+      return environment.cwd ?? process.cwd();
+    },
+    commands: environment.commands ?? BUILT_IN_COMMANDS,
+    unicodeProbe: environment.unicodeProbe ?? unicodeRuntimeProbe,
+    runtimeUnicodeVersion: "runtimeUnicodeVersion" in environment ? environment.runtimeUnicodeVersion : process.versions.unicode,
   };
 }
 
@@ -59,12 +72,12 @@ function processEnvironment(): CliEnvironment {
  * stdout and its issues on stderr. `--quiet` leaves out warnings, the probe's included.
  */
 export async function runCli(args: readonly string[], environment: Partial<CliEnvironment> = {}): Promise<CliResult> {
-  const env = { ...processEnvironment(), ...environment };
   try {
-    return await run(args, env);
+    return await run(args, processEnvironment(environment));
   } catch (error) {
     const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    return { stdout: "", stderr: `vmd: internal error, which is a bug: ${detail}\n`, exitCode: ExitCode.error };
+    const lines = detail.split("\n").map(oneLine).join("\n");
+    return { stdout: "", stderr: `vmd: internal error, which is a bug: ${lines}\n`, exitCode: ExitCode.error };
   }
 }
 
@@ -89,7 +102,7 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
   let stderr = "";
   let store: OpenedStore | null = null;
   if (command.readsStore) {
-    const opened = await openCommandStore(globals, env.cwd);
+    const opened = await openCommandStore(globals, env);
     if (opened.kind === "result") return opened.result;
     store = opened.store;
     stderr += opened.stderr;
@@ -124,11 +137,21 @@ function usage(message: string): CliResult {
 /** Finds the store, reads its configuration, and opens its files; or gives the result that ends the run. */
 async function openCommandStore(
   globals: GlobalOptions,
-  cwd: string,
+  env: CliEnvironment,
 ): Promise<
   | { readonly kind: "store"; readonly store: OpenedStore; readonly stderr: string }
   | { readonly kind: "result"; readonly result: CliResult }
 > {
+  let cwd: string;
+  try {
+    cwd = env.cwd;
+  } catch (error) {
+    const reason = (error as { code?: unknown }).code ?? String(error);
+    return {
+      kind: "result",
+      result: failure(`cannot read the working directory: ${reason}`, "change to a directory that exists"),
+    };
+  }
   const discovered = await discoverStore({
     cwd,
     ...(globals.store === undefined ? {} : { store: globals.store }),
@@ -136,37 +159,34 @@ async function openCommandStore(
   });
   if (!discovered.ok) return { kind: "result", result: failure(discovered.error.message, discovered.error.hint) };
   const location = discovered.value;
-  let content: Uint8Array;
-  try {
-    content = await readFile(location.configurationFile);
-  } catch (error) {
-    const code = (error as { code?: unknown }).code;
-    const reason = code === "ENOENT" ? "it does not exist" : code === "EISDIR" ? "it is a directory" : String(code ?? error);
-    return {
-      kind: "result",
-      result: failure(
-        `cannot read the configuration ${location.configurationName}: ${reason}`,
-        globals.config === undefined ? "check its permissions" : "check the path given to --config",
-      ),
-    };
+  const name = location.configurationName;
+  const details = () => ({ file: name });
+  const reading = await readConfigurationFile(location.configurationFile);
+  if (reading.kind === "unreadable") {
+    const hint = globals.config === undefined ? "check its permissions" : "check the path given to --config";
+    return { kind: "result", result: failure(`cannot read the configuration ${name}: ${reading.reason}`, hint) };
   }
-  const configuration = readStoreConfiguration(location.configurationName, content);
-  if (!configuration.ok) return { kind: "result", result: render(issuesOnly(configuration), globals) };
+  if (reading.kind === "invalid") {
+    const issue = makeIssue({ code: "config-invalid", path: null, at: null, message: `the configuration ${reading.reason}` });
+    return { kind: "result", result: render(issuesOnly(fail([issue]), details), globals) };
+  }
+  const configuration = readStoreConfiguration(reading.content);
+  if (!configuration.ok) return { kind: "result", result: render(issuesOnly(configuration, details), globals) };
   return {
     kind: "store",
     store: {
       location,
       configuration: configuration.value,
-      configurationContent: content,
+      configurationContent: reading.content,
       storage: createFilesystemStorage(location.root),
     },
-    stderr: formatIssues(configuration.issues, { errorsOnly: globals.quiet }),
+    stderr: formatIssues(configuration.issues, { errorsOnly: globals.quiet, details }),
   };
 }
 
-/** The output of an outcome whose value, if any, is not printed. */
-function issuesOnly(outcome: Outcome<unknown>): CommandOutput {
-  return { kind: "outcome", outcome, text: () => "" };
+/** The output of an outcome whose value, if any, is not printed, with its issues' details. */
+function issuesOnly(outcome: Outcome<unknown>, details: IssueDetailsSource): CommandOutput {
+  return { kind: "outcome", outcome, text: () => "", details };
 }
 
 /** The result of a failure that has no issue code: a message and a hint, on stderr, in the issue format's layout. */
@@ -179,10 +199,17 @@ function render(output: CommandOutput, globals: GlobalOptions): CliResult {
   if (output.kind === "usage") return usage(output.message);
   const { outcome } = output;
   const exitCode = exitCodeOf(outcome);
-  if (globals.json) return { stdout: `${JSON.stringify(outcome)}\n`, stderr: "", exitCode };
+  if (globals.json) return { stdout: `${JSON.stringify(outcome, jsonReplacer)}\n`, stderr: "", exitCode };
   const details: IssueDetailsSource | undefined = output.details;
   const stderr = formatIssues(outcome.issues, { errorsOnly: globals.quiet, ...(details === undefined ? {} : { details }) });
   return { stdout: outcome.ok ? output.text(outcome.value) : "", stderr, exitCode };
+}
+
+/** Writes a `Uint8Array` as `{ "base64": "…" }`, which JSON would otherwise write as an object of numbered bytes. */
+function jsonReplacer(_key: string, value: unknown): unknown {
+  return value instanceof Uint8Array
+    ? { base64: Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString("base64") }
+    : value;
 }
 
 /** The warning for a runtime whose Unicode data is older than the tables'. */

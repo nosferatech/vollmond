@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -55,10 +56,25 @@ describe("from the working directory", () => {
     expect((await found({ cwd: makeDirectories(outer, "b") })).root).toBe(outer);
   });
 
-  test("does not take a .vmd directory without config.yaml, or a config.yaml that is a directory, for a store", async () => {
+  test("passes a .vmd directory without config.yaml for an outer store", async () => {
     const outer = writeFiles(temporaryDirectory(), STORE_CONFIG);
-    makeDirectories(outer, "a/.vmd/schema", "a/b/.vmd/config.yaml");
-    expect((await found({ cwd: makeDirectories(outer, "a/b/c") })).root).toBe(outer);
+    makeDirectories(outer, "a/.vmd/schema");
+    expect((await found({ cwd: makeDirectories(outer, "a/b") })).root).toBe(outer);
+  });
+
+  test("fails for a config.yaml that is a directory, rather than passing it for an outer store", async () => {
+    const outer = writeFiles(temporaryDirectory(), STORE_CONFIG);
+    makeDirectories(outer, "a/.vmd/config.yaml");
+    const error = await notFound({ cwd: makeDirectories(outer, "a/b") });
+    expect(error.message).toBe(`${join(outer, "a", ".vmd", "config.yaml")} is not a file`);
+  });
+
+  test.skipIf(process.platform === "win32")("fails for a config.yaml that is a FIFO, without waiting on it", async () => {
+    const root = temporaryDirectory();
+    makeDirectories(root, ".vmd");
+    execFileSync("mkfifo", [join(root, ".vmd", "config.yaml")]);
+    expect((await notFound({ cwd: root })).message).toContain("is not a file");
+    expect((await notFound({ cwd: temporaryDirectory(), store: root })).message).toContain("is not a file");
   });
 
   test("takes a symbolic link to a configuration file for one", async () => {

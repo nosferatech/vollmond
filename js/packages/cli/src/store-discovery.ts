@@ -38,17 +38,21 @@ export interface StoreRequest {
 /** The store's configuration file, relative to its root. */
 export const CONFIGURATION_PATH = ".vmd/config.yaml";
 
+/** The hint for a `.vmd/config.yaml` that is a directory, a FIFO or another file that is not a regular one. */
+const NOT_A_FILE_HINT = "make .vmd/config.yaml a file holding the configuration, or name the store with --store";
+
 /**
  * Finds the store a command reads.
  *
  * - With `--store`, the root is that directory. Without `--config`, it must hold `.vmd/config.yaml`; with it, it need not.
  * - Otherwise the root is the nearest directory, from the working directory up to the filesystem's root, that holds
- *   `.vmd/config.yaml` as a file (a symbolic link to one counts). `--config` does not stop the search, since a store
- *   whose configuration lives elsewhere has no file to find: such a store is named with `--store`.
+ *   `.vmd/config.yaml` (a symbolic link to a file counts). `--config` does not stop the search, since a store whose
+ *   configuration lives elsewhere has no file to find: such a store is named with `--store`.
  * - `--config` replaces the root's configuration file, which is then not read. Its path is not checked here; reading it is.
  *
- * Fails with a message and a hint when no store is found, when `--store` names no directory, and when a directory on the way
- * cannot be read, for a permission error or another reason.
+ * Fails with a message and a hint when no store is found, when `--store` names no directory, when a `.vmd/config.yaml` on the
+ * way is a directory, a FIFO or anything but a file (rather than passing it for an outer store), and when a directory on the
+ * way cannot be read, for a permission error or another reason.
  */
 export async function discoverStore(
   request: StoreRequest,
@@ -69,6 +73,9 @@ export async function discoverStore(
           `cannot read ${join(request.store, CONFIGURATION_PATH)}: ${configuration.reason}`,
           "check its permissions",
         );
+      }
+      if (configuration.kind === "directory" || configuration.kind === "other") {
+        return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT);
       }
       if (configuration.kind !== "file") {
         return notFound(
@@ -115,6 +122,7 @@ async function findRootUpwards(
     if (kind.kind === "file") return { ok: true, root: directory };
     if (kind.kind === "failed")
       return notFound(`cannot read ${candidate}: ${kind.reason}`, "check its permissions, or name the store with --store");
+    if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT);
     const parent = dirname(directory);
     if (parent === directory) return { ok: true, root: null };
     directory = parent;

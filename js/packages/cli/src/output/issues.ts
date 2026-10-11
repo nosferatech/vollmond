@@ -5,10 +5,21 @@ import type { Issue, IssueCode } from "@vollmond/core";
 import { oneLine } from "./lines.js";
 import { formatCount } from "./sizes.js";
 
-/** One candidate of an ambiguity, as an issue lists it. */
+/** A candidate of an ambiguity, as an issue carries it: the record and, below its root, the node. */
 export interface IssueCandidate {
-  /** The candidate's address: its exact path, such as `#/$sections/2`. */
-  readonly address: string;
+  /** The store path of the candidate's record. */
+  readonly path: string;
+  /** The exact path of the candidate's node; absent for the record's root. */
+  readonly at?: string;
+}
+
+// TODO(#15): read `candidates` from core's `Issue` once the address module adds it there, as the design's `Target`s, and drop
+// this type: core's `Issue` has no candidates yet, since their type is the address module's.
+/** An issue that may carry the candidates of an ambiguity. */
+export type IssueWithCandidates = Issue & { readonly candidates?: readonly IssueCandidate[] };
+
+/** What a command knows about one candidate beyond the issue: where its node starts and its derived anchor. */
+export interface CandidateNote {
   /** The line its node starts on, when the record has a source file. */
   readonly line?: number;
   /** Its derived anchor, written as an address, such as `#notes`. */
@@ -20,12 +31,12 @@ export interface IssueCandidate {
  * record the issue is about; the issue alone does not have it.
  */
 export interface IssueDetails {
-  /** The file to name in place of the issue's `path`, such as a configuration file, which is not a record. */
+  /** The file to name, for an issue whose `path` is null because the file is not a record, such as a configuration. */
   readonly file?: string;
   /** The semantic path of the node the issue is in, written as an address, such as `#what-was-done/$body`. */
   readonly semantic?: string;
-  /** The candidates of an ambiguity, in the order to list them. */
-  readonly candidates?: readonly IssueCandidate[];
+  /** A note for each of the issue's candidates, in their order; a missing or undefined note prints the candidate alone. */
+  readonly candidateNotes?: readonly (CandidateNote | undefined)[];
 }
 
 /** Gives the details of an issue, or undefined for none. */
@@ -45,13 +56,15 @@ export const DEFAULT_ISSUE_LIMIT = 20;
  *   hint add <a id="..."></a> to the heading you mean, and link to that anchor
  * ```
  *
- * The first line starts with the file and, when the issue has a position, its line and column; an issue with neither a file
- * nor a path starts with its severity. The `in` line names the node by its semantic path and its exact path when `details`
- * gives the semantic one, by its exact path alone otherwise, and is left out for an issue about the whole record (`at` is `""`)
- * or about no node (`at` is null). Every line is made safe for a terminal with {@link oneLine}.
+ * The first line starts with the issue's path, or the file `details` names when the path is null, and, when the issue has a
+ * position, its line and column; an issue with neither starts with its severity. The `in` line names the node by its semantic
+ * path and its exact path when `details` gives the semantic one, by its exact path alone otherwise, and is left out for an
+ * issue about the whole record (`at` is `""`) or about no node (`at` is null). Each candidate is written by its exact path,
+ * after its record's path when that is another record, with the line and derived anchor `details` notes for it. Every line is
+ * made safe for a terminal with {@link oneLine}.
  */
-export function formatIssue(issue: Issue, details?: IssueDetails): string {
-  const file = details?.file ?? issue.path;
+export function formatIssue(issue: IssueWithCandidates, details?: IssueDetails): string {
+  const file = issue.path ?? details?.file ?? null;
   const position = issue.position === undefined ? "" : `:${issue.position.line}:${issue.position.col}`;
   const where = file === null ? "" : `${file}${position} `;
   const lines = [`${where}${issue.severity} ${issue.code}: ${issue.message}`];
@@ -60,13 +73,16 @@ export function formatIssue(issue: Issue, details?: IssueDetails): string {
     const semantic = details?.semantic;
     lines.push(semantic === undefined || semantic === exact ? `  in   ${exact}` : `  in   ${semantic}  (exact ${exact})`);
   }
-  const candidates = details?.candidates ?? [];
+  const candidates = issue.candidates ?? [];
   candidates.forEach((candidate, index) => {
+    const record = candidate.path === issue.path ? "" : candidate.path;
+    const address = candidate.at === undefined ? candidate.path : `${record}#${candidate.at}`;
+    const note = details?.candidateNotes?.[index];
     const notes = [
-      candidate.line === undefined ? null : `line ${candidate.line}`,
-      candidate.derived === undefined ? null : `derived ${candidate.derived}`,
-    ].filter((note) => note !== null);
-    const text = notes.length === 0 ? candidate.address : `${candidate.address} (${notes.join(", ")})`;
+      note?.line === undefined ? null : `line ${note.line}`,
+      note?.derived === undefined ? null : `derived ${note.derived}`,
+    ].filter((text) => text !== null);
+    const text = notes.length === 0 ? address : `${address} (${notes.join(", ")})`;
     lines.push(`${index === 0 ? "  candidates  " : "              "}${text}`);
   });
   if (issue.hint !== undefined) lines.push(`  hint ${issue.hint}`);
@@ -89,7 +105,7 @@ export interface IssueListOptions {
  * heading-html`. Warnings left out by `errorsOnly` are counted the same way but do not cause that line by themselves. Returns
  * the empty string for no issue to print.
  */
-export function formatIssues(issues: readonly Issue[], options: IssueListOptions = {}): string {
+export function formatIssues(issues: readonly IssueWithCandidates[], options: IssueListOptions = {}): string {
   const limit = options.limit ?? DEFAULT_ISSUE_LIMIT;
   const shown = options.errorsOnly === true ? issues.filter((issue) => issue.severity === "error") : issues;
   const printed = shown.slice(0, limit);

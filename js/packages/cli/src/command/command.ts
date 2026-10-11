@@ -33,10 +33,16 @@ export interface CommandInvocation {
 export type CommandOutput =
   | {
       readonly kind: "outcome";
-      /** The library's outcome, which `--json` prints unchanged. */
+      /**
+       * The library's outcome, which `--json` prints unchanged, except that a `Uint8Array` anywhere in it is written as
+       * `{ "base64": "…" }`, its bytes in base64 (RFC 4648, with padding).
+       */
       readonly outcome: Outcome<unknown>;
-      /** Writes a successful outcome's value as text, one line per item, each line ending with a line break. */
-      readonly text: (value: unknown) => string;
+      /**
+       * Writes a successful outcome's value for stdout: text, one line per item, each line ending with a line break; or bytes,
+       * written as they are, for content such as a file's.
+       */
+      readonly text: (value: unknown) => string | Uint8Array;
       /** Gives what the command knows of each issue beyond the issue itself, such as the semantic path of its node. */
       readonly details?: IssueDetailsSource;
     }
@@ -46,11 +52,15 @@ export type CommandOutput =
  * Gives the output of a command whose operation gave `outcome`: its value is written with `text` on success, and its issues,
  * success or failure, are printed with their `details`.
  */
-export function outcomeOutput<T>(outcome: Outcome<T>, text: (value: T) => string, details?: IssueDetailsSource): CommandOutput {
+export function outcomeOutput<T>(
+  outcome: Outcome<T>,
+  text: (value: T) => string | Uint8Array,
+  details?: IssueDetailsSource,
+): CommandOutput {
   return {
     kind: "outcome",
     outcome,
-    text: text as (value: unknown) => string,
+    text: text as (value: unknown) => string | Uint8Array,
     ...(details === undefined ? {} : { details }),
   };
 }

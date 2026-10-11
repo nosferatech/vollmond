@@ -2,6 +2,7 @@
 // more remain.
 
 import type { OptionSpec } from "../arguments.js";
+import { hasUnsafeCharacter } from "./lines.js";
 import { formatCount } from "./sizes.js";
 
 /** The number of items each listing prints when `-n` is not given. */
@@ -36,26 +37,50 @@ export function readLimit(value: string | undefined, defaultLimit: number): Limi
 /** Characters that a POSIX shell takes literally outside quotes. */
 const SHELL_LITERAL = /^[A-Za-z0-9_./:=@%+,-]+$/;
 
-/** Writes `text` as one word for a POSIX shell: as it is when that is safe, otherwise in single quotes. */
+/**
+ * Writes `text` as one word for a POSIX shell: as it is when that is safe, in single quotes otherwise, and in ANSI-C quotes
+ * (`$'…'`, which bash and zsh read) when it holds a character that {@link oneLine} escapes, so that no control, separator or
+ * bidirectional character reaches the terminal raw and the word still pastes back as the same text. Inside ANSI-C quotes, a
+ * C0 control or DEL is written `\xHH`, any other such character `\uHHHH`, and a backslash and a single quote are escaped.
+ */
 export function shellWord(text: string): string {
+  if (hasUnsafeCharacter(text)) return `$'${ansiCQuoted(text)}'`;
   return SHELL_LITERAL.test(text) ? text : `'${text.replaceAll("'", `'\\''`)}'`;
+}
+
+/** Writes `text` as the inside of ANSI-C quotes, with every character that {@link oneLine} escapes as a hexadecimal escape. */
+function ansiCQuoted(text: string): string {
+  let quoted = "";
+  for (const c of text) {
+    const codePoint = c.codePointAt(0) as number;
+    if (c === "\\" || c === "'") quoted += `\\${c}`;
+    else if (!hasUnsafeCharacter(c)) quoted += c;
+    // `\xHH` is a byte in bash, so only ASCII is written that way; `\uHHHH` is the character in bash and zsh.
+    else if (codePoint < 0x80) quoted += `\\x${codePoint.toString(16).padStart(2, "0")}`;
+    else quoted += `\\u${codePoint.toString(16).padStart(4, "0")}`;
+  }
+  return quoted;
 }
 
 /** What remains after a page: how many items, when the listing knows, and the cursor that continues it. */
 export interface PageRemainder {
   /** The number of items after the page, or null when the listing does not count them. */
   readonly remaining: number | null;
+  /** Whether `remaining` is an estimate, as `grep`'s is, rather than an exact count, as `ls`'s is. */
+  readonly estimated?: boolean;
   /** The cursor of the next page, as the library gave it. */
   readonly cursor: string;
 }
 
 /**
- * Writes the last line of a page after which more remain, with a line break: `… 37 more (--cursor tickets/0171.md)`, or
- * `… more (--cursor …)` when the count is unknown. The cursor is quoted for a shell where it needs to be, so the line can be
- * pasted into the next command. A listing with nothing left prints no such line.
+ * Writes the last line of a page after which more remain, with a line break: `… 37 more (--cursor tickets/0171.md)`,
+ * `… ~37 more (--cursor …)` for an estimate, or `… more (--cursor …)` when the count is unknown. The cursor is quoted by
+ * {@link shellWord}, so the line can be pasted into the next command and nothing in the cursor acts on the terminal. A
+ * listing with nothing left prints no such line.
  */
 export function formatPageRemainder(remainder: PageRemainder): string {
-  const count = remainder.remaining === null ? "" : ` ${formatCount(remainder.remaining)}`;
+  const mark = remainder.estimated === true ? "~" : "";
+  const count = remainder.remaining === null ? "" : ` ${mark}${formatCount(remainder.remaining)}`;
   return `…${count} more (--cursor ${shellWord(remainder.cursor)})\n`;
 }
 

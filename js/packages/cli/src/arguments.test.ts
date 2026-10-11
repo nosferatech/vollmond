@@ -34,9 +34,13 @@ describe("readCommandLineHead", () => {
   });
 
   test("says whether --version or --help was given without a command", () => {
-    expect(readCommandLineHead(["-v"])).toEqual({ kind: "none", version: true, help: false });
+    expect(readCommandLineHead(["--version"])).toEqual({ kind: "none", version: true, help: false });
     expect(readCommandLineHead(["--help"])).toEqual({ kind: "none", version: false, help: true });
     expect(readCommandLineHead([])).toEqual({ kind: "none", version: false, help: false });
+  });
+
+  test.each(["-v", "-h"])("has no short form %s, which a command such as grep may want", (option) => {
+    expect(readCommandLineHead([option]).kind).toBe("usage");
   });
 });
 
@@ -77,6 +81,12 @@ describe("readCommandLine", () => {
 
   test("refuses an option value that starts with a dash, which could be a forgotten value", () => {
     expect(readCommandLine(["get", "-n", "--json"], 0, options).ok).toBe(false);
+  });
+
+  test("leaves -v and -h to a command that takes them", () => {
+    const grep = { invert: { type: "boolean", short: "v" }, heading: { type: "boolean", short: "h" } } as const;
+    const line = readCommandLine(["grep", "-v", "-h", "x"], 0, grep);
+    expect(line.ok && line.value).toMatchObject({ version: false, help: false, options: { invert: true, heading: true } });
   });
 
   test("says whether --version or --help was given after the command", () => {

@@ -1,6 +1,16 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fail, type Issue, type IssueCode, makeIssue, type Outcome, succeed, type UnicodeRuntimeProbe } from "@vollmond/core";
+import {
+  fail,
+  type Issue,
+  type IssueCode,
+  MAX_CONFIGURATION_BYTES,
+  makeIssue,
+  type Outcome,
+  succeed,
+  type UnicodeRuntimeProbe,
+} from "@vollmond/core";
 import { describe, expect, test, vi } from "vitest";
 import { type CliEnvironment, runCli } from "./cli.js";
 import { type Command, type CommandInvocation, outcomeOutput, usageOutput } from "./command/command.js";
@@ -74,24 +84,62 @@ function issue(code: IssueCode, at: string | null = null): Issue {
   return makeIssue({ code, path: "a.md", at, message: `the ${code} of the tests` });
 }
 
+/** Runs `vmd` as {@link runCli} does, for a command whose stdout is text. */
+async function runText(
+  args: readonly string[],
+  env: Partial<CliEnvironment> = {},
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const result = await runCli(args, env);
+  if (typeof result.stdout !== "string") throw new Error("stdout holds bytes");
+  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+}
+
 describe("without a command", () => {
-  test.each([["--version"], ["-v"]])("prints the package version for %s", async (option) => {
-    expect(await runCli([option])).toEqual({ stdout: `${manifest.version}\n`, stderr: "", exitCode: 0 });
+  test("prints the package version for --version", async () => {
+    expect(await runText(["--version"])).toEqual({ stdout: `${manifest.version}\n`, stderr: "", exitCode: 0 });
+  });
+
+  test("prints the version even when the working directory was deleted", async () => {
+    /** `base` with a working directory that throws when read, as `process.cwd()` does once it was deleted. */
+    const deleted = (base: Partial<CliEnvironment>): Partial<CliEnvironment> =>
+      Object.defineProperty({ ...base }, "cwd", {
+        get: () => {
+          throw Object.assign(new Error("uv_cwd"), { code: "ENOENT" });
+        },
+      });
+    expect((await runText(["--version"], deleted({}))).exitCode).toBe(0);
+    const result = await runText(["give"], deleted(environment("/", [giving(succeed(1))])));
+    expect(result).toEqual({
+      stdout: "",
+      stderr: "error: cannot read the working directory: ENOENT\n  hint change to a directory that exists\n",
+      exitCode: 1,
+    });
+  });
+
+  test.each(["-v", "-h"])("has no short form %s, leaving it to commands", async (option) => {
+    expect((await runText([option])).exitCode).toBe(2);
+  });
+
+  test("escapes what the command line holds in a usage error", async () => {
+    const result = await runText(["--a\u001b[2Jb"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("\\u001b[2J");
+    expect(result.stderr).not.toContain("\u001b");
   });
 
   test("prints the help for --help, listing the commands", async () => {
-    const result = await runCli(["--help"], environment("/", [list]));
+    const result = await runText(["--help"], environment("/", [list]));
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("usage: vmd [--store DIR] [--config FILE] [--json] [--quiet] COMMAND");
     expect(result.stdout).toContain("  list      the list command of the tests\n");
   });
 
   test("exits with code 2 and a hint when no command is given", async () => {
-    expect(await runCli([])).toEqual({ stdout: "", stderr: "vmd: no command given; try --help\n", exitCode: 2 });
+    expect(await runText([])).toEqual({ stdout: "", stderr: "vmd: no command given; try --help\n", exitCode: 2 });
   });
 
   test("rejects an unknown option with exit code 2", async () => {
-    const result = await runCli(["--nope"]);
+    const result = await runText(["--nope"]);
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--nope");
@@ -100,7 +148,7 @@ describe("without a command", () => {
 
 describe("the command line", () => {
   test("rejects an unknown command with exit code 2", async () => {
-    expect(await runCli(["nope"], environment("/", [list]))).toEqual({
+    expect(await runText(["nope"], environment("/", [list]))).toEqual({
       stdout: "",
       stderr: 'vmd: unknown command "nope"; try --help\n',
       exitCode: 2,
@@ -109,7 +157,7 @@ describe("the command line", () => {
 
   test("rejects an option the command does not take with exit code 2, without reading the store", async () => {
     const run = vi.fn();
-    const result = await runCli(["give", "--fields", "a"], environment(temporaryDirectory(), [command("give", run)]));
+    const result = await runText(["give", "--fields", "a"], environment(temporaryDirectory(), [command("give", run)]));
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("--fields");
     expect(run).not.toHaveBeenCalled();
@@ -126,16 +174,16 @@ describe("the command line", () => {
       },
       { options: { value: { type: "boolean" } } },
     );
-    await runCli(["--quiet", "echo", "x.md#a", "--value", "--store", root], environment("/", [echo]));
+    await runText(["--quiet", "echo", "x.md#a", "--value", "--store", root], environment("/", [echo]));
     expect(seen?.positionals).toEqual(["x.md#a"]);
     expect(seen?.options).toEqual({ value: true });
     expect(seen?.globals).toEqual({ store: root, json: false, quiet: true });
     expect(seen?.store?.location.root).toBe(root);
-    expect(seen?.store?.configuration).toEqual({ vmd: 1 });
+    expect(seen?.store?.configuration).toEqual({ vmd: 1, declared: 1 });
   });
 
   test("prints a command's help for --help after its name, without running it", async () => {
-    const result = await runCli(["list", "--help"], environment("/", [list]));
+    const result = await runText(["list", "--help"], environment("/", [list]));
     expect(result).toEqual({
       stdout: "usage: vmd list [-n N] [--cursor C]\nthe list command of the tests\n",
       stderr: "",
@@ -144,14 +192,14 @@ describe("the command line", () => {
   });
 
   test("gives exit code 2 for a usage error the command finds", async () => {
-    const result = await runCli(["list", "-n", "0"], environment(store(), [list]));
+    const result = await runText(["list", "-n", "0"], environment(store(), [list]));
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("-n takes a whole number");
   });
 
   test("calls a command whose option clashes with a global option a bug", async () => {
     const clash = command("clash", vi.fn(), { options: { json: { type: "boolean" } } });
-    const result = await runCli(["--help"], environment("/", [clash]));
+    const result = await runText(["--help"], environment("/", [clash]));
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("internal error");
   });
@@ -159,7 +207,7 @@ describe("the command line", () => {
 
 describe("line output, limits and cursors", () => {
   test("prints one line per item, with sizes and approximate tokens, and the cursor when more remain", async () => {
-    const result = await runCli(["list", "-n", "2"], environment(store(), [list]));
+    const result = await runText(["list", "-n", "2"], environment(store(), [list]));
     expect(result).toEqual({
       stdout: ".vmd/config.yaml  7 B  ~2 tok\na.md              4 B  ~1 tok\n… more (--cursor a.md)\n",
       stderr: "",
@@ -168,18 +216,18 @@ describe("line output, limits and cursors", () => {
   });
 
   test("continues from the cursor, and prints no cursor after the last page", async () => {
-    const result = await runCli(["list", "-n", "2", "--cursor", "a.md"], environment(store(), [list]));
+    const result = await runText(["list", "-n", "2", "--cursor", "a.md"], environment(store(), [list]));
     expect(result.stdout).toBe("b.json             2 B     ~1 tok\ntickets/0171-x.md  4800 B  ~1.2k tok\n");
   });
 
   test("applies the command's default limit without -n", async () => {
-    const result = await runCli(["list"], environment(store(), [list]));
+    const result = await runText(["list"], environment(store(), [list]));
     expect(result.stdout.split("\n").filter((line) => line !== "")).toHaveLength(4);
     expect(result.stdout).toContain("… more (--cursor b.json)\n");
   });
 
   test("fails with exit code 1 and the issue for a cursor that is not one", async () => {
-    const result = await runCli(["list", "--cursor", "../x"], environment(store(), [list]));
+    const result = await runText(["list", "--cursor", "../x"], environment(store(), [list]));
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toMatch(/^error query-invalid: "\.\.\/x" is not a list cursor/);
@@ -189,7 +237,7 @@ describe("line output, limits and cursors", () => {
 describe("--json", () => {
   test("prints the library's outcome unchanged, issues included, and keeps the exit code", async () => {
     const outcome = succeed({ items: ["a"] }, [issue("ref-dangling", "/a")]);
-    const result = await runCli(["--json", "give"], environment(store(), [giving(outcome)]));
+    const result = await runText(["--json", "give"], environment(store(), [giving(outcome)]));
     expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(outcome)));
     expect(result.stdout.endsWith("}\n")).toBe(true);
     expect(result.stderr).toBe("");
@@ -198,7 +246,7 @@ describe("--json", () => {
 
   test("prints a failure as its outcome", async () => {
     const outcome = fail([issue("address-not-found")]);
-    const result = await runCli(["give", "--json"], environment(store(), [giving(outcome)]));
+    const result = await runText(["give", "--json"], environment(store(), [giving(outcome)]));
     expect(JSON.parse(result.stdout)).toEqual({ ok: false, issues: [JSON.parse(JSON.stringify(outcome.issues[0]))] });
     expect(result.exitCode).toBe(1);
   });
@@ -206,7 +254,7 @@ describe("--json", () => {
 
 describe("issues and exit codes", () => {
   test("prints the value on stdout and the issues on stderr in the issue format, with 0 for warnings", async () => {
-    const result = await runCli(["give"], environment(store(), [giving(succeed(1, [issue("heading-html", "/$sections/0")]))]));
+    const result = await runText(["give"], environment(store(), [giving(succeed(1, [issue("heading-html", "/$sections/0")]))]));
     expect(result).toEqual({
       stdout: "1\n",
       stderr: "a.md warning heading-html: the heading-html of the tests\n  in   #/$sections/0\n",
@@ -215,14 +263,14 @@ describe("issues and exit codes", () => {
   });
 
   test("gives exit code 4 for a success with an error, and still prints the value", async () => {
-    const result = await runCli(["give"], environment(store(), [giving(succeed(1, [issue("ref-dangling", "/links")]))]));
+    const result = await runText(["give"], environment(store(), [giving(succeed(1, [issue("ref-dangling", "/links")]))]));
     expect(result.exitCode).toBe(4);
     expect(result.stdout).toBe("1\n");
     expect(result.stderr).toContain("a.md error ref-dangling:");
   });
 
   test("gives exit code 1 for a failure, with nothing on stdout", async () => {
-    const result = await runCli(["give"], environment(store(), [giving(fail([issue("address-not-found")]))]));
+    const result = await runText(["give"], environment(store(), [giving(fail([issue("address-not-found")]))]));
     expect(result).toEqual({
       stdout: "",
       stderr: "a.md error address-not-found: the address-not-found of the tests\n",
@@ -231,7 +279,7 @@ describe("issues and exit codes", () => {
   });
 
   test("gives exit code 3 for a conflict", async () => {
-    expect((await runCli(["give"], environment(store(), [giving(fail([issue("conflict", "")]))]))).exitCode).toBe(3);
+    expect((await runText(["give"], environment(store(), [giving(fail([issue("conflict", "")]))]))).exitCode).toBe(3);
   });
 
   test("passes the command's details of each issue to the format", async () => {
@@ -243,13 +291,13 @@ describe("issues and exit codes", () => {
         () => ({ semantic: "#done/$body" }),
       ),
     );
-    const result = await runCli(["detailed"], environment(store(), [detailed]));
+    const result = await runText(["detailed"], environment(store(), [detailed]));
     expect(result.stderr).toContain("  in   #done/$body  (exact #/$sections/1/$body)\n");
   });
 
   test("leaves out warnings with --quiet, and keeps errors", async () => {
     const outcome = succeed(1, [issue("heading-html", "/h"), issue("ref-dangling", "/r")]);
-    const result = await runCli(["give", "--quiet"], environment(store(), [giving(outcome)]));
+    const result = await runText(["give", "--quiet"], environment(store(), [giving(outcome)]));
     expect(result.stderr).not.toContain("heading-html");
     expect(result.stderr).toContain("ref-dangling");
     expect(result.exitCode).toBe(4);
@@ -259,29 +307,73 @@ describe("issues and exit codes", () => {
     const broken = command("broken", async () => {
       throw new TypeError("oops");
     });
-    const result = await runCli(["broken"], environment(store(), [broken]));
+    const result = await runText(["broken"], environment(store(), [broken]));
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toMatch(/^vmd: internal error, which is a bug: TypeError: oops/);
+  });
+
+  test("escapes each line of a bug's message and stack", async () => {
+    const broken = command("broken", async () => {
+      throw new Error("bad \u001b[2J\u202e name");
+    });
+    const result = await runText(["broken"], environment(store(), [broken]));
+    expect(result.stderr).toContain("bad \\u001b[2J\\u202e name");
+    expect(result.stderr.includes("\u001b") || result.stderr.includes("\u202e")).toBe(false);
+    expect(result.stderr.split("\n").length).toBeGreaterThan(2);
+  });
+});
+
+describe("bytes on stdout", () => {
+  const bytes = new Uint8Array([0x23, 0xff, 0xfe, 0x00, 0x80, 0x0a]);
+
+  /** Reads a file of the store and gives its bytes, as `cat` does. */
+  const cat = command("cat", async ({ store, positionals }) => {
+    const content = await (store?.storage ?? never()).read(positionals[0] as string);
+    return outcomeOutput(content, (value) => value.content);
+  });
+
+  test("prints a file that is not UTF-8 byte for byte", async () => {
+    const root = store({});
+    writeFileSync(join(root, "raw.bin"), bytes);
+    const result = await runCli(["cat", "raw.bin"], environment(root, [cat]));
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toEqual(bytes);
+  });
+
+  test("writes the bytes as base64 with --json", async () => {
+    const root = store({});
+    writeFileSync(join(root, "raw.bin"), bytes);
+    const result = await runText(["cat", "raw.bin", "--json"], environment(root, [cat]));
+    const printed = JSON.parse(result.stdout);
+    expect(printed.value.content).toEqual({ base64: "I//+AIAK" });
+    expect(Buffer.from(printed.value.content.base64, "base64")).toEqual(Buffer.from(bytes));
+    expect(printed.value.path).toBe("raw.bin");
+  });
+
+  test("writes a part of a larger buffer as its own bytes", async () => {
+    const part = new Uint8Array([9, 0x41, 0x42, 9]).subarray(1, 3);
+    const result = await runText(["--json", "give"], environment(store(), [giving(succeed({ part }))]));
+    expect(JSON.parse(result.stdout).value.part).toEqual({ base64: "QUI=" });
   });
 });
 
 describe("the store", () => {
   test("is found from a directory inside it", async () => {
     const root = store();
-    const result = await runCli(["list", "-n", "1"], environment(makeDirectories(root, "tickets"), [list]));
+    const result = await runText(["list", "-n", "1"], environment(makeDirectories(root, "tickets"), [list]));
     expect(result.stdout).toContain(".vmd/config.yaml");
   });
 
   test("is not looked for by a command that reads none", async () => {
-    const result = await runCli(["give"], environment(temporaryDirectory(), [giving(succeed(1), { readsStore: false })]));
+    const result = await runText(["give"], environment(temporaryDirectory(), [giving(succeed(1), { readsStore: false })]));
     expect(result).toEqual({ stdout: "1\n", stderr: "", exitCode: 0 });
   });
 
   test("missing, fails with exit code 1, a message and a hint, before the command runs", async () => {
     const run = vi.fn();
     const cwd = temporaryDirectory();
-    const result = await runCli(["give"], environment(cwd, [command("give", run)]));
+    const result = await runText(["give"], environment(cwd, [command("give", run)]));
     expect(result).toEqual({
       stdout: "",
       stderr: `error: no vmd store here: neither ${cwd} nor a directory above it holds .vmd/config.yaml\n  hint run vmd inside a store, or name its root with --store\n`,
@@ -292,27 +384,69 @@ describe("the store", () => {
 
   test("with an invalid configuration, fails with exit code 1 and the issue at its position", async () => {
     const root = store({ ".vmd/config.yaml": "vmd: one\n" });
-    const result = await runCli(["give"], environment(root, [giving(succeed(1))]));
+    const result = await runText(["give"], environment(root, [giving(succeed(1))]));
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe(
-      '.vmd/config.yaml:1:1 error config-invalid: "vmd", the store\'s format version, must be a whole number from 1, not "one"\n',
+      '.vmd/config.yaml:1:1 error config-invalid: "vmd", the store\'s format version, must be a number from 1, not "one"\n',
     );
   });
 
-  test("with an invalid configuration, prints its outcome with --json", async () => {
+  test("with an invalid configuration, prints its outcome with --json, without a path, since it is not a record", async () => {
     const root = store({ ".vmd/config.yaml": "collections: {}\n" });
-    const result = await runCli(["give", "--json"], environment(root, [giving(succeed(1))]));
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: false,
-      issues: [{ code: "config-invalid", path: ".vmd/config.yaml" }],
-    });
+    const result = await runText(["give", "--json"], environment(root, [giving(succeed(1))]));
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, issues: [{ code: "config-invalid", path: null }] });
     expect(result.exitCode).toBe(1);
+  });
+
+  test("names the --config file in a configuration's issue", async () => {
+    const root = store({ "c.yaml": "vmd: [\n" });
+    const result = await runText(["give", "--config", "c.yaml"], environment(root, [giving(succeed(1))]));
+    expect(result.stderr).toMatch(/^c\.yaml:2:1 error config-invalid: not valid YAML/);
+  });
+
+  test("declaring a newer minor version, is read without a warning", async () => {
+    const root = store({ ".vmd/config.yaml": "vmd: 1.2\n" });
+    expect(await runText(["give"], environment(root, [giving(succeed(1))]))).toEqual({ stdout: "1\n", stderr: "", exitCode: 0 });
+  });
+
+  test.skipIf(process.platform === "win32")("with --config naming a FIFO, fails at once rather than waiting on it", async () => {
+    const root = store();
+    execFileSync("mkfifo", [join(root, "fifo.yaml")]);
+    const result = await runText(["give", "--config", "fifo.yaml"], environment(root, [giving(succeed(1))]));
+    expect(result).toEqual({
+      stdout: "",
+      stderr: "fifo.yaml error config-invalid: the configuration is a FIFO, not a regular file\n",
+      exitCode: 1,
+    });
+  });
+
+  test("with --config naming a directory, fails with config-invalid", async () => {
+    const root = store();
+    makeDirectories(root, "conf");
+    const result = await runText(["give", "--config", "conf"], environment(root, [giving(succeed(1))]));
+    expect(result.stderr).toBe("conf error config-invalid: the configuration is a directory, not a regular file\n");
+    expect(result.exitCode).toBe(1);
+  });
+
+  test("with --config naming a file over a mebibyte, fails with config-invalid, and reads one of exactly a mebibyte", async () => {
+    const big = `vmd: 1\n#${"x".repeat(MAX_CONFIGURATION_BYTES - 9)}\n`;
+    const root = store({ "big.yaml": `${big}x`, "limit.yaml": big });
+    const result = await runText(["give", "--config", "big.yaml"], environment(root, [giving(succeed(1))]));
+    expect(result.stderr).toMatch(/^big\.yaml error config-invalid: the configuration is larger than 1048576 bytes/);
+    expect((await runText(["give", "--config", "limit.yaml"], environment(root, [giving(succeed(1))]))).exitCode).toBe(0);
+  });
+
+  test("named with --store holding escape sequences, is named escaped in the failure", async () => {
+    const result = await runText(["give", "--store", "a\u001b]0;x\u0007b"], environment(store(), [giving(succeed(1))]));
+    expect(result.stderr).toBe(
+      "error: --store a\\u001b]0;x\\u0007b is not a directory\n  hint name the store root, the directory that holds .vmd/\n",
+    );
   });
 
   test("of a newer major format version, is refused with exit code 1", async () => {
     const root = store({ ".vmd/config.yaml": "vmd: 2\n" });
-    const result = await runCli(["give"], environment(root, [giving(succeed(1))]));
+    const result = await runText(["give"], environment(root, [giving(succeed(1))]));
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/^\.vmd\/config\.yaml:1:1 error format-version-unsupported: /);
   });
@@ -323,17 +457,17 @@ describe("the store", () => {
       "vollmond/examples/vampiredb/config.yaml": "vmd: 1\n",
     });
     const args = ["list", "--store", "../vampiredb/docs", "--config", "examples/vampiredb/config.yaml"];
-    const result = await runCli(args, environment(join(home, "vollmond"), [list]));
+    const result = await runText(args, environment(join(home, "vollmond"), [list]));
     expect(result).toEqual({ stdout: "design/Minimal_Log.md  14 B  ~4 tok\n", stderr: "", exitCode: 0 });
   });
 
   test("with --config naming the store's own configuration's replacement, reads that one", async () => {
     const root = store({ ".vmd/config.yaml": "vmd: 2\n", "other.yaml": "vmd: 1\n" });
-    expect((await runCli(["give", "--config", "other.yaml"], environment(root, [giving(succeed(1))]))).exitCode).toBe(0);
+    expect((await runText(["give", "--config", "other.yaml"], environment(root, [giving(succeed(1))]))).exitCode).toBe(0);
   });
 
   test("with --config naming no file, fails with exit code 1", async () => {
-    const result = await runCli(["give", "--config", "missing.yaml"], environment(store(), [giving(succeed(1))]));
+    const result = await runText(["give", "--config", "missing.yaml"], environment(store(), [giving(succeed(1))]));
     expect(result).toEqual({
       stdout: "",
       stderr: "error: cannot read the configuration missing.yaml: it does not exist\n  hint check the path given to --config\n",
@@ -347,7 +481,7 @@ describe("the Unicode probe", () => {
 
   test("warns once, on a runtime whose Unicode data is older, and the command still runs", async () => {
     const probe = vi.fn(() => OLDER);
-    const result = await runCli(["list"], { ...environment(store(), [list]), unicodeProbe: probe });
+    const result = await runText(["list"], { ...environment(store(), [list]), unicodeProbe: probe });
     expect(result.stderr.split(warning)).toHaveLength(2);
     expect(result.stderr).toBe(
       `${warning}, which derived anchors follow (U+16EA0 is not a letter here)\n` +
@@ -360,24 +494,24 @@ describe("the Unicode probe", () => {
 
   test("warns once with the issues of the command after it", async () => {
     const outcome = succeed(1, [issue("heading-html", "/h"), issue("heading-html", "/i")]);
-    const result = await runCli(["give"], environment(store(), [giving(outcome)], OLDER));
+    const result = await runText(["give"], environment(store(), [giving(outcome)], OLDER));
     expect(result.stderr.split(warning)).toHaveLength(2);
     expect(result.stderr.indexOf(warning)).toBe(0);
   });
 
   test("does not warn on a runtime that agrees", async () => {
-    expect((await runCli(["list"], environment(store(), [list], AGREES))).stderr).toBe("");
+    expect((await runText(["list"], environment(store(), [list], AGREES))).stderr).toBe("");
   });
 
   test("does not warn with --quiet", async () => {
-    expect((await runCli(["list", "--quiet"], environment(store(), [list], OLDER))).stderr).toBe("");
+    expect((await runText(["list", "--quiet"], environment(store(), [list], OLDER))).stderr).toBe("");
   });
 
   test("does not run for a command without a store, for --version, or for a usage error", async () => {
     const probe = vi.fn(() => OLDER);
     for (const args of [["give"], ["--version"], ["list", "--nope"]]) {
       const commands = [giving(succeed(1), { readsStore: false }), list];
-      const result = await runCli(args, { ...environment(store(), commands), unicodeProbe: probe });
+      const result = await runText(args, { ...environment(store(), commands), unicodeProbe: probe });
       expect(result.stderr).not.toContain("warning");
     }
     expect(probe).not.toHaveBeenCalled();
@@ -385,7 +519,7 @@ describe("the Unicode probe", () => {
 
   test("is core's probe by default", async () => {
     const { unicodeRuntimeProbe } = await import("@vollmond/core");
-    const result = await runCli(["list"], { cwd: store(), commands: [list] });
+    const result = await runText(["list"], { cwd: store(), commands: [list] });
     expect(result.stderr.includes("warning: this runtime's Unicode")).toBe(!unicodeRuntimeProbe().agrees);
   });
 });

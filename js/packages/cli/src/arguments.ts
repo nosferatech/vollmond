@@ -19,8 +19,8 @@ export const GLOBAL_OPTIONS: Readonly<Record<string, OptionSpec>> = Object.freez
   config: Object.freeze({ type: "string" }),
   json: Object.freeze({ type: "boolean" }),
   quiet: Object.freeze({ type: "boolean" }),
-  version: Object.freeze({ type: "boolean", short: "v" }),
-  help: Object.freeze({ type: "boolean", short: "h" }),
+  version: Object.freeze({ type: "boolean" }),
+  help: Object.freeze({ type: "boolean" }),
 });
 
 /** The global options as a command sees them. */

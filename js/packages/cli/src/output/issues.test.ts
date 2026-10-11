@@ -1,6 +1,6 @@
 import { type Issue, type IssueInit, makeIssue } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
-import { DEFAULT_ISSUE_LIMIT, formatIssue, formatIssues } from "./issues.js";
+import { DEFAULT_ISSUE_LIMIT, formatIssue, formatIssues, type IssueWithCandidates } from "./issues.js";
 
 /** An issue at a record's node, with a position, a hint, or neither. */
 function issue(init: Partial<IssueInit> & Pick<IssueInit, "code">): Issue {
@@ -15,13 +15,22 @@ const ambiguity = issue({
   position: { offset: 300, line: 14, col: 3 },
 });
 
+/** The ambiguity with its two candidates, as the issue will carry them. */
+const withCandidates: IssueWithCandidates = {
+  ...ambiguity,
+  candidates: [
+    { path: "tickets/0171-x.md", at: "/$sections/2" },
+    { path: "tickets/0171-x.md", at: "/$sections/4" },
+  ],
+};
+
 describe("formatIssue", () => {
-  test("writes the example of the specification, given the semantic path and the candidates", () => {
-    const text = formatIssue(ambiguity, {
+  test("writes the example of the specification, given the semantic path and the candidates' notes", () => {
+    const text = formatIssue(withCandidates, {
       semantic: "#what-was-done/$body",
-      candidates: [
-        { address: "#/$sections/2", line: 20, derived: "#notes" },
-        { address: "#/$sections/4", line: 31, derived: "#notes-1" },
+      candidateNotes: [
+        { line: 20, derived: "#notes" },
+        { line: 31, derived: "#notes-1" },
       ],
     });
     expect(text).toBe(
@@ -44,10 +53,20 @@ describe("formatIssue", () => {
     expect(formatIssue(ambiguity, { semantic: "#/$sections/1/$body" })).toContain("\n  in   #/$sections/1/$body\n");
   });
 
-  test("writes a candidate without a line or a derived anchor as its address alone", () => {
-    expect(formatIssue(ambiguity, { candidates: [{ address: "#/a" }, { address: "#/b", derived: "#b" }] })).toContain(
-      "  candidates  #/a\n              #/b (derived #b)\n",
+  test("writes a candidate without a note, or with a partial one, as its exact path and what the note has", () => {
+    expect(formatIssue(withCandidates, { candidateNotes: [undefined, { derived: "#b" }] })).toContain(
+      "  candidates  #/$sections/2\n              #/$sections/4 (derived #b)\n",
     );
+    expect(formatIssue(withCandidates)).toContain("  candidates  #/$sections/2\n              #/$sections/4\n");
+  });
+
+  test("writes a candidate in another record after that record's path, and a record's root as its path", () => {
+    const issue: IssueWithCandidates = { ...ambiguity, candidates: [{ path: "b.md", at: "/x" }, { path: "c.md" }] };
+    expect(formatIssue(issue)).toContain("  candidates  b.md#/x\n              c.md\n");
+  });
+
+  test("prints no candidates line for an issue without candidates", () => {
+    expect(formatIssue(ambiguity, { candidateNotes: [{ line: 1 }] })).not.toContain("candidates");
   });
 
   test("writes the path without a position when the issue has none", () => {
@@ -67,12 +86,16 @@ describe("formatIssue", () => {
     expect(text).toBe("error address-malformed: bad\n  hint quote it\n");
   });
 
-  test("names the file details give in place of the path", () => {
+  test("names the file details give for an issue without a path", () => {
     const text = formatIssue(
       makeIssue({ code: "config-invalid", path: null, at: null, message: "m", position: { offset: 0, line: 2, col: 1 } }),
       { file: "examples/vampiredb/config.yaml" },
     );
     expect(text).toBe("examples/vampiredb/config.yaml:2:1 error config-invalid: m\n");
+  });
+
+  test("keeps the issue's path over a file details give", () => {
+    expect(formatIssue(ambiguity, { file: "other.yaml" })).toMatch(/^tickets\/0171-x\.md:14:3 /);
   });
 
   test("writes a warning as one", () => {

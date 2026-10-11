@@ -18,6 +18,11 @@ export function oneLine(text: string): string {
   return text.replace(UNSAFE, (c) => SHORT_ESCAPES[c] ?? `\\u${(c.codePointAt(0) as number).toString(16).padStart(4, "0")}`);
 }
 
+/** Whether `text` holds a character that {@link oneLine} escapes. */
+export function hasUnsafeCharacter(text: string): boolean {
+  return text.search(UNSAFE) !== -1;
+}
+
 /** A character a terminal shows two columns wide: East Asian scripts and emoji shown as pictures. */
 const WIDE =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Emoji_Presentation}\u3000-\u303f\uff01-\uff60]/u;

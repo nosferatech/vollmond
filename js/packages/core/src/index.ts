@@ -40,7 +40,12 @@ export type {
   StorageHistory,
   StorageReader,
 } from "./storage/storage.js";
-export { readStoreConfiguration, type StoreConfiguration, SUPPORTED_FORMAT_VERSION } from "./store/configuration.js";
+export {
+  MAX_CONFIGURATION_BYTES,
+  readStoreConfiguration,
+  type StoreConfiguration,
+  SUPPORTED_FORMAT_VERSION,
+} from "./store/configuration.js";
 export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
 export { readLineBreaksAsLf, sliceUnitText, type UnitText } from "./text/unit-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";
