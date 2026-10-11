@@ -137,4 +137,13 @@ describe("resolveReferenceUri", () => {
     expect(slash.kind).toBe("invalid");
     expect(slash.kind === "invalid" && slash.message).toMatch(/does not decode to a store path/);
   });
+
+  test("keeps an escaped U+FEFF as a character of the path, which the decoder does not drop as a mark", () => {
+    expect(resolveReferenceUri("a.md", "%EF%BB%BFx.md")).toEqual({
+      kind: "store",
+      path: "\uFEFFx.md",
+      directory: false,
+      fragment: null,
+    });
+  });
 });

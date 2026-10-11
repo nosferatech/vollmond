@@ -73,11 +73,15 @@ export class ReferenceResolver {
     this.#aliases = aliases;
   }
 
-  /** Whether a file is at `path`, or for `directory` below it: in the listing, or for an ignored path, by looking it up. */
+  /**
+   * Whether a file is at `path`, or for `directory` below it: in the listing, or else, for an ignored file or any directory,
+   * by looking it up once.
+   */
   async #exists(path: string, directory: boolean): Promise<boolean> {
     if (directory ? this.#directories.has(path) : this.#files.has(path)) return true;
-    // A path is left out of the listing only when the configuration ignores it, or ignores what is below it.
-    if (this.#store.classify(directory ? `${path}/x` : path).kind !== "ignored") return false;
+    // A file is left out of the listing only when the configuration ignores it. A directory is left out when it holds only
+    // ignored files, which a dotfile or a filename pattern can make of any directory, so a missing one is always looked up.
+    if (!directory && this.#store.classify(path).kind !== "ignored") return false;
     const key = directory ? `${path}/` : path;
     let found = this.#lookedUp.get(key);
     if (found === undefined) {

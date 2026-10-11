@@ -274,17 +274,13 @@ describe("aliases", () => {
     expect((await one("/data/ok.json#old/b", other)).status).toBe("dangling");
   });
 
-  test("leave a reference dangling when the aliases lead nowhere, a cycle included, and take the last of two", async () => {
+  // A cycle of record aliases is tested on the resolver, whose alias table can stop a walk that does not end.
+  test("leave a reference dangling when the aliases lead nowhere, and take the last of two", async () => {
     const nowhere = alias({ kind: "record", from: "docs/old.md", to: "docs/gone.md", at });
     const dangling = await one("old.md", nowhere);
     expect(codes(dangling)).toEqual(["ref-dangling error"]);
     // The issue says what the reference names, not where its alias leads.
     expect(dangling.issues[0]?.message).toMatch(/no file docs\/old\.md$/);
-    const cycle = alias(
-      { kind: "record", from: "docs/a.md", to: "docs/b.md", at },
-      { kind: "record", from: "docs/b.md", to: "docs/a.md", at },
-    );
-    expect((await one("a.md", cycle)).status).toBe("dangling");
     const twice = alias(
       { kind: "record", from: "docs/old.md", to: "docs/twin.md", at },
       { kind: "record", from: "docs/old.md", to: "docs/guide.md", at },
@@ -467,5 +463,113 @@ describe("Store.check and references", () => {
     });
     const issues = (await store.check({ records: ["docs/a.md"] })).issues;
     expect(issues.map((issue) => `${issue.code} ${issue.severity}`)).toEqual(["ref-derived-anchor error"]);
+  });
+});
+
+describe("the prose of a JSON or YAML record", () => {
+  test("reads a $title's [a][b](c.md) as a use of the definition of b in a $body, as a Markdown heading does", async () => {
+    const store = await storeOf({
+      "docs/t.json": JSON.stringify({ $title: "[a][b](c.md)", $body: "Text.\n\n[b]: d.md\n" }),
+      "docs/t.md": "# [a][b](c.md)\n\nText.\n\n[b]: d.md\n",
+      "docs/d.md": "# D\n",
+    });
+    const raws = async (from: string) =>
+      successValue(await store.references({ from })).map((reference) => `${reference.form} ${reference.raw}`);
+    expect(await raws("docs/t.md")).toEqual(["definition d.md"]);
+    expect(await raws("docs/t.json")).toEqual(["definition d.md"]);
+  });
+
+  // TODO(#24): the Markdown limits apply to a data $body, which makes it a syntax-error (card Z1, recorded in Draft v0.13);
+  // until the code follows, such a $body gives no references and no issue, which this test pins.
+  test("gives no references, and raises nothing yet, for a $body beyond the Markdown parser's limits", async () => {
+    const deep = `${"> ".repeat(300)}[x](gone.md)`;
+    const store = await storeOf({ "docs/d.json": JSON.stringify({ $body: deep }) });
+    expect(successValue(await store.references({ from: "docs/d.json" }))).toEqual([]);
+    expect((await store.check({ records: ["docs/d.json"] })).issues).toEqual([]);
+  });
+});
+
+describe("alias chains and shadowed names", () => {
+  const alias = (...lines: object[]) => ({ ".vmd/aliases.jsonl": `${lines.map((line) => JSON.stringify(line)).join("\n")}\n` });
+  const at = "2026-10-09T08:00:00Z";
+
+  test("stop a record alias chain at its first live path", async () => {
+    const files = alias(
+      { kind: "record", from: "docs/a.md", to: "docs/b.md", at },
+      { kind: "record", from: "docs/b.md", to: "docs/c.md", at },
+    );
+    const reference = await one("a.md", { ...files, "docs/b.md": "# B\n", "docs/c.md": "# C\n" });
+    expect(reference).toMatchObject({ status: "aliased", targets: [{ path: "docs/b.md", at: "", address: "" }] });
+  });
+
+  test("warn alias-shadowed about a derived anchor alone, as a title added again has", async () => {
+    const store = await storeOf({
+      ...alias({ kind: "anchor", record: "docs/r.md", from: "notes", to: "remarks", at }),
+      "docs/r.md": "# R\n\n## Notes\n\n## Remarks\n",
+    });
+    const shadowed = (await store.check({ records: ["docs/r.md"] })).issues.filter((issue) => issue.code === "alias-shadowed");
+    expect(shadowed.map((issue) => `${issue.path} ${issue.at}`)).toEqual(["docs/r.md /$sections/0"]);
+  });
+});
+
+describe("the title-derived warnings", () => {
+  test("look at the first step, not the last", async () => {
+    const refs = await refsOf("# A\n\n[a](g.md#plain/$title) [b](g.md#done/sub)\n", {
+      "docs/g.md": '# G\n\n## Plain\n\n## Done <a id="done"></a>\n\n### Sub\n',
+    });
+    expect(refs.map(codes)).toEqual([["ref-derived-anchor warning"], []]);
+  });
+});
+
+describe("files the backend cannot read", () => {
+  const LOCKED = (path: string) => makeIssue({ code: "storage-failed", path, at: null, message: `${path}: permission denied` });
+  const CONFIG = "vmd: 1\n";
+
+  /** A backend over `files` that cannot read the paths of `locked`, and lists those it would list with a storage-failed. */
+  function lockedBackend(files: Files, locked: readonly string[]): StorageReader {
+    const inner = createMemoryStorage({ files });
+    return {
+      list: async (query) => {
+        const page = await inner.list(query);
+        if (!page.ok) return page;
+        const items = page.value.items.filter((item) => !locked.includes(item.path));
+        const failed = page.value.items.filter((item) => locked.includes(item.path)).map((item) => LOCKED(item.path));
+        return succeed({ ...page.value, items }, [...page.issues, ...failed]);
+      },
+      stat: async (path) => (locked.includes(path) ? fail([LOCKED(path)]) : inner.stat(path)),
+      read: async (path, options) => (locked.includes(path) ? fail([LOCKED(path)]) : inner.read(path, options)),
+      grep: (query) => inner.grep(query),
+      head: () => inner.head(),
+      history: inner.history,
+    };
+  }
+
+  test("are there when check lists them: a reference below the root of one is unreadable", async () => {
+    const files = {
+      ".vmd/config.yaml": CONFIG,
+      "docs/a.md": "# A\n\n[x](locked.md#part)\n",
+      "docs/locked.md": "# L\n\n## Part\n",
+    };
+    const store = successValue(await openStore(lockedBackend(files, ["docs/locked.md"])));
+    const issues = (await store.check({ records: ["docs/a.md"] })).issues;
+    expect(issues.map((issue) => issue.code)).toEqual(["ref-target-unreadable"]);
+  });
+
+  test("are there when ignored and looked up", async () => {
+    const files = {
+      ".vmd/config.yaml": 'vmd: 1\nignore: ["big/**"]\n',
+      "docs/a.md": "# A\n\n[x](../big/locked.txt)\n",
+      "big/locked.txt": "x",
+    };
+    const store = successValue(await openStore(lockedBackend(files, ["big/locked.txt"])));
+    const [reference] = successValue(await store.references({ from: "docs/a.md" }));
+    expect(reference?.status).toBe("ok");
+  });
+
+  test("stop check with the backend's issue when one is the alias file", async () => {
+    const files = { ".vmd/config.yaml": CONFIG, ".vmd/aliases.jsonl": "", "docs/a.md": "# A\n" };
+    const checked = await successValue(await openStore(lockedBackend(files, [".vmd/aliases.jsonl"]))).check();
+    expect(checked.ok).toBe(false);
+    expect(checked.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
 });

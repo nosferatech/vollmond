@@ -103,8 +103,8 @@ export function definitionLabelsOf(record: ParsedRecord): string[] {
   return labels;
 }
 
-// Deviation from the specification, recorded in issue #24: a JSON or YAML `$body` beyond the Markdown parser's limits gives no
-// references and no issue, since the specification bounds a data `$title` but not a data `$body`.
+// TODO(#24): the Markdown limits apply to a data `$body` too, which makes one beyond them a syntax-error (card Z1, recorded in
+// Draft v0.13); until the parse refuses it, such a `$body` gives no references here and raises no issue.
 /**
  * Parses a JSON or YAML record's `$body` as a Markdown document, or its `$title` as a heading's inline content with the
  * definitions whose labels are `titleLabels` in scope, and gives its links at their offsets in the string. They have no
