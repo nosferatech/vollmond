@@ -29,8 +29,9 @@ export function hasMember(object: ValueObject, name: string): boolean {
 }
 
 /**
- * Whether `value` is in the data model: null, a boolean, a finite number, a well-formed string, an array of values, or
- * an object whose own enumerable string-keyed members are values. Symbol-keyed members and accessors are not data.
+ * Whether `value` is in the data model: null, a boolean, a finite number, a well-formed string, a plain array of values with
+ * no holes, or an object whose prototype is `Object.prototype` or null and whose own enumerable string-keyed members are
+ * values. Symbol-keyed members, accessors, and instances of other classes (`Date`, `Map`, typed arrays) are not data.
  */
 export function isValue(value: unknown): value is Value {
   switch (typeof value) {
@@ -42,14 +43,25 @@ export function isValue(value: unknown): value is Value {
       return value.isWellFormed();
     case "object":
       if (value === null) return true;
-      if (Array.isArray(value)) return value.every(isValue);
+      if (Array.isArray(value)) return isValueArray(value);
       return isValueObject(value);
     default:
       return false;
   }
 }
 
+function isValueArray(array: readonly unknown[]): boolean {
+  if (Object.getPrototypeOf(array) !== Array.prototype) return false;
+  // An index loop, not `every`, which skips holes: a hole reads as `undefined`, which is not a value.
+  for (let i = 0; i < array.length; i++) {
+    if (!isValue(array[i])) return false;
+  }
+  return true;
+}
+
 function isValueObject(object: object): boolean {
+  const prototype = Object.getPrototypeOf(object);
+  if (prototype !== Object.prototype && prototype !== null) return false;
   if (Object.getOwnPropertySymbols(object).length > 0) return false;
   for (const name of Object.getOwnPropertyNames(object)) {
     const descriptor = Object.getOwnPropertyDescriptor(object, name);
@@ -60,8 +72,8 @@ function isValueObject(object: object): boolean {
 }
 
 /**
- * Whether two values are equal as JSON values, the equality that round trips are held to: numbers by value, so `-0` equals `0`; arrays in order; objects by their members, regardless of
- * member order.
+ * Whether two values are equal as JSON values, the equality that round trips are held to: numbers by value, so `-0` equals
+ * `0`; arrays in order; objects by their members, regardless of member order.
  */
 export function valuesEqual(a: Value, b: Value): boolean {
   if (a === b) return true;

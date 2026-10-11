@@ -41,20 +41,25 @@ export interface SourceText {
    */
   utf16Index(byteOffset: number): number;
   /**
-   * Gives the line and column of a byte offset. The offsets inside a byte order mark are at line 1, column 1. Throws a
-   * `RangeError` where {@link SourceText.utf16Index} does. Its cost grows with the length of the line, so callers ask only for
-   * positions they print.
+   * Gives the line and column of a byte offset. Around a byte order mark, offset 0, before it, and offset 3, after it, are
+   * both line 1, column 1; offsets 1 and 2 are inside it, and throw. Throws a `RangeError` where
+   * {@link SourceText.utf16Index} does. Its cost grows with the logarithm of the file's lines and of its characters outside
+   * ASCII, not with the length of the line.
    */
   position(byteOffset: number): Position;
 }
 
+/** The issue a file that is not UTF-8 raises: `syntax-error` for a record, or a configuration's or a schema's own code. */
+export type SourceTextIssueCode = "syntax-error" | "config-invalid" | "schema-invalid";
+
 /**
- * Decodes a file as UTF-8. A file that is not UTF-8 fails with one `syntax-error` attached to the record, at the first byte of
- * the first ill-formed sequence. `path` is the record's store path, for that issue.
+ * Decodes a file as UTF-8. A file that is not UTF-8 fails with one issue of the given code, positioned at the first byte of
+ * the first ill-formed sequence: a `syntax-error` attached to the record (`at` is `""`), or a `config-invalid` or
+ * `schema-invalid`, which have no node (`at` is null). `path` is the file's store path, for that issue.
  *
  * Note: building the text costs one pass over it, and memory for each line start and for each character outside ASCII.
  */
-export function decodeSource(path: string, bytes: Uint8Array): Outcome<SourceText> {
+export function decodeSource(path: string, bytes: Uint8Array, code: SourceTextIssueCode = "syntax-error"): Outcome<SourceText> {
   let text: string;
   try {
     // Without `ignoreBOM`, the decoder drops a leading byte order mark, and every index would be off by its three bytes.
@@ -64,7 +69,8 @@ export function decodeSource(path: string, bytes: Uint8Array): Outcome<SourceTex
     // The bytes before the first ill-formed sequence are well formed.
     const prefix = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, offset));
     const position = new DecodedSourceText(bytes.subarray(0, offset), prefix).position(offset);
-    return fail([makeIssue({ code: "syntax-error", path, at: "", message: `not valid UTF-8 at byte ${offset}`, position })]);
+    const at = code === "syntax-error" ? "" : null;
+    return fail([makeIssue({ code, path, at, message: `not valid UTF-8 at byte ${offset}`, position })]);
   }
   return succeed(new DecodedSourceText(bytes, text));
 }
@@ -118,10 +124,12 @@ class DecodedSourceText implements SourceText {
   readonly #lineStarts: number[] = [0];
   /**
    * For each character outside ASCII, in order: the index into `text` just after it, and the number of bytes by which the
-   * UTF-8 offsets from there on exceed the UTF-16 indexes. Both arrays are empty for an ASCII file.
+   * UTF-8 offsets from there on exceed the UTF-16 indexes, and the number of characters outside the Basic Multilingual Plane
+   * (two UTF-16 units each) up to it. All three arrays are empty for an ASCII file.
    */
   readonly #indexAfter: number[] = [];
   readonly #extraBytes: number[] = [];
+  readonly #astralCount: number[] = [];
 
   constructor(bytes: Uint8Array, text: string) {
     this.bytes = bytes;
@@ -129,6 +137,7 @@ class DecodedSourceText implements SourceText {
     this.hasBom = text.charCodeAt(0) === 0xfeff;
     let offset = 0;
     let extra = 0;
+    let astral = 0;
     for (let i = 0; i < text.length; i++) {
       const code = text.charCodeAt(i);
       if (code < 0x80) {
@@ -143,6 +152,7 @@ class DecodedSourceText implements SourceText {
         // Decoded UTF-8 is well formed, so a high surrogate always starts a pair: 4 bytes for 2 units.
         offset += 4;
         extra += 2;
+        astral += 1;
         i += 1;
       } else {
         offset += 3;
@@ -150,6 +160,7 @@ class DecodedSourceText implements SourceText {
       }
       this.#indexAfter.push(i + 1);
       this.#extraBytes.push(extra);
+      this.#astralCount.push(astral);
     }
   }
 
@@ -189,12 +200,15 @@ class DecodedSourceText implements SourceText {
     const lineIndex = lastAtOrBefore(this.#lineStarts, byteOffset);
     let start = this.utf16Index(this.#lineStarts[lineIndex] as number);
     if (lineIndex === 0 && this.hasBom) start = Math.min(1, end);
-    let col = 1;
-    for (let i = start; i < end; i++) {
-      const code = this.text.charCodeAt(i);
-      if (code < 0xdc00 || code > 0xdfff) col += 1;
-    }
+    // Both ends are character boundaries, so the code points between them are the UTF-16 units less one per astral character.
+    const col = 1 + end - start - (this.#astralBefore(end) - this.#astralBefore(start));
     return { offset: byteOffset, line: lineIndex + 1, col };
+  }
+
+  /** Counts the characters outside the Basic Multilingual Plane that end at or before `utf16Index`. */
+  #astralBefore(utf16Index: number): number {
+    const k = lastAtOrBefore(this.#indexAfter, utf16Index);
+    return k < 0 ? 0 : (this.#astralCount[k] as number);
   }
 }
 

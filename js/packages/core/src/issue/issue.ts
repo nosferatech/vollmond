@@ -82,7 +82,8 @@ export interface NameOccurrence<Node> {
  * order, it returns each node that carries a name an earlier, different node already carried, once, in document order. So a
  * name given on three nodes gives two nodes, and a node whose two names both repeat earlier ones is returned once. A node that
  * carries one name twice is not a repeat of itself. Nodes are compared with `===`, so callers pass exact paths, indexes or the
- * node objects themselves.
+ * node objects themselves. A node's identity must be its own: several block anchors share the exact path of the `$body` that
+ * holds them, so a block anchor is identified by its anchor-table entry, or by its path and range start, not by the path alone.
  */
 export function repeatedNodes<Node>(occurrences: Iterable<NameOccurrence<Node>>): Node[] {
   const firstNodeByName = new Map<string, Node>();

@@ -72,7 +72,19 @@ describe("issue codes", () => {
     expect(isIssueCode("syntax-error")).toBe(true);
     expect(isIssueCode("conflict")).toBe(true);
     expect(isIssueCode("toString")).toBe(false);
-    expect(isIssueCode("storage-failed")).toBe(false);
+    expect(isIssueCode("storage-failed")).toBe(true);
+    expect(isIssueCode("storage-error")).toBe(false);
+  });
+
+  test("the table is frozen all the way down", () => {
+    expect(Object.isFrozen(ISSUE_CODES)).toBe(true);
+    for (const info of Object.values(ISSUE_CODES)) {
+      expect([Object.isFrozen(info), Object.isFrozen(info.severities), Object.isFrozen(info.classes)]).toEqual([
+        true,
+        true,
+        true,
+      ]);
+    }
   });
 });
 

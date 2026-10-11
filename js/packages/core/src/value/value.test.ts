@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { canonicalJson } from "./canonical-json.js";
+import { jcs } from "./jcs.js";
 import { createValueObject, hasMember, isValue, type Value, valuesEqual } from "./value.js";
 
 /** Builds a null-prototype object from entries, as parsers do. */
@@ -14,7 +14,7 @@ describe("a __proto__ member", () => {
     const withProto = object([["__proto__", 1]]);
     expect(Object.keys(withProto as object)).toEqual(["__proto__"]);
     expect(hasMember(withProto as never, "__proto__")).toBe(true);
-    expect(canonicalJson(withProto)).toBe('{"__proto__":1}');
+    expect(jcs(withProto)).toBe('{"__proto__":1}');
   });
 
   test("is not found in an object that only inherits __proto__", () => {
@@ -69,6 +69,14 @@ describe("isValue", () => {
     expect(isValue(object([["__proto__", 1]]))).toBe(true);
   });
 
+  test("accepts plain and null-prototype objects, parsed JSON, and arrays whose items are all present", () => {
+    expect(isValue(JSON.parse('{"a":[1,{"b":null}],"__proto__":2}'))).toBe(true);
+    expect(isValue(Object.create(null))).toBe(true);
+    expect(isValue([undefined].map(() => 1))).toBe(true);
+    expect(isValue(Array.from({ length: 3 }, () => null))).toBe(true);
+    expect(isValue([])).toBe(true);
+  });
+
   test.each([
     ["NaN", Number.NaN],
     ["Infinity", Number.POSITIVE_INFINITY],
@@ -81,6 +89,15 @@ describe("isValue", () => {
     ["a symbol-keyed member", { [Symbol("s")]: 1 }],
     ["an accessor", Object.defineProperty({}, "a", { get: () => 1, enumerable: true })],
     ["a non-enumerable member", Object.defineProperty({}, "a", { value: 1, enumerable: false })],
+    ["a Date", new Date(0)],
+    ["a Map", new Map([["a", 1]])],
+    ["a Uint8Array", new Uint8Array([1])],
+    ["a class instance", new (class Point {})()],
+    ["an object with another prototype", Object.create({ inherited: 1 })],
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the point.
+    ["an array with a hole", [1, , 2]],
+    ["an array of length 2 without items", new Array(2)],
+    ["an array subclass", new (class List extends Array {})()],
   ])("refuses %s", (_name, value) => {
     expect(isValue(value)).toBe(false);
   });

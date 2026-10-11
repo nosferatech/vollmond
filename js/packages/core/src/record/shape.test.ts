@@ -58,6 +58,15 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ $sections: [{ $title: "S", $ref: "x.md" }] })).toEqual([["feature-unsupported", "/$sections/0/$ref"]]);
   });
 
+  test("issues follow the object's member order, which lists integer-like names first", () => {
+    expect(issuesOf({ b: { $ref: 1 }, "10": { $ref: 1 }, a: { $ref: 1 }, "2": { $ref: 1 } })).toEqual([
+      ["ref-malformed", "/2"],
+      ["ref-malformed", "/10"],
+      ["ref-malformed", "/b"],
+      ["ref-malformed", "/a"],
+    ]);
+  });
+
   test("a section's member names are escaped in exact paths", () => {
     expect(issuesOf({ "a/b": { $ref: 1 } })).toEqual([["ref-malformed", "/a~1b"]]);
   });

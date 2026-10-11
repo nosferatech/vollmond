@@ -18,11 +18,16 @@ export interface IssueCodeInfo {
   readonly classes: readonly [IssueClass, ...IssueClass[]];
 }
 
-const structural: IssueCodeInfo = { severities: ["error"], classes: ["structural"] };
-const validationError: IssueCodeInfo = { severities: ["error"], classes: ["validation"] };
-const validationWarning: IssueCodeInfo = { severities: ["warning"], classes: ["validation"] };
-const validationErrorOrWarning: IssueCodeInfo = { severities: ["error", "warning"], classes: ["validation"] };
-const operationError: IssueCodeInfo = { severities: ["error"], classes: ["operation"] };
+/** Creates a frozen entry, its lists frozen too. */
+function info(severities: IssueCodeInfo["severities"], classes: IssueCodeInfo["classes"]): IssueCodeInfo {
+  return Object.freeze({ severities: Object.freeze(severities), classes: Object.freeze(classes) });
+}
+
+const structural = info(["error"], ["structural"]);
+const validationError = info(["error"], ["validation"]);
+const validationWarning = info(["warning"], ["validation"]);
+const validationErrorOrWarning = info(["error", "warning"], ["validation"]);
+const operationError = info(["error"], ["operation"]);
 
 const codes = {
   "syntax-error": structural,
@@ -44,7 +49,7 @@ const codes = {
   "anchor-element-invalid": structural,
   "dollar-member": structural,
   // Structural in a record, an operation issue in a schema.
-  "feature-unsupported": { severities: ["error"], classes: ["structural", "operation"] },
+  "feature-unsupported": info(["error"], ["structural", "operation"]),
   "ref-malformed": structural,
   // An error at a level a schema declares a map; elsewhere the store's uniqueness mode decides.
   "duplicate-key": validationErrorOrWarning,
@@ -62,7 +67,7 @@ const codes = {
   "ref-ambiguous": validationError,
   "ref-target-not-allowed": validationError,
   // A validation warning in `check`, an operation error when the serializer refuses a value.
-  "not-representable": { severities: ["warning", "error"], classes: ["validation", "operation"] },
+  "not-representable": info(["warning", "error"], ["validation", "operation"]),
   "yaml-ambiguous-string": validationWarning,
   "yaml-ambiguous-number": validationWarning,
   "multiple-h1": validationWarning,
@@ -76,13 +81,14 @@ const codes = {
   "schema-invalid": operationError,
   "alias-file-invalid": operationError,
   "format-version-unsupported": operationError,
-  "format-version-older": { severities: ["warning"], classes: ["operation"] },
+  "format-version-older": info(["warning"], ["operation"]),
   "address-malformed": operationError,
   "address-not-singular": operationError,
   "address-not-found": operationError,
   "address-ambiguous": operationError,
   "query-invalid": operationError,
   "unreadable-records": operationError,
+  "storage-failed": operationError,
   conflict: operationError,
 } satisfies Record<string, IssueCodeInfo>;
 

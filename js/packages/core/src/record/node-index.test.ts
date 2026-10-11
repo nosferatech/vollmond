@@ -94,6 +94,16 @@ describe("NodeIndexBuilder", () => {
     ]);
   });
 
+  test("kind tells a section from a value node, for the type checker too", () => {
+    const depths = [...sampleIndex().children(""), sampleIndex().node("")].map((node) =>
+      // Only a section has a depth; on a value node the member does not exist for the type checker.
+      node?.kind === "section" ? node.depth : node?.kind,
+    );
+    expect(depths).toEqual(["string", "array", "array", 0]);
+    expect(sampleIndex().node("/tags")).not.toHaveProperty("depth");
+    expect(sampleIndex().node("/tags")).not.toHaveProperty("heading");
+  });
+
   test("builds an immutable index", () => {
     const index = sampleIndex();
     expect(Object.isFrozen(index.node("/tags"))).toBe(true);

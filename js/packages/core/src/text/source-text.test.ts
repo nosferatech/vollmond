@@ -90,6 +90,18 @@ describe("positions", () => {
     expect(() => text.position(4)).toThrow(RangeError);
   });
 
+  test("cost does not grow with the length of the line", () => {
+    // A 2 MB single line with characters of every width; 2,000 positions near its end would take seconds at one step per
+    // character, and take milliseconds through the table.
+    const line = "a\u{E9}\u{20AC}\u{1F600}".repeat(200_000);
+    const text = source(line);
+    const end = text.bytes.length;
+    const started = performance.now();
+    for (let k = 0; k < 2000; k++) text.position(end - 10 * k);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(text.position(end)).toEqual({ offset: end, line: 1, col: 4 * 200_000 + 1 });
+  });
+
   test("the empty file has one position", () => {
     expect(source("").position(0)).toEqual({ offset: 0, line: 1, col: 1 });
   });
@@ -110,6 +122,17 @@ describe("invalid UTF-8", () => {
         position: { offset: 3, line: 2, col: 2 },
       },
     ]);
+  });
+
+  test("a configuration or a schema fails with its own operation code, which has no node", () => {
+    const bad = new Uint8Array([0x76, 0x6d, 0x64, 0x3a, 0x20, 0xff]);
+    for (const code of ["config-invalid", "schema-invalid"] as const) {
+      const outcome = decodeSource(".vmd/config.yaml", bad, code);
+      expect(outcome.issues.map((issue) => [issue.code, issue.class, issue.at, issue.path, issue.position])).toEqual([
+        [code, "operation", null, ".vmd/config.yaml", { offset: 5, line: 1, col: 6 }],
+      ]);
+    }
+    expect(decodeSource(".vmd/config.yaml", bad.subarray(0, 5), "config-invalid").ok).toBe(true);
   });
 
   test("positions the bad byte past a byte order mark, which is not a column", () => {

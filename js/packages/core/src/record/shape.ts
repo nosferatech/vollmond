@@ -1,7 +1,7 @@
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
-import type { Value, ValueObject } from "../value/value.js";
+import { hasMember, type Value, type ValueObject } from "../value/value.js";
 import { childPath } from "./exact-path.js";
 import type { NodeIndex } from "./node-index.js";
 
@@ -26,7 +26,9 @@ export interface ShapeContext {
 const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sections"]);
 
 /**
- * Checks the shape of a parsed object and returns the issues, in document order of the value's members:
+ * Checks the shape of a parsed object and returns the issues, in the order of the value's own members, which is not always
+ * document order: like `Object.entries`, it lists integer-like names first, in ascending order, then the others in the order
+ * they were added.
  *
  * - on a section, a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or
  *   `$sections` that is not an array of objects (`reserved-member-type`, at the member); an item of `$sections` without a
@@ -127,7 +129,7 @@ class ShapeChecker {
     member.forEach((item: Value, index: number) => {
       if (!isObject(item)) return;
       const itemAt = childPath(memberAt, index);
-      if (!Object.hasOwn(item, "$title")) this.#raise("section-title-missing", itemAt, "a section needs a $title");
+      if (!hasMember(item, "$title")) this.#raise("section-title-missing", itemAt, "a section needs a $title");
       this.section(item, itemAt, false);
     });
   }
@@ -140,7 +142,7 @@ class ShapeChecker {
       return;
     }
     if (!isObject(value)) return;
-    if (Object.hasOwn(value, "$ref") && (Object.keys(value).length !== 1 || typeof value.$ref !== "string")) {
+    if (hasMember(value, "$ref") && (Object.keys(value).length !== 1 || typeof value.$ref !== "string")) {
       this.#raise("ref-malformed", at, "a $ref object has only a $ref member, and it is a string");
     }
     for (const [name, member] of Object.entries(value)) {

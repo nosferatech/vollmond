@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { canonicalJson } from "./canonical-json.js";
+import { jcs } from "./jcs.js";
+import { readNumberLiteral } from "./number.js";
 import type { Value } from "./value.js";
 
 /** The double whose IEEE 754 bits are the 16 hexadecimal digits `bits`, as RFC 8785's Appendix B gives them. */
@@ -42,7 +43,7 @@ describe("RFC 8785", () => {
     ["becbf647612f3696", "-0.0000033333333333333333"],
     ["43143ff3c1cb0959", "1424953923781206.2"],
   ])("Appendix B: %s is written %s", (bits, written) => {
-    expect(canonicalJson(doubleFromBits(bits))).toBe(written);
+    expect(jcs(doubleFromBits(bits))).toBe(written);
   });
 
   // Appendix B's NaN and Infinity rows have no representation, and section 3.2.2.3 requires an error.
@@ -51,15 +52,15 @@ describe("RFC 8785", () => {
     ["7ff0000000000000", "Infinity"],
     ["fff0000000000000", "-Infinity"],
   ])("Appendix B: %s (%s) is refused", (bits) => {
-    expect(() => canonicalJson(doubleFromBits(bits))).toThrow(TypeError);
-    expect(() => canonicalJson([1, { a: doubleFromBits(bits) }])).toThrow(TypeError);
+    expect(() => jcs(doubleFromBits(bits))).toThrow(TypeError);
+    expect(() => jcs([1, { a: doubleFromBits(bits) }])).toThrow(TypeError);
   });
 
   // Section 3.2.2.2: a lone surrogate must make the implementation fail.
   test("refuses an unpaired surrogate in a string or a member name, and writes a pair as its character", () => {
-    expect(() => canonicalJson(String.fromCharCode(0xdead))).toThrow(TypeError);
-    expect(() => canonicalJson({ [String.fromCharCode(0xd800)]: 1 })).toThrow(TypeError);
-    expect(canonicalJson(String.fromCharCode(0xd83d, 0xde00))).toBe('"\u{1F600}"');
+    expect(() => jcs(String.fromCharCode(0xdead))).toThrow(TypeError);
+    expect(() => jcs({ [String.fromCharCode(0xd800)]: 1 })).toThrow(TypeError);
+    expect(jcs(String.fromCharCode(0xd83d, 0xde00))).toBe('"\u{1F600}"');
   });
 
   // Sections 3.2.2 and 3.2.3: the sample object, parsed, then canonicalized.
@@ -68,14 +69,16 @@ describe("RFC 8785", () => {
     "string": "~u20ac$~u000F~u000aA'~u0042~u0022~u005c~~~"~/",
     "literals": [null, true, false]
   }`);
-  const canonicalSample =
-    '{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"\u{20AC}$~u000f~nA\'B~"~~~~~"/"}'.replaceAll(
-      "~",
-      "\\",
-    );
+  const canonicalSample = [
+    '{"literals":[null,true,false],',
+    '"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],',
+    '"string":"\u{20AC}$~u000f~nA\'B~"~~~~~"/"}',
+  ]
+    .join("")
+    .replaceAll("~", "\\");
 
   test("section 3.2.3: the sample is sorted and its primitives written canonically", () => {
-    expect(canonicalJson(sample)).toBe(canonicalSample);
+    expect(jcs(sample)).toBe(canonicalSample);
   });
 
   test("section 3.2.4: the sample's UTF-8 bytes", () => {
@@ -89,7 +92,7 @@ describe("RFC 8785", () => {
       .trim()
       .split(/\s+/)
       .map((byte) => Number.parseInt(byte, 16));
-    expect([...new TextEncoder().encode(canonicalJson(sample))]).toEqual(expected);
+    expect([...new TextEncoder().encode(jcs(sample))]).toEqual(expected);
   });
 
   test("section 3.2.3: properties are sorted by UTF-16 code units", () => {
@@ -102,7 +105,7 @@ describe("RFC 8785", () => {
       "~u0080": "Control",
       "~u00f6": "Latin Small Letter O With Diaeresis"
     }`);
-    const order = [...canonicalJson(value).matchAll(/:"([^"]*)"/g)].map((match) => match[1]);
+    const order = [...jcs(value).matchAll(/:"([^"]*)"/g)].map((match) => match[1]);
     expect(order).toEqual([
       "Carriage Return",
       "One",
@@ -115,19 +118,19 @@ describe("RFC 8785", () => {
   });
 
   test("section 3.2.3: names sort as the RFC's plain-English example", () => {
-    expect(canonicalJson({ ab: 1, aa: 2, a: 3, "": 4 })).toBe('{"":4,"a":3,"aa":2,"ab":1}');
+    expect(jcs({ ab: 1, aa: 2, a: 3, "": 4 })).toBe('{"":4,"a":3,"aa":2,"ab":1}');
   });
 });
 
-describe("canonicalJson", () => {
+describe("jcs", () => {
   test("sorts nested objects and keeps array order", () => {
-    expect(canonicalJson({ b: [{ z: 1, y: 2 }, 3], a: { d: null, c: "x" } })).toBe(
-      '{"a":{"c":"x","d":null},"b":[{"y":2,"z":1},3]}',
-    );
+    expect(jcs({ b: [{ z: 1, y: 2 }, 3], a: { d: null, c: "x" } })).toBe('{"a":{"c":"x","d":null},"b":[{"y":2,"z":1},3]}');
   });
 
   test("writes integer-valued doubles beyond 2^53 as JSON.stringify does, not in the record writer's exponent form", () => {
-    expect(canonicalJson(2 ** 60)).toBe("1152921504606847000");
-    expect(canonicalJson(1e21)).toBe("1e+21");
+    expect(jcs(2 ** 60)).toBe("1152921504606847000");
+    // Which is why JCS text is for hashing only: a record parser refuses that literal.
+    expect(readNumberLiteral(jcs(2 ** 60), "json")).toEqual({ kind: "not-representable", reason: "integer-changed" });
+    expect(jcs(1e21)).toBe("1e+21");
   });
 });

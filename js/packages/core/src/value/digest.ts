@@ -1,15 +1,15 @@
-import { canonicalJson } from "./canonical-json.js";
+import { jcs } from "./jcs.js";
 import type { Value } from "./value.js";
 
 /**
- * Computes a node version: the SHA-256 of the UTF-8 encoding of the value's canonical JSON ({@link canonicalJson}), as its first
+ * Computes a node version: the SHA-256 of the UTF-8 encoding of the value's JCS text ({@link jcs}), as its first
  * 16 lower-case hexadecimal digits. Equal values have equal versions, whatever their member order, so `-0` and `0` do too.
  *
  * Uses the runtime's Web Crypto API (`crypto.subtle`), which browsers offer only in secure contexts. Rejects with a
- * `TypeError` where `canonicalJson` throws.
+ * `TypeError` where `jcs` throws.
  */
 export async function nodeVersion(value: Value): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(value)));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(jcs(value)));
   return hexadecimal(digest).slice(0, 16);
 }
 

@@ -15,12 +15,13 @@ export {
   type NodeKind,
   type SectionInfo,
   type ValueKind,
+  type ValueNodeInfo,
 } from "./record/node-index.js";
 export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
-export { type ByteRange, decodeSource, firstInvalidUtf8, type Position, type SourceText } from "./text/source-text.js";
-export { canonicalJson } from "./value/canonical-json.js";
+export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";
+export { jcs } from "./value/jcs.js";
 export { type NotRepresentableReason, type NumberLiteralReading, type NumberSyntax, readNumberLiteral } from "./value/number.js";
 export {
   createValueObject,
