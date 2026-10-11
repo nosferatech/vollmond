@@ -15,7 +15,38 @@ const SHORT_ESCAPES: Readonly<Record<string, string>> = { "\b": "\\b", "\t": "\\
  * escape and the same characters typed in the text look alike.
  */
 export function oneLine(text: string): string {
-  return text.replace(UNSAFE, (c) => SHORT_ESCAPES[c] ?? `\\u${(c.codePointAt(0) as number).toString(16).padStart(4, "0")}`);
+  return escapeUnsafe(text, NOTHING_KEPT);
+}
+
+const NOTHING_KEPT: ReadonlySet<string> = new Set();
+
+/** The characters {@link terminalText} keeps: a line break and a tab. */
+const LINES_KEPT: ReadonlySet<string> = new Set(["\n", "\t"]);
+
+/** The character {@link oneLineWithTabs} keeps: a tab. */
+const TAB_KEPT: ReadonlySet<string> = new Set(["\t"]);
+
+/**
+ * Returns `text` as {@link oneLine} does, but with its tabs kept, so that a line copied from the output still matches the
+ * file it came from.
+ */
+export function oneLineWithTabs(text: string): string {
+  return escapeUnsafe(text, TAB_KEPT);
+}
+
+/**
+ * Returns text of several lines safe to print on a terminal: as {@link oneLine} does, but with its line feeds and tabs kept.
+ * A carriage return is escaped like every other control.
+ */
+export function terminalText(text: string): string {
+  return escapeUnsafe(text, LINES_KEPT);
+}
+
+/** Writes each character {@link UNSAFE} matches as a JSON escape, except those in `kept`. */
+function escapeUnsafe(text: string, kept: ReadonlySet<string>): string {
+  return text.replace(UNSAFE, (c) =>
+    kept.has(c) ? c : (SHORT_ESCAPES[c] ?? `\\u${(c.codePointAt(0) as number).toString(16).padStart(4, "0")}`),
+  );
 }
 
 /** Whether `text` holds a character that {@link oneLine} escapes. */

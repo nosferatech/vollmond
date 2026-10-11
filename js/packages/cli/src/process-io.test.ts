@@ -3,7 +3,7 @@ import { setImmediate } from "node:timers/promises";
 import { succeed } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
 import type { CliEnvironment } from "./cli.js";
-import { type Command, outcomeOutput } from "./command/command.js";
+import { type Command, outcomeOutput, runWith } from "./command/command.js";
 import { runProcess } from "./process-io.js";
 
 /** A stream for the tests, which collects what is written to it or fails every write. */
@@ -73,11 +73,28 @@ describe("runProcess", () => {
       summary: "gives bytes",
       options: {},
       readsStore: false,
-      run: async () => outcomeOutput(succeed(bytes), (value) => value),
+      prepare: (line) => runWith(line, async () => outcomeOutput(succeed(bytes), (value) => value)),
     };
     const stdout = stream();
     expect(await run(["give"], stdout, stream(), { commands: [give] })).toBe(0);
     expect(stdout.bytes).toEqual(Buffer.from(bytes));
+  });
+
+  test("tells the command whether stdout is a terminal", async () => {
+    const tell: Command = {
+      name: "tell",
+      usage: "",
+      summary: "says whether stdout is a terminal",
+      options: {},
+      readsStore: false,
+      prepare: (line) => runWith(line, async () => outcomeOutput(succeed(line.stdoutIsTerminal), (value) => `${value}\n`)),
+    };
+    const pipe = stream();
+    await run(["tell"], pipe, stream(), { commands: [tell] });
+    expect(pipe.text).toBe("false\n");
+    const terminal = Object.assign(stream(), { isTTY: true });
+    await run(["tell"], terminal, stream(), { commands: [tell] });
+    expect(terminal.text).toBe("true\n");
   });
 
   test("ends quietly, keeping the command's exit code, when the reader closes the pipe early", async () => {

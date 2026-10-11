@@ -125,6 +125,39 @@ export function describeStorageContract(backend: ContractBackend): void {
         });
       });
 
+      test("leaves out the paths an exclude glob matches, and counts what remains without them", async () => {
+        const storage = await create({ ...files, ".vmd/config.yaml": "vmd: 1\n", "a/.hidden": "x", "b.md": "# B\n" });
+        const exclude = ["**/.*", "**/.*/**"];
+        const all = successValue(await storage.list({ prefix: "", exclude, limit: 100 }));
+        expect(all.items.map((item) => item.path)).toEqual([
+          "a-c.md",
+          "a.md",
+          "a/b.md",
+          "b.md",
+          "z/\u{E000}.md",
+          "z/\u{1F600}.md",
+        ]);
+        // ".vmd/config.yaml" sorts first and "a/.hidden" among the rest: neither is counted on any page.
+        const first = successValue(await storage.list({ prefix: "", exclude, limit: 3 }));
+        expect(first.items.map((item) => item.path)).toEqual(["a-c.md", "a.md", "a/b.md"]);
+        expect(first.remaining).toEqual({ count: 3, exact: true });
+        const rest = successValue(await storage.list({ prefix: "", exclude, limit: 3, cursor: first.cursor as string }));
+        expect(rest.items.map((item) => item.path)).toEqual(["b.md", "z/\u{E000}.md", "z/\u{1F600}.md"]);
+        expect(rest.cursor).toBeNull();
+        // With a glob, a path is listed when the glob matches it and no exclude glob does.
+        const glob = successValue(await storage.list({ prefix: "", glob: "a/*", exclude, limit: 10 }));
+        expect(glob.items.map((item) => item.path)).toEqual(["a/b.md"]);
+        expect(successValue(await storage.list({ prefix: "", exclude: [], limit: 1 })).remaining.count).toBe(7);
+      });
+
+      test("fails with query-invalid for a malformed exclude glob, in list and in grep", async () => {
+        const storage = await create(files);
+        expect(failureCodes(await storage.list({ prefix: "", exclude: ["a/"], limit: 10 }))).toEqual(["query-invalid"]);
+        expect(
+          failureCodes(await storage.grep({ pattern: "a", mode: "literal", exclude: ["//"], context: 0, limit: 10 })),
+        ).toEqual(["query-invalid"]);
+      });
+
       test("throws on a limit below 1, a caller's bug", async () => {
         const storage = await create(files);
         await expect(storage.list({ prefix: "", limit: 0 })).rejects.toThrow(RangeError);
@@ -310,6 +343,24 @@ export function describeStorageContract(backend: ContractBackend): void {
       test("searches only the paths the glob matches", async () => {
         const storage = await create(files);
         expect(where(await grep(storage, "alpha", { glob: "notes/*.md" }))).toEqual(["notes/a.md:2", "notes/b.md:2"]);
+      });
+
+      test("leaves out the paths an exclude glob matches, and estimates what remains without them", async () => {
+        const storage = await create({ ...files, ".vmd/config.yaml": "alpha\n", "notes/.draft.md": "alpha\n" });
+        const exclude = ["**/.*", "**/.*/**"];
+        expect(where(await grep(storage, "alpha", { exclude }))).toEqual([
+          "notes/a.md:2",
+          "notes/b.md:2",
+          "notes/c.txt:2",
+          "other.md:1",
+        ]);
+        const first = await grep(storage, "alpha", { exclude, limit: 3 });
+        expect(first.remaining).toEqual({ count: 1, exact: true });
+        expect(where(await grep(storage, "alpha", { glob: "notes/*", exclude }))).toEqual([
+          "notes/a.md:2",
+          "notes/b.md:2",
+          "notes/c.txt:2",
+        ]);
       });
 
       test("returns context lines before and after each match", async () => {

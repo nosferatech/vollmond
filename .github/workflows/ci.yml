@@ -40,8 +40,18 @@ jobs:
         env:
           # Fails the comparison of the Unicode tables with the runtime instead of skipping it when the versions differ.
           VMD_REQUIRE_UNICODE_COMPARISON: "1"
+      # The read commands run over the suite's store of Appendix A, as built, with the parsers loaded as they are in a release.
       - name: Smoke test the built command
-        run: node packages/cli/dist/main.js --version
+        # An explicit bash runs with -eo pipefail, so a command that fails before its grep fails the step.
+        shell: bash
+        run: |
+          node packages/cli/dist/main.js --version
+          store=../conformance/cases/addresses/appendix-a
+          ticket=tickets/0171-clean-root-in-scattered-record.md
+          node packages/cli/dist/main.js --store "$store" ls | grep -q "^$ticket "
+          node packages/cli/dist/main.js --store "$store" outline "$ticket" | grep -q '^  #done '
+          node packages/cli/dist/main.js --store "$store" --json get "$ticket#done" --meta all | grep -q '"@address":"#done"'
+          node packages/cli/dist/main.js --store "$store" grep -F 'clean root' | grep -q "^$ticket:"
       # Any case that fails or is in error fails the job. The report is uploaded either way, to show which, unless the run was
       # cancelled.
       - name: Run the conformance suite

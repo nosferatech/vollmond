@@ -69,6 +69,14 @@ export interface ListQuery {
    * segments. Every other character matches itself.
    */
   readonly glob?: string;
+  // Deviation from the specification, recorded in issue #18: `list` and `grep` take globs of paths to leave out, which the
+  // storage contract does not list, so that the store layer can leave out the paths vmd ignores and still count exactly what
+  // remains.
+  /**
+   * Leaves out the paths any of these globs matches, as {@link ListQuery.glob} reads a glob; they are neither listed nor
+   * counted.
+   */
+  readonly exclude?: readonly string[];
   /** The largest number of items on the page, at least 1. */
   readonly limit: number;
   /** The cursor of the previous page of the same query; a string that is not one fails with `query-invalid`. */
@@ -82,6 +90,8 @@ export interface GrepQuery {
   readonly mode: "literal" | "regex";
   /** Searches only the paths this glob matches, as {@link ListQuery.glob} does. */
   readonly glob?: string;
+  /** Leaves out the paths any of these globs matches, as {@link ListQuery.exclude} does; they are neither searched nor counted. */
+  readonly exclude?: readonly string[];
   /** The portable flag `i`, for `regex` mode: case-insensitive matching. */
   readonly ignoreCase?: boolean;
   /** How many lines before and after each matching line to return, at least 0. */

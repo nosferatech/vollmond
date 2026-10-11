@@ -4,17 +4,20 @@
 import { makeIssue, succeed } from "@vollmond/core";
 import { expect, test, vi } from "vitest";
 import { runCli } from "./cli.js";
-import { type Command, outcomeOutput } from "./command/command.js";
+import { type Command, outcomeOutput, runWith } from "./command/command.js";
 import { temporaryDirectory, writeFiles } from "./directories.testkit.js";
 
 vi.mock("@vollmond/core", async (importOriginal) => {
   const core = await importOriginal<typeof import("@vollmond/core")>();
   return {
     ...core,
-    readStoreConfiguration: () =>
-      succeed(Object.freeze({ vmd: 1, declared: 1 }), [
+    openStore: async (...args: Parameters<typeof core.openStore>) => {
+      const opened = await core.openStore(...args);
+      if (!opened.ok) return opened;
+      return succeed(opened.value, [
         core.makeIssue({ code: "config-invalid", path: null, at: null, message: "an error the configuration still reads past" }),
-      ]),
+      ]);
+    },
   };
 });
 
@@ -24,8 +27,10 @@ const give: Command = {
   summary: "gives 1",
   options: {},
   readsStore: true,
-  run: async () =>
-    outcomeOutput(succeed(1, [makeIssue({ code: "heading-html", path: "a.md", at: "/h", message: "m" })]), () => "1\n"),
+  prepare: (line) =>
+    runWith(line, async () =>
+      outcomeOutput(succeed(1, [makeIssue({ code: "heading-html", path: "a.md", at: "/h", message: "m" })]), () => "1\n"),
+    ),
 };
 
 test("a success whose only error is the configuration's exits with 4, with and without --json", async () => {
