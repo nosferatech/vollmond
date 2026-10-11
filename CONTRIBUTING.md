@@ -14,8 +14,9 @@ vmd is at an early stage: the specification is a draft (`docs/draft/vollmond-pro
 ## Making a change
 
 - Work on a branch and open a pull request against `main`. `main` accepts only pull requests, merged by squashing.
-- Every pull request must pass CI: build, type check, lint, tests and a smoke run of the `vmd` command. Run them locally first, in `js/`:
-  `npm ci`, then `npm run build`, `npm run typecheck`, `npm run lint` and `npm test`.
+- Every pull request must pass CI: build, type check, lint, tests, a smoke run of the `vmd` command and the conformance suite. Run
+  them locally first, in `js/`: `npm ci`, then `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` and
+  `npm run conformance`.
 - Keep one pull request to one root cause, and write the failing test before the fix.
 - Dependencies are pinned to exact versions; commit `js/package-lock.json` with any change to them.
 

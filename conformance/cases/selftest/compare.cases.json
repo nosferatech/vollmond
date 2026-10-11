@@ -25,7 +25,7 @@
     },
     {
       "id": "negative-zero",
-      "description": "-0 is 0; a runner that tells the two apart, as JavaScript's Object.is does, sees them differ.",
+      "description": "-0 is 0. The reader already reads -0 as 0, so the case cannot isolate the comparison: it fails only for a runner whose reader keeps -0 and whose comparison tells the two apart, as JavaScript's Object.is does.",
       "input": { "a": -0, "b": 0 },
       "expect": { "result": true }
     },

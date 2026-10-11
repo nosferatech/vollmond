@@ -1,0 +1,11 @@
+{
+  "name": "vollmond-ts",
+  "version": "0.0.0",
+  "profiles": ["read"],
+  "skip": [
+    { "operation": "parse", "reason": "the parsers come with I1.2 to I1.4, #11 to #13" },
+    { "operation": "anchors", "reason": "anchors come with I1.5, #14" },
+    { "operation": "meta", "reason": "computed fields come with I1.6, #15" },
+    { "operation": "resolve", "reason": "addresses come with I1.6, #15" }
+  ]
+}

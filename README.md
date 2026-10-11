@@ -7,9 +7,10 @@ Vollmond MD is mixed data format plus access framework, built around Markdown an
 ## Development
 
 Each language has its own top-level directory. The TypeScript implementation is an npm workspace in `js/`: `js/packages/core`
-(`@vollmond/core`, no Node APIs, so it also runs in browsers and Lambda) and `js/packages/cli` (`@vollmond/cli`, the `vmd`
-command). A Python implementation will go in `python/`. Plans and specification are in `docs/`, and the conformance suite in
-`conformance/`; both are shared by all languages and stay at the root.
+(`@vollmond/core`, no Node APIs, so it also runs in browsers and Lambda), `js/packages/cli` (`@vollmond/cli`, the `vmd`
+command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans
+and specification are in `docs/`, and the conformance suite in `conformance/`; both are shared by all languages and stay at the
+root.
 
 Prerequisites: Node 24 or later and npm. Run the commands below in `js/`.
 
@@ -21,11 +22,16 @@ npm run typecheck   # type check all packages, tests included, without emitting
 npm run lint        # Biome: lint and format check
 npm run format      # Biome: rewrite files to the formatting rules
 npm test            # Vitest: run all tests; needs no build
+npm run conformance # run the conformance suite after a build; writes conformance-report.json
 ```
 
-CI runs build, type check, lint, tests and a smoke run of the built command on every pull request and on pushes to `main`.
-Dependencies are pinned to exact versions (`js/.npmrc`); commit `js/package-lock.json` with any change to them. CI runs the Node
-release in `js/.node-version`, raised by hand.
+`npm run conformance` takes `--profile`, `--section` and `--id` to narrow the run, each repeatable, and `--ids-failing` to print
+the cases that fail. The cases it skips, with the reasons, are in `js/packages/conformance/declaration.json`.
+
+CI runs build, type check, lint, tests, a smoke run of the built command and the conformance suite on every pull request and on
+pushes to `main`, and keeps the conformance report as an artifact of the run. Dependencies are pinned to exact versions
+(`js/.npmrc`); commit `js/package-lock.json` with any change to them. CI runs the Node release in `js/.node-version`, raised by
+hand.
 
 Derived anchors use Unicode tables generated from the Unicode Character Database 17.0.0, committed as
 `js/packages/core/src/anchor/unicode/unicode-17.0.0.generated.ts`. `node packages/core/scripts/generate-unicode.mjs` (in `js/`)

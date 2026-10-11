@@ -1,0 +1,17 @@
+{
+  "name": "@vollmond/conformance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The TypeScript runner of the vmd conformance suite in conformance/. Not published.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "jsonc-parser": "3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2"
+  }
+}

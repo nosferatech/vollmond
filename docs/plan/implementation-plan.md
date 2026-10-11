@@ -38,7 +38,7 @@ needs a part without the rest, and a private package for the conformance runner 
 |---|---|---|
 | `js/packages/core` (`@vollmond/core`) | the data model, the three parsers and serializers, addresses, references, schemas, VQL, the index tables, the storage contract's types. No Node APIs | Node, browsers, Lambda |
 | `js/packages/cli` (`@vollmond/cli`) | the `vmd` command, the local filesystem and git working-copy backends, the local index cache | Node |
-| `js/packages/conformance` (private) | the TypeScript conformance runner (I1.10); not published | Node |
+| `js/packages/conformance` (`@vollmond/conformance`, private) | the TypeScript runner of the conformance suite (I1.10) and the implementation's declaration; run with `npm run conformance` in `js/`. Not published | Node |
 | `conformance/` | the language-neutral conformance suite (§19.1 of the proposal): fixtures and the runner contract, no code. Each language's runner is in that language's directory | any implementation |
 
 `core` stays free of Node APIs so that the website and the Lambda functions of I6 and I7 use the same code. Anything that needs the

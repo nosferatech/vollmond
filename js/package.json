@@ -10,10 +10,11 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
-    "typecheck": "tsc -p packages/core && tsc -p packages/core/tsconfig.suite.json && tsc -p packages/cli",
+    "typecheck": "tsc -p packages/core && tsc -p packages/core/tsconfig.suite.json && tsc -p packages/cli && tsc -p packages/conformance",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "conformance": "node packages/conformance/dist/main.js"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
