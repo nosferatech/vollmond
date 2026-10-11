@@ -9,6 +9,7 @@ sources:
   card: "I2 design"
   design: ["docs/design/i2-validate.md"]
   prs: [86]
+  commits: ["bd76d96"]
 ---
 
 ## Question
@@ -45,4 +46,4 @@ Why the other options lost: Not recorded.
 
 ## Applied in
 
-Pending: Draft v0.11, and the merge of #86 as the approved design.
+#86, merged as the approved design (`bd76d96`). The answers to the U cards: pending, Draft v0.11.

@@ -8,6 +8,7 @@ superseded_by: [chat-6.md]
 decided_by: owner
 sources:
   chat: ["2026-10-09T22:17:53Z"]
+  session: ["2026-10-09T21:54:15Z"]
   commits: ["b34ceb5"]
 ---
 

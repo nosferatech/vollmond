@@ -30,7 +30,7 @@ Other options: Not recorded.
 ## Decision
 
 (a). Reading performance, and the speed of structural parsing above all, is an explicit consideration in design decisions, after
-correctness. Any fast path must agree with the full parse. The research the owner's hypothesis calls for is issue #88.
+correctness. The research the owner's hypothesis calls for is issue #88.
 
 ## Why
 

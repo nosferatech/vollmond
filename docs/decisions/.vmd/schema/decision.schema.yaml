@@ -76,7 +76,14 @@ properties:
         type: string
         minLength: 1
       chat:
-        description: When the owner gave it in conversation, in UTC.
+        description: When the owner gave it in conversation, in UTC. The owner's messages only.
+        type: array
+        uniqueItems: true
+        items: { type: string, format: date-time }
+      session:
+        description: >-
+          When the session (the agent working with the owner) wrote a message that a question, an option or a reason in the
+          record rests on, in UTC. The record marks such a reason as the session's, never as the owner's.
         type: array
         uniqueItems: true
         items: { type: string, format: date-time }

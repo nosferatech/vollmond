@@ -8,6 +8,7 @@ supersedes: [chat-2.md]
 decided_by: owner
 sources:
   chat: ["2026-10-11T15:12:16Z", "2026-10-11T15:22:20Z"]
+  session: ["2026-10-11T15:15:33Z"]
 ---
 
 ## Question

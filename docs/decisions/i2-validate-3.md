@@ -18,7 +18,7 @@ kept for I5's rewrites. Where do they come from?
 
 ## Options
 
-- **(a) From the parse of I1 that already runs.** Chosen. I2.4 adds two exit handlers to the mdast compiler, for
+- **(a) From the parse of I1 that already runs.** Chosen. Task I2.4 adds two exit handlers to the mdast compiler, for
   `resourceDestinationString` and `definitionDestinationString`, that set `url` as the library's own handlers do and also keep
   the token's range; the walk that already visits every node collects `link` and `definition` nodes. On 23 inputs the tree with
   the handlers equals the tree without.

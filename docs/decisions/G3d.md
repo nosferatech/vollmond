@@ -11,9 +11,10 @@ sources:
   card: "G3"
   log: "Decisions of phase I0 / The owner's answers to the review (G1 to G9)"
   chat: ["2026-10-10T18:45:04Z", "2026-10-10T19:19:50Z"]
+  session: ["2026-10-10T18:45:28Z"]
   prs: [56]
-  commits: ["17e3087"]
   issues: [46]
+  commits: ["17e3087"]
 ---
 
 ## Question

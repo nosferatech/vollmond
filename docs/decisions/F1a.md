@@ -74,3 +74,7 @@ correct data because of a format version mismatch should fail loudly, at least i
 Draft v0.4 (#50, `1043a6c`), §9.5. [G2](G2.md) defined what a backend is and when one validates, [G7](G7.md) narrowed what the
 strict read mode refuses, and [U12](U12.md) made readers refuse the records of a collection whose schema is invalid, against
 point 1.
+
+[G7](G7.md) reverses it in part: the strict read mode refuses structural errors and schema violations only, not every validation
+error. [U12](U12.md) reverses it in part: a reader refuses a record whose collection's schema is invalid, although its syntax is
+proper.

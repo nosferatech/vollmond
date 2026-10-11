@@ -10,6 +10,7 @@ decided_by: owner
 sources:
   log: "Decisions from planning the implementation"
   chat: ["2026-10-09T23:02:07Z"]
+  session: ["2026-10-09T22:53:23Z"]
   commits: ["5b0819b"]
 ---
 

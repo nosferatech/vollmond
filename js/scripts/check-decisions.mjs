@@ -1,7 +1,7 @@
 // Checks the decision records in docs/decisions, a vmd store, with vmd's reader: every record reads with no issue at all, its
 // id is its file name, its supersedes and superseded_by name existing records and pair up both ways, its status agrees with
-// superseded_by, and every link between records points at one. The collection's schema is left to scripts/validate-decisions.mjs,
-// until `vmd check` validates collections.
+// superseded_by, every link between records points at one, and no timestamp is cited as both the owner's message and the
+// session's. The collection's schema is left to scripts/validate-decisions.mjs, until `vmd check` validates collections.
 //
 // Run it in js/ after a build:
 //
@@ -75,6 +75,11 @@ for (const [path, value] of records) {
   if (superseded !== (value.status !== "accepted")) {
     problem(path, `its status is ${value.status}, but superseded_by ${superseded ? "names later decisions" : "is empty"}`);
   }
+  const sources = Object.hasOwn(value, "sources") ? value.sources : {};
+  const owner = new Set(list(sources, "chat"));
+  for (const at of list(sources, "session")) {
+    if (owner.has(at)) problem(path, `${at} is in sources.chat, the owner's messages, and in sources.session, the session's`);
+  }
   for (const target of links(value)) {
     if (!records.has(target)) problem(path, `links to ${target}, which is not a readable record`);
   }
@@ -88,16 +93,19 @@ if (problems.length > 0) {
 console.log(`${records.size} decision records read, with no issue, and their supersessions pair up.`);
 
 /**
- * The records that a record's sections link to: the targets of inline links that are a record's file name in this directory,
- * with any fragment removed. Links that leave the directory, such as ../draft/vollmond-proposal.md, are not followed.
+ * The records that a record's sections link to: the targets of inline links and of link reference definitions that are a
+ * record's file name in this directory, written as `F1.md` or `./F1.md`, with any fragment removed. Links that leave the
+ * directory, such as ../draft/vollmond-proposal.md, are not followed.
  */
 function links(value) {
   const targets = new Set();
   for (const section of list(value, "$sections")) {
     // A link written inside a code span is an example, not a link.
     const body = (Object.hasOwn(section, "$body") ? section.$body : "").replace(/(`+)[^`]*?\1/g, "");
-    for (const match of body.matchAll(/\]\(([^)\s#]+)(#[^)\s]*)?\)/g)) {
-      const target = match[1];
+    const inline = [...body.matchAll(/\]\(<?([^)\s#>]+)/g)];
+    const definitions = [...body.matchAll(/^ {0,3}(?:> ?)*\[[^\]]+\]:\s*<?([^\s#>]+)/gm)];
+    for (const match of [...inline, ...definitions]) {
+      const target = match[1].replace(/^\.\//, "");
       if (!target.includes("/") && !target.includes(":") && target.endsWith(".md")) targets.add(target);
     }
   }

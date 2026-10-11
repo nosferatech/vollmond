@@ -10,6 +10,7 @@ sources:
   card: "G3"
   log: "Decisions of phase I0 / The owner's answers to the review (G1 to G9)"
   chat: ["2026-10-10T18:31:06Z", "2026-10-10T18:38:11Z"]
+  session: ["2026-10-10T18:31:37Z", "2026-10-10T18:38:30Z"]
   prs: [56]
   issues: [45, 46]
 ---

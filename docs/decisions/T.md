@@ -37,7 +37,8 @@ This widens I1.7, which allowed one at the start of a paragraph only at the top 
 ## Why
 
 The card's reason: the data says the narrow rule breaks a real, readable style of writing; the wider rule has the same clear
-boundary, no block quotes, and loses nothing. (b) is a change to vampiredb, in its own process.
+boundary, no block quotes, and loses nothing. That is also the card's case against (b), keeping the narrow rule; its
+consequence for (b) was a change to vampiredb, in its own process.
 
 ## Applied in
 

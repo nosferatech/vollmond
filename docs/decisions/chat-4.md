@@ -7,6 +7,7 @@ status: accepted
 decided_by: owner
 sources:
   chat: ["2026-10-09T23:14:41Z"]
+  session: ["2026-10-09T23:15:01Z", "2026-10-09T23:19:47Z"]
 ---
 
 ## Question

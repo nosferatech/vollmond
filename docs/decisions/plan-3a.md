@@ -8,6 +8,7 @@ supersedes: [plan-3.md]
 decided_by: owner
 sources:
   chat: ["2026-10-10T21:50:11Z"]
+  session: ["2026-10-10T21:49:24Z", "2026-10-10T21:50:26Z"]
 ---
 
 ## Question

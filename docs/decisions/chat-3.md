@@ -7,8 +7,9 @@ status: accepted
 decided_by: owner
 sources:
   chat: ["2026-10-09T23:14:41Z", "2026-10-09T23:31:55Z"]
-  commits: ["5b0819b", "1cc6071"]
+  session: ["2026-10-09T23:15:01Z"]
   prs: [60]
+  commits: ["5b0819b", "1cc6071"]
 ---
 
 ## Question
