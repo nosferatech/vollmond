@@ -1,0 +1,62 @@
+ajv JSON.parse {__proto__: 5} (expected invalid)                       invalid
+ajv null-prototype {__proto__: 5} (expected invalid)                   valid
+ajv null-prototype {__proto__: 'x'} (expected valid)                   valid
+ajv null-prototype {constructor: 5} (expected invalid)                 invalid
+ajv null-prototype {}  (expected valid)                                valid
+jsl JSON.parse {__proto__: 5} (expected invalid)                       invalid
+jsl null-prototype {__proto__: 5} (expected invalid)                   invalid
+jsl null-prototype {__proto__: 'x'} (expected valid)                   valid
+jsl null-prototype {constructor: 5} (expected invalid)                 invalid
+jsl null-prototype {}  (expected valid)                                valid
+hyperjump JSON.parse {__proto__: 5} (expected invalid)                 invalid
+hyperjump null-prototype {__proto__: 5} (expected invalid)             invalid
+hyperjump null-prototype {__proto__: 'x'} (expected valid)             valid
+hyperjump null-prototype {constructor: 5} (expected invalid)           invalid
+hyperjump null-prototype {}  (expected valid)                          valid
+ajv required [toString, constructor] vs JSON.parse {} (expected invalid) valid
+ajv properties.toString: string vs JSON.parse {} (expected valid)      invalid
+jsl required [toString, constructor] vs JSON.parse {} (expected invalid) invalid
+jsl properties.toString: string vs JSON.parse {} (expected valid)      valid
+hyperjump required [toString, constructor] vs JSON.parse {} (expected invalid) invalid
+hyperjump properties.toString: string vs JSON.parse {} (expected valid) valid
+ajv required [toString, constructor] vs null-prototype {} (expected invalid) invalid
+ajv properties.toString: string vs null-prototype {} (expected valid)  valid
+jsl required [toString, constructor] vs null-prototype {} (expected invalid) invalid
+jsl properties.toString: string vs null-prototype {} (expected valid)  valid
+hyperjump required [toString, constructor] vs null-prototype {} (expected invalid) invalid
+hyperjump properties.toString: string vs null-prototype {} (expected valid) valid
+jsl int64 over ["42",7,"007",1.5,"abc"]                                ["#/2 format-int64-error","#/3 format-int64-error","#/3 type-error","#/4 format-int64-error"]
+jsl unknown format                                                     valid (annotation)
+jsl formats of draft2020 by default                                    ["date","date-time","duration","email","json-pointer","relative-json-pointer","regex","time","url","uuid"]
+jsl format hostname on 'not a host!'                                   valid (no check)
+hyperjump int64 over ["42",7,"007",1.5,"abc"]                          ["#/2 format","#/3 type","#/3 format","#/4 format"]
+hyperjump unknown format (format validation on)                        valid
+jsl unknown keyword x-vmd-probe: validate                              true
+jsl getNode('#/a', data) under oneOf: the schema it gives              {"const":2,"x-vmd-probe":"one-passes"}
+jsl getNode('#/d/0'): the schema it gives                              {"x-vmd-probe":"item"}
+hyperjump annotations x-vmd-probe at #/a (a failing oneOf branch dropped?) ["one-passes"]
+hyperjump annotations x-vmd-probe at #/d/0                             ["item"]
+ajv oneOf errors                                                       ["/v maxLength #/properties/v/oneOf/0/maxLength","/v type #/properties/v/oneOf/1/type","/v oneOf #/properties/v/oneOf"]
+jsl oneOf errors                                                       ["#/v one-of-error"]
+hyperjump oneOf errors (BASIC)                                         ["#/v oneOf","#/v maxLength","#/v type"]
+jsl relative $ref to another file: {parent: 'x'}                       ["#/parent pattern-error"]
+jsl $ref to a missing file (throwOnInvalidRef false): validate {a: 1}  ["ref-error"]
+ajv compile, then 1000 validations of a 200-member record (ms)         39.8, 10.0
+jsl compile, then 1000 validations of a 200-member record (ms)         2.4, 63.6
+hyperjump validate(uri, instance): first, then 1000 more (ms)          6.2, 869.4
+hyperjump validate(uri) once, then 1000 sync calls, FLAG and BASIC (ms) 2.7, 53.8, 82.9
+hyperjump $ref to an unregistered file, schemes removed                throws RetrievalError: Unable to load resource 'https://vmd.invalid/schema/missing.schema.yaml'. Referenced from 
+json-schema-formats isUri("https://example.com/a"), §4.3 or the suite says true true
+json-schema-formats isUri("../a.md"), §4.3 or the suite says false     false
+json-schema-formats isUriReference("../a.md#b"), §4.3 or the suite says true true
+json-schema-formats isUriReference("https://example.com/a"), §4.3 or the suite says true true
+json-schema-formats isUriReference("%zz"), §4.3 or the suite says false false
+json-schema-formats isEmail("ada@example.com"), §4.3 or the suite says true true
+json-schema-formats isEmail("ada.example.com"), §4.3 or the suite says false false
+json-schema-formats isUuid("123e4567-e89b-12d3-a456-426614174000"), §4.3 or the suite says true true
+json-schema-formats isUuid("123e4567e89b12d3a456426614174000"), §4.3 or the suite says false false
+json-schema-formats isUuid("123e4567-e89b-12d3-a456-42661417400g"), §4.3 or the suite says false false
+json-schema-formats isTime("23:59:60Z"), §4.3 or the suite says true   false  (differs)
+json-schema-formats isTime("01:59:60+02:00"), §4.3 or the suite says true false  (differs)
+json-schema-formats isTime("08:00:00+02"), §4.3 or the suite says false false
+json-schema-formats isDateTime("2026-10-09 08:00:00Z"), §4.3 or the suite says false false

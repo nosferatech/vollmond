@@ -1,0 +1,1 @@
+docs.sh: 30 documents, all conforming; 438 anchors and 2168 references to them checked
