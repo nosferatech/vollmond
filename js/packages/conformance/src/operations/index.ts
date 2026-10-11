@@ -1,4 +1,5 @@
 import type { OperationRegistry } from "../operation.js";
+import { anchorsOperation } from "./anchors.js";
 import { compareOperation } from "./compare.js";
 import { parseOperation } from "./parse.js";
 
@@ -7,6 +8,7 @@ import { parseOperation } from "./parse.js";
  * declaration skips them, so each one added here comes with the removal of its skip entry.
  */
 export const operations: OperationRegistry = new Map([
+  ["anchors", anchorsOperation],
   ["compare", compareOperation],
   ["parse", parseOperation],
 ]);

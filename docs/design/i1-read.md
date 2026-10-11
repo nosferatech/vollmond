@@ -413,9 +413,9 @@ runtime.
 - `js/packages/core/scripts/generate-unicode.mjs` downloads `DerivedCoreProperties.txt`, `PropList.txt`,
   `extracted/DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from
   `https://www.unicode.org/Public/17.0.0/ucd/` (or reads a local copy with `--ucd`), checks SHA-256 hashes written in the script,
-  and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is run by hand, never in CI. Size: 10,236 bytes
-  of source (M): 10 ranges of White_Space, 17 of Default_Ignorable_Code_Point, 796 of L, M, Nd and Pc together, and 185 runs of
-  lower-case mappings plus one expansion (U+0130).
+  and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is run by hand, never in CI. Size: 15,638 bytes
+  of source (M): 10 ranges of White_Space, 17 of Default_Ignorable_Code_Point, 796 of L, M, Nd and Pc together, 735 of Cn, which
+  step 2 removes since Draft v0.10, and 185 runs of lower-case mappings plus one expansion (U+0130).
 - **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The Unicode Character Encoding
   Stability Policy says, under "Normalization Stability", that for "any string S which only contains characters assigned according
   to both V and U", the NFC of S under version V equals that under U (D: https://www.unicode.org/policies/stability_policy.html).

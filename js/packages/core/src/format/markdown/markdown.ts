@@ -1,10 +1,13 @@
 import type { RootContent } from "mdast";
+import { deriveAnchors } from "../../anchor/derived-anchors.js";
+import { slugOf } from "../../anchor/slug.js";
 import type { IssueCode } from "../../issue/codes.js";
 import { type Issue, makeIssue } from "../../issue/issue.js";
 import type { Outcome } from "../../issue/outcome.js";
 import { childPath } from "../../record/exact-path.js";
 import { NodeIndexBuilder } from "../../record/node-index.js";
 import { type ParsedRecord, parseOutcome } from "../../record/record.js";
+import { nameRecord } from "../../record/record-names.js";
 import type { ByteRange, SourceText } from "../../text/source-text.js";
 import { sliceUnitText } from "../../text/unit-text.js";
 import { createValueObject, type MutableValueObject, type Value, type ValueObject } from "../../value/value.js";
@@ -70,9 +73,7 @@ interface SectionDraft {
  * {@link readMarkdown} for what it reads; the validation issues go on the record.
  */
 export function parseMarkdownRecord(path: string, source: SourceText): Outcome<ParsedRecord> {
-  const reading = readMarkdown(path, source);
-  // TODO(#14): headings get no derived anchor until the slug rule lands, which maps `reading.headings` to them here.
-  return buildMarkdownRecord(reading, new Map());
+  return buildMarkdownRecord(readMarkdown(path, source));
 }
 
 /**
@@ -236,17 +237,24 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   return { path, source, issues, root, headings, blockAnchors };
 }
 
+// Deviation from the I1 design, recorded in issue #14: the derived anchors are computed here, after the structural check,
+// rather than passed in, so that a record that cannot be read is never slugged.
 /**
  * Builds a Markdown record from what {@link readMarkdown} read: fails with the structural errors when there is one, and
- * otherwise gives the value view, its index, with `derivedAnchors` mapping the exact path of each section with a heading to
- * its derived anchor, and the validation issues.
+ * otherwise gives the value view, its index, the derived anchor of each heading, the anchor table, the section keys, and the
+ * validation issues, those of the anchors and keys included.
  */
-export function buildMarkdownRecord(
-  reading: MarkdownReading,
-  derivedAnchors: ReadonlyMap<string, string>,
-): Outcome<ParsedRecord> {
+export function buildMarkdownRecord(reading: MarkdownReading): Outcome<ParsedRecord> {
   const { path, source } = reading;
   return parseOutcome(reading.issues, (issues) => {
+    const headingSlugs = new Map<string, string>();
+    const derivedAnchors = new Map<string, string>();
+    const slugs = reading.headings.map((heading) => slugOf(heading.visibleText));
+    deriveAnchors(slugs).forEach((anchor, index) => {
+      const at = (reading.headings[index] as MarkdownHeading).at;
+      headingSlugs.set(at, slugs[index] as string);
+      if (anchor !== null) derivedAnchors.set(at, anchor);
+    });
     const root = reading.root;
     if (root === null) throw new Error("a Markdown record without a section plan raised no structural error");
     const bytes = (range: TextRange): ByteRange => ({
@@ -309,7 +317,8 @@ export function buildMarkdownRecord(
     };
 
     const value = section(root);
-    return { path, format: "md", value, source, nodes: builder.build(derivedAnchors), issues };
+    const nodes = builder.build(derivedAnchors);
+    return nameRecord({ path, format: "md", value, source, nodes, issues }, { headingSlugs, blockAnchors: reading.blockAnchors });
   });
 }
 

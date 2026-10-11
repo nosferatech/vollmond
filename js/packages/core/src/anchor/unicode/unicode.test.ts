@@ -3,6 +3,7 @@ import {
   CodePointRanges,
   isDefaultIgnorable,
   isLetterMarkDigitOrConnector,
+  isUnassigned,
   isWhiteSpace,
   LowerCaseMapping,
   lowerCaseOf,
@@ -129,6 +130,34 @@ describe("general categories L, M, Nd and Pc", () => {
     ["10FFFF", "Cn", 0x10ffff],
   ])("removes U+%s (%s)", (_, __, cp) => {
     expect(isLetterMarkDigitOrConnector(cp)).toBe(false);
+  });
+});
+
+describe("General_Category Cn, unassigned in 17.0.0", () => {
+  test("includes U+1ADE, which Unicode 18.0.0 assigns as a combining mark of class 230", () => {
+    expect(isUnassigned(0x1ade)).toBe(true);
+  });
+
+  test.each(named([0x378, 0x38b, 0xfdd0, 0xfdef, 0xfffe, 0xffff, 0x1fffe, 0x10fffe, 0x10ffff]))("includes U+%s", (_, cp) => {
+    expect(isUnassigned(cp)).toBe(true);
+  });
+
+  test.each([
+    ["0061", "Ll", 0x61],
+    ["0000", "Cc", 0x0],
+    ["00AD", "Cf", 0xad],
+    ["D800", "Cs", 0xd800],
+    ["E000", "Co", 0xe000],
+    ["F0000", "Co", 0xf0000],
+    ["20C1", "Sc, new in 17.0", 0x20c1],
+    ["16EA0", "Lu, new in 17.0", 0x16ea0],
+  ])("excludes U+%s (%s)", (_, __, cp) => {
+    expect(isUnassigned(cp)).toBe(false);
+  });
+
+  test("overlaps Default_Ignorable_Code_Point, which holds unassigned code points too, such as U+E0FFF", () => {
+    expect(isUnassigned(0xe0fff)).toBe(true);
+    expect(isDefaultIgnorable(0xe0fff)).toBe(true);
   });
 });
 

@@ -16,6 +16,7 @@ import {
   LETTER_MARK_DIGIT_CONNECTOR,
   LOWER_CASE_EXPANSIONS,
   LOWER_CASE_RUNS,
+  UNASSIGNED,
   WHITE_SPACE,
 } from "./unicode-17.0.0.generated.js";
 
@@ -87,6 +88,7 @@ function matcher(pattern: RegExp): (cp: number) => boolean {
 const runtimeWhiteSpace = matcher(/^\p{White_Space}$/u);
 const runtimeDefaultIgnorable = matcher(/^\p{Default_Ignorable_Code_Point}$/u);
 const runtimeLetterMarkDigitConnector = matcher(/^[\p{L}\p{M}\p{Nd}\p{Pc}]$/u);
+const runtimeUnassigned = matcher(/^\p{Cn}$/u);
 const runtimeLowerCase = (cp: number) => String.fromCodePoint(cp).toLowerCase();
 
 /** Returns a copy of `encoded` with each element named in `changes` (index to amount) changed by that amount. */
@@ -143,6 +145,13 @@ describe(`the tables agree with the runtime's Unicode over all ${MAX_CODE_POINT 
     await context.annotate(`compared with the runtime's Unicode ${runtimeUnicode}`);
   });
 
+  test("general category Cn, unassigned", async (context) => {
+    requireComparableRuntime(context);
+    const ours = new CodePointRanges(UNASSIGNED);
+    expect(disagreements((cp) => ours.has(cp), runtimeUnassigned)).toEqual([]);
+    await context.annotate(`compared with the runtime's Unicode ${runtimeUnicode}`);
+  });
+
   test("lower case, one code point at a time", async (context) => {
     requireComparableRuntime(context);
     const ours = new LowerCaseMapping(LOWER_CASE_RUNS, LOWER_CASE_EXPANSIONS);
@@ -178,6 +187,13 @@ describe("a broken table entry is a disagreement", () => {
     // The first run is A to Z by +32.
     const ours = new LowerCaseMapping(broken(LOWER_CASE_RUNS, { 3: 1 }), LOWER_CASE_EXPANSIONS);
     expect(disagreements((cp) => ours.of(cp), runtimeLowerCase, 0, 0x7f, 100)).toHaveLength(26);
+  });
+
+  test("Cn without U+0378", (context) => {
+    requireComparableRuntime(context);
+    // The first range is U+0378 and U+0379. One longer gap, with the next gap one shorter, moves it to U+0379 and U+037A.
+    const ours = new CodePointRanges(broken(UNASSIGNED, { 0: 1, 2: -1 }));
+    expect(disagreements((cp) => ours.has(cp), runtimeUnassigned, 0, 0x3ff)).toEqual([0x378, 0x37a]);
   });
 
   test("lower case without the expansion of U+0130", (context) => {

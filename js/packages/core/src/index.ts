@@ -1,6 +1,7 @@
 /** Name of this package, for messages that identify which library produced them. */
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
+export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
 export { parseMarkdownRecord } from "./format/markdown/markdown.js";
 export { parseRecord } from "./format/parse-record.js";

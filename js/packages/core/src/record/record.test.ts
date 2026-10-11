@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { anchorTableOf } from "../anchor/anchor-table.js";
 import { makeIssue } from "../issue/issue.js";
 import { decodeSource } from "../text/source-text.js";
 import { createValueObject } from "../value/value.js";
@@ -29,6 +30,8 @@ describe("parseOutcome", () => {
     value: createValueObject(),
     source: decoded.value,
     nodes: new NodeIndexBuilder({ range: { start: 0, end: 2 } }).build(),
+    anchors: anchorTableOf([], []),
+    sectionKeys: new Map(),
     issues,
   });
   const structural = makeIssue({ code: "duplicate-member", path: "a.json", at: "/a", message: "m" });

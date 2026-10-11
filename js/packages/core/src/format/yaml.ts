@@ -20,6 +20,7 @@ import type { Outcome } from "../issue/outcome.js";
 import { childPath } from "../record/exact-path.js";
 import { NodeIndexBuilder, type NodeInit, type ValueKind } from "../record/node-index.js";
 import { type ParsedRecord, parseOutcome } from "../record/record.js";
+import { nameRecord } from "../record/record-names.js";
 import { checkShape, type ShapeUnit } from "../record/shape.js";
 import type { ByteRange, Position, SourceText } from "../text/source-text.js";
 import { readLineBreaksAsLf, sliceUnitText, type UnitText } from "../text/unit-text.js";
@@ -140,7 +141,7 @@ export function parseYamlRecord(path: string, source: SourceText): Outcome<Parse
     if (value === undefined) throw new Error("a YAML unit without a value raised no structural error");
     const builder = new NodeIndexBuilder({ range: { start: 0, end: source.bytes.length } });
     for (const node of unit.nodes) builder.add(node.parent, node.key, node.init);
-    return { path, format: "yaml", value, source, nodes: builder.build(), issues };
+    return nameRecord({ path, format: "yaml", value, source, nodes: builder.build(), issues });
   });
 }
 
