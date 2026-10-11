@@ -354,6 +354,27 @@
           { "code": "yaml-version-unsupported", "severity": "error", "path": "data-block-yaml-directive.md", "at": "/$sections/0" }
         ]
       }
+    },
+    {
+      "id": "undefined-tag-handle",
+      "spec": ["4.1", "YAML 1.2.2 6.8.2.1", "D"],
+      "description": "A tag whose handle no %TAG directive declares is not a tag YAML can read, so it is a syntax error, not yaml-tag (§4.1, decision N6).",
+      "input": {"record": "undefined-tag-handle.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "undefined-tag-handle.yaml", "at": ""}]}
+    },
+    {
+      "id": "raw-fffe-in-quotes",
+      "spec": ["4.1", "YAML 1.2.2 5.1", "D"],
+      "description": "A raw U+FFFE inside double quotes stays a syntax error, a departure from YAML, whose quoted scalars accept any nb-json character (§4.1, decision N5).",
+      "input": {"record": "raw-fffe-quoted.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "raw-fffe-quoted.yaml", "at": ""}]}
+    },
+    {
+      "id": "block-scalar-no-final-break",
+      "spec": ["5.4", "YAML 1.2.2 8.1.1.2"],
+      "description": "A block scalar that ends the input without a final line break gets no line feed added, although the yaml package adds one (§5.4).",
+      "input": {"record": "block-scalar-no-final-break.yaml"},
+      "expect": {"result": {"a": "text"}}
     }
   ]
 }
