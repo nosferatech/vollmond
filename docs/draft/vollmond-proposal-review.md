@@ -612,6 +612,11 @@ a run of `~` (§5.4); "checked before parsing" becomes "before the text beyond t
 `$title` counts as two line breaks, and only the link reference definitions in `$body` values are in scope (§5.5, Q1's edges);
 and a repeated invalid `class` token gives one `anchor-invalid` (§6.2, Appendix D).
 
+§9.3's list of the spine's keywords gains `additionalProperties`, "`$ref` (to a fixed location)" and `x-vmd-list`'s own `items` and
+`additional`, as the author of the schemas pull request (#97) noted: the list is the one that [U2](../decisions/U2.md)'s question
+gives and the I2 design states (`docs/design/i2-validate.md`, section 3.3), and the suite's `references/targets` schemas put
+`x-vmd-ref` under `additionalProperties`. Draft v0.11 had left them out.
+
 Three alignments that the reviews of #91 and #94 noted are applied too, and each is an agent's reading, for the owner to confirm:
 
 - §11.2's "Bounded reads", a rule from the implementation (#91, recorded on #21), not an owner decision: `read` takes an optional

@@ -1241,8 +1241,9 @@ error are mostly its consequences; the other units are still parsed, and their e
 A keyword that begins with `x-vmd-` and that this version does not define makes the schema invalid (`feature-unsupported`), so
 that a keyword a newer minor version adds is never silently ignored (§9.1).
 
-**The spine.** `x-vmd-list` and `x-vmd-ref` are read only along the schema's spine: `properties`, `patternProperties`, `items`,
-`prefixItems`, `$ref` and `allOf`, from the root. A declaration reached only through `oneOf`, `anyOf`, `not`, `if`, `then`,
+**The spine.** `x-vmd-list` and `x-vmd-ref` are read only along the schema's spine: `properties`, `patternProperties`,
+`additionalProperties`, `prefixItems`, `items`, `$ref` to a fixed location, `allOf`, and `x-vmd-list`'s own `items` and
+`additional`, from the root. A declaration reached only through `oneOf`, `anyOf`, `not`, `if`, `then`,
 `else` or another keyword is `schema-invalid`; one in `$defs` that nothing on the spine references is fine. So a reference's
 meaning never depends on which branch of a `oneOf` its record satisfies, and §7.4's proof of singularity stays possible before
 anything is evaluated. When two `patternProperties` patterns bring unequal declarations to one member of the data, that member
