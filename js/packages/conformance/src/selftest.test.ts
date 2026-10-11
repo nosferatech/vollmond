@@ -44,7 +44,7 @@ function containers(a: unknown, b: unknown, equal: (a: unknown, b: unknown) => b
 }
 
 describe("the real suite", () => {
-  test("passes the self-test and reads every other case, skipping it with a reason", async () => {
+  test("passes the self-test and every other case it runs, and skips the rest with a reason", async () => {
     const result = await runReal();
     expect(result.exitCode).toBe(0);
     if (result.exitCode === 2) {
@@ -54,7 +54,8 @@ describe("the real suite", () => {
     const selfTests = results.filter((item) => item.id.startsWith("selftest/"));
     expect(selfTests.length).toBe(await countSelfTestCases(REAL_SUITE));
     expect(selfTests.every((item) => item.verdict === "pass")).toBe(true);
-    expect(results.filter((item) => !item.id.startsWith("selftest/") && item.verdict !== "skip")).toEqual([]);
+    expect(results.filter((item) => item.verdict !== "skip" && item.verdict !== "pass")).toEqual([]);
+    expect(results.filter((item) => !item.id.startsWith("selftest/") && item.verdict === "pass").length).toBeGreaterThan(0);
     expect(results.length).toBeGreaterThan(1000);
     expect(unused_skips).toEqual([]);
   });

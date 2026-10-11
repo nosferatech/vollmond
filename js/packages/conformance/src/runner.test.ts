@@ -164,11 +164,11 @@ describe("runSuite: skipping", () => {
   });
 
   test("reports a case whose operation the runner does not implement as an error, unless an entry skips it", async () => {
-    const suite = await makeSuite({ ...storeFiles("cases/store"), "cases/t.cases.json": caseFile([storeCase("one", "parse")]) });
+    const suite = await makeSuite({ ...storeFiles("cases/store"), "cases/t.cases.json": caseFile([storeCase("one", "meta")]) });
     expect(await results(suite)).toEqual([
-      { id: "t/one", verdict: "error", detail: "the runner does not implement the operation parse" },
+      { id: "t/one", verdict: "error", detail: "the runner does not implement the operation meta" },
     ]);
-    await writeFile(join(suite, "declaration.json"), declaration([{ operation: "parse", reason: "later" }]));
+    await writeFile(join(suite, "declaration.json"), declaration([{ operation: "meta", reason: "later" }]));
     expect(await results(suite)).toEqual([{ id: "t/one", verdict: "skip", reason: "later" }]);
   });
 
