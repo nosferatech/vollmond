@@ -332,7 +332,10 @@ error (§9.2), and its issues are that record's structural errors:
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
   that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but
-  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5);
+  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5). A record of a collection whose schema cannot
+  be used is refused by every reader in the same way (§9.1): an operation on it fails with the code its schema got,
+  `schema-invalid`, or `feature-unsupported` for a construct of a newer version, and `check` reports that code once and checks
+  the record for everything but its schema;
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
@@ -354,9 +357,10 @@ in a later revision of the case format.
 
 The result is the record's value view (§5.1). It holds stored data only, so it has no `$key` members, and section keys are
 tested through `meta` (decision F9). The operation fails when the record has a structural error (§9.2, decision F1), and its
-issues are those errors, the codes whose class is structural in the proposal's Appendix D. Validation errors and warnings leave
-the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing case
-may expect several.
+issues are those errors, the codes whose class is structural in the proposal's Appendix D. `parse` is a reader (§9.5), so it also
+fails for a record of a collection whose schema cannot be used, with that schema's code (§9.1). Validation errors and warnings
+leave the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing
+case may expect several.
 
 **A rule for case authors.** A syntax error is reported once per parse unit (a file, its front matter or one data block, §9.2,
 decision K2), so a case expects one `syntax-error` for each unit that has one, however many the unit holds, and the other units
@@ -406,8 +410,9 @@ percent-encoded. `as` says how the address is used, since being singular is a pr
   fails when the address is malformed, when its record does not exist, when the checker cannot prove it singular before
   evaluating (§7.4), when no node matches, and when more than one node matches (§7.3, §7.4).
 - With **`"as": "selector"`**, as for a query or a reference declared `cardinality: many`, the result is the list of every
-  matching target, compared unordered. The operation fails when the address is malformed or its record does not exist. A
-  selector that matches nothing gives an empty list (§7.4, decision C19).
+  matching target, compared in order: a selector returns its matches in document order, the pre-order of the value view (§7.4,
+  Appendix D; decisions R5 and Q2). The operation fails when the address is malformed or its record does not exist. A selector
+  that matches nothing gives an empty list (§7.4, decision C19).
 
 A singular address can fail as ambiguous only at evaluation in three cases, which §7.4 names (decisions C18 and H4), so a case for
 any of them expects `address-ambiguous` from `resolve`, not `address-not-singular`. An address whose record does not exist fails
@@ -433,10 +438,12 @@ objects with these members:
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
 - **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference into a record
-  that has a structural error, whose `targets` list is empty. A reference whose address is that record's root (no fragment, or
+  that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose `targets` list is
+  empty. A reference whose address is that record's root (no fragment, or
   `#` alone, §7.1) is `ok`, with the record's root as its target, although `resolve` of the same address fails. Reading
   aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
-- **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
+- **`targets`** is the list of resolved targets, compared in order, since a selector returns its matches in document order (§7.4,
+  decision R5). A dangling reference has an empty list, and so does a
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
   `ok` (§8.5).
 
@@ -501,7 +508,8 @@ here.
 
 **Unordered lists.** Where an operation says a list is compared unordered, two lists are equal when their items can be paired
 one to one with each pair equal. They are compared as multisets, so `["a", "a", "b"]` and `["a", "b", "b"]` differ. Only an
-operation's definition makes a list unordered, never a case, and only where the spec fixes no order.
+operation's definition makes a list unordered, never a case, and only where the spec fixes no order. Where it fixes one, as for a
+selector's matches (§7.4), the list is compared in that order.
 
 **Whole results.** A result is compared whole. A member or an item that the case does not expect is a failure, and so is a
 missing one. A member that is not reliable is kept out of the result by the operation's shape, as `query` leaves out excerpts,
@@ -626,7 +634,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.10.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.11.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -693,13 +701,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.10.0-dev", "case_format": 1 }
+{ "version": "0.11.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.10 gives `0.10`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.11 gives `0.11`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.10.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.11.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -710,8 +718,8 @@ half alone.
   know rather than misread it. A new operation does not change the case format, since a runner that lacks it reports its cases
   as `error` until it implements them or skips them by declaration. The phase I0 decisions changed the meaning of numbers in case
   files (decision F2) and the `parse` result (decision F9), and the corrections that followed the fixture tasks added the
-  `pending` member and citations of other specifications in `spec`. Each would raise the case format, but it stays 1 as an
-  exception, because no runner had been released.
+  `pending` member and citations of other specifications in `spec`, and Draft v0.11 made selectors' matches and `refs` targets
+  ordered (decision R5). Each would raise the case format, but it stays 1 as an exception, because no runner had been released.
 - **Unicode version.** Expected values that depend on Unicode data, such as derived anchors (§6.3), follow Unicode 17.0.0.
   Changing it changes derived anchors, which §6.3 allows only with a new version of the spec, so `version` moves with it.
 - **Section citations.** Cases cite sections in `spec`. A change that renumbers the proposal updates them as well, as

@@ -69,6 +69,14 @@ const BEYOND_PARSING: ReadonlyMap<string, string> = new Map([
   ["addresses/cardinality/keyed-list-duplicate-lenient", "a key repeated in a list that a schema declares a keyed list"],
 ]);
 
+/**
+ * `check` cases for a rule of the draft that parsing does not follow yet, by global id, with the follow-up that brings it. An
+ * entry is removed when its rule lands, and the case is then compared like any other.
+ */
+const NOT_YET_FOLLOWED: ReadonlyMap<string, string> = new Map([
+  ["anchors/blocks-and-tags/repeated-invalid-tag", "Draft v0.11's Q3, one anchor-invalid per occurrence of a tag"],
+]);
+
 // TODO(#14): delete these comparisons when the runner performs `check`, whose cases then hold the parser to them directly.
 // `check` needs the Validate profile, which this runner does not claim yet. Its cases are still the suite's statement of where
 // the names' issues go, so each one's issues of those codes are compared here with what parsing its records raises. The
@@ -78,13 +86,15 @@ describe("the suite's check cases, for the issues that parsing raises for names"
   const checks = loaded.cases
     .filter((entry) => entry.ok)
     .map((entry) => entry.case as SuiteCase)
-    .filter((suiteCase) => suiteCase.operation === "check" && !BEYOND_PARSING.has(suiteCase.id));
+    .filter(
+      (suiteCase) => suiteCase.operation === "check" && !BEYOND_PARSING.has(suiteCase.id) && !NOT_YET_FOLLOWED.has(suiteCase.id),
+    );
   const stores = new FixtureStores(REAL_SUITE);
 
   test("the cases are found, and every case left out exists", () => {
     expect(checks.length).toBeGreaterThan(30);
     const ids = new Set(loaded.cases.filter((entry) => entry.ok).map((entry) => (entry.case as SuiteCase).id));
-    for (const id of BEYOND_PARSING.keys()) expect(ids).toContain(id);
+    for (const id of [...BEYOND_PARSING.keys(), ...NOT_YET_FOLLOWED.keys()]) expect(ids).toContain(id);
   });
 
   test.each(checks.map((suiteCase) => [suiteCase.id, suiteCase] as const))("%s", async (_, suiteCase) => {

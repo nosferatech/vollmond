@@ -20,9 +20,9 @@
       "spec": ["6.2", "D"],
       "profiles": ["validate"],
       "operation": "check",
-      "description": "A block anchor may start a list item at any depth, so the nested item's <a id> is an anchor; one starting a list item's second paragraph is plain HTML, with anchor-element-ignored at the $body (§6.2, decision I1.7).",
+      "description": "A block anchor may start a list item at any depth and any paragraph outside block quotes, a list item's second paragraph included, so neither <a id> here is plain HTML and nothing is reported (§6.2, decision T, which widened I1.7).",
       "input": {"records": ["list-placement.md"]},
-      "expect": {"issues": [{"code": "anchor-element-ignored", "severity": "warning", "path": "list-placement.md", "at": "/$body"}]}
+      "expect": {}
     },
     {
       "id": "repeated-data-tags-kept",
@@ -48,6 +48,41 @@
       "description": "A list item inside a block quote carries no block anchor, since block quotes stay prose and \"at any depth\" means list nesting; its <a id> is plain HTML with anchor-element-ignored (§6.2, decision J2).",
       "input": {"records": ["block-quote-list.md"]},
       "expect": {"issues": [{"code": "anchor-element-ignored", "severity": "warning", "path": "block-quote-list.md", "at": "/$body"}]}
+    },
+    {
+      "id": "block-anchors-in-later-paragraphs",
+      "spec": ["5.9", "6.2"],
+      "operation": "anchors",
+      "description": "Block anchors start a list item, a list item's second paragraph and a nested list item; each range is its CommonMark block without trailing white space, so the first item's three trailing spaces are not in it (§5.9, §6.2, decisions P10 and T).",
+      "input": {"record": "later-paragraphs.md"},
+      "expect": {"result": {"anchors": [{"name": "record", "kind": "derived", "at": ""}, {"name": "first", "kind": "block", "at": "/$body", "range": [0, 26]}, {"name": "second", "kind": "block", "at": "/$body", "range": [45, 81]}, {"name": "nested", "kind": "block", "at": "/$body", "range": [92, 125]}], "tags": []}}
+    },
+    {
+      "id": "block-anchor-with-class",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "An anchor element with a class at the start of a block is a validation error, block-anchor-class, so the record stays readable (§6.2, decision P5).",
+      "input": {"records": ["block-anchor-class.md"]},
+      "expect": {"issues": [{"code": "block-anchor-class", "severity": "error", "path": "block-anchor-class.md", "at": "/$body"}]}
+    },
+    {
+      "id": "character-reference-not-decoded",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "Character references in an anchor element's attributes are not decoded, so id=\"a&#97;b\" is the name a&#97;b, which is anchor-invalid, where decoding would give the valid name aab (§6.2, decision P8).",
+      "input": {"records": ["escaped-id.md"]},
+      "expect": {"issues": [{"code": "anchor-invalid", "severity": "error", "path": "escaped-id.md", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "repeated-invalid-tag",
+      "spec": ["6.2", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "description": "A tag that is not a valid name and is repeated gives one anchor-invalid per occurrence, besides the duplicate-tag warning for the repeat (Appendix D, decision Q3).",
+      "input": {"records": ["repeated-invalid-tags.yaml"]},
+      "expect": {"issues": [{"code": "anchor-invalid", "severity": "error", "path": "repeated-invalid-tags.yaml", "at": "/item"}, {"code": "anchor-invalid", "severity": "error", "path": "repeated-invalid-tags.yaml", "at": "/item"}, {"code": "duplicate-tag", "severity": "warning", "path": "repeated-invalid-tags.yaml", "at": "/item"}]}
     }
   ]
 }

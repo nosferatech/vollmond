@@ -1,0 +1,3 @@
+$sections:
+  - $title: "one\ntwo"
+  - $title: "foo #"

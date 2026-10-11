@@ -59,7 +59,9 @@ filesystem, `git` or a process goes in `cli`, behind the storage contract's inte
 This tooling is for the TypeScript implementation and is configured in `js/`; the Python tooling will be chosen when `python/`
 starts. Exact dependency versions are pinned when the workspace is created. The libraries are those of the proposal's Appendix C:
 `micromark` and `mdast-util-from-markdown` with the four extensions of GFM 0.29 (tables, strikethrough, task list items,
-autolink literals) taken one by one, `yaml`, `jsonc-parser`, Ajv with `ajv-formats`. The `gfm()` bundle is not used, since it adds
+autolink literals) taken one by one, `yaml`, `jsonc-parser`, `@hyperjump/json-schema` with its peer `@hyperjump/browser`
+(decision U1, which replaced Ajv and `ajv-formats`), and `@hyperjump/json-schema-formats` for four identifier formats (I2 design,
+section 3.4). The `gfm()` bundle is not used, since it adds
 footnotes, which GFM 0.29 does not have, and front matter follows vmd's own rule rather than an extension (I1 design, section
 3.4). Derived anchors follow vmd's own rule (proposal §6.3), implemented in `core`, so `github-slugger` is not used.
 
@@ -85,7 +87,8 @@ local checkout and never modified by this work. Two things make that possible be
 - vampiredb's docs already use `<a id>` anchors on headings and blocks, and relative links with anchors, which is the syntax of
   the proposal's §6 and §8. A link from the docs to a file outside `docs/` leaves the store (proposal §8.2). The demonstration
   of I1.11 found 17 exceptions, all in `design/Minimal_Log.md`: elements at the start of a list item's second or later
-  paragraph, which §6.2 does not make block anchors ([`examples/vampiredb/README.md`](../../examples/vampiredb/README.md)).
+  paragraph ([`examples/vampiredb/README.md`](../../examples/vampiredb/README.md)). Decision T (Draft v0.11) widened §6.2 to
+  make them block anchors, which answers #20's open item 1; the anchor code follows it in a later pull request.
 - `vmd --config PATH` (from I1.8) takes a store configuration from outside the store, so the configuration for vampiredb's docs
   lives in this repository under `examples/vampiredb/`.
 
@@ -152,11 +155,11 @@ on.
 | Task | Deliverable | Depends on |
 |---|---|---|
 | **I2.1** Configuration | the whole of `.vmd/config.yaml`, also through I1.8's `--config PATH`; collections, globs, `ignore`, the uniqueness mode; the path rules of §3.2 | I1.7 |
-| **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats, with vmd's own date and time checks, since `ajv-formats` differs from §4.3 on separators and offsets; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
-| **I2.3** Keyed lists and uniqueness | semantic resolution through schema-declared keys; strict and lenient modes; cardinality checked for every address before evaluation | I1.6, I2.2 |
-| **I2.4** References | extraction from Markdown links and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
-| **I2.5** Local index | the four tables of §14.2 in `.vmd/cache/`, keyed by file version; re-parsing only changed files and re-resolving only the references into them | I2.4 |
-| **I2.6** Commands | `check` (with `--changed REV`), `refs` (`--to`, `--from`, `--context`), `schema` | I2.3, I2.5 |
+| **I2.2** Schemas | schema loading from JSON or YAML, with the schema directory beside the configuration file (U13); `@hyperjump/json-schema` for 2020-12, with the logical types of §4.3 checked by vmd itself; `x-vmd-list` evaluated natively, with its compilation to standard JSON Schema as a test oracle; the spine and the other `schema-invalid` rules of §9.3; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
+| **I2.3** Keyed lists and uniqueness | semantic resolution through schema-declared keys; strict and lenient modes; cardinality checked for every address before evaluation; the strict read mode of §9.5 in core (moved from I3.4, decision U11) | I1.6, I2.2 |
+| **I2.4** References | extraction from Markdown links, images (decision U7) and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
+| **I2.5** Local index | the four tables of §14.2 in the per-user cache directory, outside every store (§14.3, decision U4), keyed by file version; re-parsing only changed files, and re-resolving every reference | I2.4 |
+| **I2.6** Commands | `check` (with `--changed REV`), `refs` (`--to`, `--from`, `--context`), `schema`, `index`; the global options `--strict` (decision U11) and `--no-cache` (decision U4) | I2.3, I2.5 |
 | **I2.7** vampiredb trial | `examples/vampiredb/`: a configuration and minimal schemas for vampiredb's `docs/` only, the store root of I1.11 | I2.6 |
 | **I2.8** Demonstration | `vmd check` over vampiredb's docs compared with `scripts/docs.sh`: every broken link `docs.sh` reports inside `docs/`, `vmd` reports too; differences explained, among them links that leave `docs/` and so the store | I2.7 |
 
@@ -173,7 +176,7 @@ Goal: VQL works over a store, in both targets, with the output of §10.5 and §1
 | **I3.1** VQL parser | the §10.2 grammar to an AST, with errors that point at a position in the query | I0 |
 | **I3.2** Evaluator | field resolution (semantic dotted paths, pointers, pseudo-fields), comparisons by logical type and enum order, any-element matching, sections compared by `$body`, full-text tokens and phrases | I3.1, I2.3 |
 | **I3.3** Targets | `records` and `nodes`; own-text matching for sections; field terms resolved upward through ancestors; per-collection defaults | I3.2 |
-| **I3.4** Parameters | `fields` with `@match` and `@record`, a stable `sort`, `limit`, opaque cursors bound to the query and the head, `per_record`, `show`, `max_chars`, totals; the strict read mode of §9.5, whose first consumer is `query` (I1 design, section 5) | I3.3 |
+| **I3.4** Parameters | `fields` with `@match` and `@record`, a stable `sort`, `limit`, opaque cursors bound to the query and the head, `per_record`, `show`, `max_chars`, totals; `query` under the strict read mode, which I2.3 builds (decision U11) | I3.3 |
 | **I3.5** Output | `vmd query` with the grouped output of §12.2, excerpts, `-l` | I3.4, I1.8 |
 | **I3.6** Fixtures and properties | VQL fixtures in the suite; a property test that printing an AST and parsing it again gives the same AST | I3.1 |
 | **I3.7** Header-table importer and the eternal-circle store | a converter from the ticket header tables to front matter, also the migration tool of rollout step R3; in eternal-circle, a committed `.vmd/config.yaml` with collections and minimal schemas for the tickets, and the converted tickets, landed there through a pull request once `vmd check` passes (decision K3) | I1.4, I2.6 |

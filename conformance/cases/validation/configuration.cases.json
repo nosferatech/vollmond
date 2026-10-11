@@ -1,0 +1,82 @@
+{
+  "defaults": {"spec": ["9.1"], "profiles": ["validate"], "operation": "check", "input": {"store": "configuration"}},
+  "cases": [
+    {
+      "id": "schema-with-id",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "A schema with $id is schema-invalid, since its base URI would change what its relative $refs mean (§9.2, decision U14). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-with-id.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-yaml-anchor",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "YAML anchors and aliases in a schema file are schema-invalid, since schema files follow vmd's YAML rules (§9.2, decision U15). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-yaml-anchor.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-off-spine",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "An x-vmd-list reached only through oneOf, off the spine, is schema-invalid (§9.3, decision U2). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-off-spine.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-composite-key",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "A keyed list with more than one key member is schema-invalid (§9.3, decision U8). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-composite-key.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-unevaluated-items",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "unevaluatedItems beside x-vmd-list is schema-invalid, since it would fail valid data (§9.3, decision U16). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-unevaluated-items.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-sections-by-field",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "$sections keyed by anything but [\"@key\"] is schema-invalid (§9.3, decision U17). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-sections-by-field.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-ref-without-format",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "x-vmd-ref on a string without format: uri-reference is schema-invalid, since it would do nothing (§9.3, decision U18). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-ref-without-format.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "schema-summary-not-boolean",
+      "spec": ["9.2", "9.3", "D"],
+      "description": "An x-vmd-summary that is not a boolean is schema-invalid (§9.3, decision U19). check reports it once and checks the record for everything else.",
+      "input": {"config": "config-summary-not-boolean.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "record-in-two-collections",
+      "spec": ["9.1", "D"],
+      "description": "A record that two collections' globs match gets collection-conflict and is read unschematized; other records are unaffected (§9.1, decision U5).",
+      "input": {"config": "config-two-collections.yaml"},
+      "expect": {"issues": [{"code": "collection-conflict", "severity": "error", "path": "a.json", "at": ""}]}
+    },
+    {
+      "id": "collection-name-invalid",
+      "spec": ["9.1", "D"],
+      "description": "A collection name must match [A-Za-z][A-Za-z0-9_-]*, so my/things is config-invalid (§9.1, decision U10).",
+      "input": {"config": "config-bad-name.yaml"},
+      "expect": {"issues": [{"code": "config-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "unknown-configuration-member",
+      "spec": ["9.1", "D"],
+      "description": "A configuration member this version does not define is feature-unsupported, since a newer minor version may define it (§9.1, decision U21).",
+      "input": {"config": "config-unknown-member.yaml"},
+      "expect": {"issues": [{"code": "feature-unsupported", "severity": "error", "path": null, "at": null}]}
+    }
+  ]
+}

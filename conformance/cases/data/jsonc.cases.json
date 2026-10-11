@@ -1,0 +1,152 @@
+{
+  "defaults": {
+    "spec": [
+      "5.4"
+    ],
+    "profiles": [
+      "read"
+    ],
+    "operation": "parse",
+    "input": {
+      "store": "jsonc"
+    }
+  },
+  "cases": [
+    {
+      "id": "jsonc-record",
+      "spec": [
+        "3.1",
+        "5.4",
+        "9.1"
+      ],
+      "description": "With jsonc: true, a .jsonc file is a record, read as JSON with // and /* */ comments, which are not data (§5.4, decision V1).",
+      "input": {
+        "record": "notes.jsonc"
+      },
+      "expect": {
+        "result": {
+          "a": 1,
+          "b": [
+            2
+          ]
+        }
+      }
+    },
+    {
+      "id": "jsonc-trailing-comma",
+      "spec": [
+        "5.4",
+        "9.2"
+      ],
+      "description": "JSONC allows comments but no trailing comma, which is a syntax error as in JSON (§5.4, decision V1).",
+      "input": {
+        "record": "trailing-comma.jsonc"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "trailing-comma.jsonc",
+            "at": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "json-stays-strict-with-jsonc",
+      "spec": [
+        "5.4",
+        "9.2"
+      ],
+      "description": "jsonc: true does not relax .json files: a comment in one is still a syntax error (§5.4, decision V1).",
+      "input": {
+        "record": "strict.json"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "strict.json",
+            "at": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "jsonc-data-block",
+      "spec": [
+        "5.3",
+        "5.4"
+      ],
+      "description": "A jsonc data block holds the section's fields, read as JSON with comments (§5.3, §5.4, decision V1).",
+      "input": {
+        "record": "block.md"
+      },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "owner": "ana",
+              "$body": "Part text."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jsonc-data-block-without-member",
+      "spec": [
+        "5.3",
+        "5.4"
+      ],
+      "description": "A jsonc data block needs no configuration member: only .jsonc files do (§5.4, decision V1).",
+      "input": {
+        "record": "block.md",
+        "config": "config-without-jsonc.yaml"
+      },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "owner": "ana",
+              "$body": "Part text."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jsonc-data-block-of-comments",
+      "spec": [
+        "5.3",
+        "5.4"
+      ],
+      "description": "A jsonc data block of only comments and white space gives no fields, as an empty block does (§5.4, decision V1).",
+      "input": {
+        "record": "comments-only.md"
+      },
+      "expect": {
+        "result": {
+          "$title": "Record",
+          "$body": "Root text.",
+          "$sections": [
+            {
+              "$title": "Part",
+              "$body": "Part text."
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

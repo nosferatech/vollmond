@@ -1,0 +1,7 @@
+// Settings, with the reasons beside them.
+{
+  "a": 1, // one, since two was too many
+  /* b holds
+     a list */
+  "b": [2]
+}

@@ -1,0 +1,1 @@
+{"oneOf": [{"properties": {"l": {"type": "array", "x-vmd-list": {"type": "map", "keys": ["name"]}}}}]}

@@ -91,6 +91,13 @@
       "description": "An exact path with a leading zero in an array index matches nothing (RFC 6901, section 4; decision K7).",
       "input": {"address": "list.json#/links/01", "as": "singular"},
       "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "list.json", "at": null}]}
+    },
+    {
+      "id": "escape-not-utf-8",
+      "spec": ["7.1", "D"],
+      "description": "A percent-escape whose bytes do not decode as UTF-8, as %E9, matches the grammar but can name no key, so it is address-malformed (§7.1, decision R4).",
+      "input": {"address": "data.json#%E9", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "address-malformed", "severity": "error", "path": "data.json", "at": null}]}
     }
   ]
 }
