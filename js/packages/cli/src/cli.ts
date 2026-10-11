@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
 import {
   fail,
+  type Issue,
+  type IssueCode,
   makeIssue,
   type Outcome,
   readStoreConfiguration,
@@ -9,7 +11,7 @@ import {
 } from "@vollmond/core";
 import { GLOBAL_OPTIONS, type GlobalOptions, type OptionSpec, readCommandLine, readCommandLineHead } from "./arguments.js";
 import { createFilesystemStorage } from "./backend/filesystem.js";
-import type { Command, CommandOutput, OpenedStore } from "./command/command.js";
+import type { Command, IssueOutput, OpenedStore } from "./command/command.js";
 import { BUILT_IN_COMMANDS } from "./command/index.js";
 import { readConfigurationFile } from "./configuration-file.js";
 import { ExitCode, exitCodeOf } from "./exit-code.js";
@@ -63,13 +65,19 @@ function processEnvironment(environment: Partial<CliEnvironment>): CliEnvironmen
  * Runs `vmd` with the given arguments (without the node and script paths) and returns what to print and the exit code, instead
  * of printing them. `environment` replaces parts of this process's environment.
  *
- * Exit codes: 0 for success, with warnings at most; 1 for a failure, a store not found, or a bug, which is caught here; 2 for a
- * command line `vmd` does not accept; 3 for a conflict; 4 for a success that found an issue of severity `error`. A command that
- * reads a store first finds it, reads its configuration, and checks the runtime's Unicode data, warning once when it is older
- * than the tables of derived anchors.
+ * Every failure but a bug is an outcome with issues: a command line `vmd` cannot read is `usage-invalid`, a store it cannot find
+ * `store-not-found`, a configuration it cannot read `config-invalid`. A command that reads a store first finds it, reads its
+ * configuration, and checks the runtime's Unicode data, warning once (`unicode-runtime-older`) when it is older than the tables
+ * of derived anchors.
  *
- * With `--json`, a command's outcome is printed on stdout as JSON, issues included; otherwise its value is printed as text on
- * stdout and its issues on stderr. `--quiet` leaves out warnings, the probe's included.
+ * Exit codes: 0 for success, with warnings at most; 1 for a failure or a bug, which is caught here; 2 for `usage-invalid`; 3 for
+ * a conflict; 4 for a success that found an issue of severity `error`.
+ *
+ * With `--json`, every outcome is one JSON object on stdout, `{"ok": true, "value": …, "issues": [...]}` or `{"ok": false,
+ * "issues": [...]}`, whose issues start with the configuration's and the Unicode warning; a bug alone is reported on stderr.
+ * Otherwise the value is printed as text on stdout and the issues on stderr, except that a command whose issues are its result
+ * or part of its listing prints its own issues on stdout. `--quiet` leaves out warnings, except a command's whose issues are its
+ * result.
  */
 export async function runCli(args: readonly string[], environment: Partial<CliEnvironment> = {}): Promise<CliResult> {
   try {
@@ -81,37 +89,78 @@ export async function runCli(args: readonly string[], environment: Partial<CliEn
   }
 }
 
+/** What a run printed when it ended: the outcome, how to write its value, and the issues that are not the command's. */
+interface Report {
+  /** The outcome: the command's, or a failure of the CLI's own before the command ran. */
+  readonly outcome: Outcome<unknown>;
+  /** Writes a successful outcome's value; nothing is written for a failure. */
+  readonly text: (value: unknown) => string | Uint8Array;
+  /** The details of the outcome's issues. */
+  readonly details?: IssueDetailsSource;
+  /** What the outcome's issues are, which decides where they are printed. */
+  readonly issueOutput: IssueOutput;
+  /** Issues of the store rather than the command: the configuration's and the Unicode warning, printed on stderr. */
+  readonly storeIssues: readonly Issue[];
+  /** The details of the store's issues. */
+  readonly storeDetails?: IssueDetailsSource;
+}
+
 /** Runs `vmd`, letting a bug's exception through. */
 async function run(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
   checkCommands(env.commands);
+  // Until the command line is read, `--json` is looked for among the arguments, so that a usage error is printed as asked.
+  const asked: GlobalOptions = { json: jsonAsked(args), quiet: false };
   const head = readCommandLineHead(args);
-  if (head.kind === "usage") return usage(head.message);
+  if (head.kind === "usage") return render(usage(head.message, "try vmd --help"), asked);
   if (head.kind === "none") {
     if (head.version) return { stdout: `${readPackageVersion()}\n`, stderr: "", exitCode: ExitCode.ok };
     if (head.help) return { stdout: generalHelp(env.commands), stderr: "", exitCode: ExitCode.ok };
-    return usage("no command given; try --help");
+    return render(usage("no command given", "try vmd --help"), asked);
   }
   const command = env.commands.find((candidate) => candidate.name === head.name);
-  if (command === undefined) return usage(`unknown command ${JSON.stringify(head.name)}; try --help`);
+  if (command === undefined) return render(usage(`unknown command ${JSON.stringify(head.name)}`, "try vmd --help"), asked);
+  const commandHint = `try vmd ${command.name} --help`;
   const line = readCommandLine(args, head.index, command.options);
-  if (!line.ok) return usage(line.message);
+  if (!line.ok) return render(usage(line.message, commandHint), asked);
   if (line.value.version) return { stdout: `${readPackageVersion()}\n`, stderr: "", exitCode: ExitCode.ok };
   if (line.value.help) return { stdout: commandHelp(command), stderr: "", exitCode: ExitCode.ok };
   const { globals } = line.value;
 
-  let stderr = "";
   let store: OpenedStore | null = null;
+  const storeIssues: Issue[] = [];
+  let storeDetails: IssueDetailsSource | undefined;
   if (command.readsStore) {
     const opened = await openCommandStore(globals, env);
-    if (opened.kind === "result") return opened.result;
+    if (opened.kind === "failed") return render(opened.report, globals);
     store = opened.store;
-    stderr += opened.stderr;
+    storeIssues.push(...opened.issues);
+    const configurationIssues = new Set(opened.issues);
+    storeDetails = (issue) => (configurationIssues.has(issue) ? opened.details(issue) : undefined);
     const probe = env.unicodeProbe();
-    if (!probe.agrees && !globals.quiet) stderr += unicodeWarning(probe, env.runtimeUnicodeVersion);
+    if (!probe.agrees) storeIssues.push(unicodeWarning(probe, env.runtimeUnicodeVersion));
   }
   const output = await command.run({ positionals: line.value.positionals, options: line.value.options, globals, store });
-  const result = render(output, globals);
-  return { ...result, stderr: stderr + result.stderr };
+  const report: Report =
+    output.kind === "usage"
+      ? { ...usage(output.message, commandHint), storeIssues }
+      : {
+          outcome: output.outcome,
+          text: output.text,
+          issueOutput: command.issueOutput ?? "diagnostics",
+          storeIssues,
+          ...(output.details === undefined ? {} : { details: output.details }),
+        };
+  return render({ ...report, ...(storeDetails === undefined ? {} : { storeDetails }) }, globals);
+}
+
+/**
+ * Whether JSON was asked for, for a command line that cannot be read and so has no options to look at: whether an argument
+ * before a `--` is `--json`, or `--json=` followed by anything, which is itself a usage error. An argument is not known to be an
+ * option's value until the command line is read, so `--store --json`, which names the store `--json`, also selects JSON here.
+ */
+function jsonAsked(args: readonly string[]): boolean {
+  const end = args.indexOf("--");
+  return (end === -1 ? args : args.slice(0, end)).some((arg) => arg === "--json" || arg.startsWith("--json="));
 }
 
 /** Throws an `Error` when a command's option has the name, or the short form, of a global option, or two commands one name. */
@@ -129,49 +178,78 @@ function checkCommands(commands: readonly Command[]): void {
   }
 }
 
-/** The result of a command line `vmd` does not accept. */
-function usage(message: string): CliResult {
-  return { stdout: "", stderr: `vmd: ${oneLine(message)}\n`, exitCode: ExitCode.usage };
+/** The report of a failure of the CLI's own, before or instead of the command's operation. */
+function failure(code: IssueCode, message: string, hint?: string, details?: IssueDetailsSource): Report {
+  const issue = makeIssue({ code, path: null, at: null, message, ...(hint === undefined ? {} : { hint }) });
+  return {
+    outcome: fail([issue]),
+    text: () => "",
+    issueOutput: "diagnostics",
+    storeIssues: [],
+    ...(details === undefined ? {} : { details }),
+  };
 }
 
-/** Finds the store, reads its configuration, and opens its files; or gives the result that ends the run. */
+/** The report of a command line `vmd` cannot read. */
+function usage(message: string, hint: string): Report {
+  return failure("usage-invalid", message, hint);
+}
+
+/** Finds the store, reads its configuration, and opens its files; or gives the report of the failure that ends the run. */
 async function openCommandStore(
   globals: GlobalOptions,
   env: CliEnvironment,
 ): Promise<
-  | { readonly kind: "store"; readonly store: OpenedStore; readonly stderr: string }
-  | { readonly kind: "result"; readonly result: CliResult }
+  | {
+      readonly kind: "store";
+      readonly store: OpenedStore;
+      readonly issues: readonly Issue[];
+      readonly details: IssueDetailsSource;
+    }
+  | { readonly kind: "failed"; readonly report: Report }
 > {
   let cwd: string;
   try {
     cwd = env.cwd;
   } catch (error) {
     const reason = (error as { code?: unknown }).code ?? String(error);
-    return {
-      kind: "result",
-      result: failure(`cannot read the working directory: ${reason}`, "change to a directory that exists"),
-    };
+    const report = failure(
+      "store-not-found",
+      `cannot read the working directory: ${reason}`,
+      "change to a directory that exists",
+    );
+    return { kind: "failed", report };
   }
   const discovered = await discoverStore({
     cwd,
     ...(globals.store === undefined ? {} : { store: globals.store }),
     ...(globals.config === undefined ? {} : { config: globals.config }),
   });
-  if (!discovered.ok) return { kind: "result", result: failure(discovered.error.message, discovered.error.hint) };
+  if (!discovered.ok) {
+    const { code, message, hint } = discovered.error;
+    return { kind: "failed", report: failure(code, message, hint) };
+  }
   const location = discovered.value;
   const name = location.configurationName;
   const details = () => ({ file: name });
   const reading = await readConfigurationFile(location.configurationFile);
   if (reading.kind === "unreadable") {
     const hint = globals.config === undefined ? "check its permissions" : "check the path given to --config";
-    return { kind: "result", result: failure(`cannot read the configuration ${name}: ${reading.reason}`, hint) };
+    return {
+      kind: "failed",
+      report: failure("config-invalid", `cannot read the configuration ${name}: ${reading.reason}`, hint),
+    };
   }
   if (reading.kind === "invalid") {
-    const issue = makeIssue({ code: "config-invalid", path: null, at: null, message: `the configuration ${reading.reason}` });
-    return { kind: "result", result: render(issuesOnly(fail([issue]), details), globals) };
+    return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
   }
   const configuration = readStoreConfiguration(reading.content);
-  if (!configuration.ok) return { kind: "result", result: render(issuesOnly(configuration, details), globals) };
+  if (!configuration.ok) {
+    return {
+      kind: "failed",
+      report: { outcome: configuration, text: () => "", details, issueOutput: "diagnostics", storeIssues: [] },
+    };
+  }
   return {
     kind: "store",
     store: {
@@ -180,29 +258,57 @@ async function openCommandStore(
       configurationContent: reading.content,
       storage: createFilesystemStorage(location.root),
     },
-    stderr: formatIssues(configuration.issues, { errorsOnly: globals.quiet, details }),
+    issues: configuration.issues,
+    details,
   };
 }
 
-/** The output of an outcome whose value, if any, is not printed, with its issues' details. */
-function issuesOnly(outcome: Outcome<unknown>, details: IssueDetailsSource): CommandOutput {
-  return { kind: "outcome", outcome, text: () => "", details };
+/**
+ * Writes a report for the terminal or as JSON, with its exit code. The exit code counts every issue, those `--quiet` leaves
+ * out included.
+ */
+function render(report: Report, globals: GlobalOptions): CliResult {
+  const { outcome } = report;
+  const exitCode = exitCodeOf(outcome, report.storeIssues);
+  const quiet = globals.quiet;
+  const ownWarningsDropped = quiet && report.issueOutput !== "result";
+  if (globals.json) {
+    const issues = [
+      ...(quiet ? report.storeIssues.filter(isError) : report.storeIssues),
+      ...(ownWarningsDropped ? outcome.issues.filter(isError) : outcome.issues),
+    ];
+    const printed = outcome.ok ? { ok: true, value: outcome.value, issues } : { ok: false, issues };
+    return { stdout: `${JSON.stringify(printed, jsonReplacer)}\n`, stderr: "", exitCode };
+  }
+  const value = outcome.ok ? report.text(outcome.value) : "";
+  if (report.issueOutput === "diagnostics") {
+    // One list on stderr, so that the cap and the line that counts every issue found, dropped warnings included, apply once.
+    const storeIssues = new Set(report.storeIssues);
+    const details: IssueDetailsSource = (issue) =>
+      storeIssues.has(issue) ? report.storeDetails?.(issue) : report.details?.(issue);
+    const stderr = formatIssues([...report.storeIssues, ...outcome.issues], { errorsOnly: quiet, details });
+    return { stdout: value, stderr, exitCode };
+  }
+  // The store's issues go to stderr and the command's to stdout, each stream with its own cap and count.
+  const storeText = formatIssues(report.storeIssues, { errorsOnly: quiet, ...withDetails(report.storeDetails) });
+  const ownText = formatIssues(outcome.issues, { errorsOnly: ownWarningsDropped, ...withDetails(report.details) });
+  return { stdout: concatenate(value, ownText), stderr: storeText, exitCode };
 }
 
-/** The result of a failure that has no issue code: a message and a hint, on stderr, in the issue format's layout. */
-function failure(message: string, hint: string): CliResult {
-  return { stdout: "", stderr: `error: ${oneLine(message)}\n  hint ${oneLine(hint)}\n`, exitCode: ExitCode.error };
+/** Whether an issue is an error, which `--quiet` keeps. */
+function isError(issue: Issue): boolean {
+  return issue.severity === "error";
 }
 
-/** Writes a command's output for the terminal or as JSON, with its exit code. */
-function render(output: CommandOutput, globals: GlobalOptions): CliResult {
-  if (output.kind === "usage") return usage(output.message);
-  const { outcome } = output;
-  const exitCode = exitCodeOf(outcome);
-  if (globals.json) return { stdout: `${JSON.stringify(outcome, jsonReplacer)}\n`, stderr: "", exitCode };
-  const details: IssueDetailsSource | undefined = output.details;
-  const stderr = formatIssues(outcome.issues, { errorsOnly: globals.quiet, ...(details === undefined ? {} : { details }) });
-  return { stdout: outcome.ok ? output.text(outcome.value) : "", stderr, exitCode };
+/** The options of `formatIssues` with `details`, when there are any. */
+function withDetails(details: IssueDetailsSource | undefined): { readonly details?: IssueDetailsSource } {
+  return details === undefined ? {} : { details };
+}
+
+/** Joins a value written as text or bytes with text after it. */
+function concatenate(value: string | Uint8Array, text: string): string | Uint8Array {
+  if (typeof value === "string") return value + text;
+  return text === "" ? value : Buffer.concat([value, Buffer.from(text, "utf8")]);
 }
 
 /** Writes a `Uint8Array` as `{ "base64": "…" }`, which JSON would otherwise write as an object of numbered bytes. */
@@ -213,12 +319,15 @@ function jsonReplacer(_key: string, value: unknown): unknown {
 }
 
 /** The warning for a runtime whose Unicode data is older than the tables'. */
-function unicodeWarning(probe: UnicodeRuntimeProbe, runtimeVersion: string | undefined): string {
+function unicodeWarning(probe: UnicodeRuntimeProbe, runtimeVersion: string | undefined): Issue {
   const runtime = runtimeVersion === undefined ? "this runtime's Unicode data" : `this runtime's Unicode ${runtimeVersion}`;
-  return (
-    `warning: ${runtime} is older than Unicode ${probe.version}, which derived anchors follow (${probe.failures.join("; ")})\n` +
-    "  hint a heading with a character added since may get another anchor here than elsewhere; a newer Node avoids this\n"
-  );
+  return makeIssue({
+    code: "unicode-runtime-older",
+    path: null,
+    at: null,
+    message: `${runtime} is older than Unicode ${probe.version}, which derived anchors follow (${probe.failures.join("; ")})`,
+    hint: "a heading with a character added since may get another anchor here than elsewhere; a newer Node avoids this",
+  });
 }
 
 /** The help of `vmd` as a whole. */
@@ -233,7 +342,7 @@ function generalHelp(commands: readonly Command[]): string {
     `commands:\n${list}\n` +
     "  --store DIR    the store root; by default the nearest directory upwards that holds .vmd/config.yaml\n" +
     "  --config FILE  a configuration used in place of the store's .vmd/config.yaml\n" +
-    "  --json         print the library's result objects as JSON\n" +
+    "  --json         print every outcome, a failure included, as one JSON object\n" +
     "  --quiet        leave out warnings\n"
   );
 }

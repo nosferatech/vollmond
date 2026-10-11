@@ -19,8 +19,13 @@ export interface StoreLocation {
   readonly workingPrefix: string | null;
 }
 
-/** Why no store was found: a message and a hint, for the user. */
+/** Why no store was found: the issue code, and a message and a hint for the user. */
 export interface StoreNotFound {
+  /**
+   * `store-not-found` when no directory is the store, `config-invalid` when the store's `.vmd/config.yaml` is there but is not
+   * a file, or cannot be checked.
+   */
+  readonly code: "store-not-found" | "config-invalid";
   readonly message: string;
   readonly hint: string;
 }
@@ -68,14 +73,9 @@ export async function discoverStore(
     }
     if (request.config === undefined) {
       const configuration = await fileKind(join(root, ".vmd", "config.yaml"));
-      if (configuration.kind === "failed") {
-        return notFound(
-          `cannot read ${join(request.store, CONFIGURATION_PATH)}: ${configuration.reason}`,
-          "check its permissions",
-        );
-      }
+      if (configuration.kind === "failed") return uncheckable(root, request.store, configuration.reason);
       if (configuration.kind === "directory" || configuration.kind === "other") {
-        return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT);
+        return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT, "config-invalid");
       }
       if (configuration.kind !== "file") {
         return notFound(
@@ -106,9 +106,34 @@ export async function discoverStore(
   };
 }
 
-/** A failed discovery. */
-function notFound(message: string, hint: string): { readonly ok: false; readonly error: StoreNotFound } {
-  return { ok: false, error: { message, hint } };
+/** A failed discovery, `store-not-found` unless `code` says otherwise. */
+function notFound(
+  message: string,
+  hint: string,
+  code: StoreNotFound["code"] = "store-not-found",
+): { readonly ok: false; readonly error: StoreNotFound } {
+  return { ok: false, error: { code, message, hint } };
+}
+
+/**
+ * The failure for a `.vmd/config.yaml` below `directory` that cannot be checked, `reason` saying why: `config-invalid` when
+ * `.vmd` is there, so that the configuration exists but cannot be read, and `store-not-found` when `directory` itself cannot be
+ * read, so that no store can be told to be there. `shown` is `directory` as messages write it.
+ */
+async function uncheckable(
+  directory: string,
+  shown: string,
+  reason: string,
+): Promise<{ readonly ok: false; readonly error: StoreNotFound }> {
+  const vmd = await fileKind(join(directory, ".vmd"));
+  if (vmd.kind === "failed") {
+    return notFound(`cannot read ${shown}: ${vmd.reason}`, "check its permissions, or name the store with --store");
+  }
+  return notFound(
+    `cannot read ${join(shown, CONFIGURATION_PATH)}: ${reason}`,
+    "check the permissions of .vmd/",
+    "config-invalid",
+  );
 }
 
 /** Looks for `.vmd/config.yaml` in `start` and each directory above it, and returns the first that holds it, or null. */
@@ -120,9 +145,8 @@ async function findRootUpwards(
     const candidate = join(directory, ".vmd", "config.yaml");
     const kind = await fileKind(candidate);
     if (kind.kind === "file") return { ok: true, root: directory };
-    if (kind.kind === "failed")
-      return notFound(`cannot read ${candidate}: ${kind.reason}`, "check its permissions, or name the store with --store");
-    if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT);
+    if (kind.kind === "failed") return uncheckable(directory, directory, kind.reason);
+    if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT, "config-invalid");
     const parent = dirname(directory);
     if (parent === directory) return { ok: true, root: null };
     directory = parent;

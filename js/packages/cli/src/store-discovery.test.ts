@@ -3,7 +3,7 @@ import { chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { makeDirectories, temporaryDirectory, writeFiles } from "./directories.testkit.js";
-import { discoverStore, type StoreLocation } from "./store-discovery.js";
+import { discoverStore, type StoreLocation, type StoreNotFound } from "./store-discovery.js";
 
 const runsAsRoot = process.getuid?.() === 0;
 const canChmod = process.platform !== "win32" && !runsAsRoot;
@@ -18,7 +18,7 @@ async function found(request: Parameters<typeof discoverStore>[0]): Promise<Stor
 }
 
 /** Finds the store and expects not to find one; returns the message and the hint. */
-async function notFound(request: Parameters<typeof discoverStore>[0]): Promise<{ message: string; hint: string }> {
+async function notFound(request: Parameters<typeof discoverStore>[0]): Promise<StoreNotFound> {
   const discovered = await discoverStore(request);
   if (discovered.ok) throw new Error(`a store at ${discovered.value.root}`);
   return discovered.error;
@@ -48,6 +48,7 @@ describe("from the working directory", () => {
     makeDirectories(repository, ".git");
     expect((await found({ cwd: makeDirectories(repository, "docs/design") })).root).toBe(join(repository, "docs"));
     expect((await notFound({ cwd: repository })).message).toContain("no vmd store here");
+    expect((await notFound({ cwd: repository })).code).toBe("store-not-found");
   });
 
   test("finds the nearest of two nested stores", async () => {
@@ -67,6 +68,7 @@ describe("from the working directory", () => {
     makeDirectories(outer, "a/.vmd/config.yaml");
     const error = await notFound({ cwd: makeDirectories(outer, "a/b") });
     expect(error.message).toBe(`${join(outer, "a", ".vmd", "config.yaml")} is not a file`);
+    expect(error.code).toBe("config-invalid");
   });
 
   test.skipIf(process.platform === "win32")("fails for a config.yaml that is a FIFO, without waiting on it", async () => {
@@ -96,11 +98,30 @@ describe("from the working directory", () => {
     const locked = makeDirectories(outer, "locked/inside");
     chmodSync(join(outer, "locked"), 0o000);
     try {
-      expect((await notFound({ cwd: locked })).message).toContain("EACCES");
+      const error = await notFound({ cwd: locked });
+      expect(error.message).toContain("EACCES");
+      expect(error.code).toBe("store-not-found");
+      expect((await notFound({ cwd: outer, store: "locked/inside" })).code).toBe("store-not-found");
     } finally {
       chmodSync(join(outer, "locked"), 0o755);
     }
   });
+
+  test.skipIf(!canChmod)(
+    "fails with config-invalid, upwards and with --store, for a .vmd/config.yaml that cannot be read",
+    async () => {
+      const root = writeFiles(temporaryDirectory(), STORE_CONFIG);
+      const cwd = makeDirectories(root, "a");
+      chmodSync(join(root, ".vmd"), 0o000);
+      try {
+        const upwards = await notFound({ cwd });
+        expect(upwards).toMatchObject({ code: "config-invalid", message: expect.stringContaining("EACCES") });
+        expect((await notFound({ cwd, store: root })).code).toBe("config-invalid");
+      } finally {
+        chmodSync(join(root, ".vmd"), 0o755);
+      }
+    },
+  );
 });
 
 describe("with --store", () => {
