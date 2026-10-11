@@ -73,6 +73,26 @@ describe("parseRecord", () => {
     expect(outcome.ok && outcome.value).toMatchObject({ path: "notes/a.md", format: "md", value: { a: 1, $title: "Title" } });
   });
 
+  test.each([
+    ["a.json", (title: string) => JSON.stringify({ $sections: [{ $title: title }] })],
+    ["a.yaml", (title: string) => `$sections:\n  - $title: ${JSON.stringify(title)}\n`],
+  ])("a section's $title of 4,096 runs reads, and one of 4,097 fails with a syntax-error at the root, in %s", (path, record) => {
+    expect(parseRecord(path, bytes(record("*a* ".repeat(2048)))).ok).toBe(true);
+    const outcome = parseRecord(path, bytes(record(`${"*a* ".repeat(2048)}_b_`)));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.issues.map(({ code, path: issuePath, at }) => ({ code, path: issuePath, at }))).toEqual([
+      { code: "syntax-error", path, at: "" },
+    ]);
+  });
+
+  test("a $title of 20,000 *a* is refused without resolving its emphasis", () => {
+    const started = performance.now();
+    const outcome = parseRecord("a.json", bytes(JSON.stringify({ $sections: [{ $title: "*a* ".repeat(20_000) }] })));
+    expect(outcome.ok).toBe(false);
+    // Resolved, the emphasis takes about a second; refused at run 4,097, a few milliseconds. The bound is far from both.
+    expect(performance.now() - started).toBeLessThan(5000);
+  });
+
   test("fails with the Markdown parser's structural errors", () => {
     expect(parseRecord("a.md", bytes("---\na: 1\n")).issues.map((issue) => issue.code)).toEqual(["syntax-error"]);
   });

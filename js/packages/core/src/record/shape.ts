@@ -1,3 +1,5 @@
+import { MAX_EMPHASIS_RUNS } from "../format/limits.js";
+import { inlineRunsBeyondLimit } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
@@ -30,7 +32,8 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * document order: like `Object.entries`, it lists integer-like names first, in ascending order, then the others in the order
  * they were added.
  *
- * - on a section, a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or
+ * - on a section, a `$title` that holds more than the most runs of emphasis a text may (`syntax-error`, at the root, positioned
+ *   at the member), a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or
  *   `$sections` that is not an array of objects (`reserved-member-type`, at the member); an item of `$sections` without a
  *   `$title` (`section-title-missing`, at the item); `$key`, or `$schema` below the root (`dollar-member`); and any other
  *   member whose name begins with `$` (`feature-unsupported`);
@@ -79,6 +82,14 @@ class ShapeChecker {
       const memberAt = childPath(at, name);
       switch (name) {
         case "$title":
+          if (typeof member !== "string") {
+            this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
+          } else if (inlineRunsBeyondLimit(member) !== null) {
+            // The record is beyond a resource limit, which is a syntax error at the root, positioned at the title.
+            const message = `$title holds more than ${MAX_EMPHASIS_RUNS} runs of *, _ or ~`;
+            this.#raise("syntax-error", "", message, memberAt);
+          }
+          break;
         case "$body":
         case "$anchor":
           if (typeof member !== "string") this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
@@ -168,8 +179,9 @@ class ShapeChecker {
     }
   }
 
-  #raise(code: IssueCode, at: string, message: string): void {
-    const position = this.#context.locate?.(at);
+  /** Raises an issue at `at`, positioned at the node `placeAt`, which is `at` unless given. */
+  #raise(code: IssueCode, at: string, message: string, placeAt: string = at): void {
+    const position = this.#context.locate?.(placeAt);
     this.issues.push(
       makeIssue(
         position === undefined

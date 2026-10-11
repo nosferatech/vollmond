@@ -12,7 +12,8 @@ import { slugOf } from "./slug.js";
  * sequence is stripped, and nothing in the title starts a block. `labels` are the labels of the record's link reference
  * definitions, as written, so that a reference to one of them gives its text alone.
  *
- * A title whose inline containers nest deeper than the Markdown parser reads is slugged as plain text.
+ * A title whose inline containers nest deeper than the Markdown parser reads, or that holds more runs of emphasis than it
+ * allows, is slugged as plain text. A record with a title of too many runs is refused when it is parsed.
  */
 export function titleSlugOf(title: string, labels: readonly string[]): string {
   const content = parseInlineContent(title, labels);

@@ -35,6 +35,38 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ [name]: value })).toEqual([["reserved-member-type", `/${name}`]]);
   });
 
+  test("a $title of more than 4,096 runs is a syntax-error at the root, whatever section it titles", () => {
+    const title = (runs: number) => "*a* ".repeat(runs / 2);
+    expect(issuesOf({ $title: title(4096), $sections: [{ $title: title(4096) }] })).toEqual([]);
+    expect(issuesOf({ $title: `${title(4096)}_b_` })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $sections: [{ $title: `${title(4096)}_b_` }] })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $sections: [{ $title: "S", $sections: [{ $title: `${title(4096)}~b~` }] }] })).toEqual([
+      ["syntax-error", ""],
+    ]);
+  });
+
+  test("near miss: the runs of a $title count on their own, not with those of another title or of a $body", () => {
+    const title = "*a* ".repeat(2048);
+    expect(issuesOf({ $title: title, $body: title, $sections: [{ $title: title, $body: title }, { $title: title }] })).toEqual(
+      [],
+    );
+    expect(issuesOf({ $title: "\\* ".repeat(5000) })).toEqual([]);
+  });
+
+  test("a title with too many runs is positioned at its member, and is not looked at when it is not a string", () => {
+    const decoded = decodeSource("r.json", new TextEncoder().encode(" ".repeat(40)));
+    if (!decoded.ok) throw new Error("not UTF-8");
+    const builder = new NodeIndexBuilder({ range: { start: 0, end: 40 } });
+    const sections = builder.add("", "$sections", { kind: "array", range: { start: 14, end: 40 } });
+    const section = builder.add(sections, 0, { kind: "object", range: { start: 15, end: 39 } });
+    builder.add(section, "$title", { kind: "string", range: { start: 25, end: 30 }, memberRange: { start: 17, end: 30 } });
+    const locate = nodeLocator(builder.build(), decoded.value);
+    const value = { $sections: [{ $title: "*a* ".repeat(2049) }] };
+    const [issue] = checkShape("record", value, "", { path: "r.json", locate });
+    expect([issue?.code, issue?.at, issue?.position?.offset]).toEqual(["syntax-error", "", 17]);
+    expect(issuesOf({ $title: 1 })).toEqual([["reserved-member-type", "/$title"]]);
+  });
+
   test("the same on an item of $sections", () => {
     expect(issuesOf({ $sections: [{ $title: "S", $body: 2 }] })).toEqual([["reserved-member-type", "/$sections/0/$body"]]);
   });

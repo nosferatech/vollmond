@@ -73,7 +73,17 @@ const INLINE_NESTING_TYPES: ReadonlySet<Nodes["type"]> = new Set(["emphasis", "s
 const CONTAINER_DEPTH: MicromarkExtension = containerDepthExtension();
 
 /** The options of a record's parse, made once rather than for every record. */
-const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, runCountExtension([])]);
+const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, runCountExtension(false)]);
+
+/** The extension that counts the runs of a data `$title`, all its lines together, made once. */
+const TITLE_RUN_COUNT: MicromarkExtension = runCountExtension(true);
+
+/** The options of a parse that only counts the runs of a title, without emphasis and strikethrough, made once. */
+const RUN_COUNT_ONLY_OPTIONS: Options = optionsOf([
+  ...inlineContentExtensions([]),
+  { disable: { null: ["attention", "strikethrough"] } },
+  TITLE_RUN_COUNT,
+]);
 
 /** The syntax tree of a Markdown text, or where it passes a resource limit and why. */
 export type MarkdownTree =
@@ -109,52 +119,36 @@ class LimitPassed extends Error {
  *
  * - block quotes and list items nest at most {@link MAX_NESTING} deep, a container at the top counting as level 1. The parse
  *   stops at the first container too deep, so that the text after it costs nothing;
- * - a paragraph or a table cell holds at most {@link MAX_EMPHASIS_RUNS} runs of `*`, `_` or `~`. A run is one that starts a
- *   delimiter run where the library reads inline content, so a backslash escape, a code span, raw HTML or an autolink holds
- *   none. A heading's runs are not counted. The parse stops at the first run too many, before the library resolves the
- *   emphasis, whose cost grows with the square of the runs;
+ * - a paragraph, a table cell or a heading holds at most {@link MAX_EMPHASIS_RUNS} runs of `*`, `_` or `~`, each counted on its
+ *   own. A run is one that starts a delimiter run where the library reads inline content, so a backslash escape, a code span,
+ *   raw HTML or an autolink holds none. The parse stops at the first run too many, before the library resolves the emphasis,
+ *   whose cost grows with the square of the runs;
  * - inline nodes that hold inline nodes (emphasis, strong, strikethrough, links and link references) nest at most
  *   {@link MAX_NESTING} deep within their block.
  *
- * Costs time linear in the text, but for the library's own costs, and a second parse of the text without emphasis when a
- * heading passes the limit of runs, to tell it from a paragraph.
+ * Costs time linear in the text, but for the library's own costs.
  */
 export function parseMarkdownTree(text: string): MarkdownTree {
-  let headings: readonly IndexRange[] = [];
-  for (;;) {
-    let root: Root;
-    try {
-      const options = headings.length === 0 ? RECORD_OPTIONS : optionsOf([CONTAINER_DEPTH, runCountExtension(headings)]);
-      root = fromMarkdown(text, options);
-    } catch (error) {
-      if (!(error instanceof LimitPassed)) throw error;
-      if (error.kind === "runs" && headings.length === 0) {
-        // Runs are counted in inline content, which the library reads after every container, so the containers are within
-        // their limit here.
-        const found = headingRangesOf(text);
-        if (found.some((range) => range.start <= error.at && error.at < range.end)) {
-          headings = found;
-          continue;
-        }
-      }
-      return { ok: false, limitAt: error.at, message: error.message };
-    }
-    const tooDeepAt = inlineNestedBeyond(root, MAX_NESTING);
-    if (tooDeepAt !== null) {
-      return { ok: false, limitAt: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` };
-    }
-    for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
-    return { ok: true, root };
+  let root: Root;
+  try {
+    root = fromMarkdown(text, RECORD_OPTIONS);
+  } catch (error) {
+    if (!(error instanceof LimitPassed)) throw error;
+    return { ok: false, limitAt: error.at, message: error.message };
   }
+  const tooDeepAt = inlineNestedBeyond(root, MAX_NESTING);
+  if (tooDeepAt !== null) {
+    return { ok: false, limitAt: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` };
+  }
+  for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
+  return { ok: true, root };
 }
 
 /**
- * Parses a text as a heading's inline content, as a JSON or YAML section's `$title` is read: a line break is a soft break, no
- * closing sequence is stripped, nothing in it starts a block, and the link reference definitions whose labels are `labels`,
- * as written in their definitions, are in scope. Returns its inline nodes, a blank line between two of its lines giving a
- * text node of two line feeds, or null when its inline nodes nest deeper than {@link MAX_NESTING}. Runs are not counted.
+ * The extensions that read a text as a heading's inline content, as a JSON or YAML section's `$title` is read: nothing in it
+ * starts a block, and the link reference definitions whose labels are `labels` are in scope.
  */
-export function parseInlineContent(text: string, labels: readonly string[]): readonly PhrasingContent[] | null {
+function inlineContentExtensions(labels: readonly string[]): MicromarkExtension[] {
   const identifiers = labels.map(normalizeIdentifier);
   const defineLabels: Construct = {
     partial: true,
@@ -165,10 +159,24 @@ export function parseInlineContent(text: string, labels: readonly string[]): rea
     },
   };
   const blocks = ["blockQuote", "list", "codeFenced", "codeIndented", "headingAtx", "htmlFlow", "setextUnderline"];
-  const extensions: MicromarkExtension[] = [
-    { document: { null: defineLabels }, disable: { null: [...blocks, "thematicBreak", "definition", "table"] } },
-  ];
-  const root = fromMarkdown(text, optionsOf(extensions));
+  return [{ document: { null: defineLabels }, disable: { null: [...blocks, "thematicBreak", "definition", "table"] } }];
+}
+
+/**
+ * Parses a text as a heading's inline content, as a JSON or YAML section's `$title` is read: a line break is a soft break, no
+ * closing sequence is stripped, nothing in it starts a block, and the link reference definitions whose labels are `labels`,
+ * as written in their definitions, are in scope. Returns its inline nodes, a blank line between two of its lines giving a
+ * text node of two line feeds, or null when its inline nodes nest deeper than {@link MAX_NESTING} or it holds more than
+ * {@link MAX_EMPHASIS_RUNS} runs, all its lines counting together.
+ */
+export function parseInlineContent(text: string, labels: readonly string[]): readonly PhrasingContent[] | null {
+  let root: Root;
+  try {
+    root = fromMarkdown(text, optionsOf([...inlineContentExtensions(labels), TITLE_RUN_COUNT]));
+  } catch (error) {
+    if (error instanceof LimitPassed) return null;
+    throw error;
+  }
   if (inlineNestedBeyond(root, MAX_NESTING) !== null) return null;
   let transformed = root;
   for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) transformed = transform(transformed) ?? transformed;
@@ -179,6 +187,30 @@ export function parseInlineContent(text: string, labels: readonly string[]): rea
     content.push(...block.children);
   }
   return content;
+}
+
+/**
+ * Finds the first run beyond {@link MAX_EMPHASIS_RUNS} in a text read as a heading's inline content (see
+ * {@link parseInlineContent}), all its lines counting together, and returns its index in the text, or null when there is
+ * none. It counts with the counter of {@link parseMarkdownTree}, in a parse without emphasis and strikethrough, whose cost
+ * does not grow with the square of the runs, so that it needs no link reference definitions and is cheap to ask of every
+ * title, before the title is read in full.
+ */
+export function inlineRunsBeyondLimit(text: string): number | null {
+  // A run holds a character of `*`, `_` or `~`, so a text with no more of them than the limit has no run beyond it, which
+  // most titles show without the library.
+  let candidates = 0;
+  for (let index = 0; index < text.length && candidates <= MAX_EMPHASIS_RUNS; index++) {
+    if (RUN_CHARACTERS.includes(text.charCodeAt(index))) candidates += 1;
+  }
+  if (candidates <= MAX_EMPHASIS_RUNS) return null;
+  try {
+    fromMarkdown(text, RUN_COUNT_ONLY_OPTIONS);
+  } catch (error) {
+    if (error instanceof LimitPassed) return error.at;
+    throw error;
+  }
+  return null;
 }
 
 /**
@@ -200,31 +232,6 @@ export function definitionLabelsIn(text: string): string[] {
 /** The library's options: GFM 0.29's extensions, then `extensions`. */
 function optionsOf(extensions: readonly MicromarkExtension[]): Options {
   return { extensions: [...GFM_EXTENSIONS, ...extensions], mdastExtensions: [...GFM_FROM_MARKDOWN] };
-}
-
-/** A range of a text, `[start, end)`, in UTF-16 indexes. */
-interface IndexRange {
-  readonly start: number;
-  readonly end: number;
-}
-
-/**
- * Finds the headings of a text, which hold runs that are not counted, by a parse without emphasis and strikethrough, whose
- * cost does not grow with the square of the runs. The text's containers must be known to nest within the limit, as they are
- * once a parse has reached its inline content: the library reads every container before any inline text.
- */
-function headingRangesOf(text: string): IndexRange[] {
-  const root = fromMarkdown(text, optionsOf([{ disable: { null: ["attention", "strikethrough"] } }]));
-  const ranges: IndexRange[] = [];
-  const pending: Nodes[] = [root];
-  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
-    if (node.type === "heading") {
-      ranges.push({ start: node.position?.start.offset ?? 0, end: node.position?.end.offset ?? 0 });
-    } else if ("children" in node) {
-      for (const child of node.children) pending.push(child as Nodes);
-    }
-  }
-  return ranges;
 }
 
 /** The depth that a container's state holds, from 1 for a container at the top. */
@@ -303,25 +310,27 @@ function containerDepthExtension(): MicromarkExtension {
 /**
  * An extension that counts the runs of `*`, `_` and `~` of each inline text the library reads: a paragraph's, a table cell's
  * or a heading's, each read by a tokenizer of its own. It stops the parse with a {@link LimitPassed} at the first run beyond
- * {@link MAX_EMPHASIS_RUNS} in one text, unless that text starts inside one of `headings`.
+ * {@link MAX_EMPHASIS_RUNS} in one text. With `wholeText`, every text of a parse counts as one, as the paragraphs of a data
+ * `$title` do. The counts are kept per tokenizer, or per parse, by the library's objects, so that the extension is made once.
  *
  * The library tries the counter at each run's first character, and the emphasis construct then takes the whole run. A run of
  * `~` that is not strikethrough is taken one character at a time, so a character right after the last one counted continues
  * its run.
  */
-function runCountExtension(headings: readonly IndexRange[]): MicromarkExtension {
-  const texts = new WeakMap<TokenizeContext, { runs: number; last: number; exempt: boolean }>();
+function runCountExtension(wholeText: boolean): MicromarkExtension {
+  const texts = new WeakMap<TokenizeContext | ParseContext, { runs: number; last: number }>();
   const counter: Construct = {
     partial: true,
     tokenize(_effects, _ok, nok) {
       const at = this.now().offset;
       return (code: Code) => {
-        let text = texts.get(this);
+        const owner = wholeText ? this.parser : this;
+        let text = texts.get(owner);
         if (text === undefined) {
-          text = { runs: 0, last: -2, exempt: headings.some((range) => range.start <= at && at < range.end) };
-          texts.set(this, text);
+          text = { runs: 0, last: -2 };
+          texts.set(owner, text);
         }
-        if (!text.exempt && !(text.last === at - 1 && this.previous === code)) {
+        if (!(text.last === at - 1 && this.previous === code)) {
           text.runs += 1;
           if (text.runs > MAX_EMPHASIS_RUNS) throw new LimitPassed("runs", at);
         }
