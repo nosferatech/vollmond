@@ -357,6 +357,10 @@ describe("the spine", () => {
     );
     await usable({ properties: { $sections: { type: "array" } }, additionalProperties: byName });
     await usable({ patternProperties: { "^data": byName } });
+    // Review of #97's recheck, optional e: the message names the way out, which a YAML record's schema often needs.
+    expect((await unusable(file({ additionalProperties: byName }))).message).toContain("properties: {$sections: false}");
+    expect((await unusable(file({ properties: { $sections: byName } }))).message).not.toContain("properties: {$sections: false}");
+    await usable({ properties: { $sections: false }, additionalProperties: byName });
   });
 
   test.each([
@@ -465,6 +469,51 @@ describe("the spine", () => {
     await usable({ properties: { p: { type: "string", format: "uri-reference", "x-vmd-ref": {} } } });
     await usable({ properties: { p: { allOf: [{ format: "uri-reference" }], type: "string", "x-vmd-ref": {} } } });
     await usable({ properties: { p: { type: "object", required: ["$ref"], "x-vmd-ref": {} } } });
+  });
+
+  // Review of #97's recheck, item 2: the format, or a type without strings, may come from a location that applies beside the
+  // declaration on every path, not only from the declaration's own schema object.
+  test.each([
+    [
+      "a base schema that gives the type and format, and the collection adds x-vmd-ref",
+      {
+        $defs: { base: { type: "object", properties: { parent: { type: "string", format: "uri-reference" } } } },
+        allOf: [{ $ref: "#/$defs/base" }],
+        properties: { parent: { "x-vmd-ref": { targets: ["tickets"] } } },
+      },
+    ],
+    [
+      "a sibling allOf that gives type: object",
+      { allOf: [{ properties: { p: { type: "object" } } }], properties: { p: { "x-vmd-ref": {} } } },
+    ],
+    [
+      "a sibling allOf that gives the format",
+      {
+        allOf: [{ properties: { p: { type: "string", "x-vmd-ref": {} } } }, { properties: { p: { format: "uri-reference" } } }],
+      },
+    ],
+    [
+      "a pattern that matches the declaration's member",
+      { properties: { p: { "x-vmd-ref": {} } }, patternProperties: { "^p$": { type: "string", format: "uri-reference" } } },
+    ],
+  ])("x-vmd-ref is valid when every path brings the format beside it: %s", async (_case, schema) => {
+    await usable(schema);
+  });
+
+  test("x-vmd-ref is schema-invalid when one path to it lacks the format that another brings", async () => {
+    const issue = await unusable(
+      file({
+        $defs: { r: { properties: { p: { "x-vmd-ref": {} } } } },
+        properties: {
+          a: { $ref: "#/$defs/r" },
+          b: { allOf: [{ $ref: "#/$defs/r" }, { properties: { p: { type: "string", format: "uri-reference" } } }] },
+        },
+      }),
+    );
+    expect(issue.message).toContain("without format: uri-reference");
+    // A member that only the data names gets nothing from its parent's other members: the object's own type is not its.
+    const unnamed = await unusable(file({ type: "object", additionalProperties: { "x-vmd-ref": {} } }));
+    expect(unnamed.message).toContain("without format: uri-reference");
   });
 
   test("the root's shape gives each location's declarations, and the item of a keyed list its per-key schema", async () => {

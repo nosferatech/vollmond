@@ -1,4 +1,5 @@
 import { childPath } from "../record/exact-path.js";
+import { jcs } from "../value/jcs.js";
 import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
 import { type ListDeclaration, type RefDeclaration, readListDeclaration, readRefDeclaration } from "./keywords.js";
 import { locationKey, referenceKey, type SchemaLocation, type SchemaSet } from "./schema-set.js";
@@ -46,6 +47,26 @@ export interface SpineProblem {
 const DECLARATIONS = ["x-vmd-list", "x-vmd-ref"] as const;
 
 /**
+ * What a schema location's spine below it holds, for the checks that need two locations together or every path: the
+ * declarations by their value, whether a keyed list or `unevaluatedItems` is there, and whether a location that gives
+ * `format: uri-reference` or a `type` without strings is.
+ */
+interface SubtreeMarks {
+  readonly classes: Set<string>;
+  hasList: boolean;
+  hasUnevaluated: boolean;
+  hasRefGuard: boolean;
+}
+
+/** How a location is reached from its parent on the spine, for the locations that apply beside it on every path. */
+type SpineEdge =
+  | { readonly kind: "same" }
+  | { readonly kind: "member"; readonly name: string }
+  | { readonly kind: "prefix"; readonly index: number }
+  | { readonly kind: "items" }
+  | { readonly kind: "unnamed" };
+
+/**
  * A step of the spine's checks from one schema location: a member that a `properties` names, an item at an index, an item of
  * a keyed list by its key, or a member of a name the schema does not give (`pattern` for one a `patternProperties` pattern
  * matches, `additional` for one `additionalProperties` takes), which only the data names.
@@ -63,11 +84,27 @@ export class Spine {
   readonly #shapes = new Map<string, Shape>();
   readonly #closures = new Map<string, readonly SchemaLocation[]>();
   readonly #patterns = new Map<string, RegExp | null>();
+  readonly #marks = new Map<string, SubtreeMarks>();
+  #pairsVisited = 0;
+  #mustSteps = 0;
   readonly root: SchemaShape;
 
   constructor(set: SchemaSet) {
     this.#set = set;
     this.root = this.shape([{ file: set.root, pointer: "" }]);
+  }
+
+  /** How many pairs of locations the last {@link Spine.check} visited: the work its pair walk did, for tests of its cost. */
+  get pairsVisited(): number {
+    return this.#pairsVisited;
+  }
+
+  /**
+   * How many locations the last {@link Spine.check} stepped from while computing what applies beside a typed reference on
+   * every path: the work of that fixed point, for tests of its cost.
+   */
+  get mustSteps(): number {
+    return this.#mustSteps;
   }
 
   /** The schema object or boolean schema at a location, or undefined where there is none. */
@@ -177,12 +214,18 @@ export class Spine {
    * - a section's `$sections` keyed by anything but `@key`, and `@key` anywhere else; `$sections` is reached through
    *   `properties`, and through a pattern that matches it or an `additionalProperties` that takes it;
    * - `unevaluatedItems` that meets an `x-vmd-list` at one instance location, since it would fail items the list evaluates;
-   * - `x-vmd-ref` on a schema whose `type` allows a string without `format: uri-reference`, both read from the schema object
-   *   and what its `allOf` and `$ref` bring, where a string would be no reference.
+   * - `x-vmd-ref` where some path lets a string stand without `format: uri-reference`: the format, or a `type` without
+   *   strings, must apply beside the declaration on every path that reaches it.
    *
-   * What the root does not reach is not checked: a shared file's `$defs` may hold declarations other collections use. The
-   * check walks pairs of locations that apply at one instance location, and single locations with what kind of node they
-   * are at, so its cost grows with the square of the number of schema locations, never with the number of paths.
+   * What the root does not reach is not checked: a shared file's `$defs` may hold declarations other collections use.
+   *
+   * Cost: one walk of the locations the spine reaches, with the members, patterns and items of each, for the single-location
+   * checks. The pairs are walked only between locations whose spine below holds what could meet: two unequal declarations,
+   * or a keyed list and `unevaluatedItems`. A schema with none of them, or whose declarations are all equal, visits no pair.
+   * In the worst case, two groups of co-applying locations with unequal declarations, the pairs grow with the product of the
+   * groups' sizes, so quadratically in the schema. The locations that apply beside a typed reference on every path are kept
+   * only for references whose own schema object lacks the format, and only of the locations that could give it, which in
+   * the worst case is quadratic too.
    */
   // Deviation from the I2 design, recorded in issue #22: the check walks pairs of locations rather than every set a path
   // reaches, which was exponential; a declaration reached off the spine is refused even where the spine reaches it too.
@@ -196,7 +239,9 @@ export class Spine {
       problems.push({ location, message });
     };
     this.#checkOffSpine(report);
+    this.#computeMarks();
     this.#checkPlaces(report);
+    this.#checkRefFormats(report);
     this.#checkPairs(report);
     return problems;
   }
@@ -250,46 +295,51 @@ export class Spine {
    * and reports the keyed lists out of their place and the typed references without their format.
    */
   #checkPlaces(report: (location: SchemaLocation, message: string) => void): void {
-    const pending: { readonly location: SchemaLocation; readonly section: boolean; readonly onSections: boolean }[] = [];
+    // `sections` is how a section's $sections was reached: through `properties`, or through a pattern or
+    // `additionalProperties` that takes it; null for a location that is not on a section's $sections.
+    type Sections = "properties" | "other" | null;
+    const pending: { readonly location: SchemaLocation; readonly section: boolean; readonly sections: Sections }[] = [];
     for (const location of this.closure([{ file: this.#set.root, pointer: "" }]))
-      pending.push({ location, section: true, onSections: false });
+      pending.push({ location, section: true, sections: null });
     const seen = new Set<string>();
     while (pending.length > 0) {
-      const { location, section, onSections } = pending.pop() as (typeof pending)[number];
-      const seenKey = `${section}|${onSections}|${locationKey(location)}`;
+      const { location, section, sections } = pending.pop() as (typeof pending)[number];
+      const seenKey = `${section}|${sections}|${locationKey(location)}`;
       if (seen.has(seenKey)) continue;
       seen.add(seenKey);
       const schema = this.schemaAt(location);
       if (!isObject(schema)) continue;
-      this.#checkPlacement(location, schema, onSections, report);
-      if (Object.hasOwn(schema, "x-vmd-ref")) this.#checkRefFormat(location, report);
-      const push = (locations: readonly SchemaLocation[], childSection: boolean, childOnSections: boolean) => {
-        for (const child of locations) pending.push({ location: child, section: childSection, onSections: childOnSections });
+      this.#checkPlacement(location, schema, sections, report);
+      const push = (locations: readonly SchemaLocation[], childSection: boolean, childSections: Sections) => {
+        for (const child of locations) pending.push({ location: child, section: childSection, sections: childSections });
       };
       const named = isObject(schema.properties) ? Object.keys(schema.properties) : [];
-      for (const name of named) push(this.memberLocations(location, name), false, section && name === "$sections");
+      for (const name of named) {
+        push(this.memberLocations(location, name), false, section && name === "$sections" ? "properties" : null);
+      }
       let patternTakesSections = false;
       if (isObject(schema.patternProperties)) {
         for (const source of Object.keys(schema.patternProperties)) {
           const matchesSections = this.pattern(source)?.test("$sections") === true;
           patternTakesSections ||= matchesSections;
           const closed = this.closure([at(location, "patternProperties", source)]);
-          push(closed, false, false);
-          if (section && matchesSections && !named.includes("$sections")) push(closed, false, true);
+          push(closed, false, null);
+          if (section && matchesSections && !named.includes("$sections")) push(closed, false, "other");
         }
       }
       if (isSchemaValue(schema.additionalProperties)) {
         const closed = this.closure([at(location, "additionalProperties")]);
-        push(closed, false, false);
-        if (section && !named.includes("$sections") && !patternTakesSections) push(closed, false, true);
+        push(closed, false, null);
+        if (section && !named.includes("$sections") && !patternTakesSections) push(closed, false, "other");
       }
+      const items = sections !== null;
       const prefix = Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
-      for (let index = 0; index <= prefix; index++) push(this.itemLocations(location, index, undefined), onSections, false);
+      for (let index = 0; index <= prefix; index++) push(this.itemLocations(location, index, undefined), items, null);
       const list = schema["x-vmd-list"];
       if (isObject(list)) {
         for (const key of isObject(list.items) ? Object.keys(list.items) : [])
-          push(this.itemLocations(location, prefix, key), onSections, false);
-        if (isObject(list.additional)) push(this.closure([at(at(location, "x-vmd-list"), "additional")]), onSections, false);
+          push(this.itemLocations(location, prefix, key), items, null);
+        if (isObject(list.additional)) push(this.closure([at(at(location, "x-vmd-list"), "additional")]), items, null);
       }
     }
   }
@@ -298,19 +348,23 @@ export class Spine {
   #checkPlacement(
     location: SchemaLocation,
     schema: ValueObject,
-    onSections: boolean,
+    sections: "properties" | "other" | null,
     report: (location: SchemaLocation, message: string) => void,
   ): void {
     const list = schema["x-vmd-list"];
     if (!isObject(list)) return;
     const key = (list.keys as readonly string[])[0];
     const where = at(location, "x-vmd-list");
-    if (onSections && key !== "@key") {
+    if (sections !== null && key !== "@key") {
+      const way =
+        sections === "other"
+          ? "; a pattern or additionalProperties brings this list to $sections, which properties: {$sections: false} keeps it from"
+          : "";
       report(
         where,
-        `x-vmd-list keys a section's $sections by ${JSON.stringify(key)}; sections are keyed by their section key, so $sections takes keys: ["@key"] only`,
+        `x-vmd-list keys a section's $sections by ${JSON.stringify(key)}; sections are keyed by their section key, so $sections takes keys: ["@key"] only${way}`,
       );
-    } else if (!onSections && key === "@key") {
+    } else if (sections === null && key === "@key") {
       report(
         where,
         'x-vmd-list keys by "@key" a list that is not a section\'s $sections; @key is the section key, which only sections have',
@@ -318,22 +372,191 @@ export class Spine {
     }
   }
 
-  /** Reports an `x-vmd-ref` whose schema, with what its `allOf` and `$ref` bring, allows a string without the URI format. */
-  #checkRefFormat(location: SchemaLocation, report: (location: SchemaLocation, message: string) => void): void {
-    const own = this.closure([location])
-      .map((closed) => this.schemaAt(closed))
-      .filter(isObject);
-    const format = own.some((schema) => schema.format === "uri-reference");
-    // Every `type` must allow a string for the value to be one; with no `type`, a string is allowed.
-    const allowsStrings = own.every((schema) => {
-      const type = schema.type;
-      if (type === undefined) return true;
-      return Array.isArray(type) ? type.includes("string") : type === "string";
-    });
-    if (!format && allowsStrings) {
+  /** The spine locations below a location, with how each is reached from it: its subschemas on the spine, and its `$ref`. */
+  #spineEdges(location: SchemaLocation): { readonly child: SchemaLocation; readonly edge: SpineEdge }[] {
+    const schema = this.schemaAt(location);
+    if (!isObject(schema)) return [];
+    const edges: { readonly child: SchemaLocation; readonly edge: SpineEdge }[] = [];
+    for (const subschema of subschemas(schema, location.pointer)) {
+      if (subschema.role !== "spine") continue;
+      const child = { file: location.file, pointer: subschema.pointer };
+      const last = subschema.pointer
+        .slice(subschema.pointer.lastIndexOf("/") + 1)
+        .replaceAll("~1", "/")
+        .replaceAll("~0", "~");
+      const edge: SpineEdge =
+        subschema.keyword === "allOf"
+          ? { kind: "same" }
+          : subschema.keyword === "properties"
+            ? { kind: "member", name: last }
+            : subschema.keyword === "prefixItems"
+              ? { kind: "prefix", index: Number(last) }
+              : subschema.keyword === "items"
+                ? { kind: "items" }
+                : { kind: "unnamed" };
+      edges.push({ child, edge });
+    }
+    const reference = this.#set.references.get(referenceKey(location, "$ref"));
+    if (reference !== undefined && reference.target !== null) edges.push({ child: reference.target, edge: { kind: "same" } });
+    return edges;
+  }
+
+  /**
+   * Marks each location the spine reaches with what its spine below holds, by propagating each location's own marks to the
+   * locations above it until nothing changes; each mark moves up each edge once.
+   */
+  #computeMarks(): void {
+    const parents = new Map<string, SchemaLocation[]>();
+    const reached: SchemaLocation[] = [];
+    const pending: SchemaLocation[] = [{ file: this.#set.root, pointer: "" }];
+    while (pending.length > 0) {
+      const location = pending.pop() as SchemaLocation;
+      const key = locationKey(location);
+      if (this.#marks.has(key)) continue;
+      const schema = this.schemaAt(location);
+      const marks: SubtreeMarks = { classes: new Set(), hasList: false, hasUnevaluated: false, hasRefGuard: false };
+      if (isObject(schema)) {
+        for (const keyword of DECLARATIONS)
+          if (Object.hasOwn(schema, keyword)) marks.classes.add(`${keyword} ${jcs(schema[keyword] as Value)}`);
+        marks.hasList = Object.hasOwn(schema, "x-vmd-list");
+        marks.hasUnevaluated = Object.hasOwn(schema, "unevaluatedItems");
+        marks.hasRefGuard = guardsRefs(schema);
+      }
+      this.#marks.set(key, marks);
+      reached.push(location);
+      for (const { child } of this.#spineEdges(location)) {
+        const childKey = locationKey(child);
+        parents.set(childKey, [...(parents.get(childKey) ?? []), location]);
+        pending.push(child);
+      }
+    }
+    const work = [...reached];
+    while (work.length > 0) {
+      const location = work.pop() as SchemaLocation;
+      const marks = this.#marks.get(locationKey(location)) as SubtreeMarks;
+      for (const parent of parents.get(locationKey(location)) ?? []) {
+        const above = this.#marks.get(locationKey(parent)) as SubtreeMarks;
+        let grew = false;
+        for (const mark of marks.classes) {
+          if (!above.classes.has(mark)) {
+            above.classes.add(mark);
+            grew = true;
+          }
+        }
+        for (const flag of ["hasList", "hasUnevaluated", "hasRefGuard"] as const) {
+          if (marks[flag] && !above[flag]) {
+            above[flag] = true;
+            grew = true;
+          }
+        }
+        if (grew) work.push(parent);
+      }
+    }
+  }
+
+  /** The marks of a location the spine reaches; none for one it does not. */
+  #marksOf(location: SchemaLocation): SubtreeMarks | undefined {
+    return this.#marks.get(locationKey(location));
+  }
+
+  /**
+   * Reports each `x-vmd-ref` that some path reaches without `format: uri-reference` or a `type` without strings applying
+   * beside it. What applies beside a location L on every path, Must(L), is the greatest fixed point of: L's own `allOf`
+   * and `$ref` closure, and the intersection over each way L is reached from a parent P of what P's Must gives the same
+   * step. Only the references whose own closure lacks the format need it, so Must is computed for the locations above them,
+   * and holds only the locations whose spine below gives the format or such a type.
+   */
+  #checkRefFormats(report: (location: SchemaLocation, message: string) => void): void {
+    this.#mustSteps = 0;
+    const needy: SchemaLocation[] = [];
+    for (const [key, marks] of this.#marks) {
+      if (![...marks.classes].some((mark) => mark.startsWith("x-vmd-ref "))) continue;
+      const location = (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
+      const schema = this.schemaAt(location);
+      if (!isObject(schema) || !Object.hasOwn(schema, "x-vmd-ref")) continue;
+      if (this.closure([location]).some((closed) => guardsRefs(this.schemaAt(closed)))) continue;
+      needy.push(location);
+    }
+    if (needy.length === 0) return;
+    // The locations above a needy reference, each with the ways it is reached from its parents.
+    const reasons = new Map<string, { readonly parent: SchemaLocation; readonly edge: SpineEdge }[]>();
+    const order: SchemaLocation[] = [];
+    const root = { file: this.#set.root, pointer: "" };
+    const pending = [root];
+    const visited = new Set<string>();
+    while (pending.length > 0) {
+      const location = pending.shift() as SchemaLocation;
+      const key = locationKey(location);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      order.push(location);
+      for (const { child, edge } of this.#spineEdges(location)) {
+        const marks = this.#marksOf(child);
+        if (marks === undefined || ![...marks.classes].some((mark) => mark.startsWith("x-vmd-ref "))) continue;
+        const childKey = locationKey(child);
+        reasons.set(childKey, [...(reasons.get(childKey) ?? []), { parent: location, edge }]);
+        pending.push(child);
+      }
+    }
+    const useful = (location: SchemaLocation) => this.#marksOf(location)?.hasRefGuard === true;
+    const own = (location: SchemaLocation) => new Set(this.closure([location]).filter(useful).map(locationKey));
+    const locationOf = (key: string) => (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
+    // Must, by location key; undefined stands for every location, the fixed point's start.
+    const must = new Map<string, Set<string> | undefined>();
+    for (const location of order) must.set(locationKey(location), undefined);
+    const prefixOf = (location: SchemaLocation) => {
+      const schema = this.schemaAt(location);
+      return isObject(schema) && Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
+    };
+    const given = (parent: SchemaLocation, edge: SpineEdge): Set<string> | undefined => {
+      const above = must.get(locationKey(parent));
+      if (above === undefined) return undefined;
+      if (edge.kind === "same") return above;
+      const found = new Set<string>();
+      if (edge.kind === "unnamed") return found;
+      for (const key of above) {
+        this.#mustSteps += 1;
+        const beside = locationOf(key);
+        const locations =
+          edge.kind === "member"
+            ? this.memberLocations(beside, edge.name)
+            : edge.kind === "prefix"
+              ? this.itemLocations(beside, edge.index, undefined)
+              : prefixOf(beside) <= prefixOf(parent)
+                ? this.itemLocations(beside, prefixOf(parent), undefined)
+                : [];
+        for (const location of locations) if (useful(location)) found.add(locationKey(location));
+      }
+      return found;
+    };
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const location of order) {
+        const key = locationKey(location);
+        let next: Set<string> | undefined;
+        if (key === locationKey(root)) {
+          next = own(location);
+        } else {
+          for (const reason of reasons.get(key) ?? []) {
+            const g = given(reason.parent, reason.edge);
+            if (g === undefined) continue;
+            next = next === undefined ? new Set(g) : new Set([...next].filter((item) => g.has(item)));
+          }
+          if (next !== undefined) for (const item of own(location)) next.add(item);
+        }
+        const previous = must.get(key);
+        if (next !== undefined && (previous === undefined || next.size !== previous.size)) {
+          must.set(key, next);
+          changed = true;
+        }
+      }
+    }
+    for (const location of needy) {
+      const beside = must.get(locationKey(location));
+      if (beside !== undefined && [...beside].some((key) => guardsRefs(this.schemaAt(locationOf(key))))) continue;
       report(
         at(location, "x-vmd-ref"),
-        "x-vmd-ref stands on a schema that allows a string, without format: uri-reference, so a string there would be no reference",
+        "x-vmd-ref stands where a path lets a string stand without format: uri-reference, so a string there would be no reference; give the format, or a type without strings, beside it on every path",
       );
     }
   }
@@ -345,12 +568,22 @@ export class Spine {
    * the data brings two such locations together.
    */
   #checkPairs(report: (location: SchemaLocation, message: string) => void): void {
+    this.#pairsVisited = 0;
     const pending: (readonly [SchemaLocation, SchemaLocation])[] = [];
     const seen = new Set<string>();
+    // Only locations whose spine below could show a problem with another are paired, and only with a location that could
+    // show it with them: an unequal declaration, or a keyed list against unevaluatedItems.
     const addAll = (locations: readonly SchemaLocation[]) => {
-      for (let first = 0; first < locations.length; first++) {
-        for (let second = first; second < locations.length; second++) {
-          pending.push([locations[first] as SchemaLocation, locations[second] as SchemaLocation]);
+      const candidates = locations.filter((location) => {
+        const marks = this.#marksOf(location);
+        return marks !== undefined && (marks.classes.size > 0 || marks.hasUnevaluated);
+      });
+      if (!couldMeet(candidates.map((location) => this.#marksOf(location) as SubtreeMarks))) return;
+      for (let first = 0; first < candidates.length; first++) {
+        for (let second = first; second < candidates.length; second++) {
+          const one = candidates[first] as SchemaLocation;
+          const other = candidates[second] as SchemaLocation;
+          if (couldMeet([this.#marksOf(one) as SubtreeMarks, this.#marksOf(other) as SubtreeMarks])) pending.push([one, other]);
         }
       }
     };
@@ -361,6 +594,7 @@ export class Spine {
       const pairKey = keys.join("\n\n");
       if (seen.has(pairKey)) continue;
       seen.add(pairKey);
+      this.#pairsVisited += 1;
       const first = this.schemaAt(one);
       const second = this.schemaAt(other);
       if (!isObject(first) || !isObject(second)) continue;
@@ -416,6 +650,36 @@ export class Spine {
       }
     }
   }
+}
+
+/**
+ * Whether the spines below these locations could show a problem together: two unequal declarations of one keyword, or a
+ * keyed list and `unevaluatedItems`. For a single location, whether its spine below could show one by itself.
+ */
+function couldMeet(marks: readonly SubtreeMarks[]): boolean {
+  const values = new Map<string, string>();
+  let list = false;
+  let unevaluated = false;
+  for (const mark of marks) {
+    list ||= mark.hasList;
+    unevaluated ||= mark.hasUnevaluated;
+    for (const declaration of mark.classes) {
+      const keyword = declaration.slice(0, declaration.indexOf(" "));
+      const known = values.get(keyword);
+      if (known !== undefined && known !== declaration) return true;
+      values.set(keyword, declaration);
+    }
+  }
+  return list && unevaluated;
+}
+
+/** Whether a schema object keeps a string from standing without the URI format: it gives the format, or a type without strings. */
+function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
+  if (!isObject(schema)) return false;
+  if (schema.format === "uri-reference") return true;
+  const type = schema.type;
+  if (type === undefined) return false;
+  return Array.isArray(type) ? !type.includes("string") : type !== "string";
 }
 
 /** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */

@@ -107,8 +107,8 @@ export interface SchemaSet {
  * - a file whose `$schema` is not {@link DRAFT_2020_12}, a `$schema` below a file's root, a schema object with `$id`, a
  *   reference that leaves the directory or is malformed, and one whose fragment names no schema object of its file, the
  *   inside of `const`, `enum`, `default`, `examples` and unknown keywords being no schema;
- * - an `$id`, `$anchor`, `$dynamicAnchor` or `$schema` member in a value that is not a schema, such as a `const`'s, since the
- *   validator would read it as a schema's and change what the value means;
+ * - an `$id`, `$anchor`, `$dynamicAnchor` or `$schema` member with a string value in a value that is not a schema, such as
+ *   a `const`'s, since the validator would read it as a schema's and change what the value means;
  * - `storage-failed` for a file that the reader finds and cannot read.
  *
  * The codes the readers raise for the shape of a record do not apply to a schema, whose `$` members are JSON Schema's, and the
@@ -342,14 +342,10 @@ class SchemaSetReader {
         IDENTIFIERS.some((name) => name === keyword)
       )
         continue;
-      const at = childPath(pointer, keyword);
-      if (keyword === "x-vmd-list" && isObject(value)) {
-        for (const [member, inner] of Object.entries(value)) {
-          if (member !== "items" && member !== "additional") this.#checkDataValue(path, childPath(at, member), inner);
-        }
-        continue;
-      }
-      this.#checkDataValue(path, at, value);
+      // An x-vmd-list's schemas are walked as schemas, and its other members hold only strings, which its own check
+      // requires, so no object stands there to hold an identifier.
+      if (keyword === "x-vmd-list") continue;
+      this.#checkDataValue(path, childPath(pointer, keyword), value);
     }
   }
 
@@ -359,8 +355,9 @@ class SchemaSetReader {
       return;
     }
     if (!isObject(value)) return;
+    // The validator reads an identifier only when its value is a string; any other value is data like any other.
     for (const name of IDENTIFIERS) {
-      if (Object.hasOwn(value, name)) {
+      if (typeof value[name] === "string") {
         this.#problem(
           "schema-invalid",
           path,

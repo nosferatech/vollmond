@@ -45,6 +45,16 @@ describe("identifiers in a position that is not a schema", () => {
     expect(violationsAt(schema, '{"a": {"$ref": "tickets/2.md"}, "b": {}}')).toEqual(["/a", "/b"]);
   });
 
+  // Review of #97's recheck, optional d: the validator reads an identifier only when its value is a string.
+  test("an identifier member whose value is not a string is data, and compared as written", async () => {
+    const schema = await usable({
+      dependentRequired: { $anchor: ["$tags"] },
+      properties: { a: { const: { $id: ["x"], $schema: { y: 1 } } } },
+    });
+    expect(violationsAt(schema, '{"a": {"$id": ["x"], "$schema": {"y": 1}}}')).toEqual([]);
+    expect(violationsAt(schema, '{"$anchor": "x", "$tags": [], "a": {"$id": 6}}')).toEqual(["/a"]);
+  });
+
   test("a property named $id, $anchor or $schema is a name, not an identifier", async () => {
     await usable({ properties: { $id: true, $anchor: true, $schema: true }, required: ["$id"] });
   });
