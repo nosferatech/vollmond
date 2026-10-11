@@ -83,7 +83,9 @@ vampiredb's docs and the tickets in eternal-circle are the test bed.
 local checkout and never modified by this work. Two things make that possible before vampiredb migrates:
 
 - vampiredb's docs already use `<a id>` anchors on headings and blocks, and relative links with anchors, which is the syntax of
-  the proposal's §6 and §8. A link from the docs to a file outside `docs/` leaves the store (proposal §8.2).
+  the proposal's §6 and §8. A link from the docs to a file outside `docs/` leaves the store (proposal §8.2). The demonstration
+  of I1.11 found 17 exceptions, all in `design/Minimal_Log.md`: elements at the start of a list item's second or later
+  paragraph, which §6.2 does not make block anchors ([`examples/vampiredb/README.md`](../../examples/vampiredb/README.md)).
 - `vmd --config PATH` (from I1.8) takes a store configuration from outside the store, so the configuration for vampiredb's docs
   lives in this repository under `examples/vampiredb/`.
 
@@ -135,7 +137,7 @@ Goal: an agent can list, outline and read any record by address, with the output
 | **I1.8** CLI foundation | global options, `--config PATH` for a configuration kept outside the store (decision K3), output conventions (one line per item, `~tok`, default limits, cursors, `--json`), the issue format of §12.3, exit codes | I1.7 |
 | **I1.9** Read commands | `ls`, `cat`, `grep`, `outline`, `get` with `--value`, `--body`, `--max-chars` | I1.6, I1.8 |
 | **I1.10** Conformance runner | the TypeScript runner for the suite, in the private package `js/packages/conformance` (decision K11), run in CI | I0.3 |
-| **I1.11** Demonstration | `vmd outline` and `vmd get` over the store `~/vampiredb/docs`, with `--config` and a configuration in `examples/vampiredb/`; timing of `design/Minimal_Log.md` (667 KB) | everything above |
+| **I1.11** Demonstration | `vmd outline` and `vmd get` over the store `~/vampiredb/docs`, with `--config` and a configuration in `examples/vampiredb/`; timing of `design/Minimal_Log.md` (673 KB) | everything above |
 
 Exit: the I0 fixtures for §4 to §7 pass; `vmd outline design/Minimal_Log.md` in the store `~/vampiredb/docs` runs in well under
 a second; every heading and block anchor in vampiredb's docs resolves with `vmd get`.
