@@ -21,9 +21,13 @@ export interface ReadOptions {
   readonly at?: string;
 }
 
+// Addition to the specification, recorded in issue #21: §11.2's `read` has no size bound; `maxBytes` lets the store refuse a
+// configuration, a schema or a record over its limit without reading it, until Draft v0.12 states the bound in §11.
 /**
  * A file that a read bounded by `maxBytes` refused for being larger than the bound, before reading its content: it has no
  * content and no version, since computing the version would read it.
+ *
+ * @see https://github.com/nosferatech/vollmond/issues/21 for the addition to the storage contract that it is part of.
  */
 export interface OversizedFile {
   readonly path: string;
