@@ -84,6 +84,22 @@
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
     {
+      "id": "markdown/limits/comment-then-data-block",
+      "reason": "Draft v0.12 (Y3): the comment skip for misplaced data blocks follows #94 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/comment-then-unknown-data-marker",
+      "reason": "Draft v0.12 (Y3): the comment skip for misplaced data blocks follows #94 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/data-title-runs-4097",
+      "reason": "Draft v0.12 (Y2): counting runs in data $titles follows #94 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/heading-runs-4097",
+      "reason": "Draft v0.12 (Y2): counting runs in headings follows #94 in a follow-up pull request"
+    },
+    {
       "id": "references/targets/many-reference-to-missing-record",
       "reason": "I2.4 (#24): references follow in a later pull request"
     },

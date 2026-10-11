@@ -334,11 +334,11 @@ error (§9.2), and its issues are that record's structural errors:
 - `refs` with `record` fails when that record has one;
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
-  that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but
-  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5). A record of a collection whose schema cannot
-  be used is refused by every reader in the same way (§9.1): an operation on it fails with the code its schema got,
-  `schema-invalid`, or `feature-unsupported` for a construct of a newer version, and `check` reports that code once and checks
-  the record for everything but its schema;
+  that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but `unreadable`,
+  and `check` reports it as `ref-target-unreadable`, a warning (§8.5). A record of a collection whose schema cannot be used is
+  refused by every reader in the same way (§9.1): an operation on it fails with the code its schema got, `schema-invalid`,
+  `feature-unsupported` for a construct of a newer version, or `storage-failed` for a schema file that cannot be read, in one
+  issue whose `path` and `at` are null, and `check` reports that code once and checks the record for everything but its schema;
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
@@ -637,7 +637,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.11.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.12.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -704,13 +704,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.11.0-dev", "case_format": 1 }
+{ "version": "0.12.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.11 gives `0.11`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.12 gives `0.12`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.11.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.12.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
