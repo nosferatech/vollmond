@@ -55,6 +55,13 @@
           "$sections": [{ "$title": "Part", "$body": "Part text." }]
         }
       }
+    },
+    {
+      "id": "lone-cr-front-matter",
+      "spec": ["5.1", "5.3", "CommonMark 0.31.2 2.1", "YAML 1.2.2 5.4"],
+      "description": "With CR line endings throughout, the front matter delimiters are found, its block scalar keeps its lines joined by \\n, and its multi-line plain scalar folds to one line (§5.1). The yaml package does not read a lone CR as a line break, so a reader based on it must convert first.",
+      "input": {"record": "lone-cr-front-matter.md"},
+      "expect": {"result": {"notes": "line one\nline two\n", "title": "a long plain scalar", "$title": "Record", "$body": "Text."}}
     }
   ]
 }

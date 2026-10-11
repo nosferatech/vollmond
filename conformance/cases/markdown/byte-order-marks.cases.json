@@ -37,6 +37,20 @@
       "description": "A %YAML 1.1 line in front matter is also a syntax error, not yaml-version-unsupported (§4.4, decision I1.10).",
       "input": {"record": "yaml-1-1-directive-in-front-matter.md"},
       "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "yaml-1-1-directive-in-front-matter.md", "at": ""}]}
+    },
+    {
+      "id": "feff-at-front-matter-start",
+      "spec": ["5.1", "5.3", "YAML 1.2.2 5.2", "D"],
+      "description": "A U+FEFF at the start of front matter is a syntax error: YAML would read it as a byte order mark at the start of a document, but vmd allows one only at byte 0 of the file (§5.1, decision J4).",
+      "input": {"record": "feff-front-matter.md"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-front-matter.md", "at": ""}]}
+    },
+    {
+      "id": "feff-at-data-block-start",
+      "spec": ["5.1", "5.3", "YAML 1.2.2 5.2", "D"],
+      "description": "The same at the start of a yaml data block, attached to the data block's section (§5.1, decision J4).",
+      "input": {"record": "feff-data-block.md"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-data-block.md", "at": "/$sections/0"}]}
     }
   ]
 }

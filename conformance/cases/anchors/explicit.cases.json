@@ -265,11 +265,10 @@
     },
     {
       "id": "block-anchors",
-      "description": "An anchor element at the start of a top-level list item and one at the start of a paragraph are block anchors, each with the byte range of its CommonMark block in the $body, without the trailing line break (the recommendation of #53 question 2).",
+      "description": "An anchor element at the start of a top-level list item and one at the start of a paragraph are block anchors, each with the byte range of its CommonMark block in the $body, without the trailing line break (§5.9, decision K1).",
       "spec": ["5.9", "6.2"],
       "profiles": ["read"],
       "operation": "anchors",
-      "pending": "#53 question 2: block anchor ranges",
       "input": { "record": "blocks.md" },
       "expect": {
         "result": {
@@ -288,7 +287,6 @@
       "spec": ["6.2", "7.3", "7.5"],
       "profiles": ["read"],
       "operation": "resolve",
-      "pending": "#53 question 2: block anchor ranges",
       "input": { "address": "blocks.md#hall", "as": "singular" },
       "expect": { "result": [{ "path": "blocks.md", "at": "/$body", "address": "#hall", "range": [55, 94] }] }
     }

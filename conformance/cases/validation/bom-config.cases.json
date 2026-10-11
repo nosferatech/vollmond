@@ -1,0 +1,10 @@
+{
+  "defaults": {"spec": ["5.1", "9.1", "9.2"], "profiles": ["validate"], "operation": "check", "input": {"store": "bom-config"}},
+  "cases": [
+    {
+      "id": "config-and-schema-with-bom",
+      "description": "The byte order mark rule covers every file vmd reads: a .vmd/config.yaml and a schema that start with one are read, so the collection's schema applies and reports the wrong status (§5.1, decision J5).",
+      "expect": {"issues": [{"code": "schema-violation", "severity": "error", "path": "wrong.json", "at": "/status"}]}
+    }
+  ]
+}

@@ -35,6 +35,41 @@
       "description": "A raw U+FEFF inside a quoted YAML scalar, where YAML allows it, is an ordinary character and stays (§5.1).",
       "input": {"record": "feff-in-quoted-yaml.yaml"},
       "expect": {"result": {"s": "x\ufeffy"}}
+    },
+    {
+      "id": "yaml-feff-in-plain-scalar",
+      "spec": ["5.1", "YAML 1.2.2 5.2", "YAML 1.2.2 5.4", "D"],
+      "description": "YAML does not allow U+FEFF in a plain scalar (nb-char excludes it), so the record is a syntax error, although the yaml package accepts it (§5.1, decision J4).",
+      "input": {"record": "feff-in-plain-scalar.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-in-plain-scalar.yaml", "at": ""}]}
+    },
+    {
+      "id": "yaml-second-bom",
+      "spec": ["5.1", "YAML 1.2.2 5.2", "D"],
+      "description": "A second U+FEFF after the byte order mark of a YAML file is one YAML would read as a byte order mark other than at byte 0, so it is a syntax error, although the yaml package strips it (§5.1, decision J4).",
+      "input": {"record": "second-bom.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "second-bom.yaml", "at": ""}]}
+    },
+    {
+      "id": "yaml-feff-in-block-scalar",
+      "spec": ["5.1", "YAML 1.2.2 5.4", "D"],
+      "description": "YAML does not allow U+FEFF in a block scalar, so the record is a syntax error, although the yaml package accepts it (§5.1, decision J4).",
+      "input": {"record": "feff-in-block-scalar.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-in-block-scalar.yaml", "at": ""}]}
+    },
+    {
+      "id": "yaml-feff-in-comment",
+      "spec": ["5.1", "YAML 1.2.2 5.4", "D"],
+      "description": "YAML does not allow U+FEFF in a comment either, so the record is a syntax error, although the yaml package accepts it (§5.1, decision J4).",
+      "input": {"record": "feff-in-comment.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-in-comment.yaml", "at": ""}]}
+    },
+    {
+      "id": "yaml-feff-after-comment-line",
+      "spec": ["5.1", "YAML 1.2.2 5.2", "YAML 1.2.2 5.4", "D"],
+      "description": "A U+FEFF at the start of a line after a comment line is a syntax error, although the yaml package strips it there as a byte order mark (§5.1, decision J4).",
+      "input": {"record": "feff-after-comment.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "feff-after-comment.yaml", "at": ""}]}
     }
   ]
 }

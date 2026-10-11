@@ -54,7 +54,7 @@ The topics to start with, each a directory under `cases/`:
 |---|---|---|
 | `values` | §4 | the I-JSON subset, constructs outside the data model, numbers, logical types |
 | `markdown` | §5.3 | front matter, the title heading, sections, data blocks, `$body`, container blocks |
-| `data` | §5.4 | JSON and YAML records |
+| `data` | §5.2, §5.4, §5.5, §9.2 | JSON and YAML records, the section shape, `$` members, section keys of data titles, parse units |
 | `uniqueness` | §5.7 | strict and lenient modes |
 | `anchors` | §6 | explicit, derived and block anchors, and tags |
 | `addresses` | §7 | exact and semantic paths, cardinality, canonical addresses |
@@ -326,22 +326,24 @@ error (§9.2), and its issues are that record's structural errors:
 - `refs` with `record` fails when that record has one;
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
-  that could not be read is not compared. A reference into an unreadable record is not dangling; `check` reports it as
-  `ref-target-unreadable`, a warning (§8.5);
+  that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but
+  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5);
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
 every severity. Every other operation reports only the issues that make it fail, so when it succeeds its issues are empty, and
 warnings and validation errors are tested through `check`. A `parse` case about one construct then does not have to list every
-warning its record also raises. Both `parse` and `check` report every error they can find, not only the first (decision C2).
+warning its record also raises. Both `parse` and `check` report every error they can find, not only the first (decision C2),
+with a syntax error once per parse unit (decision K2).
 
 **Failing is not crashing.** An operation fails when the implementation reports failure through its normal error channel with
 issues, as an error result or as the error type its API documents. Anything else is a crash, such as an unexpected exception,
 a panic, or a hang that the runner stops after a time of its choosing. A crash is a `fail` verdict even when the case expects
 `fails`.
 
-`outline` and `get`, which the Read profile also requires (§19.2), have no operation yet. §19.1 does not list them, and the
-source form of `get` depends on the spans that the Markdown parser task fixes (I1.4, #13; decision C11).
+`outline` and `get`, which the Read profile also requires (§19.2), have no operation yet, since §19.1 does not list them. The
+source form of `get` returns a node's range, which §5.9 now fixes (decisions C11 and K1), so a `get` operation could be added
+in a later revision of the case format.
 
 ### parse
 
@@ -351,16 +353,18 @@ issues are those errors, the codes whose class is structural in the proposal's A
 the record readable, and `parse` then succeeds. An implementation reports every structural error it can find, so a failing case
 may expect several.
 
-**A rule for case authors.** An input with a syntax error holds that one error and no other, and its case expects only it. A
-syntax error can hide what follows it, so an implementation that stops there and one that recovers would otherwise report
-different sets.
+**A rule for case authors.** A syntax error is reported once per parse unit (a file, its front matter or one data block, §9.2,
+decision K2), so a case expects one `syntax-error` for each unit that has one, however many the unit holds, and the other units
+of the record are still parsed. A unit with a syntax error holds no other structural error, since a syntax error can hide what
+follows it, and an implementation that stops there and one that recovers would otherwise report different sets.
 
 ### source_map
 
 The result is an object whose member names are exact paths of nodes in the value view, and whose values are `[start, end]`,
 zero-based UTF-8 byte offsets into the file with the end exclusive (§5.9, decision C10). Lines and columns follow from the
-offsets and the file, so they are not compared. Which nodes have an entry and which bytes each one covers is fixed by the Markdown
-parser task (I1.4, #13; decision C11), and `source_map` cases wait for it. Source maps are an option of the Read profile that an
+offsets and the file, so they are not compared. Which bytes each node's range covers is §5.9's table (decision K1), with a
+member's range being its value; the `memberRange` of a member is not part of this result. Which nodes have an entry is fixed by
+the Markdown parser task (I1.4, #13), and `source_map` cases wait for it. Source maps are an option of the Read profile that an
 implementation declares (§19.2), so an implementation without them skips these cases by declaration.
 
 ### meta
@@ -369,8 +373,8 @@ The result is two computed fields (§5.10) of each section of the record, in a f
 the exact paths of the record's sections, the root's being `""`, and whose values are `{"@key": ..., "@address": ...}`. `@key` is
 the section key (§5.5), and `null` for the root, and `@address` is the canonical address, as in a target. The `null` is this
 operation's fixed shape; in a read that requests `@key`, the root has no `@key` at all. The other computed fields are left out.
-Anchors have their own operation, source locations wait for the spans of I1.4, node versions belong to the cases of the Write
-profile, and issues are tested through `check`.
+Anchors have their own operation, source locations are tested through `source_map`, whose ranges §5.9 fixes (decision K1),
+node versions belong to the cases of the Write profile, and issues are tested through `check`.
 
 ### anchors
 
@@ -423,10 +427,10 @@ objects with these members:
   For a Markdown link it is the `$body` or `$title` that holds the link, in any format (§8.1, decision C21), and `offset` gives
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
-- **`status`** is `ok`, `dangling`, `ambiguous` or `aliased` (§8.5), for a reference into a readable record. The status of a
-  reference into a record with a structural error is open (§20); `check` reports it as `ref-target-unreadable`, and no `refs`
-  case expects one yet. Reading aliases belongs to the Validate profile (§13.6,
-  decision C22), so `aliased` cases need no more than `validate`.
+- **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference into a record
+  that has a structural error, whose `targets` list is empty. A reference whose address is that record's root (no fragment, or
+  `#` alone, §7.1) is `ok`, with the record's root as its target, although `resolve` of the same address fails. Reading
+  aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
   `ok` (§8.5).
@@ -617,7 +621,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.6.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.7.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -680,13 +684,13 @@ case pairs two values that one specific wrong comparison would misjudge.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.6.0-dev", "case_format": 1 }
+{ "version": "0.7.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.6 gives `0.6`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.7 gives `0.7`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.6.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.7.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel
@@ -777,7 +781,7 @@ below. The answered ones, with the decisions that answered them:
 | 2. When `parse` fails | C2, F1 |
 | 3. When `check` fails, and complete reporting | C2, F1 |
 | 4. Numbers outside the exact range | C4, C5, C6, F2 |
-| 5. Source map spans | C11 |
+| 5. Source map spans | C11, K1 |
 | 6. Offsets and positions | C10 |
 | 7. Line endings in the value view | C9 |
 | 8. Singular addresses that fail at evaluation | C18 |

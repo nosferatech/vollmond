@@ -1,8 +1,8 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.6 (2026-10-10). Supersedes Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
-`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
-decisions applied to the draft. The review of v0.1 and every round of decisions since are in
+Status: Draft v0.7 (2026-10-10). Supersedes Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
+`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
+rises with each round of decisions applied to the draft. The review of v0.1 and every round of decisions since are in
 [vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
@@ -226,15 +226,19 @@ is not an error.
   is upper case. The space that a note in RFC 3339, section 5.6, lets applications use between date and time is not part of the
   `date-time` production and is not accepted there. TOML's local date-time accepts it, as TOML 1.0.0 permits it for every
   date-time "for the sake of readability".
-- **Leap seconds.** A seconds field of `60` is accepted in any time, date-time or local date-time, with no table of leap
-  seconds: the assertion checks the grammar and not the restriction of RFC 3339, section 5.7, on where a leap second may fall.
-  Validators differ here. Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC (the `time` check in
-  [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), and Python's `jsonschema` checks
-  `date-time` only when `rfc3339-validator` is installed, which then rejects `:60` altogether
-  ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)), both read on
-  2026-10-10. `ajv-formats` also departs from the rules above the other way: its `date-time` splits on `t` or any white space,
-  so it accepts a space separator, and its `time` pattern accepts the offsets `+02` and `+0200`. Neither library's check can
-  therefore be used unchanged, and vmd needs its own date and time checks (Appendix C).
+- **Leap seconds.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as Ajv's `ajv-formats`
+  accepts it, so `23:59:60Z` and `01:59:60+02:00` are valid and `12:30:60Z` is not. A local date-time has no offset and is taken
+  as UTC, as `ajv-formats`' lenient formats `iso-time` and `iso-date-time` take a missing offset as zero, so `23:59:60` is
+  valid there. There is no table of leap seconds: the check does not ask whether a leap second was in fact inserted on that day.
+  For comparison, `23:59:60` falls after `23:59:59` and before the next midnight.
+
+  Ajv's `ajv-formats` agrees with this on leap seconds (the `time` check in
+  [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), but it departs elsewhere: its
+  `date-time` splits on `t` or any white space, so it accepts a space separator, and its `time` pattern accepts the offsets `+02`
+  and `+0200`. Python's `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which then rejects `:60`
+  altogether ([`rfc3339_validator.py`](https://github.com/naimetti/rfc3339-validator/blob/master/rfc3339_validator.py)). Both
+  were read on 2026-10-10. Neither library's check can therefore be used unchanged, and vmd needs its own date and time checks
+  (Appendix C).
 - **Durations** are pinned to RFC 3339 Appendix A, the grammar JSON Schema's `duration` uses, rather than to the whole of ISO 8601.
   So `PT1.5S` (a fraction), `P1Y3D` and `PT1H30S` (a skipped unit) and `P1W2D` (weeks with days) are not durations, although ISO
   8601 allows them.
@@ -323,16 +327,32 @@ sections are kept, and converting a value to any format and back yields the same
 The value view holds only what the record stores. What vmd derives, such as a section's key (§5.5), is a computed field, which a
 caller selects by name (§5.10).
 
+**Encoding.** Every file vmd reads is UTF-8. A record that is not valid UTF-8 is a `syntax-error` at the root, in every format.
+
 **Line breaks.** In every format the value view reads a line break as `\n`, so a file with CRLF line endings and its copy with LF
 have the same value view and the same node versions (§11.3). A `\r` written as an escape in a JSON or quoted YAML string is
 content and stays. Edits keep the file's own line endings where the backend keeps the file (§13.3).
 
-**Byte order marks.** A UTF-8 byte order mark at the first byte of a record is skipped, in every format, and it applies to the
+**Byte order marks.** A UTF-8 byte order mark at the first byte of a file is skipped, in every format, and it applies to the
 whole file: there is at most one, at byte 0. JSON allows this (RFC 8259, section 8.1: parsers "MAY ignore the presence of a byte
 order mark rather than treating it as an error"), and so does YAML (YAML 1.2.2, section 5.2). A U+FEFF anywhere else is not a
 byte order mark but an ordinary character, where the format allows a character: in Markdown text, or in a JSON or quoted YAML
 string. It is Default_Ignorable, so a derived anchor drops it (§6.3), and in Markdown it does not restart the detection of front
-matter. Offsets into the file count from its first byte, the byte order mark included (§5.9).
+matter. Offsets into the file count from its first byte, the byte order mark included, but a byte order mark is not a column, so
+the first character of line 1 is column 1 (§5.9). The rule covers every file vmd reads: records, `.vmd/config.yaml` and schemas.
+A write keeps a file's byte order mark, and a file vmd creates has none (§13.3).
+
+**U+FEFF in YAML.** In YAML, a U+FEFF is a `syntax-error` wherever YAML does not allow the character (outside quoted scalars:
+in a plain or block scalar, a comment, or between tokens; YAML 1.2.2, section 5.4, where `nb-char` excludes it), and wherever
+YAML would read it as a byte order mark other than at byte 0 of the file: at the start of front matter or of a `yaml data` block,
+or at the start of a document (section 5.2). A U+FEFF inside a quoted scalar is an ordinary character. A reader cannot leave this
+to the `yaml` package (2.9.1), which strips a leading U+FEFF from any text it is given and accepts one in a plain or block scalar,
+in a comment, and at the start of a line after a comment line (measured on 2026-10-10).
+
+**Lone CR.** A carriage return alone is a line break in Markdown and YAML (CommonMark 0.31.2, section 2.1; YAML 1.2.2, section
+5.4, production `b-break`), and the value view reads it as `\n` too. The `yaml` package (2.9.1) does not treat a lone CR as a
+line break and fails on a mapping written with CR line endings (measured on 2026-10-10), so a reader that uses it converts lone
+CRs before parsing and maps offsets back.
 
 ### 5.2 Sections
 
@@ -493,9 +513,11 @@ safe. To set a section's key, give it an `$anchor`.
 ### 5.5 Section keys
 
 A section's **key** is its `$anchor` if it has one, and otherwise the slug of its `$title`, as steps 1 to 6 of §6.3 compute it,
-without the repeat suffix of step 7. A heading whose slug is empty has the empty key. The key is derived and never stored, and it
-is not a member of the value view. It is the computed field `@key` (§5.10), which a read returns on request,
-schemas name in `x-vmd-list` (§9.3) and VQL matches (§10.3).
+without the repeat suffix of step 7. A `$title` is Markdown source in every format, so the `$title` of a JSON or YAML section is
+slugged as if it were the content of an ATX heading, `## ` followed by the title: `What *is* confirmed` gives `what-is-confirmed`
+in YAML as in Markdown, and a section keeps its key when its record changes format. A heading whose slug is empty has the empty
+key. The key is derived and never stored, and it is not a member of the value view. It is the computed field `@key` (§5.10),
+which a read returns on request, schemas name in `x-vmd-list` (§9.3) and VQL matches (§10.3).
 
 ### 5.6 Keyed lists
 
@@ -538,7 +560,10 @@ index records every reference's resolved exact path, so `vmd check` reports a re
   presentation (§4.1).
 - **The value view to Markdown** is total for every value that meets these conditions; the serializer rejects any other value
   with an error naming the path:
-  - every item of `$sections` is an object with a non-empty `$title`, and every `$title`, the root's included, is a single line;
+  - every item of `$sections` is an object with a non-empty `$title`, and every `$title`, the root's included, is a single line
+    that reads back as itself from an ATX heading, `## ` followed by the title: it does not end in a space followed by `#`
+    characters, which would be a closing sequence, is not made only of `#` characters, which `## ` would read as an empty
+    heading with a closing sequence, has no white space at either end, and holds no anchor element (§6.2);
   - a `$body` is not empty, has no leading blank lines, no trailing whitespace (spaces, tabs and line breaks, §5.3), no line that
     would parse as a heading outside a container block, and does not begin with a `yaml data` or `json data` fence. An empty
     `$body` is refused because Markdown cannot tell it from an absent one, which is how a section without text reads (§5.3);
@@ -562,9 +587,20 @@ index records every reference's resolved exact path, so `vmd check` reports a re
 
 A node's identity is its path. Positions in a source file are not part of the data model. They are an optional **source map** that
 file-based parsers produce, giving each node its byte range and line and column. A node's range covers exactly the bytes that
-`get` returns for it in the source form (§5.10). Which bytes that is for each kind of node (a section and the blank lines after it,
-a front-matter field and its key) is specified together with the Markdown parser, in implementation task I1.4. The library uses the
-source map to:
+`get` returns for it in the source form (§5.10):
+
+| Node | `range`: what `get` returns, and what `set` replaces | What `delete` removes |
+|---|---|---|
+| a section | from the start of its heading line to the start of the heading that ends it, or the end of the file, trailing blank lines included, so that sections tile the file | the same range |
+| the root | the whole file | (a record is deleted, not its root) |
+| an object member (in front matter, a data block, JSON or YAML) | its value | its `memberRange`, from the start of its key to the end of its value; the separators around it (a comma, a line break) are the writer's to handle per format |
+| an array item | the item | the item, with the same caveat |
+| `$title`, `$body` | their source spans; where the value differs from those bytes (a removed anchor element, CRLF), `get` in source form prints the span | |
+| a block anchor | its CommonMark block in the `$body`, without the block's trailing line break (§6.2) | |
+
+A section's range covers its trailing blank lines so that removing a section leaves none behind. A member's range is its value,
+because an exact path names the value, which `set` replaces, while `delete` must also remove the key. The library uses the source
+map to:
 
 - splice edits without reformatting the rest of the file (§13.3),
 - report `line:col` in errors (§12.3),
@@ -577,7 +613,8 @@ ranges of whole files remain part of the storage contract (`read`, §11.2).
 
 **Units.** Every position in vmd uses the same units: source maps, offsets into a `$body` or `$title`, block anchor ranges (§6.2),
 the `refs` and `issues` tables (§14.2), and error locations (§12.3). Offsets count UTF-8 bytes from 0, and a range is half-open,
-`[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1. An offset into a `$body` or `$title`
+`[start, end)`, excluding its end. Lines count from 1, and columns count code points from 1; a byte order mark is not a column
+(§5.1). An offset into a `$body` or `$title`
 counts the bytes of the value, after line breaks are read as `\n` (§5.1); a source map range counts the bytes of the file, from
 its first byte, a byte order mark included (§5.1). Clients that need other units, such as JavaScript's UTF-16 string indexes,
 convert.
@@ -611,7 +648,7 @@ query are one concept.
 | `@key` | the node's key within its parent: the section key (§5.5) for a section, and otherwise its member name, keyed-list key or index. The root has none, and the field is then absent |
 | `@anchors` | every anchor that names the node, each as `{"name": ..., "kind": ...}` with the kind `explicit`, `derived` (§6.3) or `block` (§6.2) |
 | `@version` | the node version (§11.3) |
-| `@source` | where a source map exists (§5.9), the node's byte `range` in the file and the `line` and `col` where it starts |
+| `@source` | where a source map exists (§5.9), the node's byte `range` in the file and the `line` and `col` where it starts, and for an object member its `memberRange` |
 | `@range` | for a block anchor, the byte range in the `$body` that `@at` names (§6.2) |
 | `@issues` | the issues attached to the node, each with its `code`, `severity`, `at` and `message` (Appendix D) |
 | `@refs` | the references the node contains, each with its raw text and resolved address (§8) |
@@ -670,7 +707,7 @@ for selection. The two follow HTML's `id` (unique, `#id` selects one element) an
 | Where | Syntax | Labels |
 |---|---|---|
 | Markdown heading | `## What was done<a id="done" class="decision review"></a>` | the section (or the root, on the title heading) |
-| Markdown block | `- <a id="room"></a>**Room.** ...`, at the start of a list item, or of a paragraph at the top level of the `$body` | the block |
+| Markdown block | `- <a id="room"></a>**Room.** ...`, at the start of a list item outside block quotes, or of a paragraph at the top level of the `$body` | the block |
 | JSON / YAML object | `"$anchor": "done"`, `"$tags": ["decision", "review"]` | the object |
 
 - An anchor name matches `[A-Za-z][A-Za-z0-9_-]*`; so does a tag. Another name is a validation error (`anchor-invalid`).
@@ -688,15 +725,17 @@ for selection. The two follow HTML's `id` (unique, `#id` selects one element) an
   tag labels a node at most once. A tag repeated in a data `$tags` array gets the same warning, but the value is kept as written:
   `$tags` is stored data there, while a `class` attribute is parsed.
 - A **block anchor** names a paragraph or list item inside a `$body`. It is not a member of the value view: it resolves to a range
-  of the `$body` text, in UTF-8 bytes (§5.9), which `get` returns and which body edits change. Which bytes the range covers is
-  specified with the Markdown parser, in implementation task I1.4, as the spans of source maps are (§5.9). An issue on a block
-  anchor is attached to the `$body` that holds it. A block cannot carry tags.
-- **Where a block anchor goes.** An anchor element is a block anchor at the start of any list item, at any depth, and at the start
-  of a paragraph only at the top level of the `$body`. Two anchor elements at the start of one block are a structural error
+  of the `$body` text, in UTF-8 bytes (§5.9), which `get` returns and which body edits change. The range is the block's CommonMark
+  block in the `$body`, without the block's trailing line break: a list item from its marker to the end of its last line, a
+  paragraph from its first character to its last (§5.9). An issue on a block anchor is attached to the `$body` that holds it. A
+  block cannot carry tags.
+- **Where a block anchor goes.** An anchor element is a block anchor at the start of any list item outside block quotes, at any
+  depth of list nesting, and at the start of a paragraph only at the top level of the `$body`. Block quotes stay prose (§5.3), so
+  a list item inside one carries no block anchor. Two anchor elements at the start of one block are a structural error
   (`anchor-element-invalid`), as in a heading. An `<a id>` anywhere else in a `$body` is plain inline HTML and anchors nothing: in
-  the middle of a paragraph, at the start of a paragraph inside a block quote or a list item (a list item's second paragraph,
-  for example), or in an HTML block. `vmd check` warns about it (`anchor-element-ignored`), since its author probably meant an
-  anchor.
+  the middle of a paragraph, at the start of a paragraph or a list item inside a block quote, at the start of a paragraph inside a
+  list item (a list item's second paragraph, for example), or in an HTML block. `vmd check` warns about it
+  (`anchor-element-ignored`), since its author probably meant an anchor.
 
 ### 6.3 Derived anchors
 
@@ -793,7 +832,8 @@ A semantic path is a sequence of keys. Each step matches, in the current node:
 - in an object: the member with that name;
 - in a keyed list: the item with that key. An index never matches an item of a keyed list, so `#$sections/0` matches nothing; the
   exact path (§7.2), `#/$sections/0`, reaches an item by position;
-- in an array that is not a keyed list: the item at that decimal index.
+- in an array that is not a keyed list: the item at that decimal index, written without leading zeros, as RFC 6901 requires
+  of an array index in an exact path (section 4), so `#links/01` matches nothing, in a semantic path as in an exact one.
 
 The **first step** may also match a record-wide anchor: an explicit anchor, or a derived one (§6.3). A plain link such as
 `file.md#what-is-confirmed` therefore reaches a heading at any depth. If the first step matches both a root member and the anchor
@@ -848,9 +888,9 @@ ambiguous.
    when no ancestor has one: `#done/notes`, `#what-is-confirmed`. The root never counts as an anchored ancestor, so a root field
    is `#status` whatever the title heading carries.
 3. The node's derived anchor (§6.3), such as `#notes-1`. It is reached when the path of form 2 is not singular (§7.4: a level that
-   allows repeats by `multimap` or `lenient`, a first step that also matches another node's anchor, or data that breaks a
-   uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level, or an anchor that names more than
-   one node). It identifies the node today, but a reference written with it gets
+   allows repeats by `multimap`, a duplicate that evaluation meets in `lenient` mode, a first step that also matches another
+   node's anchor, or data that breaks a uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level,
+   or an anchor that names more than one node). It identifies the node today, but a reference written with it gets
    `ref-derived-repeat` or `ref-derived-anchor` (§6.3).
 4. The exact path (§7.2), such as `#/$sections/2`. It is also the canonical address of a node that no step can name, such as a
    member whose name is empty or a section whose key is empty (§5.5).
@@ -919,13 +959,15 @@ target (as vampiredb's section numbers are), are deferred; their syntax is open 
 
 ### 8.5 Status
 
-Each reference inside the store into a readable record resolves to one of `ok`, `dangling` (no target, `ref-dangling`),
-`ambiguous` (several targets for a singular reference, `ref-ambiguous`), or `aliased` (resolved through an alias, §13.6,
-`ref-aliased`). A reference declared
+Each reference inside the store resolves to one of `ok`, `dangling` (no target, `ref-dangling`), `ambiguous` (several targets for
+a singular reference, `ref-ambiguous`), `aliased` (resolved through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
+record that has a structural error, `ref-target-unreadable`). A reference declared
 `cardinality: many` whose selector matches nothing, in a record that exists, is valid. It is `ok`, with no targets. A reference
-into a record that has a structural error cannot be resolved, since that record has no value view. It is not dangling: `vmd
-check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what to fix. Its status in `refs`
-results and in the index (§14.2) is open (§20, open question 7).
+into a record that has a structural error cannot be resolved below the root, since that record has no value view. It is not
+dangling but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors say what
+to fix. A reference whose address is the record's root (no fragment, or `#` alone, §7.1) names the record, which exists, so it is
+`ok`. Resolving that same root address as an address (§7.4) still fails, since a resolve returns the node's value, while a
+reference's status only says whether its target exists.
 
 ---
 
@@ -1016,7 +1058,9 @@ Issues come in two classes, and Appendix D gives each code's class:
   (§5.7, §6.1), and every issue whose severity the configuration raises to `error` (§9.1). A validation error fails `vmd check`
   (exit code 4, §12.3), and a write through a gate refuses it (§9.4).
 
-Parsing and checking report every error they can find, not only the first, so that one run shows everything to fix.
+Parsing and checking report every error they can find, not only the first, so that one run shows everything to fix. A syntax
+error is reported once per parse unit, a file, its front matter or one data block, since a parser's later errors after a syntax
+error are mostly its consequences; the other units are still parsed, and their errors reported.
 
 `vmd check` reports, per record:
 
@@ -1034,7 +1078,7 @@ Parsing and checking report every error they can find, not only the first, so th
 | Keyword | Where | Meaning |
 |---|---|---|
 | `x-vmd-list` | an array | a keyed list (§5.6, below) |
-| `x-vmd-ref` | a `$ref` object, or a `uri-reference` string | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any node in the store is allowed |
+| `x-vmd-ref` | a `$ref` object, or a `uri-reference` string | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any target is allowed: a node, a record, an asset or a directory |
 | `x-vmd-summary` | any property | included in default listings and query results |
 | `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries |
 
@@ -1272,6 +1316,9 @@ that does not validate needs no knowledge of Markdown or schemas.
 | `changes(since, limit, cursor)` | paths added, modified, moved or deleted since a head, with their versions |
 | `log(path?, limit, cursor)` | history entries: version, author, time, message, paths |
 
+A read that the backend cannot complete, such as one refused by a permission error, fails with `storage-failed`, which is not
+`address-not-found`: the file may exist.
+
 ### 11.3 Version tokens
 
 - A **file version** is the git blob ID of the file's content, which is the bytes the backend returns, computed as SHA-1 over
@@ -1301,7 +1348,10 @@ The current text, like the file version, is the bytes the backend returns, which
 
 `grep` in `regex` mode uses the **portable regex** subset that RE2, Python `re` and ECMAScript all accept: literals and escapes,
 classes, `.`, anchors, groups, alternation, and greedy and lazy quantifiers, with flags `i` and `m`. Backreferences and lookaround
-are excluded, so matching runs in linear time everywhere.
+are excluded. That makes matching linear in time on RE2, but not on JavaScript's or Python's engines, which backtrack:
+`(a+)+$` uses neither feature and takes exponential time on a long run of `a` followed by another character. The service
+backend, which runs other people's patterns, will use an RE2 engine, such as `re2js`, a JavaScript port of RE2 (not yet
+reviewed for licence, maintenance or speed). The local CLI runs the user's own patterns on the runtime's engine.
 
 ### 11.5 Atomicity
 
@@ -1456,8 +1506,9 @@ can make its next edit without reading again.
 These rules apply where a backend stores the original file. They keep diffs small; they do not make member order meaningful
 (§4.1).
 
-- Bytes outside an edited node's source do not change. Line endings, encoding (UTF-8) and the trailing newline are kept as found,
-  and new text is written with the file's own line endings. New files use LF. A backend is not required to keep `\r\n`, and may
+- Bytes outside an edited node's source do not change. Line endings, encoding (UTF-8), a byte order mark and the trailing newline
+  are kept as found, and new text is written with the file's own line endings. New files use LF and have no byte order mark
+  (§5.1). A backend is not required to keep `\r\n`, and may
   store or return a file with its line endings converted. Values and node versions do not change with it, since the value view
   reads every line break as `\n` (§5.1).
 - YAML is written with a round-trip writer that keeps comments, key order and quoting, and only for the nodes an edit changes.
@@ -1540,8 +1591,7 @@ The index is derived. It can be rebuilt from the files at any time, and nothing 
 | `issues` | path, exact path, line and column if known, severity, code (Appendix D), message |
 
 Offsets, lines and columns use the units of §5.9. A record with a structural error is listed in `records` with its issues and has
-no nodes. A reference's `status` is one of those of §8.5; for a reference into a record with a structural error it is open (§20,
-open question 7).
+no nodes. A reference's `status` is one of those of §8.5, `unreadable` included.
 
 ### 14.3 Local index
 
@@ -1788,9 +1838,6 @@ A backend conforms to the storage contract (§11) separately, and states whether
 6. **Explicit-only links in Markdown.** In YAML and JSON a schema can require references to use explicit anchors (§9.3), while a
    Markdown link stays a plain link (§6.3). Whether a Markdown link can carry an attribute that a reader does not see and that
    says the same is open.
-7. **The status of a reference into an unreadable record** (§8.5). `vmd check` reports it as `ref-target-unreadable`, a warning,
-   in the meantime. Which status `refs` results and the index's `refs` table (§14.2) give it, beside `ok`, `dangling`,
-   `ambiguous` and `aliased`, is open.
 
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
@@ -2086,7 +2133,7 @@ The columns:
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|
-| `syntax-error` | error | structural | §4.1, §5.3, §5.4 | a JSON or YAML file, front matter or data block that does not parse, including an empty JSON file, front matter without a closing delimiter and a `%YAML` line in front matter; the record, or the data block's section |
+| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter and a `%YAML` line in front matter; the record, or the data block's section |
 | `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first |
 | `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member |
 | `number-not-representable` | error | structural | §4.2 | an integer by form (§4.2) whose double differs from it, a number too large for a double, or a non-zero number a double rounds to zero; the number |
@@ -2109,14 +2156,14 @@ The columns:
 | `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; each node after the first |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names more than one node; each node after the first in document order, once per node even when two of its anchors collide |
 | `duplicate-tag` | warning | validation | §6.2 | a token repeated in the `class` attribute of an anchor element, which `$tags` holds once, or a tag repeated in a data `$tags` array, which keeps it as written; the node |
-| `anchor-element-ignored` | warning | validation | §6.2 | an `<a id>` element in a `$body` that is not at the start of a list item or of a paragraph at the top level, and so is plain HTML; the `$body` |
+| `anchor-element-ignored` | warning | validation | §6.2 | an `<a id>` element in a `$body` that is not at the start of a list item outside block quotes or of a paragraph at the top level, and so is plain HTML; the `$body` |
 | `anchor-invalid` | error | validation | §6.2 | an anchor or tag name that does not match `[A-Za-z][A-Za-z0-9_-]*`; the node |
 | `schema-violation` | error | validation | §9.2 | a value the collection's schema rejects, logical types included; the value |
 | `path-invalid` | error; warning for an asset outside collections | validation | §3.2 | a path that breaks a rule of §3.2 other than case; the record (`at` is null for an asset) |
 | `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case; each path after the first in byte order |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
 | `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
-| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that has a structural error, so that its target cannot be resolved; the reference |
+| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that has a structural error, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); the reference |
 | `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets; the reference |
 | `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step; the reference |
 | `not-representable` | warning in `check`; error when the serializer refuses a value | validation; operation | §5.8 | a value the Markdown serializer cannot write; the offending node |
@@ -2140,6 +2187,7 @@ The columns:
 | `address-ambiguous` | error | operation | §7.4 | a singular address that matches several nodes; none |
 | `query-invalid` | error | operation | §10.2 | a VQL query that does not parse; none |
 | `unreadable-records` | error | operation | §13.4 | a `rename` or `mv` while the store has records with structural errors; none |
+| `storage-failed` | error | operation | §11.2 | a read that the backend cannot complete, such as one refused by a permission error; none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
 
 For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A

@@ -1,0 +1,12 @@
+{
+  "defaults": {"spec": ["5.1"], "profiles": ["read"], "operation": "parse", "input": {"store": "line-breaks"}},
+  "cases": [
+    {
+      "id": "lone-cr",
+      "spec": ["5.1", "5.4", "YAML 1.2.2 5.4"],
+      "description": "A YAML file with CR line endings holding a block scalar of two lines and a plain scalar over two lines: a lone CR is a YAML line break (b-break), so the block scalar is its lines joined by \\n and the plain scalar folds to one line (§5.1).",
+      "input": {"record": "lone-cr.yaml"},
+      "expect": {"result": {"notes": "line one\nline two\n", "title": "a long plain scalar"}}
+    }
+  ]
+}

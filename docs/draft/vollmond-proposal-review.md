@@ -711,3 +711,68 @@ tasks are written "task I1.4" here.
   `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which rejects `:60`. `ajv-formats` also accepts a
   space separator and the offsets `+02` and `+0200`, which §4.3 rejects. §4.3 states the measured behavior, and vmd needs its
   own date and time checks (Appendix C, task I2.2). The decision stands as the owner's; its reason is corrected.
+
+## Follow-ups of Draft v0.6 (J)
+
+Recorded 2026-10-10, and applied to Draft v0.7. The review of Draft v0.6 sent its open readings and follow-ups to the project
+owner, who accepted every recommendation on card J. Section numbers refer to Draft v0.7.
+
+- **J1. Leap seconds, replacing I1.13.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as
+  Ajv's `ajv-formats` does, with no table of leap seconds. For ordering, `23:59:60` falls between `23:59:59` and the next
+  midnight (§4.3). I1.13 accepted `:60` anywhere for the reason that JSON Schema validators commonly do; that reason, given by the
+  session that drafted the card, was wrong, since `ajv-formats` restricts it to 23:59 UTC and `rfc3339-validator` rejects it.
+  That a local date-time, which has no offset, is taken as UTC for this check, as `ajv-formats` takes a time without an offset,
+  is the agent's reading.
+- **J2. A list item inside a block quote carries no block anchor.** Block quotes stay prose (H3.11), and "at any depth" in I1.7
+  means list nesting. This closes the open I1.7 reading (§6.2).
+- **J3. `refs` gets the status `unreadable`** for a reference with a fragment into a record that has a structural error, which
+  `check` still reports as `ref-target-unreadable`. A reference with no fragment to such a record is `ok`. This closes §20's
+  open question 7 and the I1.9 reading (§8.5, §14.2, §20, Appendix D, suite README). "No fragment" covers `#` alone, which §7.1
+  makes the root too. Three points are the agent's reading: the `ok` reference's target is the record's root,
+  `{"path": ..., "at": "", "address": ""}`, as for any record; it raises no warning; and `resolve` of the same root address still
+  fails, which is intended, since a reference's status says only that its target exists, while a resolve returns its value.
+- **J4. U+FEFF in YAML** is a `syntax-error` wherever YAML does not allow the character, including the start of front matter or
+  of a `yaml data` block (§5.1). YAML itself would read a U+FEFF at the start of a document as a byte order mark (YAML 1.2.2,
+  section 5.2); vmd allows one only at byte 0 of the file. §5.1 notes the trap of the `yaml` package, which strips a leading
+  U+FEFF from any text it is given and accepts one in a plain scalar (measured with 2.9.1).
+- **J5. A byte order mark is not a column**, so line 1's first character is column 1, while offsets count its bytes (§5.1,
+  §5.9). A write keeps a file's byte order mark, and files vmd creates have none (§13.3). The rule covers every file vmd reads,
+  `.vmd/config.yaml` and schemas included (§5.1).
+- **J6. An `x-vmd-ref` without `targets`** allows any target: nodes, records, assets and directories (§9.3). This widens I1.11,
+  which allowed any node.
+
+Applying J4 also found that the `yaml` package (2.9.1) does not treat a lone CR as a line break, which YAML 1.2.2 (section 5.4)
+does, and fails on a mapping with CR line endings. §5.1 notes it next to the U+FEFF trap; the agent added the note as a fact
+measured on 2026-10-10, not as a decision.
+
+## Answers from the phase I1 design (K)
+
+Recorded 2026-10-10, and applied to Draft v0.7. The design of phase I1 ([docs/design/i1-read.md](../design/i1-read.md), #59)
+ended with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation but
+K3's, which the design records. The
+answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that the design records, and
+K14 is decision J2.
+
+- **K1. Spans** (the design's section 3.6) go into §5.9 and §6.2. A section's range, from its heading line to the next heading or
+  the end of the file with its trailing blank lines, serves `get`, `set` and `delete`, so sections tile the file. An object member
+  has a `range`, its value, which `set` replaces, and a `memberRange`, from its key to its value, which `delete` removes (§5.10's
+  `@source`). A block anchor's range is its CommonMark block in the `$body` without the trailing line break. This settles the
+  block-anchor ranges that C11 and I1.1 had left to task I1.4: the two suite cases that waited on them lose `pending`, and #7
+  closes.
+- **K2. One `syntax-error` per parse unit**, a file, its front matter or one data block, while the other units are still parsed
+  (§9.2, Appendix D). This refines C2's "every error": a recovering parser's later errors after a syntax error are mostly
+  cascades, and the suite expects one issue for one. The suite README's rule for case authors now speaks of parse units.
+- **K4. Lenient mode in §7.5.** Lenient mode makes form 2 non-singular only where evaluation meets a duplicate, as §7.4 lists it
+  among the cases that fail at evaluation; §7.5's wording is fixed.
+- **K5. Invalid UTF-8** is a `syntax-error` at `""`, in every format (§5.1), with a case in each.
+- **K7. Leading zeros in an index step**, as in `#links/01`, match nothing, in a semantic path as RFC 6901 requires of an exact
+  one (§7.3), with cases for both kinds of path.
+- **K8. The slug of a JSON or YAML section's `$title`** is computed as if the title were the content of an ATX heading, `## `
+  followed by the title, so a section keeps its key across formats (§5.5). A title that would not read back that way, ending in a
+  closing sequence such as ` #`, made only of `#` characters (which the review of this round added, since `## #` reads as an
+  empty heading), with white space at either end, or holding an anchor element, is not representable as Markdown (§5.8).
+- **K12. `storage-failed`**, a new operation code, for a read that the backend cannot complete, such as one refused by a
+  permission error, which is not `address-not-found` (§11.2, Appendix D).
+- **K13. The portable regex** (§11.4). The claim that excluding backreferences and lookaround makes matching linear everywhere is
+  corrected: it holds for RE2, while JavaScript's and Python's engines backtrack, and `(a+)+$` needs neither feature. The service
+  backend will use an RE2 engine (`re2js`, unreviewed); the local CLI runs the user's own patterns.
