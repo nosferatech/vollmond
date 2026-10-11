@@ -77,6 +77,13 @@
           "tags": []
         }
       }
+    },
+    {
+      "id": "unassigned-code-point-removed",
+      "spec": ["6.3"],
+      "description": "Step 2 removes code points unassigned in Unicode 17.0.0 before NFC, so in `a`, U+1ADE, U+0323 the unassigned U+1ADE goes first and `a` then composes with the dot below, giving `ạ` (U+1EA1) on every runtime; Unicode 18 assigns U+1ADE as a combining mark, and without the removal an 18 runtime would give U+1EA1, U+1ADE and a 17 one `a`, U+1ADE, U+0323 (decision O5); not in GitHub’s capture.",
+      "input": {"record": "unassigned-code-point-removed.md"},
+      "expect": {"result": {"anchors": [{"name": "ạ", "kind": "derived", "at": "/$sections/0"}], "tags": []}}
     }
   ]
 }

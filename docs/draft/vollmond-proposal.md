@@ -1,9 +1,10 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.9 (2026-10-10). Supersedes Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit
-`c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit
-`5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft. The
-review of v0.1 and every round of decisions since are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
+Status: Draft v0.10 (2026-10-10). Supersedes Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit
+`c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
+`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
+decisions applied to the draft. The review of v0.1 and every round of decisions since are in
+[vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -773,8 +774,13 @@ The derived anchor is computed in seven steps. Steps 1 to 6 give the heading's *
    image. A soft or a hard line break, as in a setext heading of several lines, contributes a line feed, which is white space, so
    steps 5 and 6 turn it into a hyphen. A `<br>` element contributes nothing, as every tag does.
 2. **Normalize.** Remove every Default_Ignorable_Code_Point character (zero-width joiners, variation selectors, soft hyphens and
-   the like), then normalize to NFC. Removing first means that an invisible character cannot keep two headings that look the
-   same apart: `e`, U+FE0F, U+0301 gives `é` (U+00E9), as `é` does.
+   the like) and every code point that is unassigned (General_Category `Cn`) in the pinned Unicode version, 17.0.0, then
+   normalize to NFC. Removing first means that an invisible character cannot keep two headings that look the same apart: `e`,
+   U+FE0F, U+0301 gives `é` (U+00E9), as `é` does. Removing the unassigned code points means that every runtime at Unicode 17 or
+   later derives the same anchor: a later version can assign one as a combining mark with a combining class, which NFC then
+   reorders and composes on that runtime only. Unicode 18.0.0 assigns U+1ADE (COMBINING GRAVE-DOT, combining class 230), so on an
+   18 runtime `a`, U+1ADE, U+0323 normalizes to U+1EA1, U+1ADE, while on 17 it stays as written; with the removal, both give
+   `ạ` (U+1EA1) (UnicodeData.txt of 17.0.0 and 18.0.0, read on 2026-10-10).
 3. **Lower-case** each code point by Unicode's default lower-case mapping, one code point at a time, with no locale and no context
    rules. That is the unconditional mapping of `SpecialCasing.txt` where there is one, and otherwise that of `UnicodeData.txt`, so
    Greek final sigma is not special. The conformance suite pins the Unicode version.
@@ -1349,9 +1355,10 @@ count of the paths that remain; `grep` returns an estimate of the matches that r
 
 **Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1), the configuration's `ignore`
 (§3.3) and VQL's `@path` (§10.3). A glob matches a whole store path. `*` matches any run of characters within one segment, none
-included, and a leading `.` too, so dotfiles are not special; `**` as a whole segment matches any number of whole segments, none
-included; and every other character matches itself. A `/` that follows `**` is kept, so `docs/**` matches every path below
-`docs/` but not the path `docs` itself, as the filesystem backend's `compileGlob` does.
+included, and a leading `.` too, so dotfiles are not special. `**/` matches zero or more whole segments with their `/`, and a
+final `/**` matches one or more segments, so `docs/**` matches every path below `docs/` but not the path `docs` itself, as the
+filesystem backend's `compileGlob` does. Every other character matches itself. A glob that is empty, starts or ends with `/`, or
+has an empty segment (`//`) is malformed (`query-invalid`).
 
 **`grep` matches line by line.** Each line of a file is matched on its own, without its line break, so `^` and `$` are the line's
 start and end, and `.` matches any character of the line. A line ends at a line feed, a CR LF pair or a carriage return alone,
@@ -1461,7 +1468,14 @@ vmd index [--publish DIR]                     build the index, or write the port
 vmd sync / vmd push                           working copy of a remote store (§15.3)
 ```
 
-Global options: `--store` (a path, `github:owner/repo@branch`, an HTTP URL, or a published index URL), `--json`, `--quiet`.
+Global options:
+
+- `--store`: a path, `github:owner/repo@branch`, an HTTP URL, or a published index URL.
+- `--config PATH`: a configuration to use in place of the store's `.vmd/config.yaml`, as the suite's `config` input does (§19.1;
+  decision K3).
+- `--json`: results and failures as JSON (§12.3).
+- `--quiet`: leaves out warnings, the warning about the runtime's Unicode data included (`unicode-runtime-older`, §6.3). Errors
+  and the result are always printed.
 
 ### 12.2 Output
 
@@ -1471,7 +1485,7 @@ Global options: `--store` (a path, `github:owner/repo@branch`, an HTTP URL, or a
   and `query` also say how many records they could not read, when there are any (§9.5).
 - `get` prints the node's source (§5.10) and stops at 20,000 characters unless `--max-chars` says otherwise; the cut says what
   remains and suggests `outline`.
-- `--json` prints the library's result objects unchanged.
+- `--json` prints the library's result objects unchanged, and every failure as an object of the same shape (§12.3).
 - `-l` prints only full addresses, one per line, as `grep -l` does, for piping into `vmd get` or `xargs`.
 
 Query results in `nodes` mode are grouped by record, so a record's path is printed once. Each match is one line: its canonical
@@ -1521,6 +1535,12 @@ found is counted (§9.2); at most 20 are printed by default, followed by the cou
 usage, `3` conflict (re-read and retry), `4` validation failed, meaning at least one issue of severity `error`. An operation that
 succeeds can still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out (§11.2), and
 the command then exits with `4`.
+
+**Where issues go.** Issues are printed on stderr and the result on stdout, except for the commands whose result is the list of
+issues, `check` and `refs`, which print their issues on stdout. Under `--json`, every outcome is one JSON object on stdout, a
+failure included: the object has the shape of a result, with its issues, whether the failure is a usage error
+(`usage-invalid`, exit code `2`), a store that cannot be found (`store-not-found`, exit code `1`) or any other. The warning
+about the runtime's Unicode data is then an issue of the object too (`unicode-runtime-older`).
 
 ### 12.4 Shell safety
 
@@ -2254,7 +2274,10 @@ The columns:
 | `address-not-singular` | error | operation | §7.4 | a singular address the checker cannot prove singular; none |
 | `address-not-found` | error | operation | §7.4 | a singular address that matches no node, or an address, singular or a selector, whose record does not exist; none |
 | `address-ambiguous` | error | operation | §7.4 | a singular address that matches several nodes; none |
-| `query-invalid` | error | operation | §10.2 | a VQL query that does not parse; none |
+| `query-invalid` | error | operation | §10.2, §11.2 | a VQL query that does not parse, or a malformed glob (empty, starting or ending with `/`, or with an empty segment); none |
+| `usage-invalid` | error | operation | §12.3 | a command line the CLI cannot read: an unknown command or option, or a missing or extra argument (exit code 2); none |
+| `store-not-found` | error | operation | §3.3, §12.3 | no store at the path given, or at or above the working directory: no `.vmd/config.yaml` there; none |
+| `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than the version that derived anchors follow, so derived anchors may differ; none |
 | `unreadable-records` | error | operation | §13.4 | a `rename` or `mv` while the store has records with structural errors; none |
 | `storage-failed` | error | operation | §11.2 | a read that the backend cannot complete, such as one refused by a permission error; none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
