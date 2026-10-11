@@ -1,6 +1,6 @@
 // What a store's configuration changes in the read commands: collections in `ls`, ignored paths, and where schemas are.
 
-import { chmodSync } from "node:fs";
+import { chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_SCHEMA_BYTES } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
@@ -161,5 +161,58 @@ describe("--config", () => {
     const result = await vmd(root, "ls");
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/^\.vmd\/config\.yaml:2:1 error feature-unsupported: the configuration has the member "jsonc"/);
+  });
+});
+
+describe("symbolic links", () => {
+  const CONFIG_T = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
+
+  /** A store holding `t/a.md`, beside a configuration and a schema outside it, which the store's files may link to. */
+  function linkedStore(): { readonly home: string; readonly store: string } {
+    const home = writeFiles(temporaryDirectory(), {
+      "outside/secret.yaml": CONFIG_T,
+      "outside/t.json": "{}",
+      "store/t/a.md": "# A\n",
+    });
+    return { home, store: join(home, "store") };
+  }
+
+  test.skipIf(process.platform === "win32")("refuse a store's own .vmd/config.yaml reached through one", async () => {
+    const { home, store } = linkedStore();
+    makeDirectories(store, ".vmd");
+    symlinkSync(join(home, "outside/secret.yaml"), join(store, ".vmd/config.yaml"));
+    const result = await vmd(store, "get", "t/a.md");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(
+      /^\.vmd\/config\.yaml error config-invalid: the store has no \.vmd\/config\.yaml\n {2}hint .*symbolic link/,
+    );
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "refuse a store's own schema reached through one, and read one that is a file",
+    async () => {
+      const { home, store } = linkedStore();
+      writeFiles(store, { ".vmd/config.yaml": CONFIG_T });
+      makeDirectories(store, ".vmd/schema");
+      symlinkSync(join(home, "outside/t.json"), join(store, ".vmd/schema/t.json"));
+      const linked = await vmd(store, "get", "t/a.md");
+      expect(linked.exitCode).toBe(1);
+      expect(linked.stderr).toMatch(/^error schema-invalid: the schema t\.json of the collection t does not exist/);
+      const plain = writeFiles(temporaryDirectory(), {
+        ".vmd/config.yaml": CONFIG_T,
+        ".vmd/schema/t.json": "{}",
+        "t/a.md": "# A\n",
+      });
+      expect(await vmd(plain, "get", "t/a.md")).toEqual({ stdout: "# A\n", stderr: "", exitCode: 0 });
+    },
+  );
+
+  test.skipIf(process.platform === "win32")("are followed to a --config file and to the schema/ beside it", async () => {
+    const { home, store } = linkedStore();
+    makeDirectories(home, "config/schema");
+    symlinkSync(join(home, "outside/secret.yaml"), join(home, "config/config.yaml"));
+    symlinkSync(join(home, "outside/t.json"), join(home, "config/schema/t.json"));
+    const result = await vmd(home, "--store", store, "--config", "config/config.yaml", "get", "t/a.md");
+    expect(result).toEqual({ stdout: "# A\n", stderr: "", exitCode: 0 });
   });
 });

@@ -87,6 +87,13 @@ const COLLECTION_MEMBERS: ReadonlySet<string> = new Set(["match", "exclude", "sc
 const KEY_MEMBERS: ReadonlySet<string> = new Set(["filename", "field"]);
 const QUERY_MEMBERS: ReadonlySet<string> = new Set(["target"]);
 
+// TODO(decision V1): `jsonc` comes after I2, with the comment-preserving edits of I4; until then a configuration that has it is
+// refused as any member this vmd does not know, so that `.jsonc` files are never taken for assets.
+/** The members of the configuration that the format defines and this vmd does not implement yet, with what each does. */
+const NOT_IMPLEMENTED_MEMBERS: ReadonlyMap<string, string> = new Map([
+  ["jsonc", "it reads .jsonc files as records, §9.1, decision V1"],
+]);
+
 /**
  * Reads a store's configuration file: decodes it as UTF-8, parses it as one YAML document with vmd's YAML rules, and reads
  * every member, giving each one left out its default. A configuration file is not a record, so every issue has no `path` and
@@ -393,15 +400,20 @@ class ConfigurationReader {
   #unknownMembers(object: ValueObject, at: string, known: ReadonlySet<string>, what: string): void {
     for (const member of Object.keys(object)) {
       if (known.has(member)) continue;
+      const unimplemented = at === "" ? NOT_IMPLEMENTED_MEMBERS.get(member) : undefined;
+      const message =
+        unimplemented === undefined
+          ? `${what} has the member ${JSON.stringify(member)}, which this version of vmd does not define; it may come ` +
+            `from a newer minor version of the format (${this.#declared})`
+          : `${what} has the member ${JSON.stringify(member)}, which the format defines (${unimplemented}) and this ` +
+            "version of vmd does not implement yet";
       this.#problems.push(
         makeIssue({
           code: "feature-unsupported",
           class: "operation",
           path: null,
           at: null,
-          message:
-            `${what} has the member ${JSON.stringify(member)}, which this version of vmd does not define; it may come ` +
-            `from a newer minor version of the format (${this.#declared})`,
+          message,
           hint: "use a vmd that reads the store's version, or remove the member",
           ...this.#positionField(childPath(at, member)),
         }),

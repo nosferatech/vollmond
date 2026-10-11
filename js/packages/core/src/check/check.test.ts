@@ -50,15 +50,20 @@ describe("Store.check", () => {
       "twice.md": TWICE,
       "fine.md": "# Fine\n",
       "locked.md": { content: "# L\n", unreadable: true },
+      "locked.png": { content: "x", unreadable: true },
     });
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 3, unreadable: 1 });
+    // A record the backend cannot read counts as checked and unreadable, as ls counts it; an asset it cannot read does not.
+    expect(successValue(outcome)).toEqual({ records: 4, unreadable: 2 });
     expect(shown(outcome.issues)).toEqual([
       'syntax-error error bad.json ""',
       "storage-failed error locked.md null",
+      "storage-failed error locked.png null",
       'duplicate-anchor error twice.md "/$sections/1"',
       'duplicate-key error twice.md "/$sections/1"',
     ]);
+    expect(successValue(await store.check({ records: ["fine.md"] }))).toEqual({ records: 1, unreadable: 0 });
+    expect(successValue(await store.check({ records: ["locked.md"] }))).toEqual({ records: 1, unreadable: 1 });
   });
 
   test("checks the path rules over every listed path, assets with warnings, and leaves ignored paths alone", async () => {

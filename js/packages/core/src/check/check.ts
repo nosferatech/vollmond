@@ -19,9 +19,9 @@ export interface CheckOptions {
 
 /** What a check covered, beyond its issues. */
 export interface CheckSummary {
-  /** How many records were checked. */
+  /** How many records were checked, those the backend could not read included. */
   readonly records: number;
-  /** How many of them have no value view: a structural error, or a file the backend could not read. */
+  /** How many of them have no value view: a structural error, or a file the backend could not read when listing or reading it. */
   readonly unreadable: number;
 }
 
@@ -72,8 +72,17 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
   const scope = options.records === undefined ? null : new Set(options.records);
   const inScope = (path: string) => scope === null || scope.has(path);
   const collectionsInScope = new Set<Collection>(scope === null ? store.configuration.collections : []);
-  let checked = 0;
-  let unreadable = 0;
+  // A record the backend could not read is left out of the listing, with its storage-failed, and is still a record checked
+  // that could not be read, as `ls` counts it.
+  const failedRecords = listed.issues.filter(
+    (issue) =>
+      issue.code === "storage-failed" &&
+      issue.path !== null &&
+      inScope(issue.path) &&
+      store.classifier.classify(issue.path).kind === "record",
+  ).length;
+  let checked = failedRecords;
+  let unreadable = failedRecords;
   for (const record of records) {
     if (!inScope(record.path)) continue;
     checked += 1;

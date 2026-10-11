@@ -81,6 +81,8 @@ describe("a valid configuration", () => {
 
   test("declaring a newer minor version, which is read as major version 1 without a warning", () => {
     expect(read("vmd: 1.2\n")).toMatchObject({ ok: true, value: { vmd: 1, declared: 1.2 }, issues: [] });
+    // The major version is the part before the point, not the nearest integer.
+    expect(read("vmd: 1.9\n")).toMatchObject({ ok: true, value: { vmd: 1, declared: 1.9 }, issues: [] });
   });
 
   test("with every member", () => {
@@ -254,8 +256,14 @@ describe("feature-unsupported for a member this version does not define", () => 
     expect(outcome.issues[0]?.message).toContain("1.3");
   });
 
-  test("for jsonc, which this vmd does not read yet", () => {
+  test("for jsonc, which the format defines and this vmd does not implement yet, saying so", () => {
     expect(problems("vmd: 1\njsonc: true\n")).toEqual(["feature-unsupported 2:1"]);
+    const [message] = messages("vmd: 1\njsonc: true\n");
+    expect(message).toContain("does not implement yet");
+    expect(message).toContain("V1");
+    expect(message).not.toContain("newer minor version");
+    // The same name below the top is not the format's member.
+    expect(messages(withCollection('match: ["*.md"]', "jsonc: true"))[0]).toContain("newer minor version");
   });
 
   test("in a collection, a key and a query", () => {
@@ -269,8 +277,11 @@ describe("feature-unsupported for a member this version does not define", () => 
     expect(messages("future_setting: true\n")[1]).toContain("declares no format version");
   });
 
-  test("not for a member whose name begins with $, which is unknown like any other", () => {
+  test("for a member whose name begins with $, which is unknown like any other, whatever a record would make of it", () => {
+    // In a record, $key is a dollar-member and $future a structural feature-unsupported; neither shape rule applies here.
     expect(problems("vmd: 1\n$key: 2\n")).toEqual(["feature-unsupported 2:1"]);
+    const future = read("vmd: 1\n$future: 1\n");
+    expect(future.issues.map((issue) => `${issue.code} ${issue.class}`)).toEqual(["feature-unsupported operation"]);
   });
 
   test("not for a newer major version, which may define it: that is refused alone", () => {

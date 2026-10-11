@@ -560,6 +560,65 @@
           }
         ]
       }
+    },
+    {
+      "id": "refused-record-resolve",
+      "spec": [
+        "9.1",
+        "9.5",
+        "D"
+      ],
+      "description": "A record of a collection whose schema file does not exist is refused by readers, so resolving its root fails with schema-invalid (§9.1, decision U12); the issue having no path, and schema-invalid rather than another code, follow the current reading, which is with the owner.",
+      "operation": "resolve",
+      "input": {
+        "config": "config-missing-schema.yaml",
+        "address": "tickets/0001-first.md",
+        "as": "singular"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "schema-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "refused-record-check",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "check reports a collection whose schema file does not exist once, and still checks its records for everything else, here their file names (§9.1, decision U12).",
+      "input": {
+        "config": "config-missing-schema.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "schema-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          },
+          {
+            "code": "filename-mismatch",
+            "severity": "error",
+            "path": "tickets/12-short.md",
+            "at": ""
+          },
+          {
+            "code": "heading-html",
+            "severity": "warning",
+            "path": "notes/html.md",
+            "at": "/$sections/0"
+          }
+        ]
+      }
     }
   ]
 }

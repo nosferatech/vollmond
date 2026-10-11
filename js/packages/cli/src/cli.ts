@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import {
+  type ConfigurationSource,
   fail,
   type Issue,
   type IssueCode,
@@ -242,21 +243,31 @@ async function openCommandStore(
   const location = discovered.value;
   const name = location.configurationName;
   const details = () => ({ file: name });
-  const reading = await readConfigurationFile(location.configurationFile);
-  if (reading.kind === "unreadable") {
-    const hint = globals.config === undefined ? "check its permissions" : "check the path given to --config";
-    return {
-      kind: "failed",
-      report: failure("config-invalid", `cannot read the configuration ${name}: ${reading.reason}`, hint),
-    };
-  }
-  if (reading.kind === "invalid") {
-    return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
-  }
   const storage = createFilesystemStorage(location.root);
-  const opened = await openStore(storage, {
-    configuration: configurationFileSource(location.configurationFile, name, reading.content),
-  });
+  let configuration: ConfigurationSource | undefined;
+  // Deviation from the I2 design, recorded in issue #21: the design reads the store's own configuration here too; it is read
+  // by core through the store's backend instead, so that core and the command line follow one rule for the store's files.
+  if (globals.config !== undefined) {
+    // A configuration named with --config, and the schema/ directory beside it, are files the user named rather than files
+    // of the store, so a symbolic link on the way to them is followed. The store's own .vmd/config.yaml and .vmd/schema/ are
+    // read by openStore through the store's backend, whose rule refuses a path reached through a symbolic link.
+    const reading = await readConfigurationFile(location.configurationFile);
+    if (reading.kind === "unreadable") {
+      return {
+        kind: "failed",
+        report: failure(
+          "config-invalid",
+          `cannot read the configuration ${name}: ${reading.reason}`,
+          "check the path given to --config",
+        ),
+      };
+    }
+    if (reading.kind === "invalid") {
+      return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
+    }
+    configuration = configurationFileSource(location.configurationFile, name, reading.content);
+  }
+  const opened = await openStore(storage, configuration === undefined ? {} : { configuration });
   if (!opened.ok) {
     return {
       kind: "failed",
@@ -268,7 +279,6 @@ async function openCommandStore(
     store: {
       location,
       configuration: opened.value.configuration,
-      configurationContent: reading.content,
       storage,
       store: opened.value,
     },

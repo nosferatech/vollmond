@@ -212,7 +212,8 @@ export interface Store {
 
 /**
  * Opens a store over a backend: reads its configuration, from `configuration` when given and otherwise from the backend's
- * `.vmd/config.yaml`, with the schemas in `.vmd/schema/`. Fails with that reading's issues, with `config-invalid` when the
+ * `.vmd/config.yaml`, with the schemas in `.vmd/schema/`. Those are read as any other file of the store, so the backend's rules
+ * apply to them: the local filesystem's refuses a path reached through a symbolic link. Fails with that reading's issues, with `config-invalid` when the
  * backend has no configuration file, or with the backend's `storage-failed`. The configuration's warnings are the outcome's
  * issues. Schemas are read when a record of their collection is first read or checked, not here.
  */
@@ -226,7 +227,13 @@ export async function openStore(
     if (!file.ok) {
       if (file.issues.some((issue) => issue.code !== "address-not-found")) return fail(file.issues);
       return fail([
-        makeIssue({ code: "config-invalid", path: null, at: null, message: `the store has no ${CONFIGURATION_PATH}` }),
+        makeIssue({
+          code: "config-invalid",
+          path: null,
+          at: null,
+          message: `the store has no ${CONFIGURATION_PATH}`,
+          hint: "the configuration must be a file of the store: a backend may refuse one reached through a symbolic link",
+        }),
       ]);
     }
     source = backendConfigurationSource(backend, file.value.content);
