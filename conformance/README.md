@@ -85,7 +85,8 @@ differ from GitHub's gives GitHub's in its description.
   such as two paths that differ only by case, a Windows reserved name or a path that is not NFC, are left out for now
   (decision C26, §19.1), and implementations test those rules on their own. A later case
   format may add a manifest store, a JSON file from store paths to contents that the runner gives its implementation through an
-  in-memory backend, used only for such cases.
+  in-memory backend, used only for such cases. A FIFO, a socket or a device in a store, which git cannot hold, and an alias file
+  over its bound of 16 MiB, too large to keep, are left out too (§19.1).
 - **Nothing may rewrite the suite's bytes.** `.gitattributes` turns off git's line-ending conversion for every file under
   `conformance/`, and `.editorconfig` asks editors that follow the EditorConfig specification (editorconfig.org) to leave
   whitespace and final newlines alone. Formatters and linters (Biome in this repository) must exclude `conformance/`, since
@@ -639,7 +640,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.12.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.13.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -706,13 +707,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.12.0-dev", "case_format": 1 }
+{ "version": "0.13.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.12 gives `0.12`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.13 gives `0.13`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.12.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.13.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel

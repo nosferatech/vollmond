@@ -594,17 +594,18 @@ Recorded 2026-10-11, and applied to Draft v0.12. Card W1 confirms the agent's re
 owner, card W2 closes a gap that U12 opened, card X brings four rules from the review of I2's configuration pull request (#91),
 and card Y three Markdown limits from the review of the pull request for cards P, Q, R and T (#94). The project owner accepted
 the recommended option on every card; cards W1, X and Y each offered (a) accepting every recommendation, (b) accepting with
-exceptions named in a note, or (c) discussing first. Where the records fill in a detail the cards left open, they mark it as the
-agent's reading, for the owner to confirm. Section numbers refer to Draft v0.12.
+exceptions named in a note, or (c) discussing first. Where the records fill in a detail the cards left open, they marked it as the
+agent's reading, for the owner to confirm; card W3 (Draft v0.13) confirmed those readings, except a FIFO in the store, which it
+made a failure. Section numbers refer to Draft v0.12.
 
 - [W1](../decisions/W1.md) The agent's readings in Draft v0.11 are confirmed
 - [W2](../decisions/W2.md) Renames and writes beside an unusable schema are refused, like unreadable records
-- [X1](../decisions/X1.md) A schema file that cannot be read is `storage-failed`
+- [X1](../decisions/X1.md) A schema file that cannot be read is `storage-failed` (superseded by W3)
 - [X2](../decisions/X2.md) A refused read's issue has a null path
 - [X3](../decisions/X3.md) Directories that differ only in case conflict
 - [X4](../decisions/X4.md) A glob with a `.` or `..` segment is `config-invalid`
-- [Y1](../decisions/Y1.md) The nesting limit covers inline nesting, and bounds the stack, not the time
-- [Y2](../decisions/Y2.md) Runs in headings and data `$title`s count toward the run limit
+- [Y1](../decisions/Y1.md) The nesting limit covers inline nesting, and bounds the stack, not the time (superseded by Z1)
+- [Y2](../decisions/Y2.md) Runs in headings and data `$title`s count toward the run limit (superseded by Z1)
 - [Y3](../decisions/Y3.md) HTML comments before a misplaced data block
 
 Card Y's wording fixes are applied without decisions: a run is a delimiter run of `*` or `_` (CommonMark 0.31.2, section 6.2), or
@@ -617,16 +618,36 @@ and a repeated invalid `class` token gives one `anchor-invalid` (§6.2, Appendix
 gives and the I2 design states (`docs/design/i2-validate.md`, section 3.3), and the suite's `references/targets` schemas put
 `x-vmd-ref` under `additionalProperties`. Draft v0.11 had left them out.
 
-Three alignments that the reviews of #91 and #94 noted are applied too, and each is an agent's reading, for the owner to confirm:
+Three alignments that the reviews of #91 and #94 noted are applied too. Each was an agent's reading, for the owner to confirm,
+and the owner confirmed all three on card [W3](../decisions/W3.md) (items 7, 3 and 2):
 
-- §11.2's "Bounded reads", a rule from the implementation (#91, recorded on #21), not an owner decision: `read` takes an optional
-  `maxBytes`, a file larger than it is refused by its size before it is read or hashed, a file that grows past the bound while it
-  is read is read no further than `maxBytes` and one byte and refused too, and vmd reads with the bounds of 1 MiB for the
+- §11.2's "Bounded reads", a rule from the implementation (#91, recorded on #21), not an owner decision until W3: `read` takes an
+  optional `maxBytes`, a file larger than it is refused by its size before it is read or hashed, a file that grows past the bound
+  while it is read is read no further than `maxBytes` and one byte and refused too, and vmd reads with the bounds of 1 MiB for the
   configuration and schemas and 16 MiB for records;
 - §5.10's `@collection` is absent for a record in no collection or in a `collection-conflict`, recorded in
   [S5](../decisions/S5.md);
 - §5.3 gives a misplaced or second data block whose fence is not closed a `syntax-error` too, as Appendix D does, recorded in
   [P2](../decisions/P2.md).
+
+## Decisions from cards W3 and Z (Draft v0.13)
+
+Recorded 2026-10-11, and applied to Draft v0.13. Card W3 confirms the agent's readings that the Draft v0.12 round marked for the
+owner, with a note that makes a FIFO in the store a failure. Cards Z1 to Z3 come from the references pull request (#99): a data
+`$body` and the Markdown limits, chains of anchor aliases, and a bound on the alias file. The project owner accepted the
+recommended option on every card: (a) "Confirm all eight" on W3, and (a) on each of Z1 to Z3, which offered two options each.
+Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section
+numbers refer to Draft v0.13.
+
+- [W3](../decisions/W3.md) The agent's readings in Draft v0.12 are confirmed, and a FIFO in the store is a failure
+- [Z1](../decisions/Z1.md) The Markdown limits apply to a data `$body`
+- [Z2](../decisions/Z2.md) Anchor aliases are followed through chains, and under a record's old paths
+- [Z3](../decisions/Z3.md) The alias file is read with a bound of 16 MiB
+
+A wording fix that #99 noted, among its questions, is applied without a decision: Appendix D's `ref-derived-anchor` and
+`ref-derived-repeat` rows, and §6.3 with them, cover a reference whose first step reaches its target only by a title-derived
+name, anchor-derived or key-title, as the I2 design does (`docs/design/i2-validate.md`, section 5.6), where they spoke of derived
+anchors only.
 
 ## Decisions given in conversation
 

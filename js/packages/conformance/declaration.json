@@ -84,6 +84,42 @@
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
     {
+      "id": "markdown/limits/data-body-nesting-257-json",
+      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/data-body-nesting-257-yaml",
+      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/data-body-runs-4097-json",
+      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
+    },
+    {
+      "id": "markdown/limits/data-body-runs-4097-yaml",
+      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
+    },
+    {
+      "id": "references/alias-chains/check-anchor-chains",
+      "reason": "Draft v0.13 (Z2): anchor alias chains follow #99 in a follow-up pull request; references in check arrive with #99 (I2.4, #24)"
+    },
+    {
+      "id": "references/alias-chains/refs-anchor-alias-of-another-record",
+      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's one-step anchor aliases, and keeps passing once chains follow"
+    },
+    {
+      "id": "references/alias-chains/refs-anchor-alias-under-old-path",
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; the refs operation arrives with #99"
+    },
+    {
+      "id": "references/alias-chains/refs-anchor-chain",
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; the refs operation arrives with #99"
+    },
+    {
+      "id": "references/alias-chains/refs-anchor-cycle",
+      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's one-step anchor aliases, and keeps passing once chains follow"
+    },
+    {
       "id": "references/targets/many-reference-to-missing-record",
       "reason": "I2.4 (#24): references follow in a later pull request"
     },

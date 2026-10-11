@@ -1,0 +1,7 @@
+{"kind": "anchor", "record": "docs/chain.md", "from": "first", "to": "second", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "docs/chain.md", "from": "second", "to": "third", "at": "2026-10-10T08:00:00Z"}
+{"kind": "anchor", "record": "docs/cycle.md", "from": "loop-a", "to": "loop-b", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "docs/cycle.md", "from": "loop-b", "to": "loop-a", "at": "2026-10-10T08:00:00Z"}
+{"kind": "anchor", "record": "docs/old.md", "from": "before", "to": "after", "at": "2026-10-09T08:00:00Z"}
+{"kind": "record", "from": "docs/old.md", "to": "docs/moved.md", "at": "2026-10-10T08:00:00Z"}
+{"kind": "anchor", "record": "docs/elsewhere.md", "from": "stray", "to": "after", "at": "2026-10-09T08:00:00Z"}
