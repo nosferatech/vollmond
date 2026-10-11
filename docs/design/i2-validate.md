@@ -375,7 +375,10 @@ They meet in four ways:
   record is checked first nor on the cache. The existing code fits, since §9.2's schema violation is a value the schema rejects,
   and §9.5's strict read refuses the record (question 2 names it). The proof, which knows the step's text, sees the same two
   declarations at that member and decides as section 4.4 does: if either is `multimap`, the address is not singular; otherwise the
-  member's array is not keyed, and a key step through it matches nothing, as it does in the binding;
+  member's array is not keyed, and a key step through it matches nothing, as it does in the binding. The proof is deliberately
+  stricter than the binding there: it refuses an address such as `#m/0` through that member when either declaration is `multimap`,
+  although the binding treats the array as a plain one, because the proof judges declarations, and the data's conflict does not
+  remove the `multimap` one from the schema;
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
   `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both.
 
@@ -825,10 +828,13 @@ pull request could add `.vmd/cache/…` with `git add -f` past a `.gitignore`, s
 cache, so a committed `.vmd/cache/` is an ordinary ignored directory: harmless, and never read. What the cache trusts is then
 exactly what the user's home directory holds, written by the user's own vmd.
 
-`check --changed` trusts the snapshot for one thing: which records cite a path, from each reference's resolved target. It uses a
-row only while the citing record's version in the snapshot equals the version on disk; any other citing record has its references
-extracted again from its parse entry, or parsed. So a stale snapshot costs work and never hides a citing record, and a forged one
-would need a write to the user's cache directory, which can as well replace vmd itself.
+`check --changed` trusts the snapshot for one thing: which records cite a path, from each reference's resolved target. It loops
+over the store's current file listing, not over the snapshot's rows: for each record listed now, it uses the snapshot's rows only
+while that record's version in the snapshot equals the version on disk, and otherwise extracts its references again from its parse
+entry, or parses it. So a record with no snapshot rows, one that existed at `REV` or one added since, is still examined, a stale
+snapshot costs work and never hides a citing record, and a forged one would need a write to the user's cache directory, which can
+as well replace vmd itself. A change to `.vmd/aliases.jsonl`, to the configuration or to a file of its `schema/` directory makes
+the scope the whole store, since any reference or binding may depend on it.
 
 **CI.** A fresh runner has an empty cache, and the gate parses everything, which is what a gate should do. A workflow that saves
 and restores the per-user cache directory between runs trusts its own earlier runs, and whether a pull request's run can write a
@@ -1303,16 +1309,28 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
     a store that does not validate can use it before queries exist. Consequence: §12.1 gains `--strict`, and the plan's I3.4 loses
     the mode (*spec*, §12.1).
 12. **A collection whose schema is invalid.** (a) `schema-invalid` is reported once; `check` goes on with the other collections,
-    and checks that collection's records for everything but their schema; every read of one of its records (`get`, `outline`,
-    `resolve`, a query, a reference's target below the root) fails with `schema-invalid`, `ls` counts them as unreadable, and a
-    reference with a fragment into one has the status `unreadable`; (b) as (a) for `check`, but reads go on without the schema;
-    (c) every command that opens the store fails. Recommended: (a). (b) is what the first version proposed, and it misreads: an
-    older reader that does not know a construct of a newer schema (an unknown `x-vmd-*` keyword, which §9.1 already relies on to
-    be detectable, or a relaxation under question 21) would read the collection without its schema, and its typed references and
-    logical types would silently become plain strings. (c) lets one broken schema hide the whole store. Consequence: §9.1 says
-    what "is an error" does for such a collection; §5.4's "whether a record is readable therefore never depends on its schema"
-    gains "provided the schema can be read", since under (a) a reader refuses a record whose schema it cannot use (*spec*, §5.4,
-    §9.1). Question 21's (a) depends on this answer: it is what makes an invalid schema fail every read.
+    and checks that collection's records for everything but their schema; every reader refuses that collection's records: a
+    single-record read (`get`, `outline`, `resolve`) fails with `schema-invalid`; a multi-record read leaves them out, as it
+    leaves out records with structural errors (§9.5), so a query returns the other collections' matches with one `schema-invalid`
+    issue counting the records left out, and fails as a whole only in the strict read mode, where refused records are errors; `ls`
+    counts them as unreadable; and a reference with a fragment into one has the status `unreadable`. (b) as (a) for `check`, but
+    reads go on without the schema. (c) every command that opens the store fails. Recommended: (a). (b) is what the first version
+    proposed, and it misreads: an older reader that does not know a construct of a newer schema (an unknown `x-vmd-*` keyword,
+    which §9.1 already relies on to be detectable, or a relaxation under question 21) would read the collection without its
+    schema, and its typed references and logical types would silently become plain strings. (c) refuses everything, including
+    `check` and the collections whose schemas are fine, where (a) refuses only the affected collection's records and only to
+    readers.
+
+    **(a) reverses recorded decisions**, and the owner should take it as such: C2 as F1 narrowed it, that structural errors alone
+    make a record unreadable, and the correction of Draft v0.4, "Whether a record is readable never depends on its schema". Under
+    (a), a record without a structural error is still refused by readers when its collection's schema cannot be used. The reason
+    is the one F1 gave for readers in the first place, read the other way: a reader must not return a value it would read wrongly,
+    and without its schema it would. Consequence (*spec*): §5.4's sentence gains "provided the collection's schema can be used";
+    §9.5 item 1, "reads a record as long as it has no structural error", gains the same condition; §8.5, J3's rule and Appendix
+    D's `ref-target-unreadable` row, which tie `unreadable` to a structural error, extend it to a record of a collection with an
+    invalid schema; Appendix D's `schema-invalid` row says what it refuses; the count of records `ls` and `query` could not read
+    includes them; and §9.1 says what "is an error" does for such a collection. Question 21's (a) depends on this answer: it is
+    what keeps every reader from returning data under a schema the reader cannot use.
 13. **Where a configuration's schemas are.** §9.1 says `.vmd/schema/`. (a) in `schema/` beside the configuration file, which is
     `.vmd/schema/` for the store's own configuration and for the suite's `config` input, and `examples/vampiredb/schema/` for
     `--config examples/vampiredb/config.yaml`; (b) always the store's `.vmd/schema/`, so that a store read with `--config` and no
@@ -1345,19 +1363,21 @@ recommended, and go into a Draft v0.11 with their decision-log entries before th
     bounds (*spec*, §9.1).
 21. **Unknown configuration members, and what §9.1 counts as an addition.** §9.1 allows a minor version to add only a new `$`
     member, a new `data` info string or a new `x-vmd-*` keyword. That leaves out a new configuration member, and every relaxation
-    of a refusal (questions 2, 8, 14). (a) §9.1's list becomes "any construct the previous minor version refuses with an error
-    that fails every read of it": a structural error, which makes the record unreadable, or an operation error that fails the
-    operation, such as an invalid configuration or, under question 12's answer, an invalid schema. A relaxation of what is today a
-    validation error does not qualify, since a best-effort reader reads past validation errors (§9.5): if 1.1 accepted a space in
+    of a refusal (questions 2, 8, 14). (a) §9.1's list becomes "any construct the previous minor version refuses so that no reader
+    returns data that holds it": a structural error, which makes the record unreadable; an operation error that fails the
+    operation, such as an invalid configuration; or, under question 12's answer, an invalid schema, whose records every reader
+    refuses (a single read fails, a multi-record read leaves them out and counts them). A relaxation of what is today a validation
+    error does not qualify, since a best-effort reader reads past validation errors (§9.5): if 1.1 accepted a space in
     `date-time`, a 1.0 reader's `check` would report a `schema-violation`, but its `query` would return the record and compare the
     value wrongly; such a change needs a major version. An unknown configuration member is then `feature-unsupported`, whose
     message names the store's declared version. (b) the three forms stay, an unknown configuration member is `config-invalid`, and
     a new member or a relaxation needs a major version or a new keyword; (c) unknown configuration members are ignored, which
     would misread a newer store silently. Recommended: (a). Its reason is the one §9.1 gives for the three forms, that an older
     reader fails rather than misreads, and the narrowing keeps it. The existing `x-vmd-*` form has the same exposure as any schema
-    construct, since an unknown keyword only makes the schema invalid; question 12's (a) is what makes it fail every read, and
-    with (b) of question 12 it would not be detectable either. Consequence: §9.1's "Every addition is detectable" and Appendix D's
-    `feature-unsupported` row change (*spec*, §9.1, Appendix D), and the answer depends on question 12's.
+    construct, since an unknown keyword only makes the schema invalid; question 12's (a) is what keeps every reader from returning
+    the collection's data, and with (b) of question 12 it would not be detectable either. Consequence: §9.1's "Every addition is
+    detectable" and Appendix D's `feature-unsupported` row change (*spec*, §9.1, Appendix D), and the answer depends on question
+    12's.
 
 Not a question but pending with the owner: #20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The
 design does not depend on it; I2.8's numbers do.
@@ -1410,13 +1430,15 @@ With the owner's answers, in the same pull request as the answers they follow fr
     §17's table, whose row of untracked paths names `.vmd/cache/` (4);
   - §12.1: `--no-cache` (question 4), `--strict` (question 11), and `--config`'s schema directory (question 13);
   - §9.1: the schema directory (question 13), collection names (10), a record two collections match (5), a collection with an
-    invalid schema (12), the bound on schema files (20), and the list of additions (21); §5.4's sentence on readability and the
-    schema (12);
+    invalid schema (12), the bound on schema files (20), and the list of additions (21);
+  - for question 12, which reverses C2 as F1 narrowed it and Draft v0.4's correction: §5.4's sentence on readability and the
+    schema; §9.5 item 1; §8.5 and J3's rule on `unreadable`; the counts of records `ls` and `query` could not read (§9.5, §12.2);
+    and a decision-log entry that names both reversed decisions;
   - §9.2: `$id` (question 14) and YAML anchors in schemas (15); §9.3: the spine and overlapping patterns (2), keys (8), `targets`
     (9), `unevaluatedItems` (16), `$sections` keys (17), `x-vmd-ref` without `format` (18), `x-vmd-summary` (19); §5.6 (8); §8.1,
     images (7); §8.5 (3);
   - Appendix C, the validator row (question 1); Appendix D: `collection-conflict` (5), `ref-ambiguous` (3), `feature-unsupported`
-    (21) and "Configuring severities" (6).
+    (21), "Configuring severities" (6), and the `ref-target-unreadable` and `schema-invalid` rows (12).
 - **The conformance README**: the `refs` operation's `targets` for an ambiguous reference (R8), once confirmed.
 - **This design**: section 12's answers, as the I1 design records card K in its section 9.
 
