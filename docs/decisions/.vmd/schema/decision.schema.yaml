@@ -1,0 +1,147 @@
+# One decision of the vollmond project: what was asked, the options with their consequences, what was decided, why, the project
+# owner's words where they gave any, and where it was applied. Rejected options are kept so that a later bug or feature request
+# can be compared with the reasons a choice was made.
+#
+# JSON Schema 2020-12 over a record's value view (§9.2), written for the rules of phase I2: no `$id` (U14), no YAML anchors,
+# aliases or tags (U15), `x-vmd-ref` only with `format: uri-reference` (U18) and only along the spine (U2), and `$sections`
+# keyed by `@key` alone (U17).
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Decision
+type: object
+required: [id, title, round, date, status, decided_by, sources, $sections]
+additionalProperties: false
+properties:
+  id:
+    description: >-
+      The decision's id, as the decision log and the review desk give it (C2, H2.3, K8). The record's file name is the id with
+      `.md`. A follow-up that refines a decision without an id of its own takes the decision's id and a letter (G3a, G3b). A
+      decision with no id gets its round's name and a number (v0.2-3, plan-1, i0-2, chat-1, review-1, i1-read-1). Ids are never
+      reused.
+    type: string
+    pattern: "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$"
+  title:
+    description: What the decision is about, as a short phrase.
+    type: string
+    minLength: 1
+    x-vmd-summary: true
+  round:
+    description: >-
+      The round of decisions it was taken in: the letter of the card that asked it (G, K, U); I0 for phase I0's cards C, F and L1
+      and its other decisions; v0.1, v0.2, v0.3 or planning for the rounds before the cards; chat for a decision given only in
+      conversation; review for one given in a note on a pull request's review; and the design document's name (i1-read) for a
+      decision recorded only there.
+    type: string
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+  date:
+    description: The day it was decided, in UTC.
+    type: string
+    format: date
+  status:
+    description: >-
+      accepted while no later decision has changed it; superseded once a later decision replaces or amends it in the same
+      direction; reversed once a later decision decides against it, in whole or in part. The later decisions are in
+      superseded_by.
+    enum: [accepted, superseded, reversed]
+    x-vmd-summary: true
+  supersedes:
+    description: The earlier decisions this one replaces, amends or reverses. Each names this one in its superseded_by.
+    $ref: "#/$defs/decisions"
+  superseded_by:
+    description: The later decisions that replace, amend or reverse this one. Each names this one in its supersedes.
+    $ref: "#/$defs/decisions"
+  sections:
+    description: The specification's sections it touches, numbered as in the draft that applied it.
+    type: array
+    uniqueItems: true
+    items:
+      type: string
+      pattern: "^(§[0-9]+(\\.[0-9]+)*|Appendix [A-Z])$"
+  decided_by:
+    description: >-
+      owner for a decision the project owner took, on a card or in conversation; design for one recorded in an approved design
+      document and not put to the owner.
+    enum: [owner, design]
+  sources:
+    description: Where the decision is recorded. At least one member.
+    type: object
+    minProperties: 1
+    additionalProperties: false
+    properties:
+      card:
+        description: The review desk card that asked it (G3, or H2 for item 3 of card H2).
+        type: string
+        minLength: 1
+      log:
+        description: The section of the decision log that recorded it, by its headings.
+        type: string
+        minLength: 1
+      chat:
+        description: When the owner gave it in conversation, in UTC. The owner's messages only.
+        type: array
+        uniqueItems: true
+        items: { type: string, format: date-time }
+      session:
+        description: >-
+          When the session (the agent working with the owner) wrote a message that a question, an option or a reason in the
+          record rests on, in UTC. The record marks such a reason as the session's, never as the owner's.
+        type: array
+        uniqueItems: true
+        items: { type: string, format: date-time }
+      design:
+        description: The design document and section that record it.
+        type: array
+        uniqueItems: true
+        items: { type: string, minLength: 1 }
+      prs:
+        description: The pull requests that asked, recorded or applied it.
+        type: array
+        uniqueItems: true
+        items: { type: integer, minimum: 1 }
+      issues:
+        description: The GitHub issues it comes from or leads to.
+        type: array
+        uniqueItems: true
+        items: { type: integer, minimum: 1 }
+      commits:
+        description: Commits on main that apply it.
+        type: array
+        uniqueItems: true
+        items: { type: string, pattern: "^[0-9a-f]{7,40}$" }
+  $sections:
+    type: array
+    x-vmd-list:
+      type: map
+      keys: ["@key"]
+      required: [question, options, decision, why, applied-in]
+      items:
+        question: { $ref: "#/$defs/prose" }
+        options: { $ref: "#/$defs/prose" }
+        decision: { $ref: "#/$defs/prose" }
+        why: { $ref: "#/$defs/prose" }
+        owners-note: { $ref: "#/$defs/prose" }
+        applied-in: { $ref: "#/$defs/prose" }
+      additional: false
+$defs:
+  decisions:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items:
+      description: A decision record, by its path relative to this one (F1.md).
+      type: string
+      format: uri-reference
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?\\.md$"
+      x-vmd-ref: { targets: [decisions], anchors: explicit }
+  prose:
+    description: >-
+      A section of the record: Question, Options (each option with its consequence, the chosen one marked), Decision, Why (why it
+      won, and why each rejected option lost), Owner's note (the owner's words verbatim, typos included, as block quotes, only
+      where they gave any; a machine path is replaced by a bracketed description, and the `<` of raw HTML is escaped with a
+      backslash) or Applied in (the draft version, pull request or commit). "Not recorded." stands where the sources hold
+      nothing.
+    type: object
+    required: [$title, $body]
+    additionalProperties: false
+    properties:
+      $title: { type: string }
+      $body: { type: string, minLength: 1 }

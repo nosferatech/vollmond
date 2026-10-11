@@ -19,15 +19,22 @@ Commands for the TypeScript code, run in `js/` (details in `README.md`):
 
 - `docs/draft/vollmond-proposal.md` is the specification draft. Its status line gives the version and the commits of earlier
   versions. Sections are cited by number: `vollmond-proposal.md §7.3`.
-- `docs/draft/vollmond-proposal-review.md` holds the review of Draft v0.1 and the **decision log**: one section per round of
-  discussion, recording what the project owner decided.
+- `docs/decisions/` holds every decision, **one record per decision**, named by its id (`G3.md`, `H2.3.md`): the question, the
+  options with their consequences, the decision, why it won and why the others lost, the project owner's words, and where it was
+  applied. It is a vmd store, with its schema in `docs/decisions/.vmd/schema/`. Compare a bug or a feature request with the
+  decisions it touches before choosing how to address it.
+- `docs/draft/vollmond-proposal-review.md` holds the review of Draft v0.1 and the **decision log**: the index of the decision
+  records, one line per decision, grouped by round.
 - `docs/plan/implementation-plan.md` breaks the implementation into phases and tasks. Each task is a GitHub issue, and each phase a
   milestone. Work is tracked in GitHub issues.
 
 ## Changing the proposal
 
-- **A decision goes into the decision log in the same change that applies it to the draft.** The draft states the current rule;
-  the reasons and the history live in the log.
+- **A decision gets its record in `docs/decisions/` in the same change that applies it to the draft**, and its line in the
+  decision log's index. The draft states the current rule; the options, the reasons and the history live in the record. A
+  decision that changes an earlier one lists it in `supersedes`, and the earlier record gets it in `superseded_by` and its new
+  `status`. Where the sources hold no rejected option or no reason, the record says "Not recorded."
+  `node scripts/check-decisions.mjs`, in `js/` after a build, reads every record and checks the links; CI runs it.
 - **The draft is one document with many cross-references.** When a rule changes, update every section that restates it. After
   renumbering a section or an open question (§20), update the places that cite it: other sections, the implementation plan (§21)
   and the rollout plan (§22).

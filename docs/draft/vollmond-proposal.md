@@ -3,8 +3,9 @@
 Status: Draft v0.11 (2026-10-11). Supersedes Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit
 `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
 `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
-rises with each round of decisions applied to the draft. The review of v0.1 and every round of decisions since are in
-[vollmond-proposal-review.md](vollmond-proposal-review.md).
+rises with each round of decisions applied to the draft. Each decision is a record in [`docs/decisions/`](../decisions/), with
+its options and reasons, and [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of
+the decisions by round.
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.

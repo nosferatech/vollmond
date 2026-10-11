@@ -29,7 +29,7 @@ Decided for this plan (project owner, 2026-10-10):
 One top-level directory per language (project owner, 2026-10-10), the model being Apache Arrow's layout of `cpp/`, `python/` and
 `js/` around a shared specification and integration tests. The TypeScript implementation lives in `js/`; a Python implementation
 will go in `python/` later. `docs/` and `conformance/` stay at the root and are shared by all languages. Each language's
-conformance runner lives next to its implementation (decision log, phase I0), not in `conformance/`.
+conformance runner lives next to its implementation (decision C29), not in `conformance/`.
 
 The TypeScript workspace in `js/` is an npm workspace with two published packages to start, split further only when a consumer
 needs a part without the rest, and a private package for the conformance runner (decision K11):
@@ -73,8 +73,8 @@ comes back only if measurements ask for it.
 - Each task below is a GitHub issue, and each pull request closes one issue, or a few that stand or fall together.
 - A pull request runs the type check, lint, tests and the conformance suite. It merges once CI passes and the project owner
   approves.
-- A change that alters the behavior the spec describes changes the proposal and the decision log in the same pull request
-  (`AGENTS.md`).
+- A change that alters the behavior the spec describes changes the proposal, and adds its decision record to `docs/decisions/`,
+  in the same pull request (`AGENTS.md`).
 - Every phase ends with a demonstration on real data, recorded in the phase's closing issue.
 
 ### 1.4 Real data
@@ -194,8 +194,8 @@ Exit: the VQL fixtures pass; a query over two hundred tickets answers in under 2
   of I2 and I3, from what the demonstrations showed.
 - **Releases.** `@vollmond/cli` is published to npm as 0.x from the end of I1, so that agents in vampiredb can try it. Whether the
   package names are free is checked in I0.1.
-- **The proposal moves with the code.** A fixture or an implementation that shows the spec wrong changes the spec and the decision
-  log first.
+- **The proposal moves with the code.** A fixture or an implementation that shows the spec wrong changes the spec and records the
+  decision first.
 
 ## 7. Beyond I3
 

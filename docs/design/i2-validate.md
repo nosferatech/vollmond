@@ -1244,7 +1244,7 @@ builds the portable index, as `check --fix` is until I5.
 ## 12. Open questions
 
 Each with its options, a recommendation and what follows from it. Those marked *spec* change the specification if answered as
-recommended, and go into a Draft v0.11 with their decision-log entries before the pull request that needs them (section 13).
+recommended, and go into a Draft v0.11 with their decision records before the pull request that needs them (section 13).
 
 1. **The validator.** (a) `@hyperjump/json-schema` 1.18.0; (b) Ajv 8.20.0 with `ownProperties: true`, core checking a `properties`
    entry named `__proto__` itself, `$dynamicRef` refused, and its wrong verdicts on `unevaluated*` listed as known deviations: 13
@@ -1433,7 +1433,7 @@ With the owner's answers, in the same pull request as the answers they follow fr
     invalid schema (12), the bound on schema files (20), and the list of additions (21);
   - for question 12, which reverses C2 as F1 narrowed it and Draft v0.4's correction: §5.4's sentence on readability and the
     schema; §9.5 item 1; §8.5 and J3's rule on `unreadable`; the counts of records `ls` and `query` could not read (§9.5, §12.2);
-    and a decision-log entry that names both reversed decisions;
+    and a decision record that names both reversed decisions;
   - §9.2: `$id` (question 14) and YAML anchors in schemas (15); §9.3: the spine and overlapping patterns (2), keys (8), `targets`
     (9), `unevaluatedItems` (16), `$sections` keys (17), `x-vmd-ref` without `format` (18), `x-vmd-summary` (19); §5.6 (8); §8.1,
     images (7); §8.5 (3);
