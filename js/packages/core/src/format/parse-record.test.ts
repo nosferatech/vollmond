@@ -42,8 +42,12 @@ describe("parseRecord", () => {
     expect(() => parseRecord("a.YAML", bytes("a: 1\n"))).toThrow(/is not the path of a record/);
   });
 
-  // Deviation from the I1 design, recorded in issue #11: until its parser lands, a Markdown record throws.
-  test("throws for a .md record, whose format has no parser yet", () => {
-    expect(() => parseRecord("a.md", bytes("a: 1\n"))).toThrow(/cannot be parsed yet/);
+  test("parses a .md file as Markdown", () => {
+    const outcome = parseRecord("notes/a.md", bytes("---\na: 1\n---\n# Title\n"));
+    expect(outcome.ok && outcome.value).toMatchObject({ path: "notes/a.md", format: "md", value: { a: 1, $title: "Title" } });
+  });
+
+  test("fails with the Markdown parser's structural errors", () => {
+    expect(parseRecord("a.md", bytes("---\na: 1\n")).issues.map((issue) => issue.code)).toEqual(["syntax-error"]);
   });
 });

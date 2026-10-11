@@ -75,6 +75,12 @@ export interface NodeInit {
   readonly heading?: HeadingInit;
 }
 
+/** Where a parser adds the nodes it walks: a {@link NodeIndexBuilder}, or a list that adds them to one later. */
+export interface NodeSink {
+  /** Adds a node under the node at `parent`, after the nodes already added there, and returns the new node's exact path. */
+  add(parent: string, key: string | number, init: NodeInit): string;
+}
+
 /** A node as the builder holds it until `build`, when its derived anchor, if any, is known. */
 interface NodeDraft {
   readonly at: string;
@@ -100,7 +106,7 @@ interface NodeDraft {
  * adds no node for the repeat), a `memberRange` on an array item, a heading on a node that is not a section, a range that is
  * not a range, and any call after {@link NodeIndexBuilder.build}.
  */
-export class NodeIndexBuilder {
+export class NodeIndexBuilder implements NodeSink {
   readonly #drafts = new Map<string, NodeDraft>();
   #built = false;
 

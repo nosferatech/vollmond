@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { readLineBreaksAsLf, sliceUnitText, type UnitText } from "./unit-text.js";
+import { readLineBreaksAsLf, sliceIndentedUnitText, sliceUnitText, type UnitText } from "./unit-text.js";
 
 /** The file index of every index of a unit text, from 0 to its length. */
 function fileIndexes(unit: UnitText): number[] {
@@ -117,5 +117,57 @@ describe("readLineBreaksAsLf", () => {
       }),
       { numRuns: 1000 },
     );
+  });
+});
+
+describe("sliceIndentedUnitText", () => {
+  test("removes up to the indentation's spaces from each line, and maps indexes back past them", () => {
+    // "  a\n   b\n c\n" from index 0, as the content of a fence indented by two spaces.
+    const file = "  a\n   b\r\n c\rd";
+    const unit = sliceIndentedUnitText(file, 0, file.length, 2);
+    expect(unit.text).toBe("a\n b\r\nc\rd");
+    expect(fileIndexes(unit)).toEqual([2, 3, 6, 7, 8, 9, 11, 12, 13, 14]);
+    // At a line's start a range ends before the spaces removed there, and at the unit's start after them.
+    expect([0, 2, 6, 8].map((index) => unit.fileEnd(index))).toEqual([2, 4, 10, 13]);
+  });
+
+  test("a tab stops the removal, and so does the end of the slice", () => {
+    const unit = sliceIndentedUnitText("x\n\t a\n  ", 2, 8, 3);
+    expect(unit.text).toBe("\t a\n");
+    expect(unit.fileIndex(unit.text.length)).toBe(8);
+    expect(unit.fileEnd(unit.text.length)).toBe(6);
+  });
+
+  test("an indentation of 0 is a plain slice, and an empty slice has the one index of its place", () => {
+    expect(sliceIndentedUnitText("ab\n cd", 1, 6, 0).text).toBe("b\n cd".slice(0, 5));
+    expect(fileIndexes(sliceIndentedUnitText("abc", 2, 2, 2))).toEqual([2]);
+  });
+
+  test("agrees with removing the spaces line by line, on random texts", () => {
+    const piece = fc.constantFrom("a", " ", "\t", "\r", "\n", "\r\n", "\u{E9}");
+    fc.assert(
+      fc.property(fc.array(piece, { maxLength: 30 }), fc.nat(4), (pieces, indent) => {
+        const file = pieces.join("");
+        const unit = sliceIndentedUnitText(file, 0, file.length, indent);
+        // The oracle: every unit index maps to a file index whose character is the unit's.
+        for (let index = 0; index < unit.text.length; index++) {
+          expect(file[unit.fileIndex(index)]).toBe(unit.text[index]);
+          expect(unit.fileEnd(index)).toBeLessThanOrEqual(unit.fileIndex(index));
+        }
+        const lines = file.split(/(?<=\r\n|\r(?!\n)|\n)/);
+        const expected = lines.map((line) => line.replace(new RegExp(`^ {0,${indent}}`), "")).join("");
+        expect(unit.text).toBe(file === "" ? "" : expected);
+      }),
+      { numRuns: 1000 },
+    );
+  });
+
+  test.each([
+    [0, 4, 1],
+    [2, 1, 1],
+    [0, 1, -1],
+    [0, 1, 0.5],
+  ])("refuses the range [%d, %d) or the indentation %d", (start, end, indent) => {
+    expect(() => sliceIndentedUnitText("abc", start, end, indent)).toThrow(RangeError);
   });
 });
