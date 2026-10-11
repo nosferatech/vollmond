@@ -15,6 +15,10 @@ Decided for this plan (project owner, 2026-10-10):
 - **One top-level directory per language**: TypeScript in `js/`, Python later in `python/`. `docs/` and `conformance/` stay at the
   root and are shared by all languages. Each language's conformance runner lives next to its implementation; the suite's data
   stays shared in `conformance/`.
+- **Demonstration stores** (card K, decision K3). vampiredb's store is its `docs/` directory, not the whole repository, read with
+  a configuration kept in this repository. eternal-circle becomes a vmd store with its own committed configuration.
+- **The phase I1 design** ([`docs/design/i1-read.md`](../design/i1-read.md), approved in #59, with the answers of card K) refines
+  the I1 tasks below.
 
 ---
 
@@ -27,13 +31,14 @@ One top-level directory per language (project owner, 2026-10-10), the model bein
 will go in `python/` later. `docs/` and `conformance/` stay at the root and are shared by all languages. Each language's
 conformance runner lives next to its implementation (decision log, phase I0), not in `conformance/`.
 
-The TypeScript workspace in `js/` is an npm workspace with two packages to start, split further only when a consumer needs a part
-without the rest:
+The TypeScript workspace in `js/` is an npm workspace with two published packages to start, split further only when a consumer
+needs a part without the rest, and a private package for the conformance runner (decision K11):
 
 | Location | Contents | Runs in |
 |---|---|---|
 | `js/packages/core` (`@vollmond/core`) | the data model, the three parsers and serializers, addresses, references, schemas, VQL, the index tables, the storage contract's types. No Node APIs | Node, browsers, Lambda |
 | `js/packages/cli` (`@vollmond/cli`) | the `vmd` command, the local filesystem and git working-copy backends, the local index cache | Node |
+| `js/packages/conformance` (private) | the TypeScript conformance runner (I1.10); not published | Node |
 | `conformance/` | the language-neutral conformance suite (§19.1 of the proposal): fixtures and the runner contract, no code. Each language's runner is in that language's directory | any implementation |
 
 `core` stays free of Node APIs so that the website and the Lambda functions of I6 and I7 use the same code. Anything that needs the
@@ -53,8 +58,10 @@ filesystem, `git` or a process goes in `cli`, behind the storage contract's inte
 
 This tooling is for the TypeScript implementation and is configured in `js/`; the Python tooling will be chosen when `python/`
 starts. Exact dependency versions are pinned when the workspace is created. The libraries are those of the proposal's Appendix C:
-`micromark` and `mdast-util-from-markdown` with the GFM and front-matter extensions, `yaml`, `jsonc-parser`, Ajv with
-`ajv-formats`. Derived anchors follow vmd's own rule (proposal §6.3), implemented in `core`, so `github-slugger` is not used.
+`micromark` and `mdast-util-from-markdown` with the four extensions of GFM 0.29 (tables, strikethrough, task list items,
+autolink literals) taken one by one, `yaml`, `jsonc-parser`, Ajv with `ajv-formats`. The `gfm()` bundle is not used, since it adds
+footnotes, which GFM 0.29 does not have, and front matter follows vmd's own rule rather than an extension (I1 design, section
+3.4). Derived anchors follow vmd's own rule (proposal §6.3), implemented in `core`, so `github-slugger` is not used.
 
 No native dependencies: the local index cache is JSONL files, the same format as the portable index (§14.4), not SQLite. SQLite
 comes back only if measurements ask for it.
@@ -70,21 +77,24 @@ comes back only if measurements ask for it.
 
 ### 1.4 Real data
 
-vampiredb's docs and tickets are the test bed. They are read from a local checkout, never modified by this work. Two things make
-that possible before vampiredb migrates:
+vampiredb's docs and the tickets in eternal-circle are the test bed.
+
+**vampiredb's docs** are a store whose root is `~/vampiredb/docs`, not the whole checkout (decision K3). They are read from the
+local checkout and never modified by this work. Two things make that possible before vampiredb migrates:
 
 - vampiredb's docs already use `<a id>` anchors on headings and blocks, and relative links with anchors, which is the syntax of
-  the proposal's §6 and §8.
-- `vmd --config PATH` (from I2) takes a store configuration from outside the store, so a trial configuration for vampiredb can
-  live in this repository under `examples/vampiredb/`.
+  the proposal's §6 and §8. A link from the docs to a file outside `docs/` leaves the store (proposal §8.2).
+- `vmd --config PATH` (from I1.8) takes a store configuration from outside the store, so the configuration for vampiredb's docs
+  lives in this repository under `examples/vampiredb/`.
 
 Two repositories hold demonstration stores (project owner, 2026-10-09):
 
 - **`nosferatech/eternal-circle`**, created by the project owner on 2026-10-09, internal to the organization, cloned at
   `~/eternal-circle`: tickets kept with vmd, iterated on through I3 to I7. On 2026-10-10 the project owner moved vampiredb's
   tickets there, with Belfry's, and gave every ticket id a project prefix (`VDB-0158`, `BELFRY-0003`, files named
-  `PREFIX-NNNN-slug.md`). They still use the header-table format, which the importer of I3.7 converts. It is also where rollout
-  step R3 can end up.
+  `PREFIX-NNNN-slug.md`). They still use the header-table format. eternal-circle becomes a vmd store with its own
+  `.vmd/config.yaml` and schemas, committed in that repository, and is made compliant with the importer of I3.7 (decision K3); it
+  gets no trial configuration in this repository. It is also where rollout step R3 can end up.
 - **`nosferatech/vollmond-practice`, public**, created once the private store has matured: a demonstration and test store for
   GitHub as a backend (I6, I7), with data that can be public.
 
@@ -121,14 +131,14 @@ Goal: an agent can list, outline and read any record by address, with the output
 | **I1.4** Markdown parser | the section tree of §5.3 from `mdast-util-from-markdown` positions: front matter, title heading, outline by heading level, data blocks, `$body` sliced from the source rather than re-serialized, the `<a>` element on headings and blocks, the byte ranges of block anchors (proposal §6.2), container blocks left as prose | I1.1, I0.5 |
 | **I1.5** Keys and anchors | section keys as metadata (`@key`), derived anchors by vmd's rule with its repeat suffixes (proposal §6.3), the record's anchor table, tags, block anchors | I1.4, I0.7 |
 | **I1.6** Addresses | the §7 grammar; exact resolution; semantic resolution over fields and `$sections` (schema-declared keys come in I2.3); canonical addresses (§7.5) | I1.5, I0.6 |
-| **I1.7** Storage contract and local backend | the contract's TypeScript interface (§11.2); the filesystem backend's read operations; the portable regex checker for `grep`; file versions from `git ls-files -s` in a git working copy, hashing otherwise | I1.1 |
-| **I1.8** CLI foundation | global options, output conventions (one line per item, `~tok`, default limits, cursors, `--json`), the issue format of §12.3, exit codes | I1.7 |
+| **I1.7** Storage contract and local backend | the contract's TypeScript interface (§11.2); the filesystem backend's read operations; the portable regex checker for `grep`; file versions hashed from the bytes the backend returns, in a git working copy too, since the blob ids git stores reflect its clean filters; `storage-failed` for a read the backend cannot complete (decision K12) | I1.1 |
+| **I1.8** CLI foundation | global options, `--config PATH` for a configuration kept outside the store (decision K3), output conventions (one line per item, `~tok`, default limits, cursors, `--json`), the issue format of §12.3, exit codes | I1.7 |
 | **I1.9** Read commands | `ls`, `cat`, `grep`, `outline`, `get` with `--value`, `--body`, `--max-chars` | I1.6, I1.8 |
-| **I1.10** Conformance runner | the TypeScript runner for the suite, run in CI | I0.3 |
-| **I1.11** Demonstration | `vmd outline` and `vmd get` over all of vampiredb's docs; timing of `Minimal_Log.md` (667 KB) | everything above |
+| **I1.10** Conformance runner | the TypeScript runner for the suite, in the private package `js/packages/conformance` (decision K11), run in CI | I0.3 |
+| **I1.11** Demonstration | `vmd outline` and `vmd get` over the store `~/vampiredb/docs`, with `--config` and a configuration in `examples/vampiredb/`; timing of `design/Minimal_Log.md` (667 KB) | everything above |
 
-Exit: the I0 fixtures for §4 to §7 pass; `vmd outline docs/design/Minimal_Log.md` runs in well under a second; every heading and
-block anchor in vampiredb's docs resolves with `vmd get`.
+Exit: the I0 fixtures for §4 to §7 pass; `vmd outline design/Minimal_Log.md` in the store `~/vampiredb/docs` runs in well under
+a second; every heading and block anchor in vampiredb's docs resolves with `vmd get`.
 
 ---
 
@@ -139,16 +149,16 @@ on.
 
 | Task | Deliverable | Depends on |
 |---|---|---|
-| **I2.1** Configuration | `.vmd/config.yaml` and `--config PATH`; collections, globs, `ignore`, the uniqueness mode; the path rules of §3.2 | I1.7 |
+| **I2.1** Configuration | the whole of `.vmd/config.yaml`, also through I1.8's `--config PATH`; collections, globs, `ignore`, the uniqueness mode; the path rules of §3.2 | I1.7 |
 | **I2.2** Schemas | schema loading from JSON or YAML; Ajv for 2020-12 with the logical types of §4.3 as asserted formats, with vmd's own date and time checks, since `ajv-formats` differs from §4.3 on separators and offsets; `x-vmd-list` compiled to standard JSON Schema plus the uniqueness keyword; `x-vmd-ref`, `x-vmd-summary`, `x-vmd-ordered` | I2.1 |
 | **I2.3** Keyed lists and uniqueness | semantic resolution through schema-declared keys; strict and lenient modes; cardinality checked for every address before evaluation | I1.6, I2.2 |
 | **I2.4** References | extraction from Markdown links and link definitions (as offsets into `$body`), `$ref` objects, typed strings; URI resolution against the citing record; links that leave the store skipped; assets checked for existence | I1.6 |
 | **I2.5** Local index | the four tables of §14.2 in `.vmd/cache/`, keyed by file version; re-parsing only changed files and re-resolving only the references into them | I2.4 |
 | **I2.6** Commands | `check` (with `--changed REV`), `refs` (`--to`, `--from`, `--context`), `schema` | I2.3, I2.5 |
-| **I2.7** vampiredb trial | `examples/vampiredb/`: a configuration and minimal schemas for vampiredb's docs, and for the tickets in eternal-circle | I2.6 |
-| **I2.8** Demonstration | `vmd check` against vampiredb compared with `scripts/docs.sh`: every broken link `docs.sh` reports, `vmd` reports too; differences explained | I2.7 |
+| **I2.7** vampiredb trial | `examples/vampiredb/`: a configuration and minimal schemas for vampiredb's `docs/` only, the store root of I1.11 | I2.6 |
+| **I2.8** Demonstration | `vmd check` over vampiredb's docs compared with `scripts/docs.sh`: every broken link `docs.sh` reports inside `docs/`, `vmd` reports too; differences explained, among them links that leave `docs/` and so the store | I2.7 |
 
-Exit: the I0 fixtures for §8 and §9 pass; a warm `vmd check` over vampiredb's docs and tickets takes under two seconds.
+Exit: the I0 fixtures for §8 and §9 pass; a warm `vmd check` over vampiredb's docs takes under two seconds.
 
 ---
 
@@ -161,11 +171,11 @@ Goal: VQL works over a store, in both targets, with the output of §10.5 and §1
 | **I3.1** VQL parser | the §10.2 grammar to an AST, with errors that point at a position in the query | I0 |
 | **I3.2** Evaluator | field resolution (semantic dotted paths, pointers, pseudo-fields), comparisons by logical type and enum order, any-element matching, sections compared by `$body`, full-text tokens and phrases | I3.1, I2.3 |
 | **I3.3** Targets | `records` and `nodes`; own-text matching for sections; field terms resolved upward through ancestors; per-collection defaults | I3.2 |
-| **I3.4** Parameters | `fields` with `@match` and `@record`, a stable `sort`, `limit`, opaque cursors bound to the query and the head, `per_record`, `show`, `max_chars`, totals | I3.3 |
+| **I3.4** Parameters | `fields` with `@match` and `@record`, a stable `sort`, `limit`, opaque cursors bound to the query and the head, `per_record`, `show`, `max_chars`, totals; the strict read mode of §9.5, whose first consumer is `query` (I1 design, section 5) | I3.3 |
 | **I3.5** Output | `vmd query` with the grouped output of §12.2, excerpts, `-l` | I3.4, I1.8 |
 | **I3.6** Fixtures and properties | VQL fixtures in the suite; a property test that printing an AST and parsing it again gives the same AST | I3.1 |
-| **I3.7** Header-table importer | a one-off converter from the ticket header tables in eternal-circle to front matter, run on a copy. It is also the migration tool of rollout step R3 | I1.4 |
-| **I3.8** Demonstration | the views of eternal-circle's `tickets/+index.md` and `index.html` (by status, severity, component, text search) reproduced with `vmd query` on the converted copy; node queries over the docs | I3.5, I3.7 |
+| **I3.7** Header-table importer and the eternal-circle store | a converter from the ticket header tables to front matter, also the migration tool of rollout step R3; in eternal-circle, a committed `.vmd/config.yaml` with collections and minimal schemas for the tickets, and the converted tickets, landed there through a pull request once `vmd check` passes (decision K3) | I1.4, I2.6 |
+| **I3.8** Demonstration | the views of eternal-circle's `tickets/+index.md` and `index.html` (by status, severity, component, text search) reproduced with `vmd query` in eternal-circle; node queries over vampiredb's docs | I3.5, I3.7 |
 
 Exit: the VQL fixtures pass; a query over two hundred tickets answers in under 200 ms.
 
