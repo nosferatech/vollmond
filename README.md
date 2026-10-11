@@ -8,8 +8,8 @@ Vollmond MD is mixed data format plus access framework, built around Markdown an
 
 Each language has its own top-level directory. The TypeScript implementation is an npm workspace in `js/`: `js/packages/core`
 (`@vollmond/core`, no Node APIs, so it also runs in browsers and Lambda), `js/packages/cli` (`@vollmond/cli`, the `vmd`
-command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans
-and specification are in `docs/`, and the conformance suite in `conformance/`; both are shared by all languages and stay at the
+command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans,
+specification and decisions (`docs/decisions/`, one vmd record per decision) are in `docs/`, and the conformance suite in `conformance/`; both are shared by all languages and stay at the
 root. `examples/` holds configurations for stores kept outside this repository, with their demonstrations, such as
 `examples/vampiredb/` (task I1.11).
 
@@ -29,8 +29,8 @@ npm run conformance # run the conformance suite after a build; writes conformanc
 `npm run conformance` takes `--profile`, `--section` and `--id` to narrow the run, each repeatable, and `--ids-failing` to print
 the cases that fail. The cases it skips, with the reasons, are in `js/packages/conformance/declaration.json`.
 
-CI runs build, type check, lint, tests, a smoke run of the built command and the conformance suite on every pull request and on
-pushes to `main`, and keeps the conformance report as an artifact of the run. Dependencies are pinned to exact versions
+CI runs build, type check, lint, tests, a smoke run of the built command, a read of the decision records in `docs/decisions/`
+(`node scripts/check-decisions.mjs`) and the conformance suite on every pull request and on pushes to `main`, and keeps the conformance report as an artifact of the run. Dependencies are pinned to exact versions
 (`js/.npmrc`); commit `js/package-lock.json` with any change to them. CI runs the Node release in `js/.node-version`, raised by
 hand.
 

@@ -52,6 +52,9 @@ jobs:
           node packages/cli/dist/main.js --store "$store" outline "$ticket" | grep -q '^  #done '
           node packages/cli/dist/main.js --store "$store" --json get "$ticket#done" --meta all | grep -q '"@address":"#done"'
           node packages/cli/dist/main.js --store "$store" grep -F 'clean root' | grep -q "^$ticket:"
+      # The decision records are a vmd store: every record must read with no issue, and its supersessions and links must hold.
+      - name: Read the decision records
+        run: node scripts/check-decisions.mjs
       # Any case that fails or is in error fails the job. The report is uploaded either way, to show which, unless the run was
       # cancelled.
       - name: Run the conformance suite
