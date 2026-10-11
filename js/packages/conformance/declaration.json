@@ -1,15 +1,5 @@
 {
   "name": "vollmond-ts",
   "version": "0.0.0",
-  "profiles": ["read"],
-  "skip": [
-    {
-      "operation": "meta",
-      "reason": "computed fields come with I1.6, #15"
-    },
-    {
-      "operation": "resolve",
-      "reason": "addresses come with I1.6, #15"
-    }
-  ]
+  "profiles": ["read"]
 }

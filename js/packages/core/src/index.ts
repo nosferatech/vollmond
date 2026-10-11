@@ -1,6 +1,25 @@
 /** Name of this package, for messages that identify which library produced them. */
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
+export {
+  type Address,
+  type AddressReading,
+  encodeExactPath,
+  encodeStep,
+  type Fragment,
+  formatAddress,
+  formatFragment,
+  parseAddress,
+} from "./address/address.js";
+export {
+  type AddressUse,
+  blockAnchorAddress,
+  canonicalAddress,
+  type RecordLookup,
+  resolveAddress,
+  resolveStoreAddress,
+  type Target,
+} from "./address/resolve.js";
 export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
 export { parseMarkdownRecord } from "./format/markdown/markdown.js";
@@ -9,6 +28,15 @@ export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type 
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
 export { hasStructuralError, type Issue, type IssueInit, makeIssue, type NameOccurrence, repeatedNodes } from "./issue/issue.js";
 export { fail, type Outcome, succeed } from "./issue/outcome.js";
+export {
+  COMPUTED_FIELD_NAMES,
+  type ComputedAnchor,
+  type ComputedFieldName,
+  type ComputedFields,
+  type ComputedIssue,
+  computeFields,
+  type SourceLocation,
+} from "./meta/computed-fields.js";
 export { childPath } from "./record/exact-path.js";
 export {
   type HeadingInfo,

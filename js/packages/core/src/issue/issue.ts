@@ -1,8 +1,7 @@
+import type { Target } from "../address/resolve.js";
 import type { Position } from "../text/source-text.js";
 import { ISSUE_CODES, type IssueClass, type IssueCode, type Severity } from "./codes.js";
 
-// Deviation from the I1 design, recorded in issue #10: no `candidates` member for an ambiguity yet, since its type is an
-// address target, which the address module defines when it lands.
 /**
  * A problem vmd found: in a record, in the store's configuration, or in an operation's input. Messages and hints are for
  * people; the code, the severity, the class, `path` and `at` are what programs compare.
@@ -24,6 +23,8 @@ export interface Issue {
   readonly position?: Position;
   /** For an issue inside a `$body` or a `$title`, the UTF-8 byte offset into the value that `at` names. */
   readonly offset?: number;
+  /** For an ambiguity, such as `address-ambiguous`, each node that matched, in the order resolution met them. */
+  readonly candidates?: readonly Target[];
 }
 
 /** The members of an issue that its code does not determine. */
@@ -35,6 +36,7 @@ export interface IssueInit {
   readonly hint?: string;
   readonly position?: Position;
   readonly offset?: number;
+  readonly candidates?: readonly Target[];
   /** The class where the context gives the code one other than its default. */
   readonly class?: IssueClass;
   /** The severity where the context gives the code one other than its default. */
@@ -63,6 +65,7 @@ export function makeIssue(init: IssueInit): Issue {
   if (init.hint !== undefined) issue.hint = init.hint;
   if (init.position !== undefined) issue.position = init.position;
   if (init.offset !== undefined) issue.offset = init.offset;
+  if (init.candidates !== undefined) issue.candidates = Object.freeze([...init.candidates]);
   return Object.freeze(issue);
 }
 
