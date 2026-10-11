@@ -46,8 +46,9 @@ Run on 2026-10-11 against the vampiredb checkout at `~/vampiredb`, with Node 24.
 or later paragraph, such as `#named-segment-past-prefix-dropped` at line 1319. §6.2 of the proposal makes an anchor element a
 block anchor only at the start of a list item or of a top-level paragraph of a `$body`, so vmd raises `anchor-element-ignored`
 for each one (a warning), and `vmd get` finds none of them. Twelve of them are the target of links, 40 links in all, which GitHub
-follows. Whether the documents should move these anchors or §6.2 should accept them is for the project owner to decide; this
-demonstration does not.
+follows. Whether the documents should move these anchors or §6.2 should accept them was for the project owner to decide; this
+demonstration did not. Decision T (Draft v0.11) widened §6.2 to accept them, and the numbers here stand until the anchor code
+follows it.
 
 **The checks fail when they should.** Each check against the files was made to fail once:
 
@@ -64,7 +65,8 @@ The check against vmd's parse misses the slug, range and dropped-block bugs.
 **Failures by class.** vmd bugs: none. Problems in vampiredb's documents, such as duplicate anchors: none. Questions for the
 specification: the 17 elements above, and a block anchor's canonical address when its name is not singular. §7.5 defines the
 canonical address of nodes only. For a block whose name is not singular, `core` gives the address of the `$body` that holds it.
-vampiredb has no such block, but a copy of its docs with a planted duplicate, run through `demo.mjs`, shows the case.
+vampiredb has no such block, but a copy of its docs with a planted duplicate, run through `demo.mjs`, shows the case. Decision R2
+(Draft v0.11) makes that address the `$body`'s plus the block's range, and §7.5 now says so.
 
 ## Timing
 

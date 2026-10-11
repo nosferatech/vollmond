@@ -71,7 +71,7 @@
       "spec": ["6.2", "D"],
       "profiles": ["validate"],
       "operation": "check",
-      "description": "Character references in an anchor element's attributes are not decoded, so id=\"a&amp;b\" is the name a&amp;b, which is anchor-invalid (§6.2, decision P8).",
+      "description": "Character references in an anchor element's attributes are not decoded, so id=\"a&#97;b\" is the name a&#97;b, which is anchor-invalid, where decoding would give the valid name aab (§6.2, decision P8).",
       "input": {"records": ["escaped-id.md"]},
       "expect": {"issues": [{"code": "anchor-invalid", "severity": "error", "path": "escaped-id.md", "at": "/$sections/0"}]}
     },

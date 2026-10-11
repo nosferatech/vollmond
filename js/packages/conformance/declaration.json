@@ -4,8 +4,28 @@
   "profiles": ["read"],
   "skip": [
     {
+      "id": "addresses/cardinality/lenient-anchor-and-derived-selector",
+      "reason": "Draft v0.11 (R5): a selector's matches in document order follow in a follow-up pull request"
+    },
+    {
       "id": "anchors/blocks-and-tags/block-anchors-in-later-paragraphs",
       "reason": "Draft v0.11 (T, P10): the anchor table follows in a follow-up pull request"
+    },
+    {
+      "id": "data/jsonc/jsonc-data-block",
+      "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
+    },
+    {
+      "id": "data/jsonc/jsonc-data-block-without-member",
+      "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
+    },
+    {
+      "id": "data/jsonc/jsonc-record",
+      "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
+    },
+    {
+      "id": "data/jsonc/jsonc-trailing-comma",
+      "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
     {
       "id": "data/section-keys/data-title-inline-content",

@@ -1,5 +1,5 @@
 # Record
 
-## Part<a id="a&amp;b"></a>
+## Part<a id="a&#97;b"></a>
 
 Text.

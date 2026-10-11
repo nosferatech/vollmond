@@ -54,12 +54,13 @@ describe("the resolve operation", () => {
     }
   });
 
-  test("compares a selector's targets without order, and a singular address's in order", () => {
+  test("compares a selector's targets in order, since a selector returns them in document order, as a singular address's", () => {
     const a = { path: "a.md", at: "/x", address: "#x" };
     const b = { path: "a.md", at: "/y", address: "#y" };
     const equal = (as: string, expected: JsonValue, actual: JsonValue) =>
       resolveOperation.equalResults?.(expected, actual, { as }, context({}));
-    expect(equal("selector", [a, b], [b, a])).toBe(true);
+    expect(equal("selector", [a, b], [a, b])).toBe(true);
+    expect(equal("selector", [a, b], [b, a])).toBe(false);
     expect(equal("selector", [a, b], [a, a])).toBe(false);
     expect(equal("singular", [a, b], [b, a])).toBe(false);
     expect(equal("singular", [a], [a])).toBe(true);

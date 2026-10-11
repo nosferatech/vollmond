@@ -6,7 +6,8 @@ import { compared } from "./parse.js";
 /**
  * The `resolve` operation: the targets of an address in the case's store, through core's `resolveStoreAddress`, each as
  * `{path, at, address}` with `range` as `[start, end]` for a block anchor; or the issues that make it fail. A record is a file
- * of the store with a record's extension, none of whose segments starts with `.` (so not in `.vmd/`). A selector's targets are compared without order.
+ * of the store with a record's extension, none of whose segments starts with `.` (so not in `.vmd/`). A selector's targets are
+ * compared in order, since a selector returns its matches in document order.
  */
 export const resolveOperation: OperationAdapter = {
   validate: (input) => {
@@ -28,10 +29,8 @@ export const resolveOperation: OperationAdapter = {
       ? { ok: true, result: outcome.value.targets.map(targetResult), issues: [] }
       : { ok: false, issues: outcome.issues.map(compared) };
   },
-  equalResults: (expected: JsonValue, actual: JsonValue, input: JsonObject, { comparison }) =>
-    input.as === "selector" && Array.isArray(expected) && Array.isArray(actual)
-      ? comparison.equalUnordered(expected, actual)
-      : comparison.equal(expected, actual),
+  equalResults: (expected: JsonValue, actual: JsonValue, _input: JsonObject, { comparison }) =>
+    comparison.equal(expected, actual),
 };
 
 /** A target in the suite's shape. */
