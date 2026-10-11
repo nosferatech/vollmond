@@ -118,14 +118,14 @@ test groups that share one schema.
 
 **Runners live with their implementations, not in the suite** (decisions C29 and L1). The TypeScript runner belongs to the
 TypeScript implementation in `js/`, as the private package `js/packages/conformance` beside the library it tests, and a Python
-runner to the Python implementation in `python/`. `conformance/` then holds data
-only, and another implementation can copy the directory without taking any code. (A git submodule would bring the whole repository
-with it.) The JSON-Schema-Test-Suite works this way, leaving the runner to each implementer. The alternative is a single shared
-runner that drives each implementation through a process protocol, as toml-test (github.com/toml-lang/toml-test) does. Its runner
-sends TOML to an implementation's decoder on standard input and compares the JSON that comes back, with every value tagged by type
-and written as a string. That keeps the comparison in one place. It was rejected because every implementation would have to build
-and maintain an adapter program, numbers and bytes would cross one more serialization boundary that needs its own exactness rules,
-and checking a Python implementation would need the runner's language as well. The comparison rules here are short, and the
+runner to the Python implementation in `python/`. `conformance/` then holds data only, and another implementation can copy the
+directory without taking any code. (A git submodule would bring the whole repository with it.) The JSON-Schema-Test-Suite works
+this way, leaving the runner to each implementer. The alternative is a single shared runner that drives each implementation
+through a process protocol, as toml-test (github.com/toml-lang/toml-test) does. Its runner sends TOML to an implementation's
+decoder on standard input and compares the JSON that comes back, with every value tagged by type and written as a string. That
+keeps the comparison in one place. It was rejected because every implementation would have to build and maintain an adapter
+program, numbers and bytes would cross one more serialization boundary that needs its own exactness rules, and checking a Python
+implementation would need the runner's language as well. The comparison rules here are short, and the
 [self-test](#runner-self-test) checks each runner's copy of them. `conformance/` therefore needs no `package.json`.
 
 ---
@@ -668,11 +668,14 @@ is as easy to write in any language, and its members are defined here once.
 
 ## Runner self-test
 
-The `selftest` cases check the runner's comparison, not the implementation. They use the `compare` operation, need no profile,
-and are always selected. They exist because the likeliest runner bugs make every case pass, or fail, without complaint. A
-comparison that compares the decimal text of numbers rather than their doubles, that tells `-0` from `0`, that lets `true` equal
-`1`, that ignores a member whose value is `null`, or that compares unordered lists as sets gives wrong verdicts. Each self-test
-case pairs two values that one specific wrong comparison would misjudge.
+The `selftest` cases check the runner's comparison, not the implementation. They use the `compare` operation, need no profile, and
+are always selected. They exist because the likeliest runner bugs make every case pass, or fail, without complaint. A comparison
+that compares the decimal text of numbers rather than their doubles, that tells `-0` from `0`, that lets `true` equal `1`, that
+ignores a member whose value is `null`, or that compares unordered lists as sets gives wrong verdicts. Each self-test case pairs
+two values that one specific wrong comparison would misjudge. The cases on numbers check the reader and the comparison together: a
+runner reads every number as its double, `-0` as `0` ([Reading case files](#reading-case-files)), before it compares, so
+`negative-zero` fails only when the reader keeps `-0` and the comparison tells it from `0`, and a runner's own tests check each
+half alone.
 
 ---
 
@@ -732,6 +735,36 @@ Alternatives that lost:
    `severity`, `path` and `at`.
 8. Compare as [Comparing results](#comparing-results) and [Expected issues](#expected-issues) say.
 9. Write the report, and exit with the status [Reporting results](#reporting-results) gives.
+
+### Defaults where this README is silent
+
+The TypeScript runner met these points, which the rules above leave open. Each is the runner's default until the project owner
+decides it, and another runner should do the same in the meantime, so that reports compare.
+
+- **A case file that cannot be read at all** has no case ids to report. It gives one `error` whose id is the file's id followed
+  by `/`, such as `markdown/broken/`, and a case without a usable `id` is reported as the file's id, `/#` and the case's index,
+  such as `markdown/broken/#3`, since `#` cannot occur in a local id. (Runner default, to be confirmed by the project owner.)
+- **A malformed case and the selection.** A criterion that a malformed case cannot be matched against, because its `profiles` or
+  `spec` cannot be read, counts as met, so that a selection never hides an error. (Runner default, to be confirmed by the project
+  owner.)
+- **An operation this README does not define**, such as the reserved `serialize` and `edit` or one from a newer suite. Its
+  unknown `input` members are rejected as for any case, but whether a known member is one it takes, and which members it
+  requires, cannot be checked, so neither is. Its cases are `error` unless a skip entry covers them. (Runner default, to be
+  confirmed by the project owner.)
+- **The parameters of `query`** are the five that [query](#query) names. The other parameters of §10.5, `show`, `max_chars` and
+  `cursor`, are unknown members, which make a case an `error`. (Runner default, to be confirmed by the project owner.)
+- **`unused_skips` on a partial run** is left out of the report, not given as an empty list, which a reader could take for "no
+  stale entries". (Runner default, to be confirmed by the project owner.)
+- **The declaration** requires `name`, `version` and `profiles`; `skip` may be left out, meaning no entries. (Runner default, to
+  be confirmed by the project owner.)
+- **An invalid selection** is one that names a profile §19.2 does not define, gives a criterion with no entries, or gives an empty
+  entry. (Runner default, to be confirmed by the project owner.)
+- **A missing `cases/`**, or one that cannot be listed, stops the runner with exit status 2, like a missing `suite.json`. (Runner
+  default, to be confirmed by the project owner.)
+- **A byte order mark** at the start of a case file, a declaration or a manifest makes it unreadable. RFC 8259 lets a parser
+  ignore one, but the suite's JSON files have none. (Runner default, to be confirmed by the project owner.)
+- **`suite.commit`** is left out when the suite's directory has an uncommitted change or an untracked file, since the commit
+  would then misname the suite. (Runner default, to be confirmed by the project owner.)
 
 ---
 

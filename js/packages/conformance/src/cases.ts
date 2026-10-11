@@ -63,8 +63,8 @@ const LOCAL_ID = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
  * Reads every case file under `<suite>/cases/`, without descending into fixture stores, and checks each case against the case
- * format. A case or a case file that breaks it gives malformed cases, never an exception. Rejects only when `cases/` itself
- * cannot be listed.
+ * format. A case or a case file that breaks it, or a case file that cannot be read, gives malformed cases, never an
+ * exception. Rejects only when a directory under `cases/` cannot be listed.
  */
 export async function loadCases(suiteDirectory: string): Promise<SuiteCases> {
   const casesDirectory = join(suiteDirectory, "cases");
@@ -73,7 +73,15 @@ export async function loadCases(suiteDirectory: string): Promise<SuiteCases> {
   const inputsNotTaken: string[] = [];
   for (const file of files) {
     const fileId = relative(casesDirectory, file).split(sep).join("/").slice(0, -CASE_FILE_SUFFIX.length);
-    const loaded = readCaseFile(await readFile(file), fileId, join(file, ".."));
+    let bytes: Uint8Array;
+    try {
+      bytes = await readFile(file);
+    } catch (error) {
+      const detail = `the case file cannot be read: ${error instanceof Error ? error.message : String(error)}`;
+      cases.push({ ok: false, id: `${fileId}/`, detail });
+      continue;
+    }
+    const loaded = readCaseFile(bytes, fileId, join(file, ".."));
     cases.push(...loaded.cases);
     inputsNotTaken.push(...loaded.inputsNotTaken);
   }

@@ -1,4 +1,4 @@
-import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -44,7 +44,7 @@ function withParse(outcome: (input: Record<string, unknown>) => Promise<Operatio
 }
 
 describe("runSuite: starting", () => {
-  const cases = { "cases/self.cases.json": caseFile([compareCase("one", 1, 1, true)]) };
+  const cases = { "cases/selftest/c.cases.json": caseFile([compareCase("one", 1, 1, true)]) };
 
   test("starts on a valid suite, declaration and selection", async () => {
     expect((await run(await makeSuite(cases))).exitCode).toBe(0);
@@ -62,7 +62,7 @@ describe("runSuite: starting", () => {
       "unknown member x",
     ],
     ["the selection is invalid", {}, { selection: { profiles: ["reading"] } }, "unknown profile reading"],
-    ["cases/ is missing", { "cases/self.cases.json": null }, {}, "cannot be listed"],
+    ["cases/ is missing", { "cases/selftest/c.cases.json": null }, {}, "cannot be listed"],
   ])("exits with 2 when %s", async (_name, files, options, message) => {
     const result = await run(await makeSuite({ ...cases, ...files }), options);
     expect(result.exitCode).toBe(2);
@@ -77,7 +77,7 @@ describe("runSuite: starting", () => {
         storeCase("with-as", "meta", { input: { store: "store", record: "a.md", as: "singular" }, pending: "#1" }),
       ]),
     });
-    const result = await run(suite, { selection: { ids: ["self/"] } });
+    const result = await run(suite, { selection: { ids: ["selftest/"] } });
     expect(result).toEqual({
       exitCode: 2,
       message: "these cases give input members that their operations do not take: meta/with-as: as",
@@ -134,6 +134,7 @@ describe("runSuite: skipping", () => {
   const declaration = (skip: object[], profiles = ["read"]) => JSON.stringify({ name: "test", version: "0", profiles, skip });
 
   test("skips pending cases first, then undeclared profiles, then skip entries, the first matching entry giving the reason", async () => {
+    // An entry counts as used when its selector matches a case, also one that an earlier entry, a profile or pending skips.
     const suite = await makeSuite({
       ...storeFiles("cases/store"),
       "cases/t.cases.json": caseFile([
@@ -146,6 +147,7 @@ describe("runSuite: skipping", () => {
         { id: "t/by-id", reason: "first" },
         { operation: "parse", reason: "second" },
         { id: "t/", reason: "third" },
+        { id: "t/pending", reason: "only pending" },
         { id: "gone/", reason: "stale" },
       ]),
     });
@@ -157,10 +159,7 @@ describe("runSuite: skipping", () => {
         { id: "t/pending", verdict: "skip", reason: "pending: #53 question 2" },
         { id: "t/profile", verdict: "skip", reason: "profile validate not declared" },
       ],
-      unused_skips: [
-        { id: "t/", reason: "third" },
-        { id: "gone/", reason: "stale" },
-      ],
+      unused_skips: [{ id: "gone/", reason: "stale" }],
     });
   });
 
@@ -182,10 +181,27 @@ describe("runSuite: skipping", () => {
   });
 });
 
+describe("runSuite: unreadable case files", () => {
+  test.skipIf(process.getuid?.() === 0)(
+    "reports a case file that cannot be read as an error, and runs the other files",
+    async () => {
+      const suite = await makeSuite({
+        "cases/locked.cases.json": caseFile([compareCase("a", 1, 1, true)]),
+        "cases/open.cases.json": caseFile([compareCase("a", 1, 1, true)]),
+      });
+      await chmod(join(suite, "cases/locked.cases.json"), 0o000);
+      expect(await results(suite)).toEqual([
+        { id: "locked/", verdict: "error", detail: expect.stringContaining("the case file cannot be read") },
+        { id: "open/a", verdict: "pass" },
+      ]);
+    },
+  );
+});
+
 describe("runSuite: selection", () => {
   const files = {
     ...storeFiles("cases/store"),
-    "cases/self.cases.json": caseFile([compareCase("one", 1, 1, true)]),
+    "cases/selftest/c.cases.json": caseFile([compareCase("one", 1, 1, true)]),
     "cases/t.cases.json": caseFile([
       storeCase("read", "parse", { spec: ["5.3"] }),
       storeCase("query", "parse", { profiles: ["read", "query"], spec: ["10.4"] }),
@@ -207,7 +223,7 @@ describe("runSuite: selection", () => {
       expect.objectContaining({
         selection: { profiles: ["query"], sections: null, ids: null },
         results: [
-          { id: "self/one", verdict: "pass" },
+          { id: "selftest/c/one", verdict: "pass" },
           { id: "t/no-lists", verdict: "error", detail: expect.stringContaining("spec must be") },
           { id: "t/query", verdict: "pass" },
         ],
@@ -216,17 +232,27 @@ describe("runSuite: selection", () => {
     expect(result.exitCode === 1 && Object.hasOwn(result.report, "unused_skips")).toBe(false);
   });
 
+  test("always selects the selftest/ topic, also a malformed case in it, and no compare case outside it", async () => {
+    const suite = await makeSuite({
+      "cases/selftest/c.cases.json": caseFile([{ ...compareCase("broken", 1, 1, true), profiles: ["read"], note: "x" }]),
+      "cases/other.cases.json": caseFile([compareCase("compare", 1, 1, true)]),
+    });
+    expect(await results(suite, { selection: { ids: ["nothing/"] } })).toEqual([
+      { id: "selftest/c/broken", verdict: "error", detail: "the case has the unknown member note" },
+    ]);
+  });
+
   test("selects by sections and by ids", async () => {
     const suite = await makeSuite(files);
     const operations = withParse(async () => ({ ok: true, result: { title: "A" }, issues: [] }));
     expect((await results(suite, { selection: { sections: ["5"] }, operations })).map((result) => result.id)).toEqual([
-      "self/one",
+      "selftest/c/one",
       "t/broken",
       "t/no-lists",
       "t/read",
     ]);
     expect((await results(suite, { selection: { ids: ["t/query"] }, operations })).map((result) => result.id)).toEqual([
-      "self/one",
+      "selftest/c/one",
       "t/query",
     ]);
   });
@@ -308,6 +334,103 @@ describe("runSuite: verdicts", () => {
     ]);
   });
 
+  test("rejects an unordered flag that is not a boolean, and accepts one that is", async () => {
+    const suite = await makeSuite({
+      "cases/t.cases.json": caseFile([
+        { ...compareCase("yes", 1, 1, true), input: { a: [1], b: [1], unordered: "yes" } },
+        { ...compareCase("false", 1, 1, true), input: { a: [1, 2], b: [2, 1], unordered: false }, expect: { result: false } },
+      ]),
+    });
+    expect(await results(suite)).toEqual([
+      { id: "t/false", verdict: "pass" },
+      { id: "t/yes", verdict: "error", detail: "input.unordered must be a boolean" },
+    ]);
+  });
+
+  test("reports a validate that throws as an error, and an equalResults that throws as a crash", async () => {
+    const suite = await suiteWith(storeCase("one", "parse"));
+    const throwing = (adapter: Partial<OperationAdapter>): OperationRegistry =>
+      new Map([["parse", { run: async () => ({ ok: true, result: { title: "A" }, issues: [] }), ...adapter }]]);
+    const validate = () => {
+      throw new Error("no validation");
+    };
+    const equalResults = () => {
+      throw new Error("no comparison");
+    };
+    expect(await results(suite, { operations: throwing({ validate }) })).toEqual([
+      { id: "t/one", verdict: "error", detail: "the input cannot be checked: no validation" },
+    ]);
+    expect(await results(suite, { operations: throwing({ equalResults }) })).toEqual([
+      { id: "t/one", verdict: "fail", detail: "the operation crashed: no comparison" },
+    ]);
+  });
+
+  test("compares only the four stable members of the issues an operation reports", async () => {
+    const suite = await suiteWith(storeCase("one", "parse", { expect: { fails: true, issues: [issue] } }));
+    const withMessage = withParse(async () => ({ ok: false, issues: [{ ...issue, message: "bad", line: 1 } as typeof issue] }));
+    expect(await results(suite, { operations: withMessage })).toEqual([{ id: "t/one", verdict: "pass" }]);
+  });
+
+  test("fails a mismatch whatever the case expects", async () => {
+    const suite = await suiteWith(storeCase("one", "parse"), storeCase("two", "parse", { expect: { fails: true, issues: [] } }));
+    const mismatching = withParse(async () => ({ mismatch: "read back 1, not 2" }));
+    expect(await results(suite, { operations: mismatching })).toEqual([
+      { id: "t/one", verdict: "fail", detail: "read back 1, not 2" },
+      { id: "t/two", verdict: "fail", detail: "read back 1, not 2" },
+    ]);
+  });
+
+  test("aborts the signal of an operation that does not settle in time, and not of one that does", async () => {
+    const suite = await suiteWith(storeCase("one", "parse"));
+    const signals: AbortSignal[] = [];
+    const hanging: OperationRegistry = new Map([
+      [
+        "parse",
+        {
+          run: (_input, { signal }) => {
+            signals.push(signal);
+            return new Promise(() => {});
+          },
+        },
+      ],
+    ]);
+    await results(suite, { operations: hanging, timeoutMs: 20 });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+    const settling: OperationRegistry = new Map([
+      [
+        "parse",
+        {
+          run: async (_input, { signal }) => {
+            signals.push(signal);
+            return { ok: true, result: { title: "A" }, issues: [] };
+          },
+        },
+      ],
+    ]);
+    await results(suite, { operations: settling });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, false]);
+  });
+
+  test("gives each case its own copy of the store's bytes", async () => {
+    const suite = await suiteWith(storeCase("one", "parse"), storeCase("two", "parse"));
+    const seen: string[] = [];
+    const mutating: OperationRegistry = new Map([
+      [
+        "parse",
+        {
+          run: async (_input, { store }) => {
+            const bytes = store?.files.get("a.md") ?? new Uint8Array();
+            seen.push(new TextDecoder().decode(bytes));
+            bytes.fill(0x21);
+            return { ok: true, result: { title: "A" }, issues: [] };
+          },
+        },
+      ],
+    ]);
+    await results(suite, { operations: mutating });
+    expect(seen).toEqual(["# A\n", "# A\n"]);
+  });
+
   test("gives the operation its store and the configuration the case names", async () => {
     const suite = await makeSuite({
       ...storeFiles("cases/store"),
@@ -340,8 +463,11 @@ describe("runSuite: verdicts", () => {
         "parse",
         {
           run: async () => ({ ok: true, result: [2, 1], issues: [] }),
-          equalResults: (expected, actual, { comparison }) =>
-            Array.isArray(expected) && Array.isArray(actual) && comparison.equalUnordered(expected, actual),
+          equalResults: (expected, actual, input, { comparison }) =>
+            input.record === "a.md" &&
+            Array.isArray(expected) &&
+            Array.isArray(actual) &&
+            comparison.equalUnordered(expected, actual),
         },
       ],
     ]);

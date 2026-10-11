@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type LoadedCase, loadCases, type SuiteCase } from "./cases.js";
+import type { Checked } from "./checked.js";
 import { type Comparison, standardComparison } from "./compare.js";
 import { OPERATIONS, takesStore } from "./contract.js";
 import { checkDeclaration, type Declaration, type SkipEntry, skipMatches } from "./declaration.js";
 import { type JsonValue, readJson } from "./json.js";
-import type { OperationContext, OperationOutcome, OperationRegistry } from "./operation.js";
+import type { FixtureStore, OperationContext, OperationOutcome, OperationRegistry } from "./operation.js";
 import { checkSelection, isSelected, type Selection, type SelectionCriteria } from "./selection.js";
 import { FixtureStores } from "./store.js";
 import { checkSuiteVersion, type SuiteVersion } from "./suite.js";
@@ -36,7 +37,7 @@ export type CaseResult =
 
 /**
  * The report of a run, in the suite's common format. `results` are in the byte order of their ids. `unused_skips`, the skip
- * entries that skipped no case, is given for a full run only, since a selection leaves entries unused by design.
+ * entries whose selector matched no case, is given for a full run only, since a selection leaves entries unused by design.
  */
 export interface Report {
   readonly suite: SuiteVersion & { readonly commit?: string };
@@ -56,6 +57,9 @@ export type RunResult =
   | { readonly exitCode: 2; readonly message: string };
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+
+/** The prefix of the global ids of the self-test's cases. */
+const SELF_TEST = "selftest/";
 
 /**
  * Runs the conformance suite: reads it, selects and skips cases, checks the stores the remaining cases read against their
@@ -96,6 +100,11 @@ export async function runSuite(options: RunOptions): Promise<RunResult> {
     if (!selects(selection.value, loadedCase)) {
       continue;
     }
+    for (const entry of declaration.value.skip) {
+      if (entryMatches(entry, loadedCase)) {
+        used.add(entry);
+      }
+    }
     if (!loadedCase.ok) {
       results.push({ id: loadedCase.id, verdict: "error", detail: loadedCase.detail });
       continue;
@@ -103,9 +112,6 @@ export async function runSuite(options: RunOptions): Promise<RunResult> {
     const suiteCase = loadedCase.case;
     const skip = skipReason(suiteCase, declaration.value);
     if (skip !== undefined) {
-      if (skip.entry !== undefined) {
-        used.add(skip.entry);
-      }
       results.push({ id: suiteCase.id, verdict: "skip", reason: skip.reason });
       continue;
     }
@@ -141,18 +147,17 @@ function sortById(cases: readonly LoadedCase[]): LoadedCase[] {
   return [...cases].sort((a, b) => Buffer.compare(key(a), key(b)));
 }
 
-/** Whether a selection selects a case. The self-test, the cases of `compare`, is always selected. */
+/** Whether a selection selects a case. The self-test, the topic `selftest/`, is always selected, also a malformed case in it. */
 function selects(selection: Selection | null, loadedCase: LoadedCase): boolean {
-  return loadedCase.ok
-    ? loadedCase.case.operation === "compare" || isSelected(selection, loadedCase.case)
-    : isSelected(selection, loadedCase);
+  const selectable = loadedCase.ok ? loadedCase.case : loadedCase;
+  return selectable.id.startsWith(SELF_TEST) || isSelected(selection, selectable);
 }
 
 /**
  * Why a case is skipped, or `undefined` when it runs. A pending case is skipped first, then a case that needs a profile the
  * declaration does not claim, then a case that a skip entry matches, the first such entry giving the reason.
  */
-function skipReason(suiteCase: SuiteCase, declaration: Declaration): { reason: string; entry?: SkipEntry } | undefined {
+function skipReason(suiteCase: SuiteCase, declaration: Declaration): { reason: string } | undefined {
   if (suiteCase.pending !== undefined) {
     return { reason: `pending: ${suiteCase.pending}` };
   }
@@ -161,7 +166,17 @@ function skipReason(suiteCase: SuiteCase, declaration: Declaration): { reason: s
     return { reason: `profile ${undeclared} not declared` };
   }
   const entry = declaration.skip.find((candidate) => skipMatches(candidate, suiteCase.id, suiteCase.operation));
-  return entry === undefined ? undefined : { reason: entry.reason, entry };
+  return entry === undefined ? undefined : { reason: entry.reason };
+}
+
+/**
+ * Whether a skip entry's selector matches a case, which makes the entry used, whether or not it gave the case's reason. A
+ * malformed case has no reliable operation, so only an `id` entry can match it.
+ */
+function entryMatches(entry: SkipEntry, loadedCase: LoadedCase): boolean {
+  return loadedCase.ok
+    ? skipMatches(entry, loadedCase.case.id, loadedCase.case.operation)
+    : "id" in entry && skipMatches(entry, loadedCase.id, "");
 }
 
 /** What `runCase` needs besides the case. */
@@ -172,45 +187,66 @@ interface CaseRun {
   readonly timeoutMs: number;
 }
 
-/** Runs one case that is neither skipped nor malformed, and judges what its operation gave. */
+/**
+ * Runs one case that is neither skipped nor malformed, and judges what its operation gave. Never rejects: a problem with the
+ * case's store or input is an `error`, and anything the adapter throws while running or comparing is a crash, so a `fail`.
+ */
 async function runCase(suiteCase: SuiteCase, run: CaseRun): Promise<CaseResult> {
   const { id, operation, input } = suiteCase;
   const contract = OPERATIONS.get(operation);
-  let context: OperationContext = { comparison: run.comparison };
+  let store: FixtureStore | undefined;
   if (contract !== undefined && takesStore(contract)) {
-    let store: Awaited<ReturnType<FixtureStores["open"]>>;
+    let opened: Checked<FixtureStore>;
     try {
-      store = await run.stores.open(suiteCase.directory, input.store, input.config);
+      opened = await run.stores.open(suiteCase.directory, input.store, input.config);
     } catch (error) {
       return { id, verdict: "error", detail: `the store cannot be read: ${describeError(error)}` };
     }
-    if (!store.ok) {
-      return { id, verdict: "error", detail: store.detail };
+    if (!opened.ok) {
+      return { id, verdict: "error", detail: opened.detail };
     }
-    context = { ...context, store: store.value };
+    store = copyStore(opened.value);
   }
   const adapter = run.operations.get(operation);
   if (adapter === undefined) {
     return { id, verdict: "error", detail: `the runner does not implement the operation ${operation}` };
   }
-  const malformed = adapter.validate?.(input);
+  let malformed: string | undefined;
+  try {
+    malformed = adapter.validate?.(input);
+  } catch (error) {
+    return { id, verdict: "error", detail: `the input cannot be checked: ${describeError(error)}` };
+  }
   if (malformed !== undefined) {
     return { id, verdict: "error", detail: malformed };
   }
-  let outcome: OperationOutcome;
+  const abort = new AbortController();
+  const context: OperationContext = {
+    comparison: run.comparison,
+    signal: abort.signal,
+    ...(store === undefined ? {} : { store }),
+  };
   try {
-    outcome = await withTimeout(adapter.run(input, context), run.timeoutMs);
+    const outcome = await withTimeout(adapter.run(input, context), run.timeoutMs, abort);
+    const equalResults = adapter.equalResults ?? ((expected, actual) => run.comparison.equal(expected, actual));
+    const mismatch = judge(suiteCase, outcome, run.comparison, (expected, actual) =>
+      equalResults(expected, actual, input, context),
+    );
+    return mismatch === undefined ? { id, verdict: "pass" } : { id, verdict: "fail", detail: mismatch };
   } catch (error) {
     return { id, verdict: "fail", detail: `the operation crashed: ${describeError(error)}` };
   }
-  const equalResults = adapter.equalResults ?? ((expected, actual) => run.comparison.equal(expected, actual));
-  const mismatch = judge(suiteCase, outcome, run.comparison, (expected, actual) => equalResults(expected, actual, context));
-  return mismatch === undefined ? { id, verdict: "pass" } : { id, verdict: "fail", detail: mismatch };
+}
+
+/** Returns a store whose file bytes are copies, so that what one case does to them reaches no other case. */
+function copyStore(store: FixtureStore): FixtureStore {
+  const files = new Map([...store.files].map(([path, bytes]) => [path, bytes.slice()]));
+  return store.config === undefined ? { files } : { files, config: store.config.slice() };
 }
 
 /**
  * Compares an operation's outcome with the case's expectation: whether it failed, its result where the case expects one, and
- * its issues as an unordered list. Returns how they differ, or `undefined` when they agree.
+ * its issues as an unordered list of their four stable members. Returns how they differ, or `undefined` when they agree.
  */
 function judge(
   suiteCase: SuiteCase,
@@ -218,12 +254,16 @@ function judge(
   comparison: Comparison,
   equalResults: (expected: JsonValue, actual: JsonValue) => boolean,
 ): string | undefined {
+  if ("mismatch" in outcome) {
+    return outcome.mismatch;
+  }
   const { expect } = suiteCase;
+  const issues = outcome.issues.map(({ code, severity, path, at }) => ({ code, severity, path, at }));
   if (expect.fails && outcome.ok) {
     return "the operation succeeded, and the case expects it to fail";
   }
   if (!expect.fails && !outcome.ok) {
-    return `the operation failed with the issues ${abridge(outcome.issues)}`;
+    return `the operation failed with the issues ${abridge(issues)}`;
   }
   if (outcome.ok && expect.result !== undefined) {
     if (outcome.result === undefined) {
@@ -233,17 +273,23 @@ function judge(
       return `expected the result ${abridge(expect.result)}, got ${abridge(outcome.result)}`;
     }
   }
-  if (!comparison.equalUnordered(expect.issues, outcome.issues)) {
-    return `expected the issues ${abridge(expect.issues)}, got ${abridge(outcome.issues)}`;
+  if (!comparison.equalUnordered(expect.issues, issues)) {
+    return `expected the issues ${abridge(expect.issues)}, got ${abridge(issues)}`;
   }
   return undefined;
 }
 
-/** Settles as `promise` does, or rejects once `milliseconds` have passed without it settling. */
-async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+/**
+ * Settles as `promise` does, or rejects once `milliseconds` have passed without it settling, aborting `abort` first so that
+ * the operation can stop.
+ */
+async function withTimeout<T>(promise: Promise<T>, milliseconds: number, abort: AbortController): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(`no outcome after ${milliseconds} ms`)), milliseconds);
+    timer = setTimeout(() => {
+      abort.abort();
+      reject(new Error(`no outcome after ${milliseconds} ms`));
+    }, milliseconds);
   });
   try {
     return await Promise.race([promise, timeout]);

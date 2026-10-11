@@ -8,8 +8,9 @@ Vollmond MD is mixed data format plus access framework, built around Markdown an
 
 Each language has its own top-level directory. The TypeScript implementation is an npm workspace in `js/`: `js/packages/core`
 (`@vollmond/core`, no Node APIs, so it also runs in browsers and Lambda), `js/packages/cli` (`@vollmond/cli`, the `vmd`
-command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans and specification are in `docs/`, and the conformance suite in
-`conformance/`; both are shared by all languages and stay at the root.
+command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans
+and specification are in `docs/`, and the conformance suite in `conformance/`; both are shared by all languages and stay at the
+root.
 
 Prerequisites: Node 24 or later and npm. Run the commands below in `js/`.
 

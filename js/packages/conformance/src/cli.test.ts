@@ -7,7 +7,9 @@ import { caseFile, compareCase, makeSuite } from "./testing/temp-suite.js";
 
 /** Writes a suite with one passing and one failing self-test case, and returns its path. */
 async function suiteWithFailure(): Promise<string> {
-  return makeSuite({ "cases/self.cases.json": caseFile([compareCase("pass", 1, 1, true), compareCase("fail", 1, 1, false)]) });
+  return makeSuite({
+    "cases/selftest/c.cases.json": caseFile([compareCase("pass", 1, 1, true), compareCase("fail", 1, 1, false)]),
+  });
 }
 
 describe("runConformance", () => {
@@ -30,7 +32,7 @@ describe("runConformance", () => {
     const args = ["--suite", suite, "--declaration", "declaration.json", "--report", "out.json", "--ids-failing"];
     const result = await runConformance(args, suite);
     expect(result).toEqual({
-      stdout: `conformance: 1 pass, 1 fail, 0 error, 0 skip; report in ${join(suite, "out.json")}\nself/fail\n`,
+      stdout: `conformance: 1 pass, 1 fail, 0 error, 0 skip; report in ${join(suite, "out.json")}\nselftest/c/fail\n`,
       stderr: "",
       exitCode: 1,
     });
@@ -50,11 +52,11 @@ describe("runConformance", () => {
       "--section",
       "5",
       "--id",
-      "self/",
+      "selftest/",
     ];
     expect((await runConformance(args, suite)).exitCode).toBe(1);
     const report = JSON.parse(await readFile(join(suite, "conformance-report.json"), "utf8"));
-    expect(report.selection).toEqual({ profiles: ["read", "query"], sections: ["5"], ids: ["self/"] });
+    expect(report.selection).toEqual({ profiles: ["read", "query"], sections: ["5"], ids: ["selftest/"] });
   });
 
   test("exits with 2 and writes no report when the run cannot start", async () => {

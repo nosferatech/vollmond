@@ -34,6 +34,7 @@ describe("FixtureStores", () => {
   test.each([
     ["a store outside the suite", "../../..", undefined, "is not inside the suite"],
     ["the suite itself", "../..", undefined, "is not inside the suite"],
+    ["a directory beside the suite", "../../../elsewhere", undefined, "is not inside the suite"],
     ["an absolute path", "/tmp", undefined, "relative path"],
     ["a missing store", "nothing", undefined, "is missing"],
     ["a missing configuration file", "store", "strict.yaml", "has no configuration file .vmd/strict.yaml"],

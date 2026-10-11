@@ -29,6 +29,13 @@ describe("standardComparison", () => {
     expect(equal({ a: 1, b: 2 }, { a: 1, c: 2 })).toBe(false);
   });
 
+  test("compares arrays by length, so that a prefix differs from the whole", () => {
+    expect(equal([1], [1, 2])).toBe(false);
+    expect(equal([1, 2], [1])).toBe(false);
+    expect(equal([], [null])).toBe(false);
+    expect(equal([1, 2], [1, 2])).toBe(true);
+  });
+
   test("never equates a value that is not JSON", () => {
     expect(equal(undefined, undefined)).toBe(false);
   });
