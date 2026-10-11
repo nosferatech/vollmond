@@ -1,26 +1,20 @@
 import { visibleTextOf } from "../format/markdown/heading.js";
-import { parseMarkdownTree } from "../format/markdown/library.js";
+import { parseInlineContent } from "../format/markdown/library.js";
 import { slugOf } from "./slug.js";
 
-// TODO(#14): two readings wait for the project owner. A title holding a line break: the ATX heading of the rule ends at the
-// line, while a Markdown setext heading with the same `$title` slugs every line. A title nested too deep for the parser: the
-// rule has no limit, and plain text is the reading meanwhile.
+// TODO(#14): one reading waits for the project owner. A title nested too deep for the parser: the rule has no limit, and plain
+// text is the reading meanwhile.
 /**
- * Computes the slug of a JSON or YAML section's `$title`, which is Markdown source: the slug of the visible text of the ATX
- * heading `## ` followed by the title, so that a section has the same key in every format. So emphasis delimiters, a link's
- * URL, images, HTML tags and comments, and an anchor element give no text, character references are decoded, and a closing
- * `#` sequence and white space at either end are not content.
+ * Computes the slug of a JSON or YAML section's `$title`, which is Markdown source: the slug of its visible text read as a
+ * heading's inline content, so that a section has the same key in every format. So emphasis delimiters, a link's URL,
+ * images, HTML tags and comments, and an anchor element give no text, and character references are decoded. A line break is
+ * a soft break, which slugs as white space, as the lines of a setext heading do; a blank line counts two. No closing `#`
+ * sequence is stripped, and nothing in the title starts a block. `labels` are the labels of the record's link reference
+ * definitions, as written, so that a reference to one of them gives its text alone.
  *
- * The heading ends at the title's first line break, so the text after one gives nothing. A title whose inline containers nest
- * deeper than the Markdown parser reads is slugged as plain text.
- *
- * Throws an `Error` only on a bug: when `## ` and the title do not parse as a heading.
+ * A title whose inline containers nest deeper than the Markdown parser reads is slugged as plain text.
  */
-export function titleSlugOf(title: string): string {
-  const tree = parseMarkdownTree(`## ${title}`);
-  if (!tree.ok) return slugOf(title);
-  const heading = tree.root.children[0];
-  // `## ` starts an ATX heading whatever follows it, so the first block is always the heading.
-  if (heading?.type !== "heading") throw new Error("`## ` and a title did not parse as a heading");
-  return slugOf(visibleTextOf(heading.children));
+export function titleSlugOf(title: string, labels: readonly string[]): string {
+  const content = parseInlineContent(title, labels);
+  return slugOf(content === null ? title : visibleTextOf(content));
 }

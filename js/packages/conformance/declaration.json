@@ -20,10 +20,6 @@
       "reason": "I2.3 (#23): keyed lists follow in a later pull request"
     },
     {
-      "id": "addresses/cardinality/lenient-anchor-and-derived-selector",
-      "reason": "Draft v0.11 (R5): core does not yet return a selector's matches in document order (#89)"
-    },
-    {
       "id": "addresses/cardinality/multimap-derived-anchor",
       "reason": "I2.3 (#23): keyed lists follow in a later pull request"
     },
@@ -68,22 +64,6 @@
       "reason": "I2.4 (#24): typed references follow in a later pull request"
     },
     {
-      "id": "anchors/blocks-and-tags/block-anchor-with-class",
-      "reason": "Draft v0.11 (P5): the Markdown parser follows in a follow-up pull request"
-    },
-    {
-      "id": "anchors/blocks-and-tags/block-anchors-in-later-paragraphs",
-      "reason": "Draft v0.11 (T, P10): the anchor table follows in a follow-up pull request"
-    },
-    {
-      "id": "anchors/blocks-and-tags/list-placement",
-      "reason": "Draft v0.11 (T): the anchor table follows in a follow-up pull request"
-    },
-    {
-      "id": "anchors/blocks-and-tags/repeated-invalid-tag",
-      "reason": "Draft v0.11 (Q3): one anchor-invalid per occurrence of a tag follows in a follow-up pull request"
-    },
-    {
       "id": "data/jsonc/jsonc-data-block",
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
@@ -102,22 +82,6 @@
     {
       "id": "data/jsonc/jsonc-trailing-comma",
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
-    },
-    {
-      "id": "data/section-keys/data-title-inline-content",
-      "reason": "Draft v0.11 (Q1): the section keys follow in a follow-up pull request"
-    },
-    {
-      "id": "markdown/parser-review/anchor-element-inside-emphasis",
-      "reason": "Draft v0.11 (P4): the Markdown parser follows in a follow-up pull request"
-    },
-    {
-      "id": "markdown/parser-review/unknown-data-marker-after-data-block",
-      "reason": "Draft v0.11 (P6): the Markdown parser follows in a follow-up pull request"
-    },
-    {
-      "id": "markdown/parser-review/unknown-data-marker-first-block",
-      "reason": "Draft v0.11 (P6): the Markdown parser follows in a follow-up pull request"
     },
     {
       "id": "references/targets/many-reference-to-missing-record",

@@ -57,8 +57,9 @@ export interface HeadingReading {
 /**
  * Reads a top-level heading of the record's tree, whose offsets plus `shift` are indexes into the file's `text`.
  *
- * - The anchor element, an `<a>` with an `id` or a `class`, may stand anywhere in the heading. One that has content or another
- *   attribute, and any anchor element after the first, is `anchor-element-invalid`.
+ * - The anchor element, an `<a>` with an `id` or a `class`, may stand anywhere among the heading's direct children. One inside
+ *   emphasis, strikethrough or a link, one that has content or another attribute, and any anchor element after the first,
+ *   is `anchor-element-invalid`. Its attribute values are taken as written, character references included.
  * - A class token repeated in it is dropped from the tags, with a `duplicate-tag` for each repeat.
  * - Raw HTML other than the anchor element and the tags of the inline elements `span`, `b`, `i`, `em`, `strong`, `code`,
  *   `kbd`, `sup` and `sub`, an HTML comment included, is one `heading-html` for the heading.
@@ -66,12 +67,18 @@ export interface HeadingReading {
 export function readHeading(text: string, heading: Heading, shift: number): HeadingReading {
   const problems: HeadingProblem[] = [];
   const pieces = inlineHtmlOf(heading.children, shift);
+  const directChildren = new Set(heading.children);
   let element: AnchorElement | null = null;
   let otherHtmlAt: number | null = null;
   for (let i = 0; i < pieces.length; i++) {
     const piece = pieces[i] as InlineHtml;
     const found = anchorElementAt(text, pieces, i);
-    if (found !== null) {
+    if (found !== null && !directChildren.has(piece.node)) {
+      // Removing it would break the markup around it, as `*A <a id="d"></a>*` would leave the title `*A *`.
+      const message = "an anchor element stands among the heading's direct children, not inside emphasis or a link";
+      problems.push({ code: "anchor-element-invalid", message, index: found.start });
+      i += found.pieces - 1;
+    } else if (found !== null) {
       if (found.problem !== null) {
         problems.push({ code: "anchor-element-invalid", message: found.problem, index: found.start });
       } else if (element !== null) {

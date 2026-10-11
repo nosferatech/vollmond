@@ -2,9 +2,11 @@ import { type AnchorEntry, anchorTableOf, type BlockAnchorEntry, type TagEntry }
 import { isAnchorName } from "../anchor/slug.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
 import type { BlockAnchor } from "../format/markdown/body.js";
+import { definitionLabelsIn } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Value, ValueObject } from "../value/value.js";
+import { documentOrderOf } from "./document-order.js";
 import { childPath } from "./exact-path.js";
 import type { NodeInfo } from "./node-index.js";
 import type { ParsedRecord } from "./record.js";
@@ -21,7 +23,7 @@ export interface MarkdownNames {
 export type UnnamedRecord = Omit<ParsedRecord, "anchors" | "sectionKeys">;
 
 // Deviation from the I1 design, recorded in issue #14: explicit anchors and tags are read from the value view for every
-// format, and ordered by the index's ranges, so no Markdown heading carries its anchor beside its visible text.
+// format, and ordered by the index's document order, so no Markdown heading carries its anchor beside its visible text.
 /**
  * Completes a parsed record with its names: its anchor table, its section keys, and the validation issues they raise, added
  * after the record's own issues.
@@ -31,17 +33,19 @@ export type UnnamedRecord = Omit<ParsedRecord, "anchors" | "sectionKeys">;
  *   and its block anchors are those of `markdown`. Every anchor is in one namespace.
  * - **Tags** are the `$tags` of the same objects, each once per node.
  * - **Section keys.** A section's key is its `$anchor`, or else its slug: a Markdown heading's slug, from `markdown`, or for a
- *   JSON or YAML section the slug of its `$title` read as the content of an ATX heading.
- * - **`anchor-invalid`**, an error, at the node, for each anchor and each tag of a node that is not a valid name; for a block
- *   anchor, at the `$body` that holds it, with the block's offset in it.
+ *   JSON or YAML section the slug of its `$title` read as a heading's inline content, with the link reference definitions of
+ *   every section's `$body` in scope.
+ * - **`anchor-invalid`**, an error, at the node, for each anchor and each occurrence of a tag that is not a valid name, so a
+ *   tag repeated in a `$tags` array is reported at each place; for a block anchor, at the `$body` that holds it, with the
+ *   block's offset in it.
  * - **`duplicate-anchor`**, an error, for each node, block anchors included, that an anchor names after an earlier node in
  *   document order has the same anchor, once per node however many of its anchors repeat.
  * - **`duplicate-key`**, an error, for each node of a section's namespace, its fields and its child sections, whose name or key
  *   an earlier node of that namespace in document order has.
  *
- * Document order is the order of the nodes in the file: a heading's position for its section and for the root with a title
- * heading, the start of an object's value otherwise, and a block's start. Severities are the defaults; the uniqueness mode is
- * not applied here.
+ * Document order is the pre-order of the value view: a node comes before its descendants, so the root comes before its
+ * front matter, and siblings come in their order in the file. A block anchor comes where its `$body` does, and the blocks of
+ * one `$body` in their order. Severities are the defaults; the uniqueness mode is not applied here.
  *
  * Throws an `Error` when the value has a node the index lacks, which is a bug in the parser.
  */
@@ -60,17 +64,17 @@ export function nameRecord(record: UnnamedRecord, markdown?: MarkdownNames): Par
   };
 }
 
-/** An anchor with its place in the file, for document order. */
+/** An anchor with its place in document order. */
 interface PlacedAnchor {
   readonly entry: AnchorEntry;
-  /** The UTF-8 offset in the file from which it is ordered. */
-  readonly offset: number;
+  /** The place in document order of the node it names, or of the `$body` that holds its block. */
+  readonly order: number;
 }
 
-/** A tag with its place in the file, for document order. */
+/** A tag with the place of its node in document order. */
 interface PlacedTag {
   readonly entry: TagEntry;
-  readonly offset: number;
+  readonly order: number;
 }
 
 /** The walk of one record's value and index that finds its names and the issues they raise. */
@@ -78,6 +82,7 @@ class RecordNames {
   readonly issues: Issue[] = [];
   readonly #record: UnnamedRecord;
   readonly #markdown: MarkdownNames | undefined;
+  #labels: readonly string[] | null = null;
 
   constructor(record: UnnamedRecord, markdown: MarkdownNames | undefined) {
     this.#record = record;
@@ -89,10 +94,10 @@ class RecordNames {
     const anchors: PlacedAnchor[] = [];
     const tags: PlacedTag[] = [];
     const label = (object: ValueObject, at: string) => {
-      const offset = this.#orderOffset(at);
+      const order = this.#order(at);
       const anchor = object.$anchor;
       if (typeof anchor === "string") {
-        anchors.push({ entry: { name: anchor, kind: "explicit", at }, offset });
+        anchors.push({ entry: { name: anchor, kind: "explicit", at }, order });
         if (!isAnchorName(anchor)) {
           this.#raise("anchor-invalid", at, `the anchor ${JSON.stringify(anchor)} is not a name`, childPath(at, "$anchor"));
         }
@@ -101,9 +106,9 @@ class RecordNames {
       if (Array.isArray(tagList)) {
         const seen = new Set<string>();
         tagList.forEach((tag: Value, index: number) => {
-          if (typeof tag !== "string" || seen.has(tag)) return;
+          if (typeof tag !== "string") return;
+          if (!seen.has(tag)) tags.push({ entry: { tag, at }, order });
           seen.add(tag);
-          tags.push({ entry: { tag, at }, offset });
           if (!isAnchorName(tag)) {
             const tagAt = childPath(childPath(at, "$tags"), index);
             this.#raise("anchor-invalid", at, `the tag ${JSON.stringify(tag)} is not a name`, tagAt);
@@ -142,21 +147,22 @@ class RecordNames {
     for (const section of this.#record.nodes.sections()) {
       const derived = section.heading?.derivedAnchor ?? null;
       if (derived !== null) {
-        anchors.push({ entry: { name: derived, kind: "derived", at: section.at }, offset: this.#orderOffset(section.at) });
+        anchors.push({ entry: { name: derived, kind: "derived", at: section.at }, order: this.#order(section.at) });
       }
     }
     for (const block of this.#markdown?.blockAnchors ?? []) {
       const entry: BlockAnchorEntry = { ...block, kind: "block" };
-      anchors.push({ entry, offset: block.fileRange.start });
+      anchors.push({ entry, order: this.#order(block.at) });
       if (!isAnchorName(block.name)) {
         const message = `the block anchor ${JSON.stringify(block.name)} is not a name`;
         this.#raiseAtBlock("anchor-invalid", block, message);
       }
     }
 
-    // A stable sort keeps a heading's explicit anchor before its derived one, and a node's tags in its order.
-    anchors.sort((a, b) => a.offset - b.offset);
-    tags.sort((a, b) => a.offset - b.offset);
+    // A stable sort keeps a heading's explicit anchor before its derived one, a node's tags in its order, and the block
+    // anchors of one `$body` in the order the parser found them, which is theirs in the file.
+    anchors.sort((a, b) => a.order - b.order);
+    tags.sort((a, b) => a.order - b.order);
     this.#duplicateAnchors(anchors.map((placed) => placed.entry));
     return { anchors: anchors.map((placed) => placed.entry), tags: tags.map((placed) => placed.entry) };
   }
@@ -207,7 +213,31 @@ class RecordNames {
       if (slug === undefined) throw new Error(`no heading slug for the section at ${JSON.stringify(at)}`);
       return slug;
     }
-    return titleSlugOf(typeof section.$title === "string" ? section.$title : "");
+    const title = typeof section.$title === "string" ? section.$title : "";
+    // Only a link reference has a label to look up, and it holds a `[`.
+    return titleSlugOf(title, title.includes("[") ? this.#definitionLabels() : []);
+  }
+
+  /** The labels of the link reference definitions in every section's `$body`, found on the first call. */
+  #definitionLabels(): readonly string[] {
+    if (this.#labels === null) {
+      const labels: string[] = [];
+      const pending: Value[] = [this.#record.value];
+      for (let section = pending.pop(); section !== undefined; section = pending.pop()) {
+        if (!isObject(section)) continue;
+        if (typeof section.$body === "string") labels.push(...definitionLabelsIn(section.$body));
+        if (Array.isArray(section.$sections)) pending.push(...section.$sections);
+      }
+      this.#labels = labels;
+    }
+    return this.#labels;
+  }
+
+  /** The place of the node at `at` in document order. */
+  #order(at: string): number {
+    const order = documentOrderOf(this.#record.nodes).get(at);
+    if (order === undefined) throw new Error(`the value has a node at ${JSON.stringify(at)} that the index lacks`);
+    return order;
   }
 
   /** Raises one `duplicate-anchor` for each node that an anchor names after an earlier node with that anchor. */

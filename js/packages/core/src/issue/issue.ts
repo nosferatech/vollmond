@@ -23,7 +23,7 @@ export interface Issue {
   readonly position?: Position;
   /** For an issue inside a `$body` or a `$title`, the UTF-8 byte offset into the value that `at` names. */
   readonly offset?: number;
-  /** For an ambiguity, such as `address-ambiguous`, each node that matched, in the order resolution met them. */
+  /** For an ambiguity, such as `address-ambiguous`, each node that matched, in document order. */
   readonly candidates?: readonly Target[];
 }
 

@@ -193,7 +193,9 @@ describe("property: Markdown documents", () => {
       }),
       { numRuns: 500 },
     );
-  });
+    // The 500 runs take under a second alone, and over five seconds beside the suite's other files on a loaded machine; the
+    // property is about what the parser gives, not how fast.
+  }, 30_000);
 });
 
 function rangeOf(record: ParsedRecord, at: string): [number, number] {

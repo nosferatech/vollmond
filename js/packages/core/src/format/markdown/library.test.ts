@@ -1,5 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { parseMarkdownTree } from "./library.js";
+import { MAX_NESTING } from "../limits.js";
+import { definitionLabelsIn, parseMarkdownTree } from "./library.js";
+
+describe("definitionLabelsIn", () => {
+  test("finds the labels of definitions at any depth, as written", () => {
+    expect(definitionLabelsIn("[A b]: /x\n\n> - [c]: /y\n")).toEqual(["A b", "c"]);
+  });
+
+  test("finds none in a text beyond a resource limit, and near miss, finds one at the deepest level allowed", () => {
+    expect(definitionLabelsIn(`${">".repeat(MAX_NESTING + 1)} [a]: /x\n`)).toEqual([]);
+    expect(definitionLabelsIn(`${">".repeat(MAX_NESTING)} [a]: /x\n`)).toEqual(["a"]);
+  });
+});
 
 describe("parseMarkdownTree", () => {
   test("applies GFM's autolink literals, which the library finds partly after the parse", () => {

@@ -27,6 +27,8 @@ export interface Fence {
   /** The content lines: from the line after the opening fence to the start of the closing fence's line, or the block's end. */
   readonly contentStart: number;
   readonly contentEnd: number;
+  /** Whether a closing fence ends the block; one that is not closed runs to the end of the record. */
+  readonly closed: boolean;
   /** How many spaces indent the opening fence, which its content lines lose. */
   readonly indent: number;
   /** The index in the file's text after the block's last character. */
@@ -58,13 +60,15 @@ export function readFence(text: string, block: RootContent | undefined, shift: n
   const contentStart = Math.min(nextLineStart(text, start), end);
   const closing = new RegExp(`^ {0,3}${fenceCharacter === "`" ? "`" : "~"}{${fenceEnd - start},}[ \\t]*$`);
   const lastLine = lineStartOf(text, end, shift);
-  const contentEnd = lastLine >= contentStart && closing.test(text.slice(lastLine, end)) ? lastLine : end;
+  const closed = lastLine >= contentStart && closing.test(text.slice(lastLine, end));
+  const contentEnd = closed ? lastLine : end;
   return {
     marker: markerOf(words),
     words,
     start,
     contentStart,
     contentEnd: Math.max(contentStart, contentEnd),
+    closed,
     indent: start - lineStartOf(text, start, shift),
     end,
   };
