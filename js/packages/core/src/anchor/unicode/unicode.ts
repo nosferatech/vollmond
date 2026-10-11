@@ -5,7 +5,10 @@
 // runtime's Unicode version knows. The Unicode Character Encoding Stability Policy, "Normalization Stability" (Unicode 4.1 and
 // later), says: "given versions V and U of Unicode, and any string S which only contains characters assigned according to both V
 // and U", toNFC of S is the same under V and U. So a runtime at the tables' version or later normalizes as they would; an older
-// runtime may differ only on characters assigned after its version.
+// runtime may differ on strings that contain characters assigned after its version.
+//
+// TODO(#17): export `unicodeRuntimeProbe()`, a check of a few facts of the tables' Unicode version against the runtime, so the
+// CLI can warn where the runtime's NFC may differ. It waits for the CLI foundation because that warning is its first caller.
 
 import {
   DEFAULT_IGNORABLE_CODE_POINT,
@@ -74,7 +77,7 @@ export class LowerCaseMapping {
     this.#expansions = new Map(expansions.map(([codePoint, ...lower]) => [codePoint as number, String.fromCodePoint(...lower)]));
   }
 
-  /** Returns the lower-case mapping of `codePoint` as a string of one or more code points; it is the code point itself if none. */
+  /** Returns the lower-case mapping of `codePoint` as one or more code points; it is the code point itself if there is none. */
   of(codePoint: number): string {
     const expansion = this.#expansions.get(codePoint);
     if (expansion !== undefined) return expansion;
@@ -123,9 +126,9 @@ export function isLetterMarkDigitOrConnector(codePoint: number): boolean {
 }
 
 /**
- * Returns the default lower-case mapping of `codePoint`, one code point at a time: SpecialCasing.txt's unconditional mapping where
- * there is one, otherwise UnicodeData.txt's simple mapping, otherwise the code point itself. No context applies, so U+03A3 always
- * gives U+03C3, never the final sigma U+03C2, and U+0130 gives U+0069 U+0307.
+ * Returns the default lower-case mapping of `codePoint`, one code point at a time: SpecialCasing.txt's unconditional mapping
+ * where there is one, otherwise UnicodeData.txt's simple mapping, otherwise the code point itself. No context applies, so U+03A3
+ * always gives U+03C3, never the final sigma U+03C2, and U+0130 gives U+0069 U+0307.
  */
 export function lowerCaseOf(codePoint: number): string {
   return lowerCase.of(codePoint);

@@ -4,8 +4,10 @@
 // shows up as a mismatch.
 //
 // The comparison runs only where `process.versions.unicode` is the tables' version, and is skipped with a note elsewhere, so a
-// contributor on another Node still passes. CI sets VMD_REQUIRE_UNICODE_COMPARISON=1, which turns the skip into a failure: raising
-// the Node pin to a release with other Unicode data then fails loudly instead of silently testing nothing.
+// contributor on another Node still passes. CI sets VMD_REQUIRE_UNICODE_COMPARISON=1, which turns the skip into a failure:
+// raising the Node pin to a release with other Unicode data then fails loudly instead of silently testing nothing. Unset, empty
+// or 0 means not required; any value other than those and 1 fails every comparison, so a mistyped value cannot quietly turn the
+// requirement off.
 
 import { describe, expect, type TestContext, test } from "vitest";
 import { CodePointRanges, LowerCaseMapping, UNICODE_VERSION } from "./unicode.js";
@@ -25,28 +27,41 @@ interface RuntimeProcess {
 
 const runtimeProcess = (globalThis as { process?: RuntimeProcess }).process;
 const runtimeUnicode = runtimeProcess?.versions?.unicode;
-const comparisonRequired = runtimeProcess?.env?.VMD_REQUIRE_UNICODE_COMPARISON === "1";
+const requirementSetting = runtimeProcess?.env?.VMD_REQUIRE_UNICODE_COMPARISON;
 
 const MAX_CODE_POINT = 0x10ffff;
 
-/** What the comparison does on this runtime. */
-type ComparisonDecision = "run" | "skip" | "fail";
+/** What the comparison does on this runtime, with the reason for a skip or a failure. */
+type ComparisonDecision = { readonly kind: "run" } | { readonly kind: "skip" | "fail"; readonly reason: string };
 
-/** Decides whether the comparison runs: only on the tables' Unicode version, and a skip fails where the comparison is required. */
-function comparisonDecision(runtimeVersion: string | undefined, tablesVersion: string, required: boolean): ComparisonDecision {
+/**
+ * Decides whether the comparison runs: only on the tables' Unicode version. Where `requirement`, the environment variable's
+ * value, is 1, a skip becomes a failure; a value other than unset, empty, 0 or 1 is a failure on any runtime.
+ */
+function comparisonDecision(
+  runtimeVersion: string | undefined,
+  tablesVersion: string,
+  requirement: string | undefined,
+): ComparisonDecision {
+  if (requirement !== undefined && !["", "0", "1"].includes(requirement)) {
+    return { kind: "fail", reason: `VMD_REQUIRE_UNICODE_COMPARISON is "${requirement}"; set 1 to require the comparison, or 0` };
+  }
   // `process.versions.unicode` is "17.0" where the tables say "17.0.0".
   const significant = (version: string) => version.replace(/(\.0)+$/, "");
-  if (runtimeVersion !== undefined && significant(runtimeVersion) === significant(tablesVersion)) return "run";
-  return required ? "fail" : "skip";
+  if (runtimeVersion !== undefined && significant(runtimeVersion) === significant(tablesVersion)) return { kind: "run" };
+  const mismatch = `the runtime's Unicode is ${runtimeVersion ?? "unknown"}, the tables' ${tablesVersion}`;
+  if (requirement === "1") {
+    return { kind: "fail", reason: `${mismatch}, and VMD_REQUIRE_UNICODE_COMPARISON=1 requires the comparison` };
+  }
+  return { kind: "skip", reason: `${mismatch}; comparison skipped` };
 }
 
-const decision = comparisonDecision(runtimeUnicode, UNICODE_VERSION, comparisonRequired);
-const mismatchNote = `the runtime's Unicode is ${runtimeUnicode ?? "unknown"}, the tables' ${UNICODE_VERSION}`;
+const decision = comparisonDecision(runtimeUnicode, UNICODE_VERSION, requirementSetting);
 
 /** Skips or fails the current test unless the comparison can run here. */
 function requireComparableRuntime(context: TestContext): void {
-  if (decision === "skip") context.skip(`${mismatchNote}; comparison skipped`);
-  if (decision === "fail") expect.fail(`${mismatchNote}, and VMD_REQUIRE_UNICODE_COMPARISON=1 requires the comparison`);
+  if (decision.kind === "skip") context.skip(decision.reason);
+  if (decision.kind === "fail") expect.fail(decision.reason);
 }
 
 /** Returns the code points from `from` to `to` (inclusive) where the two functions disagree, at most `limit` of them. */
@@ -80,20 +95,29 @@ function broken(encoded: readonly number[], changes: Readonly<Record<number, num
 }
 
 describe("the decision to compare", () => {
-  test("runs on the tables' version, written either way", () => {
-    expect(comparisonDecision("17.0", "17.0.0", false)).toBe("run");
-    expect(comparisonDecision("17.0.0", "17.0.0", true)).toBe("run");
+  const kind = (runtime: string | undefined, requirement: string | undefined) =>
+    comparisonDecision(runtime, "17.0.0", requirement).kind;
+
+  test("runs on the tables' version, written either way, required or not", () => {
+    expect(kind("17.0", undefined)).toBe("run");
+    expect(kind("17.0.0", "1")).toBe("run");
+    expect(kind("17.0", "0")).toBe("run");
   });
 
-  test("skips on another version, or outside Node", () => {
-    expect(comparisonDecision("16.0", "17.0.0", false)).toBe("skip");
-    expect(comparisonDecision("17.1", "17.0.0", false)).toBe("skip");
-    expect(comparisonDecision(undefined, "17.0.0", false)).toBe("skip");
+  test("skips on another version, or outside Node, where not required", () => {
+    expect(kind("16.0", undefined)).toBe("skip");
+    expect(kind("17.1", "")).toBe("skip");
+    expect(kind(undefined, "0")).toBe("skip");
   });
 
   test("fails instead of skipping where the comparison is required", () => {
-    expect(comparisonDecision("16.0", "17.0.0", true)).toBe("fail");
-    expect(comparisonDecision(undefined, "17.0.0", true)).toBe("fail");
+    expect(kind("16.0", "1")).toBe("fail");
+    expect(kind(undefined, "1")).toBe("fail");
+  });
+
+  test.each(["true", "yes", "2", " 1", "01"])("fails on the unrecognised setting %j, even on the tables' version", (setting) => {
+    expect(kind("17.0", setting)).toBe("fail");
+    expect(kind("16.0", setting)).toBe("fail");
   });
 });
 
