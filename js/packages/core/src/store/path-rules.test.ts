@@ -85,8 +85,10 @@ describe("path-case-conflict", () => {
       { path: "Docs/readme.md", kind: "record" },
       { path: "docs/other.md", kind: "record" },
     ];
+    // docs/other.md conflicts too: its directory docs differs from Docs only by case.
     expect(shown(pathRuleIssues(paths))).toEqual([
       'path-case-conflict error docs/README.md ""',
+      'path-case-conflict error docs/other.md ""',
       'path-case-conflict error docs/readme.md ""',
     ]);
   });
@@ -112,6 +114,33 @@ describe("path-case-conflict", () => {
     // One code point at a time, with no context: a final capital sigma maps to σ, not to the final ς that toLowerCase gives.
     expect(conflicts("ΣΑΣ", "σασ")).toEqual(["σασ"]);
     expect(conflicts("ΣΑΣ", "σας")).toEqual([]);
+  });
+
+  test("between directories that differ only by case, whatever the files below them are called", () => {
+    const conflicts = (...paths: string[]) =>
+      pathRuleIssues(paths.map((path) => ({ path, kind: "record" }))).map((issue) => `${issue.code} ${issue.path}`);
+    // In byte order Docs/ comes first; every path below docs/ after it conflicts, once, naming the directory.
+    expect(conflicts("docs/b.md", "Docs/a.md", "docs/c/d.md")).toEqual([
+      "path-case-conflict docs/b.md",
+      "path-case-conflict docs/c/d.md",
+    ]);
+    const [issue] = pathRuleIssues([
+      { path: "Docs/a.md", kind: "record" },
+      { path: "docs/b.md", kind: "record" },
+    ]);
+    expect(issue?.message).toContain("docs differs from Docs only by case");
+    // A file and a directory that differ only by case conflict too, and so do deeper directories.
+    expect(conflicts("notes", "Notes/a.md")).toEqual(["path-case-conflict notes"]);
+    expect(conflicts("a/B/x.md", "a/b/y.md")).toEqual(["path-case-conflict a/b/y.md"]);
+    // A path whose own name and directory both conflict gets one issue, naming the directory, the shortest that conflicts.
+    expect(conflicts("Docs/A.md", "docs/a.md")).toEqual(["path-case-conflict docs/a.md"]);
+    const [both] = pathRuleIssues([
+      { path: "Docs/A.md", kind: "record" },
+      { path: "docs/a.md", kind: "record" },
+    ]);
+    expect(both?.message).toBe("docs/a.md: docs differs from Docs only by case");
+    // Directories of the same spelling do not conflict.
+    expect(conflicts("docs/a.md", "docs/b.md", "docs/sub/c.md")).toEqual([]);
   });
 
   test("not for paths that differ otherwise", () => {

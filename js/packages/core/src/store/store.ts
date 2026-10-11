@@ -236,21 +236,36 @@ export async function openStore(
         }),
       ]);
     }
-    source = backendConfigurationSource(backend, file.value.content);
+    source = storeConfigurationSource(backend, file.value.content);
   }
   const configuration = readStoreConfiguration(source.content);
   if (!configuration.ok) return configuration;
   return succeed(new BackendStore(backend, configuration.value, source), configuration.issues);
 }
 
-/** The configuration source of a store's own `.vmd/config.yaml`, whose schemas are in the backend's `.vmd/schema/`. */
-function backendConfigurationSource(backend: StorageReader, content: Uint8Array): ConfigurationSource {
+/**
+ * Gives the configuration source of a configuration file kept in a store's `.vmd/`, whose schemas are files of the store in
+ * `.vmd/schema/`, read through the backend as any file of the store is, so that the backend's rules apply to them. A schema
+ * that the backend finds no file for fails with `address-not-found`, unless files lie below its path, which makes it a
+ * directory: that fails with `storage-failed`, since the file is there but cannot be read as one. A backend that cannot read
+ * the file fails with its own issue.
+ */
+export function storeConfigurationSource(
+  backend: StorageReader,
+  content: Uint8Array,
+  name: string = CONFIGURATION_PATH,
+): ConfigurationSource {
   return {
     content,
-    name: CONFIGURATION_PATH,
+    name,
     readSchema: async (path) => {
-      const file = await backend.read(`${SCHEMA_DIRECTORY}/${path}`);
-      return file.ok ? succeed(file.value.content) : fail(file.issues);
+      const stored = `${SCHEMA_DIRECTORY}/${path}`;
+      const file = await backend.read(stored);
+      if (file.ok) return succeed(file.value.content);
+      if (!file.issues.every((issue) => issue.code === "address-not-found")) return fail(file.issues);
+      const below = await backend.list({ prefix: `${stored}/`, limit: 1 });
+      if (!below.ok || below.value.items.length === 0) return fail(file.issues);
+      return fail([makeIssue({ code: "storage-failed", path: null, at: null, message: `${stored} is a directory, not a file` })]);
     },
   };
 }
@@ -340,16 +355,21 @@ class BackendStore implements Store {
     if (path === undefined) return null;
     const read = await this.#source.readSchema(path);
     let problem: string | null = null;
+    // A file that is there and cannot be read is the storage's failure; a missing or oversized one is the schema's.
+    let code: "schema-invalid" | "storage-failed" = "schema-invalid";
     if (!read.ok) {
-      problem = read.issues.every((issue) => issue.code === "address-not-found")
-        ? "does not exist"
-        : `cannot be read: ${read.issues.map((issue) => issue.message).join("; ")}`;
+      if (read.issues.every((issue) => issue.code === "address-not-found")) {
+        problem = "does not exist";
+      } else {
+        code = "storage-failed";
+        problem = `cannot be read: ${read.issues.map((issue) => issue.message).join("; ")}`;
+      }
     } else if (read.value.length > MAX_SCHEMA_BYTES) {
       problem = `is larger than ${MAX_SCHEMA_BYTES} bytes`;
     }
     if (problem === null) return null;
     return makeIssue({
-      code: "schema-invalid",
+      code,
       path: null,
       at: null,
       message: `the schema ${path} of the collection ${collection.name} ${problem}, so the collection's records cannot be read`,
@@ -447,7 +467,7 @@ class BackendStore implements Store {
       // and so is a schema that cannot be used, reported once however many of its records the page holds.
       if (read !== null && !read.ok) {
         for (const issue of read.issues) {
-          if (issue.code === "storage-failed" || (issue.path === null && !issues.includes(issue))) issues.push(issue);
+          if (issue.path === null ? !issues.includes(issue) : issue.code === "storage-failed") issues.push(issue);
         }
       }
       const collection = collectionOfRecord(found);

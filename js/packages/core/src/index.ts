@@ -102,6 +102,7 @@ export {
   type StoreEntry,
   type StoreListQuery,
   type StorePage,
+  storeConfigurationSource,
   type UnreadableCount,
 } from "./store/store.js";
 export { IGNORED_PATH_GLOBS, type StorePathKind, storePathKind } from "./store/store-path.js";

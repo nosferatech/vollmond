@@ -381,6 +381,18 @@ describe("collections", () => {
       expect(problems(withCollection(`match: ["*.md", "${glob}"]`))).toEqual(["config-invalid 4:21"]);
     });
 
+    test.each([["../*.md"], ["docs/./a.md"], ["docs/.."], ["."], ["**/../**"]])(
+      "is config-invalid for the glob %j, whose . or .. segment no store path has",
+      (glob) => {
+        expect(problems(withCollection(`match: ["*.md", "${glob}"]`))).toEqual(["config-invalid 4:21"]);
+        expect(messages(withCollection(`match: ["${glob}"]`))[0]).toContain(". or .. segment");
+      },
+    );
+
+    test("accepts segments that only start with a dot", () => {
+      expect(onlyCollection(withCollection('match: [".cache/**", "**/.*.md", "..x/*", "a/...md"]')).match).toHaveLength(4);
+    });
+
     test("accepts globs with * and **", () => {
       expect(onlyCollection(withCollection('match: ["docs/**", "*.md", "**/x/*.json"]')).match).toEqual([
         "docs/**",

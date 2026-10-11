@@ -1,0 +1,4 @@
+vmd: 1
+collections:
+  tickets:
+    match: ["tickets/../*.md"]

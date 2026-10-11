@@ -1,5 +1,6 @@
 // What a store's configuration changes in the read commands: collections in `ls`, ignored paths, and where schemas are.
 
+import { execFileSync } from "node:child_process";
 import { chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_SCHEMA_BYTES } from "@vollmond/core";
@@ -132,11 +133,19 @@ describe("--config", () => {
     expect(larger.stderr).toContain(`ticket.schema.json of the collection tickets is larger than ${MAX_SCHEMA_BYTES} bytes`);
   });
 
-  test("refuses a schema that is a directory, or one it cannot read, naming why", async () => {
+  test("refuses a schema that is a directory, a FIFO, or one it cannot read, as storage-failed, naming why", async () => {
     const home = checkout({});
     makeDirectories(home, "examples/store/schema/ticket.schema.json");
     const directory = await vmd(home, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
-    expect(directory.stderr).toContain("schema/ticket.schema.json is a directory, not a regular file");
+    expect(directory.exitCode).toBe(1);
+    expect(directory.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a directory/);
+    if (process.platform !== "win32") {
+      const piped = checkout({});
+      makeDirectories(piped, "examples/store/schema");
+      execFileSync("mkfifo", [join(piped, "examples/store/schema/ticket.schema.json")]);
+      const fifo = await vmd(piped, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
+      expect(fifo.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a FIFO/);
+    }
     const locked = checkout({ "ticket.schema.json": "{}" });
     const file = join(locked, "examples/store/schema/ticket.schema.json");
     chmodSync(file, 0o000);
@@ -150,7 +159,7 @@ describe("--config", () => {
         "get",
         "tickets/0001.md",
       );
-      expect(unreadable.stderr).toMatch(/schema-invalid: .* cannot be read: cannot read schema\/ticket\.schema\.json: EACCES/);
+      expect(unreadable.stderr).toMatch(/storage-failed: .* cannot be read: cannot read schema\/ticket\.schema\.json: EACCES/);
     } finally {
       chmodSync(file, 0o644);
     }
@@ -162,6 +171,34 @@ describe("--config", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/^\.vmd\/config\.yaml:2:1 error feature-unsupported: the configuration has the member "jsonc"/);
   });
+});
+
+describe("a store's own schema that is not a regular file", () => {
+  const CONFIG = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
+
+  test("is storage-failed for a directory, which files below it show to be there", async () => {
+    const root = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": CONFIG,
+      ".vmd/schema/t.json/x.json": "{}",
+      "t/a.md": "# A\n",
+    });
+    const result = await vmd(root, "get", "t/a.md");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/storage-failed: .* cannot be read: \.vmd\/schema\/t\.json is a directory, not a file/);
+  });
+
+  // The storage contract makes a path that names something other than a regular file a missing one, so a FIFO among the
+  // store's own schemas does not exist to vmd, where one beside a --config file is storage-failed.
+  test.skipIf(process.platform === "win32")(
+    "is missing, schema-invalid, for a FIFO, as the storage contract reads one",
+    async () => {
+      const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
+      makeDirectories(root, ".vmd/schema");
+      execFileSync("mkfifo", [join(root, ".vmd/schema/t.json")]);
+      const result = await vmd(root, "get", "t/a.md");
+      expect(result.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t does not exist/);
+    },
+  );
 });
 
 describe("symbolic links", () => {

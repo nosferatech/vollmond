@@ -104,7 +104,8 @@ const NOT_IMPLEMENTED_MEMBERS: ReadonlyMap<string, string> = new Map([
  * - Fails with `config-invalid` for a file larger than {@link MAX_CONFIGURATION_BYTES}, without parsing it; for one that is
  *   not UTF-8, not YAML, or holds what vmd's YAML refuses (an anchor, a tag, several documents, a repeated member...); for a
  *   document that is not a mapping; for a configuration without `vmd`, or whose `vmd` is not a number from 1; and for a member
- *   whose value is not one the member takes: a value of the wrong kind, a malformed glob, a collection name outside
+ *   whose value is not one the member takes: a value of the wrong kind, a malformed glob or one with a `.` or `..` segment,
+ *   which no store path has, a collection name outside
  *   `[A-Za-z][A-Za-z0-9_-]*`, a schema path with a `.` or `..` segment, a pattern outside the portable subset, a key pattern
  *   without exactly one capture group, an unknown issue code, or a severity outside the limits that code allows.
  * - Fails with `feature-unsupported`, an operation issue, for a member this version does not define, at the top or in a
@@ -372,6 +373,13 @@ class ConfigurationReader {
       const compiled = compileGlob(glob);
       if (!compiled.ok) {
         this.#invalid(`${what}: ${compiled.issues[0]?.message}`, item);
+        return;
+      }
+      if (glob.split("/").some((segment) => segment === "." || segment === "..")) {
+        this.#invalid(
+          `${what}: glob ${JSON.stringify(glob)} has a . or .. segment, which no store path has, so it could never match`,
+          item,
+        );
         return;
       }
       globs.push(glob);

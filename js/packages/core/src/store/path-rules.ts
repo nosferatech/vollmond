@@ -24,8 +24,9 @@ const encoder = new TextEncoder();
 
 /**
  * Checks the path rules of the paths a store lists: for each path that breaks a rule other than case, one `path-invalid` whose
- * message names every rule it breaks; and for each path after the first in UTF-8 byte order among paths that are equal under
- * the default lower-case mapping of each code point, one `path-case-conflict`. A record's issue is an error at its root (`at`
+ * message names every rule it breaks; and one `path-case-conflict` for each path after the first in UTF-8 byte order whose
+ * path, or the path of a directory above it, equals an earlier one's under the default lower-case mapping of each code point
+ * but is spelled otherwise, so `docs/b.md` conflicts with `Docs/a.md`. A record's issue is an error at its root (`at`
  * is `""`), and an asset's a warning with no node, since an asset is never in a collection.
  *
  * The rules: every segment matches `[A-Za-z0-9][A-Za-z0-9._-]*` and is at most 255 bytes, the path is at most 1,024 bytes and
@@ -43,15 +44,33 @@ export function pathRuleIssues(paths: readonly ListedPath[]): Issue[] {
     if (broken.length > 0) {
       issues.push(pathIssue("path-invalid", listed, `${listed.path} breaks the path rules: ${broken.join("; ")}`));
     }
-    const lower = lowerCase(listed.path);
-    const first = firstByLowerCase.get(lower);
-    if (first === undefined) {
-      firstByLowerCase.set(lower, listed.path);
-    } else {
-      issues.push(pathIssue("path-case-conflict", listed, `${listed.path} differs from ${first} only by case`));
-    }
+    const conflict = caseConflict(listed.path, firstByLowerCase);
+    if (conflict !== null) issues.push(pathIssue("path-case-conflict", listed, conflict));
   }
   return issues;
+}
+
+/**
+ * Compares each prefix of a path that ends at a segment, the path itself included, with the prefixes of the paths before it,
+ * which `firstByLowerCase` holds by their lower case, and adds the path's own. Gives the message for the shortest prefix that
+ * an earlier path spells otherwise in letter case, so that two directories that differ only by case, which a filesystem that
+ * ignores case would merge, conflict whatever the files below them are called; or null when none does.
+ */
+function caseConflict(path: string, firstByLowerCase: Map<string, string>): string | null {
+  const segments = path.split("/");
+  let conflict: string | null = null;
+  for (let length = 1; length <= segments.length; length++) {
+    const prefix = segments.slice(0, length).join("/");
+    const lower = lowerCase(prefix);
+    const first = firstByLowerCase.get(lower);
+    if (first === undefined) {
+      firstByLowerCase.set(lower, prefix);
+    } else if (first !== prefix && conflict === null) {
+      conflict =
+        prefix === path ? `${path} differs from ${first} only by case` : `${path}: ${prefix} differs from ${first} only by case`;
+    }
+  }
+  return conflict;
 }
 
 /**

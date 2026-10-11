@@ -154,11 +154,21 @@ describe("a collection whose schema cannot be used", () => {
     expect(refused.issues[0]?.message).toContain("larger than");
   });
 
-  test("is one whose schema file cannot be read, naming why", async () => {
+  test("is one whose schema file cannot be read, which is storage-failed, naming why", async () => {
     const store = await storeOf({ ...FILES, ".vmd/schema/ticket.schema.json": { content: "{}", unreadable: true } });
     const refused = (await store.record("tickets/0001.md")) as Outcome<unknown>;
-    expect(refused.issues.map((issue) => issue.code)).toEqual(["schema-invalid"]);
-    expect(refused.issues[0]?.message).toContain("cannot be read");
+    expect(refused.issues.map((issue) => [issue.code, issue.path, issue.at])).toEqual([["storage-failed", null, null]]);
+    expect(refused.issues[0]?.message).toMatch(/^the schema ticket\.schema\.json of the collection tickets cannot be read/);
+  });
+
+  test("is one whose schema is a directory, which is storage-failed, and the listing reports it once", async () => {
+    const { ".vmd/schema/ticket.schema.json": _, ...rest } = FILES;
+    const store = await storeOf({ ...rest, ".vmd/schema/ticket.schema.json/inside.json": "{}", "tickets/0002.md": "# Two\n" });
+    const refused = (await store.record("tickets/0001.md")) as Outcome<unknown>;
+    expect(refused.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
+    expect(refused.issues[0]?.message).toContain(".vmd/schema/ticket.schema.json is a directory, not a file");
+    const listed = await store.list({ glob: "tickets/*", limit: 10 });
+    expect(listed.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
 });
 
