@@ -6,12 +6,12 @@ import { compileLineTest, decodeForGrep, grepCursor, grepText, readGrepCursor } 
 import { checkStoragePath, compareUtf8, compileGlob, prefixDirectory } from "./path.js";
 import type {
   ContentRange,
+  CountedPage,
   FileContent,
   FileInfo,
   GrepMatch,
   GrepQuery,
   ListQuery,
-  Page,
   StorageHistory,
   StorageReader,
 } from "./storage.js";
@@ -45,9 +45,12 @@ export interface FileSource {
  * Builds the read side of the storage contract over a file source. Listings and grep sort paths in UTF-8 byte order, file
  * versions are the git blob ids of the bytes the source returns, and grep runs with {@link compileLineTest}.
  *
+ * `list` counts the paths that remain exactly. `grep` counts the matches that remain in the files it has read, and estimates
+ * those in the files it has not, at the rate of matches per file read; the count is exact once every file has been read.
+ *
  * Cost: `list` lists the whole directory of its prefix and reads each file on the page, to hash it; `stat` reads the file;
- * `grep` reads every file its glob matches, up to the first match after a full page, so that its cursor is null exactly when
- * nothing remains.
+ * `grep` reads every file its glob matches, up to the first file with a match after a full page, so that its cursor is null
+ * exactly when nothing remains.
  */
 export function createStorageReader(source: FileSource): StorageReader {
   return new FileSourceReader(source);
@@ -62,7 +65,7 @@ class FileSourceReader implements StorageReader {
     this.history = source.history;
   }
 
-  async list(query: ListQuery): Promise<Outcome<Page<FileInfo>>> {
+  async list(query: ListQuery): Promise<Outcome<CountedPage<FileInfo>>> {
     requireCount("limit", query.limit, 1);
     const prefix = prefixDirectory(query.prefix);
     if ("issue" in prefix) return fail([prefix.issue]);
@@ -77,10 +80,12 @@ class FileSourceReader implements StorageReader {
         }),
       ]);
     }
+    const glob = query.glob === undefined ? null : compileGlob(query.glob);
+    if (glob !== null && !glob.ok) return glob;
+    const matches = glob === null ? null : glob.value;
     const listed = await this.#source.listFiles(prefix.directory);
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
-    const matches = query.glob === undefined ? null : compileGlob(query.glob);
     const cursor = query.cursor;
     const candidates = listed.value
       .filter((path) => path.startsWith(query.prefix))
@@ -89,7 +94,10 @@ class FileSourceReader implements StorageReader {
       .sort(compareUtf8);
     const items: FileInfo[] = [];
     for (const [index, path] of candidates.entries()) {
-      if (items.length === query.limit) return succeed({ items, cursor: candidates[index - 1] as string }, issues);
+      if (items.length === query.limit) {
+        const remaining = { count: candidates.length - index, exact: true };
+        return succeed({ items, cursor: candidates[index - 1] as string, remaining }, issues);
+      }
       const file = await this.#source.readFile(path);
       if (file.ok) {
         items.push(await fileInfo(path, file.value));
@@ -98,7 +106,7 @@ class FileSourceReader implements StorageReader {
         issues.push(...file.issues);
       }
     }
-    return succeed({ items, cursor: null }, issues);
+    return succeed({ items, cursor: null, remaining: { count: 0, exact: true } }, issues);
   }
 
   async stat(path: string): Promise<Outcome<FileInfo>> {
@@ -130,7 +138,7 @@ class FileSourceReader implements StorageReader {
     return succeed({ ...(await fileInfo(path, file.value)), content, range }, file.issues);
   }
 
-  async grep(query: GrepQuery): Promise<Outcome<Page<GrepMatch>>> {
+  async grep(query: GrepQuery): Promise<Outcome<CountedPage<GrepMatch>>> {
     requireCount("context", query.context, 0);
     requireCount("limit", query.limit, 1);
     const test = compileLineTest(query);
@@ -149,36 +157,46 @@ class FileSourceReader implements StorageReader {
         ]);
       }
     }
+    const glob = query.glob === undefined ? null : compileGlob(query.glob);
+    if (glob !== null && !glob.ok) return glob;
+    const matches = glob === null ? null : glob.value;
     const listed = await this.#source.listFiles("");
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];
-    const matches = query.glob === undefined ? null : compileGlob(query.glob);
     const paths = listed.value
       .filter((path) => matches === null || matches(path))
       .filter((path) => after === null || compareUtf8(path, after.path) >= 0)
       .sort(compareUtf8);
     const items: GrepMatch[] = [];
-    for (const path of paths) {
+    let filesRead = 0;
+    let matchesFound = 0;
+    for (const [index, path] of paths.entries()) {
       const file = await this.#source.readFile(path);
       if (!file.ok) {
         issues.push(...file.issues);
         continue;
       }
       const afterLine = after !== null && after.path === path ? after.line : 0;
-      // One match more than the page holds says whether anything remains.
+      // The matches that fit on the page, and the number of all of them, so that those beyond the page are counted exactly.
+      const room = query.limit - items.length;
       const found = grepText(path, decodeForGrep(file.value.bytes), test.value, {
         context: query.context,
-        limit: query.limit + 1 - items.length,
+        limit: room,
         afterLine,
       });
-      items.push(...found);
-      if (items.length > query.limit) {
-        items.length = query.limit;
+      filesRead += 1;
+      matchesFound += found.count;
+      items.push(...found.matches);
+      const beyond = found.count - room;
+      if (beyond > 0) {
+        // The files not read yet are estimated at the rate of matches per file read so far.
+        const unread = paths.length - index - 1;
+        const remaining = { count: beyond + Math.round((matchesFound / filesRead) * unread), exact: unread === 0 };
         const last = items[items.length - 1] as GrepMatch;
-        return succeed({ items, cursor: grepCursor(last.path, last.line) }, issues);
+        return succeed({ items, cursor: grepCursor(last.path, last.line), remaining }, issues);
       }
     }
-    return succeed({ items, cursor: null }, issues);
+    return succeed({ items, cursor: null, remaining: { count: 0, exact: true } }, issues);
   }
 
   head(): Promise<Outcome<string | null>> {

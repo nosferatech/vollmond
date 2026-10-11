@@ -32,14 +32,32 @@ export interface ContentRange {
   readonly end: number;
 }
 
+/** How many items remain after a page: an exact count, or an estimate marked as one. */
+export interface RemainingCount {
+  readonly count: number;
+  /** False when `count` is an estimate. */
+  readonly exact: boolean;
+}
+
 /** One page of items in UTF-8 byte order of their paths, and the cursor for the next page. */
 export interface Page<T> {
   readonly items: readonly T[];
+  /** How many items remain after this page, where the operation counts them; see {@link CountedPage}. */
+  readonly remaining?: RemainingCount;
   /**
    * The cursor that continues after this page, null when nothing remains. It is opaque: a caller passes it back to the same
    * operation, with the same query, and does not read or build one.
    */
   readonly cursor: string | null;
+}
+
+/** A page that always says how many items remain, as `list` and `grep` give it. */
+export interface CountedPage<T> extends Page<T> {
+  /**
+   * How many items remain after this page: `list` counts the paths exactly, and `grep` estimates the matching lines, exactly
+   * only once it has read every file. It is 0, and exact, when the cursor is null.
+   */
+  readonly remaining: RemainingCount;
 }
 
 /** The query of {@link StorageReader.list}. */
@@ -130,9 +148,10 @@ export interface StorageHistory {
 export interface StorageReader {
   /**
    * Lists files with their size, version and modification time, in UTF-8 byte order of their paths. A file the backend cannot
-   * read is left out of the page with a `storage-failed` issue, and the page still succeeds.
+   * read is left out of the page with a `storage-failed` issue, and the page still succeeds. The exact count of the paths that
+   * remain includes those a later page may leave out because they cannot be read.
    */
-  list(query: ListQuery): Promise<Outcome<Page<FileInfo>>>;
+  list(query: ListQuery): Promise<Outcome<CountedPage<FileInfo>>>;
   /** Gives a file's size, version and modification time, without its content. */
   stat(path: string): Promise<Outcome<FileInfo>>;
   /**
@@ -145,7 +164,7 @@ export interface StorageReader {
    * portable subset fails, with an issue for each construct outside it. A file the backend cannot read is skipped with a
    * `storage-failed` issue.
    */
-  grep(query: GrepQuery): Promise<Outcome<Page<GrepMatch>>>;
+  grep(query: GrepQuery): Promise<Outcome<CountedPage<GrepMatch>>>;
   /** The store's current version (a commit, or a sequence number), or null for a plain filesystem. */
   head(): Promise<Outcome<string | null>>;
   /** `changes` and `log`, or null for a backend without history. */

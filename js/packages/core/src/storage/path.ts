@@ -1,4 +1,5 @@
 import { type Issue, makeIssue } from "../issue/issue.js";
+import { fail, type Outcome, succeed } from "../issue/outcome.js";
 
 /**
  * Compares two strings in the order of their UTF-8 bytes, which is the order of their code points. JavaScript's `<` compares
@@ -73,25 +74,107 @@ export function prefixDirectory(prefix: string): { readonly directory: string } 
   };
 }
 
+/** A test of whether a glob matches a store path. */
+export type GlobTest = (path: string) => boolean;
+
+/** One step of a compiled glob. */
+type GlobToken =
+  | { readonly kind: "character"; readonly character: string }
+  /** `*`: any run of characters but `/`, none included. */
+  | { readonly kind: "star" }
+  /** `**` followed by `/`: zero or more whole segments, each with its `/`. */
+  | { readonly kind: "segments" }
+  /** A final `**`: the rest of the path, at least one character. */
+  | { readonly kind: "rest" };
+
 /**
- * Compiles a glob over whole store paths: a `**` segment matches any number of segments, none included, `*` matches any run of
- * characters within a segment, and every other character matches itself. Returns a test of a path.
+ * Compiles a glob over whole store paths, in the one glob syntax that listings, grep, a collection's `match` and `exclude`, the
+ * configuration's `ignore` and VQL's `@path` share. `**` is special as a whole segment only: `**` followed by `/` matches zero
+ * or more whole segments with their `/`, and a final `/**` matches one or more segments, so `docs/**` matches every path
+ * below `docs/` but not `docs`; consecutive `**` segments are one. `*` matches any run of characters within a segment, none
+ * included, a leading `.` too, so dotfiles are not special. Every other character matches itself.
+ *
+ * Fails with `query-invalid` for a glob that is empty, starts or ends with `/`, or has an empty segment, which no store path
+ * could match. The test it returns takes time proportional to the length of the path times the length of the glob: it runs
+ * the glob as a set of states and never backtracks.
  */
-export function compileGlob(glob: string): (path: string) => boolean {
-  const segments = glob.split("/");
-  let source = "";
+export function compileGlob(glob: string): Outcome<GlobTest> {
+  const problem =
+    glob === ""
+      ? "it is empty"
+      : glob.startsWith("/")
+        ? "it starts with /"
+        : glob.endsWith("/")
+          ? "it ends with /"
+          : glob.includes("//")
+            ? "it has an empty segment"
+            : null;
+  if (problem !== null) {
+    return fail([
+      makeIssue({
+        code: "query-invalid",
+        path: null,
+        at: null,
+        message: `glob ${JSON.stringify(glob)} is malformed: ${problem}`,
+      }),
+    ]);
+  }
+  const segments = glob.split("/").filter((segment, index, all) => segment !== "**" || all[index + 1] !== "**");
+  const tokens: GlobToken[] = [];
   segments.forEach((segment, index) => {
     const last = index === segments.length - 1;
     if (segment === "**") {
-      source += last ? ".*" : "(?:[^/]*/)*";
+      tokens.push({ kind: last ? "rest" : "segments" });
       return;
     }
-    source += segment
-      .split("*")
-      .map((part) => part.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&"))
-      .join("[^/]*");
-    if (!last) source += "/";
+    for (const character of segment) tokens.push(character === "*" ? { kind: "star" } : { kind: "character", character });
+    if (!last) tokens.push({ kind: "character", character: "/" });
   });
-  const expression = new RegExp(`^${source}$`, "su");
-  return (path) => expression.test(path);
+  return succeed((path) => runGlob(tokens, path));
+}
+
+/**
+ * Runs glob tokens over a path as a nondeterministic automaton. A state is a token index and a flag: within a segment, for
+ * `segments`, and past the first character, for `rest`.
+ */
+function runGlob(tokens: readonly GlobToken[], path: string): boolean {
+  let states = closeGlobStates(tokens, [0]);
+  for (const character of path) {
+    const next = new Set<number>();
+    for (const state of states) {
+      const index = state >> 1;
+      const token = tokens[index];
+      if (token === undefined) continue;
+      if (token.kind === "character") {
+        if (token.character === character) next.add((index + 1) << 1);
+      } else if (token.kind === "star") {
+        if (character !== "/") next.add(index << 1);
+      } else if (token.kind === "segments") {
+        next.add((index << 1) | (character === "/" ? 0 : 1));
+      } else {
+        next.add((index << 1) | 1);
+      }
+    }
+    if (next.size === 0) return false;
+    states = closeGlobStates(tokens, [...next]);
+  }
+  return states.has(tokens.length << 1);
+}
+
+/** Adds to `states` those reached without reading a character: past a `*`, past `segments` at a boundary, past a started `rest`. */
+function closeGlobStates(tokens: readonly GlobToken[], states: readonly number[]): Set<number> {
+  const closed = new Set<number>();
+  const pending = [...states];
+  while (pending.length > 0) {
+    const state = pending.pop() as number;
+    if (closed.has(state)) continue;
+    closed.add(state);
+    const index = state >> 1;
+    const token = tokens[index];
+    const skips =
+      token !== undefined &&
+      (token.kind === "star" || (token.kind === "segments" && (state & 1) === 0) || (token.kind === "rest" && (state & 1) === 1));
+    if (skips) pending.push((index + 1) << 1);
+  }
+  return closed;
 }

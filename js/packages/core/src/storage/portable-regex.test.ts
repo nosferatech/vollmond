@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { compileLineTest } from "./grep.js";
-import { checkPortableRegex } from "./portable-regex.js";
+import { checkPortableRegex, portableRegexToJavaScript } from "./portable-regex.js";
 import { candidatePatterns } from "./portable-regex.testkit.js";
 
 describe("checkPortableRegex", () => {
@@ -113,6 +113,30 @@ describe("checkPortableRegex", () => {
       }),
       { numRuns: 20000 },
     );
+  });
+
+  test("translates every portable pattern into an expression JavaScript compiles, with and without i", () => {
+    fc.assert(
+      fc.property(candidatePatterns, fc.boolean(), (pattern, ignoreCase) => {
+        if (checkPortableRegex(pattern).length > 0) return;
+        const source = portableRegexToJavaScript(pattern, ignoreCase);
+        expect(() => new RegExp(source, ignoreCase ? "usi" : "us"), `${pattern} as ${source}`).not.toThrow();
+      }),
+      { numRuns: 20000 },
+    );
+  });
+
+  test("leaves a pattern that needs no translation as it is", () => {
+    expect(portableRegexToJavaScript("^a\\d\\w[x-z]\\b.$", false)).toBe("^a\\d\\w[x-z]\\b.$");
+    expect(portableRegexToJavaScript("\\s[\\S]", false)).toBe("[\\t\\n\\f\\r ][^\\t\\n\\f\\r ]");
+    expect(() => portableRegexToJavaScript("(?=a)", false)).toThrow(RangeError);
+  });
+
+  test("hints at the flag i alone for inline flags, since grep has no m", () => {
+    for (const pattern of ["(?i)abc", "(?i:abc)"]) {
+      const [issue] = checkPortableRegex(pattern);
+      expect(issue?.hint).toBe("give the flag i with the query");
+    }
   });
 
   test.each([
