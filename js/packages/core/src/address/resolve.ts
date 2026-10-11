@@ -1,6 +1,7 @@
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import { makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
+import { documentOrderOf } from "../record/document-order.js";
 import { childPath } from "../record/exact-path.js";
 import type { NodeInfo, SectionInfo } from "../record/node-index.js";
 import type { ParsedRecord } from "../record/record.js";
@@ -38,10 +39,11 @@ export type AddressUse = "singular" | "selector";
  * a decimal index without leading zeros. The first step also matches every anchor of that name, of any kind; a block anchor
  * is a range of its `$body` and no later step goes into it. A node that a step matches several ways is one match.
  *
- * As a selector, the result is every match, possibly none. As a singular address it is exactly one target, and the outcome
- * fails with `address-ambiguous` when a step matches several nodes, even when a later step would leave one: evaluation stops
- * there, and the candidates are that step's matches. It fails with `address-not-found` when nothing matches. Issues have the
- * record's path and no node.
+ * As a selector, the result is every match, possibly none, in document order: the pre-order of the value view, a block anchor
+ * after the `$body` that holds it. As a singular address it is exactly one target, and the outcome fails with
+ * `address-ambiguous` when a step matches several nodes, even when a later step would leave one: evaluation stops there, and
+ * the candidates are that step's matches, in document order. It fails with `address-not-found` when nothing matches. Issues
+ * have the record's path and no node.
  */
 export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<readonly Target[]> {
   const resolver = resolverOf(record);
@@ -190,14 +192,28 @@ class RecordResolver {
       return { matches: node === undefined ? [] : [node], ambiguous: false, steps: 0 };
     }
     const [first, ...rest] = fragment.steps;
-    let matches: Match[] = distinct(this.#firstStep(first as string));
+    let matches: Match[] = this.#inDocumentOrder(distinct(this.#firstStep(first as string)));
     let steps = 1;
     for (const step of rest) {
       if (singular && matches.length > 1) break;
-      matches = distinct(matches.flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
+      const next = distinct(matches.flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
+      // One match's results can come after a later match's, when the later one is its descendant.
+      matches = this.#inDocumentOrder(next);
       steps++;
     }
     return { matches, ambiguous: singular && matches.length > 1, steps };
+  }
+
+  /**
+   * Sorts matches into document order, by the place of their node, or of the `$body` that holds a block anchor. The sort is
+   * stable, and the blocks of one `$body` come from the anchor table, in its order, which is theirs in the file; no step
+   * matches both a `$body` and one of its blocks, since a block's name is an anchor and `$body` is not.
+   */
+  #inDocumentOrder(matches: Match[]): Match[] {
+    if (matches.length < 2) return matches;
+    const order = documentOrderOf(this.#record.nodes);
+    const place = (match: Match) => order.get(match.at) as number;
+    return matches.sort((a, b) => place(a) - place(b));
   }
 
   /** Gives a match as a target. */

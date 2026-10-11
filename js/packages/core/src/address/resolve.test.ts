@@ -190,6 +190,22 @@ describe("cardinality", () => {
     expect(selected(twin, "#notes")).toEqual(["/$sections/0", "/$sections/1"]);
   });
 
+  test("a selector returns its matches in document order, whichever way each matched", () => {
+    // `entry-1` is the derived anchor of the second Entry, and the key of Other, by its explicit anchor.
+    const week = record("w.md", '# W\n\n## Log\n\n### Entry\n\n### Entry\n\n## Other<a id="entry-1"></a>\n');
+    expect(selected(week, "#entry-1")).toEqual(["/$sections/0/$sections/1", "/$sections/1"]);
+    const blocks = record("b.md", '<a id="x"></a>Text.\n\n## X\n');
+    expect(selected(blocks, "#x")).toEqual(["/$body", "/$sections/0"]);
+  });
+
+  test("a selector's later step keeps document order, though an ancestor's match comes after a descendant's", () => {
+    const nested = record(
+      "n.yaml",
+      "$sections:\n  - $title: A\n    $anchor: s\n    $sections:\n      - $title: Inner\n        $anchor: s\n        x: 1\n      - $title: X\n",
+    );
+    expect(selected(nested, "#s/x")).toEqual(["/$sections/0/$sections/0/x", "/$sections/0/$sections/1"]);
+  });
+
   test("a first step that matches a root member and another node's anchor is ambiguous", () => {
     expect(failure(shadow, "#notes")).toEqual([["address-ambiguous", "shadow.md", null]]);
     expect(selected(shadow, "#notes")).toEqual(["/notes", "/$sections/0/$sections/0"]);

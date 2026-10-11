@@ -88,7 +88,8 @@ local checkout and never modified by this work. Two things make that possible be
   the proposal's §6 and §8. A link from the docs to a file outside `docs/` leaves the store (proposal §8.2). The demonstration
   of I1.11 found 17 exceptions, all in `design/Minimal_Log.md`: elements at the start of a list item's second or later
   paragraph ([`examples/vampiredb/README.md`](../../examples/vampiredb/README.md)). Decision T (Draft v0.11) widened §6.2 to
-  make them block anchors, which answers #20's open item 1; the anchor code follows it in a later pull request.
+  make them block anchors, which answers #20's open item 1, and the anchor code follows it: every anchor element in the docs
+  now names a heading or a block.
 - `vmd --config PATH` (from I1.8) takes a store configuration from outside the store, so the configuration for vampiredb's docs
   lives in this repository under `examples/vampiredb/`.
 

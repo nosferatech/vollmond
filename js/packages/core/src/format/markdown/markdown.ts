@@ -83,13 +83,16 @@ export function parseMarkdownRecord(path: string, source: SourceText): Outcome<P
  * - Front matter starts with a delimiter line at the start of the file, after a byte order mark. Unclosed, it is a
  *   `syntax-error` at the root, and nothing else is read. It is a YAML unit whose members are the root's fields.
  * - The body is parsed as the file's text after the front matter, its offsets shifted to the file's, so that every range is
- *   a range of the file. Containers nested deeper than the limit are a `syntax-error` at the root, and no section is read.
- * - Only the tree's top-level blocks make structure. The first block is the title heading when it is a level-1 heading and
- *   the record's only one; several level-1 headings raise `multiple-h1`. Every other top-level heading starts a section,
- *   whose parent is the nearest earlier heading of a lower level.
- * - A section's data block is the fenced block right after its heading with the info string `yaml data` or `json data`.
- *   Such a block after the title heading, as the first block of a record without one, or right after a data block, is
- *   `data-block-misplaced`; a `data` marker of a newer version after a heading is `feature-unsupported`.
+ *   a range of the file. A body beyond a resource limit of the Markdown library's parse (containers nested too deep, too many
+ *   runs of emphasis in a paragraph) is a `syntax-error` at the root, and no section is read.
+ * - Only the tree's top-level blocks make structure. The first block, not counting HTML blocks that hold only comments, is
+ *   the title heading when it is a level-1 heading and the record's only one; several level-1 headings raise
+ *   `multiple-h1`. Every other top-level heading starts a section, whose parent is the nearest earlier heading of a lower
+ *   level.
+ * - A section's data block is the fenced block right after its heading with the info string `yaml data` or `json data`; one
+ *   whose fence is not closed is a `syntax-error` at its section. Such a block after the title heading, as the first block
+ *   of a record without one, or right after a data block, is `data-block-misplaced`; a `data` marker of a newer version in
+ *   any of those places, or after a heading, is `feature-unsupported`.
  * - A section's `$body` runs from the line after its heading, or its data block, to the next top-level heading.
  */
 export function readMarkdown(path: string, source: SourceText): MarkdownReading {
@@ -123,7 +126,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   const shift = text.charCodeAt(parseStart) === 0xfeff ? parseStart + 1 : parseStart;
   const tree = parseMarkdownTree(text.slice(parseStart));
   if (!tree.ok) {
-    raise("syntax-error", "", "Markdown containers are nested too deep for vmd to read", shift + tree.tooDeepAt);
+    raise("syntax-error", "", `the Markdown passes a resource limit: ${tree.message}`, shift + tree.limitAt);
     return nothing();
   }
   const blocks = tree.root.children;
@@ -135,7 +138,10 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const message = `the record has ${levelOnes.length} level-1 headings, and so no title heading`;
     raise("multiple-h1", "", message, shift + startOf(levelOnes[1] as RootContent));
   }
-  const first = blocks[0];
+  // HTML blocks of comments alone, such as `<!-- markdownlint-disable -->`, do not count as the first block for the title.
+  let titleIndex = 0;
+  while (isCommentsOnly(blocks[titleIndex])) titleIndex += 1;
+  const first = blocks[titleIndex];
   const titleHeading = first?.type === "heading" && first.depth === 1 && levelOnes.length === 1 ? first : null;
 
   const root: SectionDraft = {
@@ -182,7 +188,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   let from = bodyStart;
   if (titleHeading !== null) {
     const heading = readHeadingOf(root, titleHeading);
-    index = 1;
+    index = titleIndex + 1;
     from = nextLineStart(text, heading.range.end);
   }
   const misplaced = readFence(text, blocks[index], shift);
@@ -190,7 +196,9 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const where = titleHeading === null ? "the first block of a record without a title heading" : "right after the title heading";
     const message = `a data block ${where} has no section; the root's fields come from front matter`;
     raise("data-block-misplaced", "", message, misplaced.start);
-  } else if (misplaced?.marker === "unsupported" && titleHeading !== null) {
+    const after = readFence(text, blocks[index + 1], shift);
+    if (after?.marker === "unsupported") raise("feature-unsupported", "", unsupportedMessage(after.words), after.start);
+  } else if (misplaced?.marker === "unsupported") {
     raise("feature-unsupported", "", unsupportedMessage(misplaced.words), misplaced.start);
   }
   const firstSection = nextHeadingIndex(index);
@@ -218,13 +226,19 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     let after = heading.range.end;
     const fence = readFence(text, blocks[index + 1], shift);
     if (fence?.marker === "yaml" || fence?.marker === "json") {
-      const dataBlock: DataBlock = parseDataBlock(path, source, { ...fence, marker: fence.marker }, draft.at);
-      issues.push(...dataBlock.issues);
-      if (dataBlock.value !== null) draft.fields = { value: dataBlock.value, nodes: dataBlock.nodes };
+      if (fence.closed) {
+        const dataBlock: DataBlock = parseDataBlock(path, source, { ...fence, marker: fence.marker }, draft.at);
+        issues.push(...dataBlock.issues);
+        if (dataBlock.value !== null) draft.fields = { value: dataBlock.value, nodes: dataBlock.nodes };
+      } else {
+        raise("syntax-error", draft.at, "the data block's fence is not closed, so it would run to the end", fence.start);
+      }
       after = fence.end;
       const second = readFence(text, blocks[index + 2], shift);
       if (second?.marker === "yaml" || second?.marker === "json") {
         raise("data-block-misplaced", draft.at, "a section has one data block, and this is a second", second.start);
+      } else if (second?.marker === "unsupported") {
+        raise("feature-unsupported", draft.at, unsupportedMessage(second.words), second.start);
       }
     } else if (fence?.marker === "unsupported") {
       raise("feature-unsupported", draft.at, unsupportedMessage(fence.words), fence.start);
@@ -320,6 +334,14 @@ export function buildMarkdownRecord(reading: MarkdownReading): Outcome<ParsedRec
     const nodes = builder.build(derivedAnchors);
     return nameRecord({ path, format: "md", value, source, nodes, issues }, { headingSlugs, blockAnchors: reading.blockAnchors });
   });
+}
+
+/** An HTML comment as CommonMark 0.31.2 reads one (section 6.6): `<!-->`, `<!--->`, or `<!--` to the first `-->`. */
+const HTML_COMMENT = /<!--(?:-?>|[\s\S]*?-->)/g;
+
+/** Whether a block is an HTML block that holds only comments and white space. */
+function isCommentsOnly(block: RootContent | undefined): boolean {
+  return block?.type === "html" && /^[ \t\r\n]*$/.test(block.value.replace(HTML_COMMENT, ""));
 }
 
 function unsupportedMessage(words: readonly string[]): string {

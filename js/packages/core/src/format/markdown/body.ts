@@ -1,4 +1,4 @@
-import type { ListItem, Nodes, Paragraph, RootContent } from "mdast";
+import type { Nodes, Paragraph, RootContent } from "mdast";
 import type { IssueCode } from "../../issue/codes.js";
 import type { ByteRange, SourceText } from "../../text/source-text.js";
 import { anchorElementAt, anchorTagsWithIdIn, endOf, inlineHtmlOf, startOf } from "./anchor-element.js";
@@ -56,11 +56,14 @@ export interface BodyProblem {
  * Reads the anchor elements of a `$body`, whose top-level blocks of the record's tree are `blocks`, with offsets that plus
  * `shift` are indexes into the file's text, and whose exact path is `at`:
  *
- * - an anchor element with an `id` at the start of a paragraph among `blocks`, or of a list item outside block quotes at any
- *   depth of list nesting (the start of its first paragraph), is a block anchor;
- * - one there that has content, another attribute or a `class`, since a block carries no tags, or a second anchor element
- *   right after the first, is `anchor-element-invalid`;
- * - every other `<a>` open tag with an `id` in the body, in a paragraph, a block quote, a later paragraph of a list item or
+ * - an anchor element with an `id` at the start of a block is a block anchor. The blocks are the paragraphs among `blocks`,
+ *   the list items outside block quotes at any depth of list nesting, whose block starts with their first paragraph, and
+ *   their later paragraphs. A block's range is a list item's from its marker, or a paragraph's, without trailing white space;
+ * - one there with a `class` is `block-anchor-class`, since a block carries no tags, and its `id`, if any, still anchors the
+ *   block;
+ * - one there that has content or another attribute, or a second anchor element right after the first, is
+ *   `anchor-element-invalid`;
+ * - every other `<a>` open tag with an `id` in the body, in the middle of a paragraph, in a block quote, a heading, a table or
  *   an HTML block, is plain HTML and anchors nothing, and gets an `anchor-element-ignored`.
  *
  * Each walk keeps its own stack, so the nesting of lists costs no recursion.
@@ -99,12 +102,15 @@ export function readBlockAnchors(
       rest = element.pieces;
       if (element.problem !== null) {
         raise("anchor-element-invalid", element.problem, element.start);
-      } else if (element.hasClass || element.id === null) {
-        raise("anchor-element-invalid", "a block anchor carries no tags: its element has an id and no class", element.start);
       } else {
-        const range = { start: offsets.valueOffset(blockStartIndex), end: offsets.valueOffset(blockEnd) };
-        const fileRange = { start: source.byteOffset(blockStartIndex), end: source.byteOffset(blockEnd) };
-        anchors.push({ name: element.id.name, at, range, fileRange });
+        if (element.hasClass) {
+          raise("block-anchor-class", "a block carries no tags, so its anchor element has no class", element.start);
+        }
+        if (element.id !== null) {
+          const range = { start: offsets.valueOffset(blockStartIndex), end: offsets.valueOffset(blockEnd) };
+          const fileRange = { start: source.byteOffset(blockStartIndex), end: source.byteOffset(blockEnd) };
+          anchors.push({ name: element.id.name, at, range, fileRange });
+        }
       }
       const second = pieces[rest]?.start === element.end ? anchorElementAt(text, pieces, rest) : null;
       if (second !== null) {
@@ -115,27 +121,40 @@ export function readBlockAnchors(
     for (const piece of pieces.slice(rest)) ignoredIn([piece.node]);
   };
 
+  /** Reads the anchor element at the start of a paragraph that is a block of its own. */
+  const paragraphStart = (paragraph: Paragraph) => {
+    const start = shift + startOf(paragraph);
+    blockStart(paragraph, start, trimmedEnd(start, shift + endOf(paragraph)));
+  };
+  /** The end of a block without its trailing white space: spaces, tabs and line breaks. */
+  const trimmedEnd = (start: number, end: number) => {
+    let trimmed = end;
+    while (trimmed > start && isTrimmedSpace(text.charCodeAt(trimmed - 1))) trimmed -= 1;
+    return trimmed;
+  };
+
   for (const block of blocks) {
     if (block.type === "paragraph") {
-      const start = shift + startOf(block);
-      let end = shift + endOf(block);
-      while (end > start && (text.charCodeAt(end - 1) === 0x20 || text.charCodeAt(end - 1) === 0x09)) end -= 1;
-      blockStart(block, start, end);
+      paragraphStart(block);
     } else if (block.type === "list") {
-      // List items to read and other blocks to scan, the next one last, so that both come in document order.
-      const pending: (ListItem | Nodes)[] = [...block.children].reverse();
+      // List items, their later paragraphs and other blocks to scan, the next one last, so that all come in document order.
+      const pending: Nodes[] = [...block.children].reverse();
       for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+        if (next.type === "paragraph") {
+          paragraphStart(next);
+          continue;
+        }
         if (next.type !== "listItem") {
           ignoredIn([next]);
           continue;
         }
         const start = shift + startOf(next);
-        const end = Math.min(shift + endOf(next), body.range.end);
+        const end = trimmedEnd(start, Math.min(shift + endOf(next), body.range.end));
         const [first, ...others] = next.children;
         const later = first?.type === "paragraph" ? others : next.children;
         if (first?.type === "paragraph") blockStart(first, start, end);
-        const inOrder = later.flatMap((child): (ListItem | Nodes)[] => (child.type === "list" ? child.children : [child]));
-        for (let i = inOrder.length - 1; i >= 0; i--) pending.push(inOrder[i] as ListItem | Nodes);
+        const inOrder = later.flatMap((child): Nodes[] => (child.type === "list" ? child.children : [child]));
+        for (let i = inOrder.length - 1; i >= 0; i--) pending.push(inOrder[i] as Nodes);
       }
     } else {
       ignoredIn([block]);

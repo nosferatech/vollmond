@@ -137,7 +137,7 @@ describe("the body unit", () => {
   });
 
   test("a byte order mark is skipped and counted in offsets, but is not a column", () => {
-    const text = '\u{FEFF}# Title\n\n## Part\n\n<a id="x" class="y"></a>Text.\n';
+    const text = '\u{FEFF}# Title\n\n## Part\n\n<a id="x">y</a>Text.\n';
     const parsed = parse(text);
     expect(parsed.ok).toBe(false);
     const issue = parsed.issues[0] as Issue;
@@ -193,7 +193,7 @@ describe("nesting", () => {
   });
 
   test("lists and inline nodes nest too, and front matter is still read", () => {
-    const lists = Array.from({ length: MAX_NESTING + 1 }, (_, i) => `${"  ".repeat(i)}- x`).join("\n");
+    const lists = `${"- ".repeat(MAX_NESTING + 1)}x`;
     expect(issuesOf(`---\na: [1\n---\n${lists}\n`)).toEqual([
       ["syntax-error", ""],
       ["syntax-error", ""],
@@ -232,6 +232,81 @@ describe("nesting", () => {
   test("ten thousand nested block quotes are a syntax error, not a stack overflow", () => {
     expect(issuesOf(quotes(10_000))).toEqual([["syntax-error", ""]]);
   });
+
+  /** A list nested `depth` levels by indentation, one item a line. */
+  const indentedList = (depth: number) => Array.from({ length: depth }, (_, i) => `${"  ".repeat(i)}- x`).join("\n");
+
+  test("a thousand levels of list indentation are refused at the first item too deep, before the rest is parsed", () => {
+    const text = `${indentedList(1000)}\n`;
+    const started = performance.now();
+    const issue = parse(text).issues[0];
+    // Parsed to the end, these 980 KB take about 25 s, growing with the square of the depth; refused at level 257, the 66
+    // KB before it take a few hundred milliseconds. The bound is far from both, so that a loaded machine does not fail it.
+    expect(performance.now() - started).toBeLessThan(5000);
+    expect([issue?.code, issue?.at]).toEqual(["syntax-error", ""]);
+    expect(issue?.position).toEqual({ offset: bytesOf(text, "- x", MAX_NESTING).start, line: MAX_NESTING + 1, col: 513 });
+  });
+
+  test("list markers on one line nest one level each, 256 of them read and one more refused at it", () => {
+    expect(issuesOf(`${"- ".repeat(MAX_NESTING)}x\n`)).toEqual([]);
+    const text = `${"- ".repeat(MAX_NESTING + 1)}x\n`;
+    expect(parse(text).issues[0]?.position?.offset).toBe(2 * MAX_NESTING);
+  });
+
+  test("a level counts on the line that opens it, after a blank or a lazy line, and a closed list frees its levels", () => {
+    // Markers on one line open the levels cheaply; the line after continues every item at its content's column.
+    const markers = `${"- ".repeat(MAX_NESTING)}x`;
+    const deepest = "  ".repeat(MAX_NESTING);
+    expect(issuesOf(`${markers}\n\n${deepest}- y\n`)).toEqual([["syntax-error", ""]]);
+    expect(issuesOf(`${markers}\nlazy\n${deepest}- y\n`)).toEqual([["syntax-error", ""]]);
+    expect(issuesOf(`${markers}\n\n${deepest}y\n`)).toEqual([]);
+    expect(issuesOf(`${markers}\n\nText.\n\n${markers}\n`)).toEqual([]);
+    expect(issuesOf(`${markers}\n- y\n  ${"- ".repeat(MAX_NESTING - 1)}x\n`)).toEqual([]);
+    expect(issuesOf(`${markers}\n- y\n  ${"- ".repeat(MAX_NESTING)}x\n`)).toEqual([["syntax-error", ""]]);
+  });
+});
+
+describe("emphasis runs", () => {
+  test("a paragraph holds 4,096 runs of *, _ or ~; one more is a syntax error at the root, at the run", () => {
+    expect(issuesOf(`${"*a* ".repeat(2048)}\n`)).toEqual([]);
+    const text = `# R\n\n${"*a* ".repeat(2048)}_b_\n`;
+    const issue = parse(text).issues[0];
+    expect([issue?.code, issue?.at, issue?.position?.offset]).toEqual(["syntax-error", "", bytesOf(text, "_b_").start]);
+    expect(issuesOf(`${"~a~ ".repeat(2048)}~\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("runs are counted per paragraph, across its lines, and per table cell", () => {
+    const half = "*a* ".repeat(1024);
+    expect(issuesOf(`${half}\n${half}\n\n${half}\n${half}\n`)).toEqual([]);
+    expect(issuesOf(`${half}\n${half}\n${half}\n`)).toEqual([["syntax-error", ""]]);
+    const cells = `| ${half}${half} | ${half}${half} |`;
+    expect(issuesOf(`| a | b |\n|---|---|\n${cells}\n`)).toEqual([]);
+    expect(issuesOf(`| a |\n|---|\n| ${half}${half}${half} |\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a run is a delimiter run: a long run counts once, and an escaped or quoted * none", () => {
+    expect(issuesOf(`${"*".repeat(5000)}a\n`)).toEqual([]);
+    expect(issuesOf(`${"\\* ".repeat(5000)}\n`)).toEqual([]);
+    expect(issuesOf(`\`${"* ".repeat(5000)}\`\n`)).toEqual([]);
+    // Three ~ are no strikethrough, so the library reads them one at a time, and they are one run still.
+    expect(issuesOf(`x ${"~~~ ".repeat(2000)}\n`)).toEqual([]);
+    expect(issuesOf(`x ${"~~~ ".repeat(4097)}\n`)).toEqual([["syntax-error", ""]]);
+    // A * right after an escaped one starts a run, though the character before it is a *.
+    expect(issuesOf(`${"\\**a* ".repeat(2048)}\n`)).toEqual([]);
+    expect(issuesOf(`${"\\**a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: a heading is not a paragraph, so its runs are not bounded", () => {
+    expect(issuesOf(`# R\n\n## ${"*a* ".repeat(2500)}\n\nText ${"*a* ".repeat(100)}\n`)).toEqual([]);
+    expect(issuesOf(`${"*a* ".repeat(2500)}\n---\n\n${"*a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("ten thousand nested emphasis levels are refused before the library resolves them", () => {
+    const started = performance.now();
+    expect(issuesOf(`${"*a ".repeat(10_000)}b${" a*".repeat(10_000)}\n`)).toEqual([["syntax-error", ""]]);
+    // Resolved, the emphasis takes about 45 s; refused at run 4,097, a few milliseconds. The bound is far from both.
+    expect(performance.now() - started).toBeLessThan(5000);
+  });
 });
 
 describe("sections", () => {
@@ -255,6 +330,21 @@ describe("sections", () => {
   test("a link reference definition is a first block, so a level-1 heading after it is a section", () => {
     expect(valueView("[x]: https://example.com\n# One\n")).toEqual({
       $body: "[x]: https://example.com",
+      $sections: [{ $title: "One" }],
+    });
+  });
+
+  test("HTML blocks of comments alone before the title heading do not count as the first block", () => {
+    expect(valueView("<!-- markdownlint-disable -->\n# One\n\nText.\n")).toEqual({ $title: "One", $body: "Text." });
+    expect(valueView("---\na: 1\n---\n<!-- x -->\n\n<!--\ny --> <!-- z -->\n# One\n")).toEqual({ a: 1, $title: "One" });
+    expect(valueView("<!---->\n<!-->\n# One\n")).toEqual({ $title: "One" });
+  });
+
+  test("near miss: an HTML block with more than comments is the first block, so a level-1 heading after it is a section", () => {
+    expect(valueView("<!-- x --> text\n\n# One\n")).toEqual({ $body: "<!-- x --> text", $sections: [{ $title: "One" }] });
+    expect(valueView("<div></div>\n\n# One\n")).toEqual({ $body: "<div></div>", $sections: [{ $title: "One" }] });
+    expect(valueView("<!-- x -->\n\nText.\n\n# One\n")).toEqual({
+      $body: "<!-- x -->\n\nText.",
       $sections: [{ $title: "One" }],
     });
   });
@@ -361,6 +451,27 @@ describe("anchor elements in headings", () => {
     expect(issuesOf(`# R\n\n${heading}`)).toEqual([["anchor-element-invalid", "/$sections/0"]]);
   });
 
+  test.each([
+    ["emphasis", '## *A <a id="d"></a>*\n'],
+    ["strong emphasis", '## **A <a class="t"></a>**\n'],
+    ["a link", '## [A <a id="d"></a>](u.md)\n'],
+    ["strikethrough", '## ~~A <a id="d"></a>~~\n'],
+  ])("an anchor element inside %s is anchor-element-invalid at the section, not heading-html", (_, heading) => {
+    expect(issuesOf(`# R\n\n${heading}`)).toEqual([["anchor-element-invalid", "/$sections/0"]]);
+  });
+
+  test("near miss: an anchor element among the heading's direct children, beside emphasis, labels the section", () => {
+    expect(valueView('# R\n\n## *A* <a id="d"></a>\n')).toEqual({ $title: "R", $sections: [{ $title: "*A*", $anchor: "d" }] });
+    expect(issuesOf('# R\n\n## *A <span>s</span>* <a id="d"></a>\n')).toEqual([]);
+  });
+
+  test("character references in its attributes are not decoded", () => {
+    expect(valueView('# R\n\n## A<a id="a&amp;b" class="x&#32;y"></a>\n')).toEqual({
+      $title: "R",
+      $sections: [{ $title: "A", $anchor: "a&amp;b", $tags: ["x&#32;y"] }],
+    });
+  });
+
   test("a self-closing anchor element is refused as one, though no closing tag follows it", () => {
     expect(parse('## Done<a id="d"/>\n').issues[0]?.message).toMatch(/self-closing/);
   });
@@ -422,11 +533,22 @@ describe("data blocks", () => {
     expect(issuesOf("# R\n\n```toml data\na = 1\n```\n")).toEqual([["feature-unsupported", ""]]);
   });
 
-  test("an unsupported marker after no heading is prose: as the first block, or after a data block", () => {
-    expect(valueView("```toml data\na = 1\n```\n")).toEqual({ $body: "```toml data\na = 1\n```" });
-    expect(valueView("## A\n```yaml data\na: 1\n```\n```toml data\n```\n")).toEqual({
-      $sections: [{ $title: "A", a: 1, $body: "```toml data\n```" }],
-    });
+  test("an unsupported marker is feature-unsupported as the first block without a title heading, at the root", () => {
+    expect(issuesOf("```toml data\na = 1\n```\n")).toEqual([["feature-unsupported", ""]]);
+    expect(issuesOf("---\na: 1\n---\n\n```json data x\n{}\n```\n")).toEqual([["feature-unsupported", ""]]);
+  });
+
+  test("an unsupported marker right after a data block is feature-unsupported, at the data block's section or the root", () => {
+    expect(issuesOf("## A\n```yaml data\na: 1\n```\n```toml data\n```\n")).toEqual([["feature-unsupported", "/$sections/0"]]);
+    expect(issuesOf("# R\n\n```yaml data\na: 1\n```\n\n```toml data\n```\n")).toEqual([
+      ["data-block-misplaced", ""],
+      ["feature-unsupported", ""],
+    ]);
+  });
+
+  test("near miss: an unsupported marker after a paragraph is prose", () => {
+    expect(valueView("Text.\n\n```toml data\na = 1\n```\n")).toEqual({ $body: "Text.\n\n```toml data\na = 1\n```" });
+    expect(issuesOf("## A\n```yaml data\na: 1\n```\nText.\n```toml data\n```\n")).toEqual([]);
   });
 
   test("a data block after the title heading, or as the first block without one, is data-block-misplaced at the root", () => {
@@ -481,10 +603,20 @@ describe("data blocks", () => {
     expect(issuesOf('## A\n```json data\n{"x": {"$ref": 1}}\n```\n')).toEqual([["ref-malformed", "/$sections/0/x"]]);
   });
 
-  test("an unclosed data fence runs to the end of the record", () => {
-    expect(valueView("## A\n```yaml data\na: 1\n## B\n")).toEqual({ $sections: [{ $title: "A", a: 1 }] });
-    // Its last line is content, though it would close a shorter fence.
-    expect(valueView("## A\n````yaml data\na: |\n  x\n  ```")).toEqual({ $sections: [{ $title: "A", a: "x\n```" }] });
+  test("an unclosed data fence is a syntax error at its section, since YAML would read the headings after it as comments", () => {
+    expect(issuesOf("## A\n```yaml data\na: 1\n\n## B\n\nText.\n")).toEqual([["syntax-error", "/$sections/0"]]);
+    expect(issuesOf('# R\n\n## A\n~~~json data\n{"a": 1}\n')).toEqual([["syntax-error", "/$sections/0"]]);
+    expect(issuesOf("## A\n```yaml data")).toEqual([["syntax-error", "/$sections/0"]]);
+    // Its last line would close a shorter fence, and does not close this one.
+    expect(issuesOf("## A\n````yaml data\na: |\n  x\n  ```")).toEqual([["syntax-error", "/$sections/0"]]);
+    expect(parse("## A\n\n```yaml data\na: 1\n").issues[0]?.position?.line).toBe(3);
+  });
+
+  test("near miss: a data fence closed on the last line of the file, and an unclosed fence that is prose, are no error", () => {
+    expect(valueView("## A\n```yaml data\na: 1\n```")).toEqual({ $sections: [{ $title: "A", a: 1 }] });
+    expect(valueView("## A\n```yaml data\na: 1\n  ```  ")).toEqual({ $sections: [{ $title: "A", a: 1 }] });
+    expect(issuesOf("## A\n```yaml\na: 1\n")).toEqual([]);
+    expect(issuesOf("## A\n\nText.\n\n```yaml data\na: 1\n")).toEqual([]);
   });
 
   test("an indented fence's lines lose columns: a tab partly removed leaves spaces, as CommonMark reads it", () => {
@@ -544,7 +676,7 @@ describe("block anchors", () => {
     expect(issuesOf(text)).toEqual([]);
     const nested = '# R\n\n## P\n\n- Outer\n  - <a id="inner"></a>Inner\n    more  \n1. <a id="o"></a>x\n';
     expect(anchorsOf(nested)).toEqual([
-      { name: "inner", at: "/$sections/0/$body", range: { start: 10, end: 46 } },
+      { name: "inner", at: "/$sections/0/$body", range: { start: 10, end: 44 } },
       { name: "o", at: "/$sections/0/$body", range: { start: 47, end: 65 } },
     ]);
   });
@@ -562,16 +694,57 @@ describe("block anchors", () => {
     ["two elements at the start of a list item", '- <a id="a"></a><a id="b"></a>Item.'],
     ["an element with another attribute", '<a id="room" title="Room"></a>Text.'],
     ["an element with content", '<a id="room">x</a>Text.'],
-    ["an element with a class, since a block carries no tags", '<a id="room" class="x"></a>Text.'],
-    ["an element with a class alone", '<a class="x"></a>Text.'],
   ])("%s is anchor-element-invalid at the $body", (_, block) => {
     expect(issuesOf(`# R\n\n${block}\n`)).toEqual([["anchor-element-invalid", "/$body"]]);
+  });
+
+  test("an element with a class is block-anchor-class at the $body, a validation error, and its id still anchors the block", () => {
+    const text = '# R\n\n<a id="room" class="x"></a>Text.\n\n- <a id="item" class="y z"></a>Item.\n\n<a class="x"></a>None.\n';
+    const outcome = parse(text);
+    expect(outcome.ok).toBe(true);
+    const issues = outcome.ok ? outcome.value.issues : [];
+    expect(issues.map((issue) => [issue.code, issue.at, issue.class, issue.offset])).toEqual([
+      ["block-anchor-class", "/$body", "validation", 0],
+      ["block-anchor-class", "/$body", "validation", 36],
+      ["block-anchor-class", "/$body", "validation", 72],
+    ]);
+    expect(anchorsOf(text).map((anchor) => anchor.name)).toEqual(["room", "item"]);
+  });
+
+  test("near miss: an element with an empty class still has a class, and one without is a plain block anchor", () => {
+    expect(issuesOf('# R\n\n<a id="room" class=""></a>Text.\n')).toEqual([["block-anchor-class", "/$body"]]);
+    expect(issuesOf('# R\n\n<a id="room"></a>Text.\n')).toEqual([]);
+  });
+
+  test("start any paragraph of a list item at any depth, a later one included, which is the range", () => {
+    const text =
+      '# R\n\n- One.\n\n  <a id="second"></a>Second paragraph.\n\n  Third <a id="mid"></a>paragraph.\n' +
+      '- Outer\n  - Inner\n\n    <a id="deep"></a>Deep.  \n\n    - Deeper\n\n    <a id="after"></a>After a list.\n';
+    const body = record(text).value.$body as string;
+    const rangeOf = (part: string) => {
+      const start = utf8(body.slice(0, body.indexOf(part))).length;
+      return { start, end: start + utf8(part).length };
+    };
+    expect(anchorsOf(text)).toEqual([
+      { name: "second", at: "/$body", range: rangeOf('<a id="second"></a>Second paragraph.') },
+      { name: "deep", at: "/$body", range: rangeOf('<a id="deep"></a>Deep.') },
+      { name: "after", at: "/$body", range: rangeOf('<a id="after"></a>After a list.') },
+    ]);
+    expect(issuesOf(text)).toEqual([["anchor-element-ignored", "/$body"]]);
+  });
+
+  test("a list item's range is trimmed of trailing white space, like a paragraph's", () => {
+    const text = '# R\n\n- <a id="first"></a>First.   \n- Two.\n- <a id="loose"></a>Loose.\n\n  More. \t\n\n- Three.\n';
+    expect(anchorsOf(text)).toEqual([
+      { name: "first", at: "/$body", range: { start: 0, end: 26 } },
+      { name: "loose", at: "/$body", range: { start: 37, end: 72 } },
+    ]);
   });
 
   test("any other <a id> in a $body is anchor-element-ignored at the $body, with its offset", () => {
     const text =
       '# R\n\nBook <a id="room"></a>the room.\n\n> <a id="q"></a>Quoted.\n\n> - <a id="ql"></a>Listed.\n\n' +
-      '- One.\n\n  <a id="second"></a>Second paragraph.\n\n<div>\n<a id="html"></a>\n</div>\n\n| <a id="t"></a> |\n|---|\n\n' +
+      '- One.\n\n  > <a id="lq"></a>Quoted in a list.\n\n<div>\n<a id="html"></a>\n</div>\n\n| <a id="t"></a> |\n|---|\n\n' +
       '- ## Heading <a id="h"></a>\n';
     const outcome = parse(text);
     expect(outcome.ok).toBe(true);
@@ -579,7 +752,7 @@ describe("block anchors", () => {
     expect(issues.map((issue) => [issue.code, issue.at])).toEqual(Array(7).fill(["anchor-element-ignored", "/$body"]));
     const body = outcome.ok ? (outcome.value.value.$body as string) : "";
     expect(issues.map((issue) => issue.offset)).toEqual(
-      ["room", "q", "ql", "second", "html", "t", "h"].map((name) => utf8(body.slice(0, body.indexOf(`<a id="${name}"`))).length),
+      ["room", "q", "ql", "lq", "html", "t", "h"].map((name) => utf8(body.slice(0, body.indexOf(`<a id="${name}"`))).length),
     );
     expect(read(text).blockAnchors).toEqual([]);
   });
@@ -695,6 +868,7 @@ describe("issues", () => {
       '## A <a class="x x"></a>\n',
       "A\nB\n---\n",
       'Text <a id="x"></a>.\n',
+      '<a id="x" class="y"></a>Text.\n',
       `${">".repeat(MAX_NESTING + 1)} x\n`,
     ];
     const seen = new Map<IssueCode, string>();
@@ -706,6 +880,7 @@ describe("issues", () => {
       [
         "anchor-element-ignored",
         "anchor-element-invalid",
+        "block-anchor-class",
         "data-block-misplaced",
         "data-block-not-object",
         "duplicate-tag",

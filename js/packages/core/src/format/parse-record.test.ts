@@ -32,6 +32,19 @@ describe("parseRecord", () => {
     });
   });
 
+  test.each(["a.md", "a.json", "a.yaml"])(
+    "fails %s of more than 16 MiB with one syntax-error at the root, read no further",
+    (path) => {
+      // Not UTF-8 either, which only a read would find.
+      const content = new Uint8Array(MAX_RECORD_BYTES + 1).fill(0xff);
+      expect(parseRecord(path, content)).toEqual({
+        ok: false,
+        issues: [expect.objectContaining({ code: "syntax-error", path, at: "" })],
+      });
+      expect(parseRecord(path, content).issues[0]?.message).toContain("larger than 16777216 bytes");
+    },
+  );
+
   test("fails with the parser's structural errors", () => {
     const outcome = parseRecord("a.json", bytes("[1]"));
     expect(outcome.ok).toBe(false);

@@ -35,21 +35,24 @@ Run on 2026-10-11 against the vampiredb checkout at `~/vampiredb`, with Node 24.
 | | |
 |---|---|
 | documents | 37 Markdown records, all readable |
-| sections | 677, every one with a heading; a line scan counts 677 ATX headings |
-| anchors | 157 explicit, 677 derived, 264 block; a line scan counts 438 `<a id=` elements, which are the 157 and the 264 plus 17 that anchor nothing (below) |
-| `get`, against vmd's parse | 2,039 checks over 1,377 distinct addresses: all 1,377 resolve, each to the node or block it came from |
-| `get`, against the files | all 157 heading anchors and all 264 block anchors; 636 derived anchors by the demo's slug, with 41 headings skipped for markup; the 17 ignored elements are not found |
+| sections | 680, every one with a heading; a line scan counts 680 ATX headings |
+| anchors | 157 explicit, 680 derived, 282 block; a line scan counts 439 `<a id=` elements, which are the 157 and the 282: every element anchors a heading or a block |
+| `get`, against vmd's parse | 2,081 checks over 1,398 distinct addresses: all 1,398 resolve, each to the node or block it came from |
+| `get`, against the files | all 157 heading anchors and all 282 block anchors; 639 derived anchors by the demo's slug, with 41 headings skipped for markup |
 | failures | none |
-| full run | 3.5 minutes under a load average of 15; about 2 minutes on an idle machine, measured before the checks against the files were added |
+| full run | 3 minutes under load from other work; about 2 minutes on an idle machine, measured before the checks against the files were added |
 | store | unchanged (a digest of its files before and after), and no `.vmd/` created |
 
-**Anchor elements that anchor nothing.** `design/Minimal_Log.md` has 17 `<a id>` elements at the start of a list item's second
-or later paragraph, such as `#named-segment-past-prefix-dropped` at line 1319. §6.2 of the proposal makes an anchor element a
-block anchor only at the start of a list item or of a top-level paragraph of a `$body`, so vmd raises `anchor-element-ignored`
-for each one (a warning), and `vmd get` finds none of them. Twelve of them are the target of links, 40 links in all, which GitHub
-follows. Whether the documents should move these anchors or §6.2 should accept them was for the project owner to decide; this
-demonstration did not. Decision T (Draft v0.11) widened §6.2 to accept them, and the numbers here stand until the anchor code
-follows it.
+These numbers are from the run after Draft v0.11's follow-ups (decisions P to R and T). The first run, at the end of I1.11, read
+an earlier state of the docs: 677 sections, 438 elements, 264 block anchors.
+
+**Anchor elements in a list item's later paragraphs.** `design/Minimal_Log.md` has `<a id>` elements at the start of a list
+item's second or later paragraph, such as `#named-segment-past-prefix-dropped`: 17 at the first run, 18 now. §6.2 of the
+proposal then made an anchor element a block anchor only at the start of a list item or of a top-level paragraph of a `$body`,
+so vmd raised `anchor-element-ignored` for each one (a warning), and `vmd get` found none of them, though twelve were the target
+of links, 40 links in all, which GitHub follows. Decision T (Draft v0.11) widened §6.2 to any paragraph outside block quotes, so
+they are block anchors now and every one resolves: the build before that change, run on today's docs, gives 264 block anchors and
+18 ignored elements, and the build after it 282 and none.
 
 **The checks fail when they should.** Each check against the files was made to fail once:
 
@@ -64,8 +67,8 @@ follows it.
 The check against vmd's parse misses the slug, range and dropped-block bugs.
 
 **Failures by class.** vmd bugs: none. Problems in vampiredb's documents, such as duplicate anchors: none. Questions for the
-specification: the 17 elements above, and a block anchor's canonical address when its name is not singular. §7.5 defines the
-canonical address of nodes only. For a block whose name is not singular, `core` gives the address of the `$body` that holds it.
+specification, at the first run, both since decided: the elements above (decision T), and a block anchor's canonical address
+when its name is not singular. §7.5 defined the canonical address of nodes only. For a block whose name is not singular, `core` gives the address of the `$body` that holds it.
 vampiredb has no such block, but a copy of its docs with a planted duplicate, run through `demo.mjs`, shows the case. Decision R2
 (Draft v0.11) makes that address the `$body`'s plus the block's range, and §7.5 now says so.
 
@@ -88,6 +91,10 @@ That is well under the plan's second. Where a cold run's time goes, measured sta
 - The rest of the command (store, configuration, output): about 15 ms.
 
 On the same machine under a load average of 10 to 15, the cold run took 0.70 to 0.79 s.
+
+After Draft v0.11's follow-ups, whose resource limits of §5.4 are counted as the library parses, the file is 691,644 bytes, and
+the fast run measured a cold median of 352 ms and a warm median of 223 ms. `parseRecord` on the file takes the same before and
+after the follow-ups, a median of about 210 ms over 15 runs in one process.
 
 `vmd ls` reads every record on the page it prints to count the unreadable ones (decision K10): 1.1 s for these 37 records, cold.
 The index of I2.5 (#25) is what makes it cheaper.

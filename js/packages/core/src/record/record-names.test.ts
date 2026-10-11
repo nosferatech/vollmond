@@ -65,8 +65,8 @@ describe("the anchor table", () => {
   test("labels objects in front matter and in a data block", () => {
     const text = "---\ncontact:\n  $anchor: desk\n---\n# Help\n\n## Notes\n\n```yaml data\nowner:\n  $anchor: me\n```\n";
     expect(anchorsOf("r.md", text)).toEqual([
-      "explicit desk /contact",
       "derived help ",
+      "explicit desk /contact",
       "derived notes /$sections/0",
       "explicit me /$sections/0/owner",
     ]);
@@ -104,6 +104,15 @@ describe("the anchor table", () => {
     ]);
   });
 
+  test("lists the root's anchors and tags first, before its front matter's, since document order is pre-order", () => {
+    const text = '---\nx:\n  $anchor: a\n  $tags: [t]\n---\n# Title <a id="top" class="r"></a>\n\n## Part\n';
+    expect(anchorsOf("r.md", text)).toEqual(["explicit top ", "derived title ", "explicit a /x", "derived part /$sections/0"]);
+    expect(record("r.md", text).anchors.tags).toEqual([
+      { tag: "r", at: "" },
+      { tag: "t", at: "/x" },
+    ]);
+  });
+
   test("lists anchors in document order, not in the order of the value's members, which puts integer-like names first", () => {
     const json = '{"b": {"$anchor": "x"}, "2": {"$anchor": "y"}, "1": {"$anchor": "z"}}';
     expect(anchorsOf("r.json", json)).toEqual(["explicit x /b", "explicit y /2", "explicit z /1"]);
@@ -124,6 +133,25 @@ describe("section keys", () => {
       ["/$sections/0", "a-link--more"],
       ["/$sections/1", "b"],
     ]);
+  });
+
+  test("read a data $title as a heading's inline content: its lines as one, and no closing sequence stripped", () => {
+    const yaml = record("r.yaml", '$sections:\n  - $title: "one\\ntwo"\n  - $title: "foo #"\n');
+    expect([...yaml.sectionKeys.values()]).toEqual(["one-two", "foo-"]);
+  });
+
+  test("read a data $title with the link reference definitions of the record's bodies, at any depth, in scope", () => {
+    const yaml =
+      "$sections:\n  - $title: '[Foo][bar] baz'\n  - $title: '[Foo][qux] baz'\n    $sections:\n" +
+      "      - $title: Deep\n        $body: '> [bar]: /x'\n";
+    expect([...record("r.yaml", yaml).sectionKeys.values()]).toEqual(["foo-baz", "fooqux-baz", "deep"]);
+    const json = '{"$body": "[QUX]: /y", "$sections": [{"$title": "[Foo][qux] baz"}]}';
+    expect([...record("r.json", json).sectionKeys.values()]).toEqual(["foo-baz"]);
+  });
+
+  test("near miss: a definition in a field's value is data, not a body, so it is not in scope", () => {
+    const yaml = "note: '[bar]: /x'\n$sections:\n  - $title: '[Foo][bar] baz'\n";
+    expect([...record("r.yaml", yaml).sectionKeys.values()]).toEqual(["foobar-baz"]);
   });
 
   test("of nested sections, by their exact paths; the root has none", () => {
@@ -161,6 +189,18 @@ describe("anchor-invalid", () => {
       ["anchor-invalid", "/a"],
       ["anchor-invalid", "/a"],
     ]);
+  });
+
+  test("fires once for each occurrence of a tag that is not a name, a repeat in a data $tags array included", () => {
+    expect(nameIssues("r.yaml", "item:\n  $anchor: item\n  $tags: [bad tag, ok, bad tag, bad tag]\n")).toEqual([
+      ["anchor-invalid", "/item"],
+      ["anchor-invalid", "/item"],
+      ["anchor-invalid", "/item"],
+    ]);
+    const positions = record("r.yaml", "item:\n  $tags: [bad tag, bad tag]\n")
+      .issues.filter((issue) => issue.code === "anchor-invalid")
+      .map((issue) => issue.position?.col);
+    expect(positions).toEqual([11, 20]);
   });
 
   test("fires for a heading's id and class, and an empty id, at the section", () => {
@@ -229,8 +269,15 @@ describe("duplicate-anchor", () => {
     ]);
   });
 
-  test("orders front matter before the title heading, so the heading is the repeat", () => {
-    expect(nameIssues("r.md", "---\ncontact:\n  $anchor: help\n---\n# Help\n")).toEqual([["duplicate-anchor", ""]]);
+  test("orders the root before its front matter, in pre-order as in JSON, so the front matter's object is the repeat", () => {
+    expect(nameIssues("r.md", "---\ncontact:\n  $anchor: help\n---\n# Help\n")).toEqual([["duplicate-anchor", "/contact"]]);
+    expect(nameIssues("r.json", '{"contact": {"$anchor": "help"}, "$anchor": "help"}')).toEqual([
+      ["duplicate-anchor", "/contact"],
+    ]);
+  });
+
+  test("near miss: without a title heading the root has no anchor, and a section after front matter is the repeat", () => {
+    expect(nameIssues("r.md", "---\ncontact:\n  $anchor: help\n---\n## Help\n")).toEqual([["duplicate-anchor", "/$sections/0"]]);
   });
 
   test("orders JSON members by their place in the file, not by the value's order of members", () => {
