@@ -1,6 +1,6 @@
 import { type Issue, type IssueInit, makeIssue } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
-import { DEFAULT_ISSUE_LIMIT, formatIssue, formatIssues, type IssueWithCandidates } from "./issues.js";
+import { DEFAULT_ISSUE_LIMIT, formatIssue, formatIssues } from "./issues.js";
 
 /** An issue at a record's node, with a position, a hint, or neither. */
 function issue(init: Partial<IssueInit> & Pick<IssueInit, "code">): Issue {
@@ -15,14 +15,18 @@ const ambiguity = issue({
   position: { offset: 300, line: 14, col: 3 },
 });
 
-/** The ambiguity with its two candidates, as the issue will carry them. */
-const withCandidates: IssueWithCandidates = {
-  ...ambiguity,
+/** The ambiguity with its two candidates, as core's address resolution gives them. */
+const withCandidates = issue({
+  code: "ref-ambiguous",
+  at: "/$sections/1/$body",
+  message: "#notes matches 2 sections",
+  hint: 'add <a id="..."></a> to the heading you mean, and link to that anchor',
+  position: { offset: 300, line: 14, col: 3 },
   candidates: [
-    { path: "tickets/0171-x.md", at: "/$sections/2" },
-    { path: "tickets/0171-x.md", at: "/$sections/4" },
+    { path: "tickets/0171-x.md", at: "/$sections/2", address: "#/$sections/2" },
+    { path: "tickets/0171-x.md", at: "/$sections/4", address: "#notes-1" },
   ],
-};
+});
 
 describe("formatIssue", () => {
   test("writes the example of the specification, given the semantic path and the candidates' notes", () => {
@@ -61,8 +65,24 @@ describe("formatIssue", () => {
   });
 
   test("writes a candidate in another record after that record's path, and a record's root as its path", () => {
-    const issue: IssueWithCandidates = { ...ambiguity, candidates: [{ path: "b.md", at: "/x" }, { path: "c.md" }] };
-    expect(formatIssue(issue)).toContain("  candidates  b.md#/x\n              c.md\n");
+    const candidates = [
+      { path: "b.md", at: "/x", address: "#x" },
+      { path: "c.md", at: "", address: "" },
+      { path: "tickets/0171-x.md", at: "", address: "" },
+    ];
+    expect(formatIssue(issue({ code: "address-ambiguous", at: null, candidates }))).toContain(
+      "  candidates  b.md#/x\n              c.md\n              tickets/0171-x.md\n",
+    );
+  });
+
+  test("percent-encodes the exact paths it prints, so that each reads back as an address", () => {
+    const candidates = [
+      { path: "d.json", at: "/100%", address: "#100%25" },
+      { path: "d.json", at: "/a b/é", address: "#a%20b/%C3%A9" },
+    ];
+    const text = formatIssue(issue({ code: "address-ambiguous", path: "d.json", at: "/x y", candidates }));
+    expect(text).toContain("\n  in   #/x%20y\n");
+    expect(text).toContain("  candidates  #/100%25\n              #/a%20b/%C3%A9\n");
   });
 
   test("prints no candidates line for an issue without candidates", () => {

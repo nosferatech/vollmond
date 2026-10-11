@@ -1,22 +1,9 @@
 // The issue format: where the issue is, its severity, code and message, then the node it is in, the candidates of an ambiguity
 // and the hint, each on its own indented line.
 
-import type { Issue, IssueCode } from "@vollmond/core";
+import { encodeExactPath, type Issue, type IssueCode } from "@vollmond/core";
 import { oneLine } from "./lines.js";
 import { formatCount } from "./sizes.js";
-
-/** A candidate of an ambiguity, as an issue carries it: the record and, below its root, the node. */
-export interface IssueCandidate {
-  /** The store path of the candidate's record. */
-  readonly path: string;
-  /** The exact path of the candidate's node; absent for the record's root. */
-  readonly at?: string;
-}
-
-// TODO(#15): read `candidates` from core's `Issue` once the address module adds it there, as the design's `Target`s, and drop
-// this type: core's `Issue` has no candidates yet, since their type is the address module's.
-/** An issue that may carry the candidates of an ambiguity. */
-export type IssueWithCandidates = Issue & { readonly candidates?: readonly IssueCandidate[] };
 
 /** What a command knows about one candidate beyond the issue: where its node starts and its derived anchor. */
 export interface CandidateNote {
@@ -59,24 +46,25 @@ export const DEFAULT_ISSUE_LIMIT = 20;
  * The first line starts with the issue's path, or the file `details` names when the path is null, and, when the issue has a
  * position, its line and column; an issue with neither starts with its severity. The `in` line names the node by its semantic
  * path and its exact path when `details` gives the semantic one, by its exact path alone otherwise, and is left out for an
- * issue about the whole record (`at` is `""`) or about no node (`at` is null). Each candidate is written by its exact path,
- * after its record's path when that is another record, with the line and derived anchor `details` notes for it. Every line is
- * made safe for a terminal with {@link oneLine}.
+ * issue about the whole record (`at` is `""`) or about no node (`at` is null). Each of the issue's candidates is written by its
+ * exact path, after its record's path when that is another record, and a record's root by the record's path, with the line and
+ * derived anchor `details` notes for it. Exact paths are percent-encoded as addresses are, so each reads back as one. Every
+ * line is made safe for a terminal with {@link oneLine}.
  */
-export function formatIssue(issue: IssueWithCandidates, details?: IssueDetails): string {
+export function formatIssue(issue: Issue, details?: IssueDetails): string {
   const file = issue.path ?? details?.file ?? null;
   const position = issue.position === undefined ? "" : `:${issue.position.line}:${issue.position.col}`;
   const where = file === null ? "" : `${file}${position} `;
   const lines = [`${where}${issue.severity} ${issue.code}: ${issue.message}`];
   if (issue.at !== null && issue.at !== "") {
-    const exact = `#${issue.at}`;
+    const exact = `#${encodeExactPath(issue.at)}`;
     const semantic = details?.semantic;
     lines.push(semantic === undefined || semantic === exact ? `  in   ${exact}` : `  in   ${semantic}  (exact ${exact})`);
   }
   const candidates = issue.candidates ?? [];
   candidates.forEach((candidate, index) => {
     const record = candidate.path === issue.path ? "" : candidate.path;
-    const address = candidate.at === undefined ? candidate.path : `${record}#${candidate.at}`;
+    const address = candidate.at === "" ? candidate.path : `${record}#${encodeExactPath(candidate.at)}`;
     const note = details?.candidateNotes?.[index];
     const notes = [
       note?.line === undefined ? null : `line ${note.line}`,
@@ -105,7 +93,7 @@ export interface IssueListOptions {
  * heading-html`. Warnings left out by `errorsOnly` are counted the same way but do not cause that line by themselves. Returns
  * the empty string for no issue to print.
  */
-export function formatIssues(issues: readonly IssueWithCandidates[], options: IssueListOptions = {}): string {
+export function formatIssues(issues: readonly Issue[], options: IssueListOptions = {}): string {
   const limit = options.limit ?? DEFAULT_ISSUE_LIMIT;
   const shown = options.errorsOnly === true ? issues.filter((issue) => issue.severity === "error") : issues;
   const printed = shown.slice(0, limit);

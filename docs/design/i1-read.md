@@ -588,8 +588,14 @@ a development dependency) check parse invariants; round trips through vmd's seri
 5. `SourceText` agrees with `TextEncoder` on every prefix of random strings;
 6. a record's derived anchors are distinct, and a slug holds only letters, marks, decimal digits, connector punctuation and `-`.
 
-Resolution and canonical addresses are covered by the suite's `resolve` and `meta` cases rather than by a property: a property
-that resolves the address the same code produced would check the code against itself.
+Resolution and canonical addresses are covered mainly by the suite's `resolve` and `meta` cases: a property that resolves the
+address the same code produced checks the code against itself. PR I adds one anyway (7), for what it does check independently:
+
+7. every node's and block anchor's canonical address reads back through the grammar and resolves, as a singular address, to
+   that node alone, over JSON records whose member names need encoding and Markdown records whose headings and anchors repeat;
+   and an explicit anchor that names its node alone is that node's canonical address. Only that last part has an oracle of its
+   own. For forms 2 to 4 the property is a consistency check of the code against itself: a wrong choice of form that still
+   resolves passes it, so which form wins is tested by the suite's `resolve` and `meta` cases and the unit tests.
 
 **Structural codes the suite does not cover yet** get unit tests in the pull requests that raise them, each firing once and
 accepting its near miss:
