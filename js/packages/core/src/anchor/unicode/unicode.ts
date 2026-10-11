@@ -5,10 +5,8 @@
 // runtime's Unicode version knows. The Unicode Character Encoding Stability Policy, "Normalization Stability" (Unicode 4.1 and
 // later), says: "given versions V and U of Unicode, and any string S which only contains characters assigned according to both V
 // and U", toNFC of S is the same under V and U. So a runtime at the tables' version or later normalizes as they would; an older
-// runtime may differ on strings that contain characters assigned after its version.
-//
-// TODO(#17): export `unicodeRuntimeProbe()`, a check of a few facts of the tables' Unicode version against the runtime, so the
-// CLI can warn where the runtime's NFC may differ. It waits for the CLI foundation because that warning is its first caller.
+// runtime may differ on strings that contain characters assigned after its version. `unicodeRuntimeProbe()`, in `probe.ts`,
+// tells which kind of runtime this is.
 
 import {
   DEFAULT_IGNORABLE_CODE_POINT,
