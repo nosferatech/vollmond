@@ -10,7 +10,7 @@ const INTEGER_FORM = /^-?(?:0|[1-9][0-9]*)$/;
  * for a double (`1e400`), and a non-zero number that a double rounds to zero (`1e-400`). A fraction or an exponent with more
  * digits than a double holds is not an error, so `1e23` means its nearest double.
  *
- * `source` is the number's text in the file, and `value` the double that `JSON.parse` made of it.
+ * `source` is the number's text in the file, and `value` its double, as `Number(source)` gives it.
  */
 export function readNumber(source: string, value: number): NumberReading {
   if (!Number.isFinite(value)) {

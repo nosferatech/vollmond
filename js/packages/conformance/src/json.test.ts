@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { readJson } from "./json.js";
 import { readNumber } from "./number.js";
 
@@ -71,6 +71,31 @@ describe("readJson", () => {
   test("keeps a member named __proto__ as an own member", () => {
     const reading = readJson(bytes('{"__proto__": {"x": 1}}'));
     expect(reading.ok && Object.keys(reading.value as object)).toEqual(["__proto__"]);
+  });
+
+  test("reads the escaped member names that JSON.parse on Node 24.21.0 misreads", () => {
+    // In one process and in this order, Node 24.21.0's JSON.parse can read the escaped name of the second text of each pair
+    // as the first one's. Whether it does depends on what the process parsed before: in a fresh `node` all three pairs are
+    // misread, and in a Vitest worker the first.
+    const texts = [
+      [String.raw`{"a": 1, "\\": 2}`, String.raw`{"a": 1, "\n": 2}`],
+      [String.raw`{"\\": 2}`, String.raw`{"\n": 2}`],
+      [String.raw`{"x\\": 2}`, String.raw`{"x\n": 2}`],
+    ].flat();
+    const names = texts.map((text) => {
+      const reading = readJson(bytes(text));
+      return reading.ok ? Object.keys(reading.value as object) : reading.detail;
+    });
+    expect(names).toEqual([["a", "\\"], ["a", "\n"], ["\\"], ["\n"], ["x\\"], ["x\n"]]);
+  });
+
+  test("rejects a file that JSON.parse accepts and jsonc-parser does not", () => {
+    const parse = vi.spyOn(JSON, "parse").mockReturnValueOnce([1]);
+    try {
+      expect(readJson(bytes("[1,]"))).toEqual({ ok: false, detail: "jsonc-parser cannot read what JSON.parse reads" });
+    } finally {
+      parse.mockRestore();
+    }
   });
 
   test("rejects a file that is not UTF-8", () => {
