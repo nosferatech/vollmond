@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["*.json"]
+    schema: off-spine.schema.json

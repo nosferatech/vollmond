@@ -12,6 +12,13 @@
       "description": "The $title of a JSON section is slugged as the content of an ATX heading, ## and the title, so emphasis delimiters, a link's URL and a character reference give the same key as in Markdown (§5.5, decision K8).",
       "input": {"record": "sections.json"},
       "expect": {"result": {"": {"@key": null, "@address": ""}, "/$sections/0": {"@key": "what-is-confirmed", "@address": "#what-is-confirmed"}, "/$sections/1": {"@key": "a-link--more", "@address": "#a-link--more"}}}
+    },
+    {
+      "id": "data-title-inline-content",
+      "spec": ["5.5", "6.3"],
+      "description": "A data title is read as a heading's inline content: a line break is a soft break, so one and two on two lines give one-two, and no closing sequence is stripped, so foo # gives foo-, as a setext heading would in Markdown (§5.5, decision Q1, which refined K8).",
+      "input": {"record": "inline-content.yaml"},
+      "expect": {"result": {"": {"@key": null, "@address": ""}, "/$sections/0": {"@key": "one-two", "@address": "#one-two"}, "/$sections/1": {"@key": "foo-", "@address": "#foo-"}}}
     }
   ]
 }

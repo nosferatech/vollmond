@@ -1,0 +1,8 @@
+vmd: 1
+collections:
+  first:
+    match: ["*.json"]
+    schema: ok.schema.json
+  second:
+    match: ["a.*"]
+    schema: ok.schema.json

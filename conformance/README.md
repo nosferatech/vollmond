@@ -332,7 +332,9 @@ error (§9.2), and its issues are that record's structural errors:
 - `check` never fails on one. It reports structural errors among its issues, and checks the store's other records;
 - `query` and `refs` without `record` leave an unreadable record out, as queries do (§9.5), and do not fail. The count of records
   that could not be read is not compared. A reference into an unreadable record, below its root, is not dangling but
-  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5);
+  `unreadable`, and `check` reports it as `ref-target-unreadable`, a warning (§8.5). A record of a collection whose schema cannot
+  be used is refused by every reader in the same way (§9.1): an operation on it fails with `schema-invalid`, and `check` reports
+  `schema-invalid` once and checks the record for everything but its schema;
 - `round_trip` and `compare` read no record.
 
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
@@ -433,7 +435,8 @@ objects with these members:
   the link's position in that string, in UTF-8 bytes (§5.9, decision C10).
 - **`raw`** is the reference's target as written in the record.
 - **`status`** is `ok`, `dangling`, `ambiguous`, `aliased` or `unreadable` (§8.5). `unreadable` is a reference into a record
-  that has a structural error, whose `targets` list is empty. A reference whose address is that record's root (no fragment, or
+  that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose `targets` list is
+  empty. A reference whose address is that record's root (no fragment, or
   `#` alone, §7.1) is `ok`, with the record's root as its target, although `resolve` of the same address fails. Reading
   aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared unordered. A dangling reference has an empty list, and so does a
@@ -626,7 +629,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.10.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.11.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -693,13 +696,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.10.0-dev", "case_format": 1 }
+{ "version": "0.11.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.10 gives `0.10`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.11 gives `0.11`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.10.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.11.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel

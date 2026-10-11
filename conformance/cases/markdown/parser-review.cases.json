@@ -1,0 +1,40 @@
+{
+  "defaults": {"spec": ["5.3"], "profiles": ["read"], "operation": "parse", "input": {"store": "parser-review"}},
+  "cases": [
+    {
+      "id": "unclosed-data-fence",
+      "spec": ["5.3", "D", "CommonMark 0.31.2 4.5"],
+      "description": "A data block whose fence is not closed is a syntax error at its section: CommonMark would run it to the end of the file, and YAML would read the heading after it as a comment, so a section would vanish silently (§5.3, decision P2).",
+      "input": {"record": "unclosed-data-fence.md"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "unclosed-data-fence.md", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "anchor-element-inside-emphasis",
+      "spec": ["6.2", "D"],
+      "description": "An anchor element is recognized only among a heading's direct children; one inside emphasis is anchor-element-invalid, since removing it would leave the title *A * (§6.2, decision P4).",
+      "input": {"record": "anchor-in-emphasis.md"},
+      "expect": {"fails": true, "issues": [{"code": "anchor-element-invalid", "severity": "error", "path": "anchor-in-emphasis.md", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "unknown-data-marker-first-block",
+      "spec": ["5.3", "9.1", "D"],
+      "description": "An unknown data marker as the first block of a record without a title heading is feature-unsupported, not prose, so a newer kind of data block is detected (§5.3, decision P6).",
+      "input": {"record": "unknown-data-first-block.md"},
+      "expect": {"fails": true, "issues": [{"code": "feature-unsupported", "severity": "error", "path": "unknown-data-first-block.md", "at": ""}]}
+    },
+    {
+      "id": "unknown-data-marker-after-data-block",
+      "spec": ["5.3", "9.1", "D"],
+      "description": "The same right after a data block, at the section (§5.3, decision P6).",
+      "input": {"record": "unknown-data-after-data-block.md"},
+      "expect": {"fails": true, "issues": [{"code": "feature-unsupported", "severity": "error", "path": "unknown-data-after-data-block.md", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "json-data-only-white-space",
+      "spec": ["5.3"],
+      "description": "A json data block holding only white space gives no fields, as an empty block does, rather than being empty JSON (§5.3, decision P7).",
+      "input": {"record": "json-data-white-space.md"},
+      "expect": {"result": {"$title": "Record", "$sections": [{"$title": "Part", "$body": "Text."}]}}
+    }
+  ]
+}

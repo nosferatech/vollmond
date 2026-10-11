@@ -1,0 +1,4 @@
+vmd: 1
+collections:
+  my/things:
+    match: ["*.json"]

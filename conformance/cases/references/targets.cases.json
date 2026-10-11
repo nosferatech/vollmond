@@ -68,6 +68,13 @@
       "description": "Resolving the root of a record with a structural error still fails, since a resolve returns the node's value, while refs gives a reference to that root the status ok (§8.5); the record's structural error is the issue, as for every operation that needs a value view.",
       "input": {"address": "data/broken.json", "as": "singular"},
       "expect": {"fails": true, "issues": [{"code": "duplicate-member", "severity": "error", "path": "data/broken.json", "at": "/a"}]}
+    },
+    {
+      "id": "missing-image",
+      "spec": ["8.1", "D"],
+      "description": "An image is a reference, so one whose file does not exist is ref-dangling, at the $body that holds it (§8.1, decision U7).",
+      "input": {"records": ["refs/image.md"]},
+      "expect": {"issues": [{"code": "ref-dangling", "severity": "error", "path": "refs/image.md", "at": "/$body"}]}
     }
   ]
 }

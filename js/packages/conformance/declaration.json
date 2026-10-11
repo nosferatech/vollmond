@@ -1,5 +1,27 @@
 {
   "name": "vollmond-ts",
   "version": "0.0.0",
-  "profiles": ["read"]
+  "profiles": ["read"],
+  "skip": [
+    {
+      "id": "anchors/blocks-and-tags/block-anchors-in-later-paragraphs",
+      "reason": "Draft v0.11 (T, P10): the anchor table follows in a follow-up pull request"
+    },
+    {
+      "id": "data/section-keys/data-title-inline-content",
+      "reason": "Draft v0.11 (Q1): the section keys follow in a follow-up pull request"
+    },
+    {
+      "id": "markdown/parser-review/anchor-element-inside-emphasis",
+      "reason": "Draft v0.11 (P4): the Markdown parser follows in a follow-up pull request"
+    },
+    {
+      "id": "markdown/parser-review/unknown-data-marker-after-data-block",
+      "reason": "Draft v0.11 (P6): the Markdown parser follows in a follow-up pull request"
+    },
+    {
+      "id": "markdown/parser-review/unknown-data-marker-first-block",
+      "reason": "Draft v0.11 (P6): the Markdown parser follows in a follow-up pull request"
+    }
+  ]
 }

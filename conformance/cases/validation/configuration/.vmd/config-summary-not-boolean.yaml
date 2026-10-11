@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["*.json"]
+    schema: summary-not-boolean.schema.json
