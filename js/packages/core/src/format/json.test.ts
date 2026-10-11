@@ -141,6 +141,25 @@ describe("syntax errors", () => {
     expect(issue.message).toContain("1:16");
   });
 
+  test("a file of millions of errors gives one syntax-error whose message names ten and counts the rest", () => {
+    const commas = 3_000_000;
+    const issue = onlyIssue(`{${",".repeat(commas)}}`);
+    expect(issue.code).toBe("syntax-error");
+    expect(issue.message.length).toBeLessThan(1000);
+    expect(issue.message.match(/ at \d+:\d+/g)).toHaveLength(10);
+    expect(issue.message).toMatch(/, and \d+ more$/);
+    expect(onlyIssue("{,,}").message).not.toContain("more");
+  });
+
+  test("the syntax error is positioned at the first error, also when a bracket of the wrong kind comes later", () => {
+    const issue = onlyIssue('{"a" 1, "b": [}');
+    expect(issue.position).toEqual({ offset: 5, line: 1, col: 6 });
+    expect(issue.message).toMatch(/^not JSON: ColonExpected at 1:6, .*\} closes no array or object here at 1:15$/);
+    // With nothing wrong before it, the refused bracket is the first error.
+    expect(onlyIssue('{"a": [}').position).toEqual({ offset: 7, line: 1, col: 8 });
+    expect(onlyIssue('{"a": [}').message).toBe("not JSON: } closes no array or object here at 1:8");
+  });
+
   test("a file with a syntax error has no other issue, since the recovered tree is a guess", () => {
     expect(failure('{"a": 1e400, "a": [1, "\\ud800"], "$foo": 01}')).toEqual([["syntax-error", ""]]);
     expect(failure("[1e400, 01]")).toEqual([["syntax-error", ""]]);
@@ -175,6 +194,21 @@ describe("nesting", () => {
     for (const text of ["[},".repeat(100_000), `{"a": ${"[},".repeat(100_000)}`, '{"a":[}'.repeat(100_000)]) {
       expect(failure(text)).toEqual([["syntax-error", ""]]);
     }
+  });
+
+  test("a quote inside a comment hides no bracket from the count, since it counts the parser's own tokens", () => {
+    for (const text of [
+      `/*"*/${"[".repeat(100_000)}`,
+      `{"a":/*"*/${"[".repeat(100_000)}`,
+      `{"a": 1 // "\n${"[".repeat(100_000)}`,
+    ]) {
+      expect(failure(text)).toEqual([["syntax-error", ""]]);
+    }
+  });
+
+  test("brackets inside comments do not count", () => {
+    expect(failure(`{"a": 1 /* ${"[".repeat(JSON_NESTING_LIMIT * 2)} */}`)).toEqual([["syntax-error", ""]]);
+    expect(onlyIssue(`{"a": 1 /* ${"[".repeat(JSON_NESTING_LIMIT * 2)} */}`).message).toContain("InvalidCommentToken");
   });
 
   test("a closing bracket of the wrong kind is a syntax error, positioned at it", () => {

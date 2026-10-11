@@ -1,4 +1,13 @@
-import { type Node as JsonNode, type ParseError, parseTree, printParseErrorCode } from "jsonc-parser";
+import {
+  createScanner,
+  type Node as JsonNode,
+  type ParseError,
+  type ParseErrorCode,
+  parseTree,
+  printParseErrorCode,
+  type SyntaxKind,
+  visit,
+} from "jsonc-parser";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
@@ -51,9 +60,10 @@ export interface JsonUnitResult {
  * and empty content are refused. It adds a node to `unit.nodes` for every value of the unit's object, with its range and, for
  * a member, its member range, in UTF-8 bytes of the file, and reports:
  *
- * - `syntax-error` once for the unit, however many errors it holds, at `unit.at`, positioned at the first and naming each
- *   in its message; a unit nested deeper than {@link JSON_NESTING_LIMIT}, or with a bracket that closes another kind, is
- *   one, reported without parsing it. Nothing else is reported for such a unit, and it has no value;
+ * - `syntax-error` once for the unit, however many errors it holds, at `unit.at`, positioned at the first; its message names
+ *   the first ten and counts the others, so its length is bounded. A unit nested deeper than {@link JSON_NESTING_LIMIT}, or
+ *   with a bracket that closes another kind, is one, and only the text before that bracket is parsed, for earlier errors.
+ *   Nothing else is reported for such a unit, and it has no value;
  * - `unit.notObjectCode` for a unit that holds no object, which then has no value and adds no node;
  * - `duplicate-member` at each member after the first of a name, compared after escapes are read, positioned at its key. The
  *   value keeps the first, and the repeat has no node and is not looked into;
@@ -67,13 +77,15 @@ export function parseJsonUnit(unit: JsonUnit): JsonUnitResult {
   const walk = new JsonWalk(unit, text);
   const nesting = checkNesting(text, JSON_NESTING_LIMIT);
   if (nesting !== null) {
-    walk.raise("syntax-error", unit.at, nesting.offset, `not JSON: ${nesting.message}`);
+    // The text before the refused bracket nests within the limit, with its brackets paired, so it is safe to parse for the
+    // errors that come before the bracket.
+    walk.syntaxError(syntaxErrors(text.slice(0, nesting.offset), nesting.offset), nesting);
     return { value: null, issues: walk.issues };
   }
-  const errors: ParseError[] = [];
-  const tree = parseTree(text, errors, PARSE_OPTIONS);
-  if (errors.length > 0 || tree === undefined) {
-    walk.syntaxError(errors);
+  const errors = syntaxErrors(text, text.length + 1);
+  const tree = errors.count === 0 ? parseTree(text, undefined, PARSE_OPTIONS) : undefined;
+  if (tree === undefined) {
+    walk.syntaxError(errors, null);
     return { value: null, issues: walk.issues };
   }
   if (tree.type !== "object") {
@@ -200,16 +212,22 @@ class JsonWalk {
     return object;
   }
 
-  /** Reports the unit's one syntax error, for jsonc-parser's `errors`. */
-  syntaxError(errors: readonly ParseError[]): void {
-    const first = errors[0];
-    const where = (error: ParseError) => {
-      const position = this.#position(error.offset);
-      return `${printParseErrorCode(error.error)} at ${position.line}:${position.col}`;
+  /**
+   * Reports the unit's one syntax error: the parser's `errors`, then the nesting check's `problem`, if any, which comes
+   * after them. It is positioned at the first, and its message names each of the errors kept, and how many more there are.
+   */
+  syntaxError(errors: SyntaxErrors, problem: NestingProblem | null): void {
+    const where = (offset: number) => {
+      const position = this.#position(offset);
+      return `${position.line}:${position.col}`;
     };
+    const parts = errors.first.map((error) => `${printParseErrorCode(error.error)} at ${where(error.offset)}`);
+    const more = errors.count - errors.first.length;
+    if (more > 0) parts.push(`and ${more} more`);
+    if (problem !== null) parts.push(`${problem.message} at ${where(problem.offset)}`);
     // Without errors there is always a tree, since empty content is refused; the message only keeps the type checker sound.
-    const message = first === undefined ? "not JSON" : `not JSON: ${errors.map(where).join(", ")}`;
-    this.raise("syntax-error", this.#unit.at, first?.offset ?? 0, message);
+    const message = parts.length === 0 ? "not JSON" : `not JSON: ${parts.join(", ")}`;
+    this.raise("syntax-error", this.#unit.at, errors.first[0]?.offset ?? problem?.offset ?? 0, message);
   }
 
   /** Reports an issue at exact path `at`, positioned at the unit's index `offset`. */
@@ -261,49 +279,67 @@ function kindOf(node: JsonNode): ValueKind {
   return kind;
 }
 
+/** The number of syntax errors a message names; the others are counted. */
+const SYNTAX_ERRORS_KEPT = 10;
+
+/** The syntax errors of a text: the first few, in order, and how many there are. */
+interface SyntaxErrors {
+  readonly first: readonly ParseError[];
+  readonly count: number;
+}
+
+/**
+ * Collects the syntax errors that jsonc-parser reports for `text` before index `end`, keeping the first
+ * {@link SYNTAX_ERRORS_KEPT}, so that a file of a million errors costs no more memory than one. `text` must have passed
+ * {@link checkNesting}, since the parser recurses.
+ */
+function syntaxErrors(text: string, end: number): SyntaxErrors {
+  const first: ParseError[] = [];
+  let count = 0;
+  const onError = (error: ParseErrorCode, offset: number, length: number) => {
+    if (offset >= end) return;
+    count += 1;
+    if (first.length < SYNTAX_ERRORS_KEPT) first.push({ error, offset, length });
+  };
+  visit(text, { onError }, PARSE_OPTIONS);
+  return { first, count };
+}
+
 /** A unit that the nesting check refuses: the index of the bracket where it stopped, and why. */
-interface NestingProblem {
+export interface NestingProblem {
   readonly offset: number;
   readonly message: string;
 }
 
+// jsonc-parser declares its token kinds as a const enum, which isolated modules cannot read.
+const OPEN_BRACE = 1 as SyntaxKind;
+const CLOSE_BRACE = 2 as SyntaxKind;
+const OPEN_BRACKET = 3 as SyntaxKind;
+const CLOSE_BRACKET = 4 as SyntaxKind;
+const EOF = 17 as SyntaxKind;
+
 /**
  * Checks, before jsonc-parser recurses into it, that `text` nests arrays and objects no deeper than `limit` and closes each
- * with its own bracket. Strings are skipped as jsonc-parser's scanner reads them, ending at a closing quote or a line break.
- * In JSON the brackets outside strings pair up, so a bracket that closes another kind, or nothing, makes the text a syntax
- * error, which is reported without parsing: jsonc-parser's recovery skips such brackets, so that `[},` repeated nests ever
- * deeper while the brackets balance. Brackets in comments count too, which can only refuse a unit that is a syntax error
- * anyway. With the brackets paired, the parser's depth never exceeds the depth counted here.
+ * with its own bracket. It reads the tokens of jsonc-parser's own scanner, so the brackets it counts are those the parser
+ * meets, and none inside a string or a comment. In JSON the brackets pair up, so a bracket that closes another kind, or
+ * nothing, makes the text a syntax error, which is reported without parsing: jsonc-parser's recovery skips such brackets,
+ * so that `[},` repeated nests ever deeper while the brackets balance. With the brackets paired, the parser's depth never
+ * exceeds the depth counted here, and the text before a refused bracket is safe to parse. The cost is one scan of the text,
+ * without recursion.
  */
-function checkNesting(text: string, limit: number): NestingProblem | null {
-  const open: number[] = [];
-  let inString = false;
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (inString) {
-      if (code === BACKSLASH) {
-        i += 1;
-      } else if (code === QUOTE || code === LF || code === CR) {
-        inString = false;
+export function checkNesting(text: string, limit: number): NestingProblem | null {
+  const scanner = createScanner(text, true);
+  const open: SyntaxKind[] = [];
+  for (let token = scanner.scan(); token !== EOF; token = scanner.scan()) {
+    if (token === OPEN_BRACE || token === OPEN_BRACKET) {
+      open.push(token === OPEN_BRACE ? CLOSE_BRACE : CLOSE_BRACKET);
+      if (open.length > limit) {
+        return { offset: scanner.getTokenOffset(), message: `arrays and objects nest more than ${limit} deep` };
       }
-    } else if (code === QUOTE) {
-      inString = true;
-    } else if (code === OPEN_BRACKET || code === OPEN_BRACE) {
-      open.push(code === OPEN_BRACKET ? CLOSE_BRACKET : CLOSE_BRACE);
-      if (open.length > limit) return { offset: i, message: `arrays and objects nest more than ${limit} deep` };
-    } else if (code === CLOSE_BRACKET || code === CLOSE_BRACE) {
-      if (open.pop() !== code) return { offset: i, message: `${String.fromCharCode(code)} closes no array or object here` };
+    } else if ((token === CLOSE_BRACE || token === CLOSE_BRACKET) && open.pop() !== token) {
+      const bracket = token === CLOSE_BRACE ? "}" : "]";
+      return { offset: scanner.getTokenOffset(), message: `${bracket} closes no array or object here` };
     }
   }
   return null;
 }
-
-// The UTF-16 code units the nesting check reads.
-const BACKSLASH = 0x5c;
-const QUOTE = 0x22;
-const LF = 0x0a;
-const CR = 0x0d;
-const OPEN_BRACKET = 0x5b;
-const CLOSE_BRACKET = 0x5d;
-const OPEN_BRACE = 0x7b;
-const CLOSE_BRACE = 0x7d;

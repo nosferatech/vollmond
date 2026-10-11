@@ -1,9 +1,10 @@
 import fc from "fast-check";
+import { visit } from "jsonc-parser";
 import { describe, expect, test } from "vitest";
 import type { ByteRange } from "../text/source-text.js";
 import { decodeSource } from "../text/source-text.js";
 import { createValueObject, type MutableValueObject, type Value, valuesEqual } from "../value/value.js";
-import { parseJsonRecord } from "./json.js";
+import { checkNesting, parseJsonRecord } from "./json.js";
 
 // Deviation from the I1 design, recorded in issue #11: the value view is not compared with what `JSON.parse` gives, since
 // V8's JSON.parse (Node 24.21.0, V8 13.6) misreads an escaped member name after it has read an object with the same earlier
@@ -264,6 +265,40 @@ describe("strict JSON: the parser refuses exactly what JSON.parse refuses", () =
         if (jsonParseThrows) expect(issues).toHaveLength(1);
       }),
       { numRuns: 5000 },
+    );
+  });
+});
+
+/** The parts of texts that try to hide brackets from the nesting check: strings, comments, escapes and line breaks. */
+const bracketPart = fc.oneof(
+  fc.constantFrom("[", "]", "{", "}", '"', "\\", "/*", "*/", "//", "\n", "\r", ",", ":", "1", "a", " "),
+  fc.constantFrom("[[[[[", "{{{", '{"a":', "[},", '/*"*/', '//"\n', '"\\"', '"\\\\"', '"x\n', "/*[*/", '"]"', '"["'),
+);
+
+/** How deep jsonc-parser's parse of `text` recurses: the deepest nesting of the objects and arrays it begins. */
+function parserDepth(text: string): number {
+  let depth = 0;
+  let deepest = 0;
+  const begin = () => {
+    depth += 1;
+    deepest = Math.max(deepest, depth);
+  };
+  const end = () => {
+    depth -= 1;
+  };
+  visit(text, { onObjectBegin: begin, onObjectEnd: end, onArrayBegin: begin, onArrayEnd: end }, { disallowComments: true });
+  return deepest;
+}
+
+describe("the nesting check bounds the parser's recursion", () => {
+  test("a text that passes the check makes the parser nest no deeper than the limit, nor does a refused text's prefix", () => {
+    fc.assert(
+      fc.property(fc.array(bracketPart, { maxLength: 40 }), fc.integer({ min: 1, max: 4 }), (parts, limit) => {
+        const text = parts.join("");
+        const problem = checkNesting(text, limit);
+        expect(parserDepth(problem === null ? text : text.slice(0, problem.offset))).toBeLessThanOrEqual(limit);
+      }),
+      { numRuns: 20_000 },
     );
   });
 });
