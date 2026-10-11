@@ -66,6 +66,17 @@ class FileSourceReader implements StorageReader {
     requireCount("limit", query.limit, 1);
     const prefix = prefixDirectory(query.prefix);
     if ("issue" in prefix) return fail([prefix.issue]);
+    // A list cursor is the last path of the previous page.
+    if (query.cursor !== undefined && checkStoragePath(query.cursor) !== null) {
+      return fail([
+        makeIssue({
+          code: "query-invalid",
+          path: null,
+          at: null,
+          message: `${JSON.stringify(query.cursor)} is not a list cursor`,
+        }),
+      ]);
+    }
     const listed = await this.#source.listFiles(prefix.directory);
     if (!listed.ok) return listed;
     const issues: Issue[] = [...listed.issues];

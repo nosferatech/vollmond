@@ -7,22 +7,23 @@ export type LineTest = (line: string) => boolean;
 
 /**
  * Compiles the pattern of a grep query into a test of one line. A `literal` pattern matches where the line contains it. A
- * `regex` pattern is checked against the portable subset, and fails with its issues when it is outside it; it then runs on
- * JavaScript's engine, with the `u` flag so that `.` and classes read code points, as RE2 and Python do.
+ * `regex` pattern is checked against the portable subset, and fails with its issues when it is outside it. It then runs on
+ * JavaScript's engine with the flags `u`, so that `.` and classes read code points, and `s`, so that `.` matches U+2028 and
+ * U+2029, as it does in RE2 and Python. A line is matched alone, so `^` and `$` are its start and end; the flag `m` is never
+ * set, since JavaScript's would also match them around U+2028 and U+2029 within the line.
  *
  * JavaScript's engine backtracks, so matching is not linear in time: `(a+)+$` takes time exponential in the length of a run
  * of `a` that ends in another character. No time limit is set, since a local backend runs its user's own patterns; a backend
  * that runs other people's patterns needs an automaton engine such as RE2.
  */
-export function compileLineTest(query: Pick<GrepQuery, "pattern" | "mode" | "ignoreCase" | "multiline">): Outcome<LineTest> {
+export function compileLineTest(query: Pick<GrepQuery, "pattern" | "mode" | "ignoreCase">): Outcome<LineTest> {
   if (query.mode === "literal") {
     const pattern = query.pattern;
     return succeed((line) => line.includes(pattern));
   }
   const issues = checkPortableRegex(query.pattern);
   if (issues.length > 0) return fail(issues);
-  const flags = `u${query.ignoreCase === true ? "i" : ""}${query.multiline === true ? "m" : ""}`;
-  const expression = new RegExp(query.pattern, flags);
+  const expression = new RegExp(query.pattern, query.ignoreCase === true ? "usi" : "us");
   return succeed((line) => expression.test(line));
 }
 

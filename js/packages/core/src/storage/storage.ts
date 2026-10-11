@@ -22,9 +22,9 @@ export interface FileContent extends FileInfo {
 }
 
 /**
- * A part of a file to read, half-open as every range in vmd is. Byte offsets count from 0, lines from 1. A line ends
- * at LF, CRLF or a lone CR, and a line range includes the line breaks of its lines. A range past the end of the file is cut
- * at the end.
+ * A part of a file to read, half-open as every range in vmd is. Byte offsets count from 0, lines from 1. A line ends at LF,
+ * CRLF or a lone CR, and a line range includes the line breaks of its lines. A range past the end of the file is cut at the
+ * end.
  */
 export interface ContentRange {
   readonly unit: "bytes" | "lines";
@@ -32,9 +32,13 @@ export interface ContentRange {
   readonly end: number;
 }
 
-/** One page of items in UTF-8 byte order of their paths, and the cursor for the next page, null when nothing remains. */
+/** One page of items in UTF-8 byte order of their paths, and the cursor for the next page. */
 export interface Page<T> {
   readonly items: readonly T[];
+  /**
+   * The cursor that continues after this page, null when nothing remains. It is opaque: a caller passes it back to the same
+   * operation, with the same query, and does not read or build one.
+   */
   readonly cursor: string | null;
 }
 
@@ -43,13 +47,13 @@ export interface ListQuery {
   /** Lists the paths that start with this string; `""` lists every file. It is a string prefix, not a directory. */
   readonly prefix: string;
   /**
-   * Lists only the paths this glob matches, as a whole: `*` matches within one segment, a `**` segment any number of segments
-   *. Every other character matches itself.
+   * Lists only the paths this glob matches, as a whole: `*` matches within one segment, and a `**` segment any number of
+   * segments. Every other character matches itself.
    */
   readonly glob?: string;
   /** The largest number of items on the page, at least 1. */
   readonly limit: number;
-  /** The cursor of the previous page. */
+  /** The cursor of the previous page of the same query; a string that is not one fails with `query-invalid`. */
   readonly cursor?: string;
 }
 
@@ -62,16 +66,11 @@ export interface GrepQuery {
   readonly glob?: string;
   /** The portable flag `i`, for `regex` mode: case-insensitive matching. */
   readonly ignoreCase?: boolean;
-  /**
-   * The portable flag `m`, for `regex` mode. Matching is line by line, and a line holds no line break, so `m` changes no result;
-   * it is accepted because the subset includes it.
-   */
-  readonly multiline?: boolean;
   /** How many lines before and after each matching line to return, at least 0. */
   readonly context: number;
   /** The largest number of matching lines on the page, at least 1. */
   readonly limit: number;
-  /** The cursor of the previous page. */
+  /** The cursor of the previous page of the same query; a string that is not one fails with `query-invalid`. */
   readonly cursor?: string;
 }
 

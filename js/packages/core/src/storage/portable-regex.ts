@@ -7,16 +7,17 @@ import { type Issue, makeIssue } from "../issue/issue.js";
  * Checks that a pattern is in the portable regex subset, the syntax that RE2, Python's `re` and ECMAScript (with the `u` flag)
  * all accept with the same structure: literals; the escapes `\d \D \w \W \s \S \t \n \r \f \v`, `\xHH` and a backslash before
  * one of `^ $ \ . * + ? ( ) [ ] { } | /`; classes, with ranges between single characters; `.`; the anchors `^ $ \b \B`;
- * capturing groups and `(?:...)`; alternation; and the greedy and lazy quantifiers `* + ? {n} {n,} {n,m}`, with counts up to
- * 1000, RE2's limit. The flags `i` and `m` are given apart from the pattern.
+ * capturing groups and `(?:...)`; alternation; and the greedy and lazy quantifiers `* + ? {n} {n,} {n,m}`, within RE2's
+ * limit: each count at most 1000, and the counts of nested `{...}` quantifiers (the maximum, or the minimum for `{n,}`) with
+ * a product of at most 1000. The flag `i` is given apart from the pattern.
  *
  * Returns an issue for each construct outside the subset, empty for a portable pattern, which `new RegExp(pattern, "u")`
- * compiles. Backreferences, lookaround, named
- * groups, atomic groups, inline flags, possessive quantifiers, Unicode property escapes, `\uHHHH` and the other escapes one of
- * the three engines lacks are reported, and so is syntax the engines read differently: a `]` first in a class, an unescaped
- * `{`, `}` or `]` outside a class, an unescaped `[` in a class, a `-` in the middle of a class, `&&`, `||` and `~~` in a class,
- * and `{,n}`. A pattern that does not parse (an unclosed group, a reversed range) is reported too. The check is syntactic: the
- * engines still differ in what `\d`, `\w`, `\s`, `\b` and case-insensitive matching accept outside ASCII.
+ * compiles. Backreferences, lookaround, named groups, atomic groups, inline flags, possessive quantifiers, Unicode property
+ * escapes, `\uHHHH` and the other escapes one of the three engines lacks are reported, and so is syntax the engines read
+ * differently: a `]` first in a class, an unescaped `{`, `}` or `]` outside a class, an unescaped `[` in a class, a `-` in the
+ * middle of a class, `&&`, `||` and `~~` in a class, and `{,n}`. A pattern that does not parse (an unclosed group, a reversed
+ * range) is reported too. The check is syntactic: the engines still differ in what `\d`, `\w`, `\s`, `\b` and
+ * case-insensitive matching accept outside ASCII.
  *
  * Its cost is linear in the length of the pattern.
  */
@@ -42,6 +43,8 @@ function patternIssue(pattern: string, what: string, column: number | null, hint
 
 /** The characters a backslash may escape outside a class. */
 const SYNTAX_CHARACTERS = new Set("^$\\.*+?()[]{}|/");
+/** RE2's largest repeat count, which also bounds the product of nested repeat counts. */
+const MAX_REPEAT = 1000;
 /** What the term before a quantifier was, which decides whether it may be repeated. */
 type TermKind = "none" | "atom" | "assertion" | "quantified";
 /** What one item of a class is: a single character, which may bound a range, or a set such as `\d`. */
@@ -71,30 +74,38 @@ class PortableRegexChecker {
     }
   }
 
-  #alternation(): void {
-    this.#alternative();
+  /** Reads alternatives up to the end or a `)`, and returns the largest product of nested repeat counts in them. */
+  #alternation(): number {
+    let product = this.#alternative();
     while (!this.#stopped && this.#peek() === "|") {
       this.#index += 1;
-      this.#alternative();
+      product = Math.max(product, this.#alternative());
     }
+    return product;
   }
 
-  #alternative(): void {
+  /** Reads one alternative, and returns the largest product of nested repeat counts in its terms. */
+  #alternative(): number {
     let last: TermKind = "none";
+    // The product of repeat counts in the last term, which a quantifier after it multiplies.
+    let termProduct = 1;
+    let product = 1;
     while (!this.#stopped && !this.#atEnd()) {
       const start = this.#index;
       const character = this.#peek();
-      if (character === "|" || character === ")") return;
+      if (character === "|" || character === ")") break;
       if (
         character === "*" ||
         character === "+" ||
         character === "?" ||
         (character === "{" && this.#braceQuantifier() !== null)
       ) {
-        this.#quantifier(last, start);
+        termProduct = this.#quantifier(last, start, termProduct);
+        product = Math.max(product, termProduct);
         last = "quantified";
         continue;
       }
+      termProduct = 1;
       switch (character) {
         case "{":
           // A brace that only looks like a quantifier, such as `{,3}`, is one construct, reported once.
@@ -115,7 +126,8 @@ class PortableRegexChecker {
           last = "assertion";
           break;
         case "(":
-          this.#group();
+          termProduct = this.#group();
+          product = Math.max(product, termProduct);
           last = "atom";
           break;
         case "[":
@@ -130,10 +142,15 @@ class PortableRegexChecker {
           last = "atom";
       }
     }
+    return product;
   }
 
-  /** Reads a quantifier and its lazy `?`, at `start`, after a term of kind `last`. */
-  #quantifier(last: TermKind, start: number): void {
+  /**
+   * Reads a quantifier and its lazy `?`, at `start`, after a term of kind `last` whose nested repeat counts have the product
+   * `inner`, and returns the product with this quantifier's count. As in RE2, only a `{...}` quantifier counts, by its
+   * maximum, or its minimum when it has none, and a count of 0 is left out of the product.
+   */
+  #quantifier(last: TermKind, start: number, inner: number): number {
     if (last === "none") {
       this.#report("a quantifier with nothing to repeat", start, "escape it for a literal character");
     } else if (last === "assertion") {
@@ -143,16 +160,28 @@ class PortableRegexChecker {
     }
     if (this.#peek() === "{") {
       const brace = this.#braceQuantifier() as { readonly length: number; readonly min: number; readonly max: number | null };
-      if (brace.min > 1000 || (brace.max !== null && brace.max > 1000)) {
-        this.#report("a repeat count above 1000", start);
-      } else if (brace.max !== null && brace.min > brace.max) {
-        this.#report("a repeat range whose minimum exceeds its maximum", start);
-      }
       this.#index += brace.length;
-    } else {
-      this.#index += 1;
+      if (this.#peek() === "?") this.#index += 1;
+      if (brace.min > MAX_REPEAT || (brace.max !== null && brace.max > MAX_REPEAT)) {
+        this.#report(`a repeat count above ${MAX_REPEAT}`, start);
+        return 1;
+      }
+      if (brace.max !== null && brace.min > brace.max) {
+        this.#report("a repeat range whose minimum exceeds its maximum", start);
+        return 1;
+      }
+      const count = brace.max ?? brace.min;
+      const product = count > 0 ? inner * count : inner;
+      if (product > MAX_REPEAT) {
+        // Reported once, at the quantifier that takes the product over the limit; the product then counts as within it.
+        this.#report(`nested repeat counts whose product is above ${MAX_REPEAT}`, start, "RE2 refuses them");
+        return 1;
+      }
+      return product;
     }
+    this.#index += 1;
     if (this.#peek() === "?") this.#index += 1;
+    return inner;
   }
 
   /** Reads `{n}`, `{n,}` or `{n,m}` at the current index without moving, or returns null when the brace is not one. */
@@ -164,8 +193,8 @@ class PortableRegexChecker {
     return { length: match[0].length, min, max };
   }
 
-  /** Reads a group from its `(` to its `)`. */
-  #group(): void {
+  /** Reads a group from its `(` to its `)`, and returns the largest product of nested repeat counts in it. */
+  #group(): number {
     const start = this.#index;
     this.#index += 1;
     if (this.#peek() === "?") {
@@ -173,17 +202,18 @@ class PortableRegexChecker {
       if (rest.startsWith(":")) {
         this.#index += 2;
       } else if (!this.#excludedGroup(start, rest)) {
-        return;
+        return 1;
       }
     }
-    this.#alternation();
-    if (this.#stopped) return;
+    const product = this.#alternation();
+    if (this.#stopped) return product;
     if (this.#peek() === ")") {
       this.#index += 1;
     } else {
       this.#report("an unclosed group", start);
       this.#stopped = true;
     }
+    return product;
   }
 
   /**

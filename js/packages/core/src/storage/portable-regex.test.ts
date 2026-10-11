@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { compileLineTest } from "./grep.js";
 import { checkPortableRegex } from "./portable-regex.js";
+import { candidatePatterns } from "./portable-regex.testkit.js";
 
 describe("checkPortableRegex", () => {
   // Each construct outside the subset of §11.4, with a near miss that is inside it, and a phrase of the issue's message.
@@ -28,6 +29,7 @@ describe("checkPortableRegex", () => {
     ["a quantifier on an anchor", "^*a", "\\^*a", "a quantifier on an anchor"],
     ["a quantifier on a word boundary", "\\b+", "\\w+", "a quantifier on an anchor"],
     ["a repeat count above 1000", "a{1001}", "a{1000}", "a repeat count above 1000"],
+    ["nested repeat counts above 1000", "(?:a{100}){11}", "(?:a{100}){10}", "nested repeat counts whose product"],
     ["a reversed repeat range", "a{3,2}", "a{2,3}", "minimum exceeds its maximum"],
     ["{,n}, at most n in Python and a literal in RE2", "a{,3}", "a{0,3}", "an unescaped {"],
     ["an unescaped {", "a{b", "a\\{b", "an unescaped {"],
@@ -102,32 +104,33 @@ describe("checkPortableRegex", () => {
     ]);
   });
 
+  // This guards the ECMAScript side only: RE2 is not run here, and Python's re is run by portable-regex.suite.test.ts.
   test("accepts only patterns that ECMAScript compiles with the u flag", () => {
-    const piece = fc.constantFrom(
-      ..."ab-^$.|*+?(){}[],:=!<>&~#0123456789".split(""),
-      "\\",
-      "\\d",
-      "\\b",
-      "\\x4",
-      "\\x41",
-      "\\-",
-      "\\]",
-      "\\1",
-      "\\k",
-      "\\p",
-      "(?:",
-      "(?",
-      "{2}",
-      "{1,3}",
-      "\u{1F600}",
-    );
     fc.assert(
-      fc.property(fc.array(piece, { maxLength: 12 }), (pieces) => {
-        const pattern = pieces.join("");
+      fc.property(candidatePatterns, (pattern) => {
         if (checkPortableRegex(pattern).length > 0) return;
         expect(() => new RegExp(pattern, "u"), pattern).not.toThrow();
       }),
       { numRuns: 20000 },
+    );
+  });
+
+  test.each([
+    ["(?:a{100}){11}", 1],
+    ["(?:a{100}){10}", 0],
+    ["(?:(?:a{10}){10}){11}", 1],
+    ["(?:(?:a{10}){10}){10}", 0],
+    ["(?:a{2,}){501}", 1],
+    ["(?:a{2,}){500}", 0],
+    ["(?:a{2}|b{600}){2}", 1],
+    ["(?:a{2}|b{500}){2}", 0],
+    ["(?:a{1000})*", 0],
+    ["(?:a{1000}){0}", 0],
+    ["a{1000}b{1000}", 0],
+  ])("limits the product of nested repeat counts to 1000, as RE2 does: %s", (pattern, issues) => {
+    const found = checkPortableRegex(pattern);
+    expect(found.map((issue) => issue.message.includes("nested repeat counts whose product is above 1000"))).toEqual(
+      Array(issues).fill(true),
     );
   });
 

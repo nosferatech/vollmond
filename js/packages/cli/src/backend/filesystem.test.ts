@@ -3,8 +3,8 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitBlobId, type Outcome } from "@vollmond/core";
+import { describeStorageContract } from "@vollmond/core/testkit";
 import { afterAll, describe, expect, test } from "vitest";
-import { describeStorageContract } from "../../../core/src/storage/storage-contract.testkit.js";
 import { createFilesystemStorage } from "./filesystem.js";
 
 /** Whether the tests run as root, who can read a file whatever its mode. */
@@ -62,10 +62,38 @@ describe("createFilesystemStorage", () => {
     symlinkSync(join(outside, "secret.md"), join(root, "link.md"));
     symlinkSync(outside, join(root, "linked"));
     const storage = createFilesystemStorage(root);
-    expect(successValue(await storage.list({ prefix: "", limit: 10 })).items.map((item) => item.path)).toEqual(["a.md"]);
-    const read = await storage.read("link.md");
-    expect(read.issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    const paths = async (prefix: string) =>
+      successValue(await storage.list({ prefix, limit: 10 })).items.map((item) => item.path);
+    expect(await paths("")).toEqual(["a.md"]);
+    // Neither at the last segment nor through a directory, so no path leaves the store.
+    expect((await storage.read("link.md")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    expect((await storage.read("linked/secret.md")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    expect((await storage.stat("linked/secret.md")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    expect(await paths("linked/")).toEqual([]);
   });
+
+  test.skipIf(process.platform === "win32")("reads a store whose root is reached through a symbolic link", async () => {
+    const root = temporaryDirectory();
+    writeFiles(root, { "d/a.md": "a\n" });
+    const link = join(temporaryDirectory(), "root");
+    symlinkSync(root, link);
+    const storage = createFilesystemStorage(link);
+    expect(successValue(await storage.list({ prefix: "d/", limit: 10 })).items.map((item) => item.path)).toEqual(["d/a.md"]);
+    expect((await storage.read("d/a.md")).ok).toBe(true);
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "finds no file at a FIFO, without waiting for a writer",
+    async () => {
+      const root = temporaryDirectory();
+      writeFiles(root, { "a.md": "a\n" });
+      execFileSync("mkfifo", [join(root, "pipe.md")]);
+      const storage = createFilesystemStorage(root);
+      expect((await storage.read("pipe.md")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+      expect(successValue(await storage.list({ prefix: "", limit: 10 })).items.map((item) => item.path)).toEqual(["a.md"]);
+    },
+    2000,
+  );
 
   test.skipIf(!canChmod)("lists the readable files when a directory cannot be read, with a storage-failed issue", async () => {
     const root = temporaryDirectory();
@@ -89,9 +117,10 @@ describe("createFilesystemStorage", () => {
     expect(outcome.issues.map((issue) => [issue.code, issue.path])).toEqual([["storage-failed", "closed"]]);
   });
 
-  test("lists nothing under a root that does not exist", async () => {
+  test("lists nothing under a root that does not exist, and gives it a null head", async () => {
     const storage = createFilesystemStorage(join(temporaryDirectory(), "missing"));
     expect(successValue(await storage.list({ prefix: "", limit: 10 })).items).toEqual([]);
+    expect(await storage.head()).toEqual({ ok: true, value: null, issues: [] });
   });
 
   test("gives a null head outside a git working copy", async () => {
@@ -154,13 +183,17 @@ describe("createFilesystemStorage in a git working copy", () => {
     );
   });
 
-  test("leaves the .git directory out of listings", async () => {
+  test("leaves the .git directory out of listings, and finds no file in it", async () => {
     const root = repository();
-    const paths = successValue(await createFilesystemStorage(root).list({ prefix: "", limit: 100 })).items.map(
-      (item) => item.path,
-    );
+    const storage = createFilesystemStorage(root);
+    const paths = successValue(await storage.list({ prefix: "", limit: 100 })).items.map((item) => item.path);
     expect(paths.some((path) => path === ".git" || path.startsWith(".git/"))).toBe(false);
     expect(paths).toContain(".gitattributes");
+    expect(successValue(await storage.list({ prefix: ".git/", limit: 100 })).items).toEqual([]);
+    expect((await storage.read(".git/config")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    expect((await storage.stat(".git/HEAD")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+    // Its near miss: a name that only starts with .git.
+    expect((await storage.read(".gitattributes")).ok).toBe(true);
   });
 
   test("gives the commit of HEAD as the head, also from a subdirectory, and null before the first commit", async () => {

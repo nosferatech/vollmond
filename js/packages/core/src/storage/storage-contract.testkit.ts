@@ -111,6 +111,38 @@ export function describeStorageContract(backend: ContractBackend): void {
         // Its near miss: a prefix whose last segment is cut short.
         expect((await storage.list({ prefix: "a/.", limit: 10 })).ok).toBe(true);
       });
+
+      test("fails with query-invalid for a cursor that is not a list cursor", async () => {
+        const storage = await create(files);
+        expect(failureCodes(await storage.list({ prefix: "", limit: 10, cursor: "../a.md" }))).toEqual(["query-invalid"]);
+        expect(failureCodes(await storage.list({ prefix: "", limit: 10, cursor: "" }))).toEqual(["query-invalid"]);
+      });
+    });
+
+    describe("exact paths", () => {
+      // A filesystem that ignores case or Unicode normalization would find these under other names. U+00E9 is the NFC form
+      // of e followed by U+0301.
+      const files = { "a.md": "a\n", "Dir/b.md": "b\n", "é.md": "nfd\n" };
+
+      test("find a file only by the name it is stored under, byte for byte", async () => {
+        const storage = await create(files);
+        expect(failureCodes(await storage.stat("A.md"))).toEqual(["address-not-found"]);
+        expect(failureCodes(await storage.read("dir/b.md"))).toEqual(["address-not-found"]);
+        expect(failureCodes(await storage.stat("é.md"))).toEqual(["address-not-found"]);
+        expect((await storage.stat("a.md")).ok).toBe(true);
+        expect((await storage.stat("Dir/b.md")).ok).toBe(true);
+        expect((await storage.stat("é.md")).ok).toBe(true);
+      });
+
+      test("list under a prefix only the paths that start with it, byte for byte", async () => {
+        const storage = await create(files);
+        const paths = async (prefix: string) =>
+          successValue(await storage.list({ prefix, limit: 10 })).items.map((item) => item.path);
+        expect(await paths("dir/")).toEqual([]);
+        expect(await paths("Dir/")).toEqual(["Dir/b.md"]);
+        expect(await paths("é")).toEqual([]);
+        expect(await paths("")).toEqual(["Dir/b.md", "a.md", "é.md"]);
+      });
     });
 
     describe("stat", () => {
@@ -218,6 +250,13 @@ export function describeStorageContract(backend: ContractBackend): void {
         const storage = await create({ "a.md": "a.b\naxb\n" });
         expect(where(await grep(storage, "a.b", { mode: "literal" }))).toEqual(["a.md:1"]);
         expect(where(await grep(storage, "a.b"))).toEqual(["a.md:1", "a.md:2"]);
+      });
+
+      test("reads U+2028 and U+2029 inside a line as RE2 and Python do: . matches them, and ^ and $ do not", async () => {
+        const storage = await create({ "u.md": "a b c\n" });
+        expect(where(await grep(storage, "^a.b.c$"))).toEqual(["u.md:1"]);
+        expect(where(await grep(storage, "^b"))).toEqual([]);
+        expect(where(await grep(storage, "a$"))).toEqual([]);
       });
 
       test("matches $ at the end of a line that ends in CRLF or a lone CR", async () => {
