@@ -12,7 +12,7 @@ import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { childPath } from "../record/exact-path.js";
-import { NodeIndexBuilder, type ValueKind } from "../record/node-index.js";
+import { NodeIndexBuilder, type NodeSink, type ValueKind } from "../record/node-index.js";
 import { type ParsedRecord, parseOutcome } from "../record/record.js";
 import { checkShape, nodeLocator } from "../record/shape.js";
 import type { ByteRange, Position, SourceText } from "../text/source-text.js";
@@ -33,8 +33,8 @@ export interface JsonUnit {
    * are added under it, and issues about the unit as a whole are attached to it.
    */
   readonly at: string;
-  /** The index the unit's nodes are added to. */
-  readonly nodes: NodeIndexBuilder;
+  /** Where the unit's nodes are added: the record's index, or a list for a caller that adds them to it later. */
+  readonly nodes: NodeSink;
   /** The code for a unit that holds something other than an object: `root-not-object` for a file. */
   readonly notObjectCode: "root-not-object" | "data-block-not-object";
 }

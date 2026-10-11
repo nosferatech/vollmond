@@ -2,6 +2,7 @@
 export const CORE_PACKAGE_NAME = "@vollmond/core";
 
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
+export { parseMarkdownRecord } from "./format/markdown/markdown.js";
 export { parseRecord } from "./format/parse-record.js";
 export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type YamlUnitPlace } from "./format/yaml.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
@@ -16,6 +17,7 @@ export {
   type NodeInfo,
   type NodeInit,
   type NodeKind,
+  type NodeSink,
   type SectionInfo,
   type ValueKind,
   type ValueNodeInfo,
