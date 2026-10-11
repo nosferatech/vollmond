@@ -1,19 +1,20 @@
 // `vmd outline ADDR [--depth N]`: the sections below a node, their block anchors and a data record's members, without their
 // content.
 
-import type { Outline, OutlineEntry } from "@vollmond/core";
+import { type Outline, type OutlineEntry, succeed } from "@vollmond/core";
 import { type ColumnRow, formatColumns, oneLine } from "../output/lines.js";
 import { MAX_LIMIT } from "../output/paging.js";
 import { formatTokens } from "../output/sizes.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
-import { argumentCountProblem, readWholeNumber, storeIssueDetails } from "./options.js";
+import { argumentCountProblem, rangeJson, readWholeNumber, storeIssueDetails } from "./options.js";
 
 // TODO(#25): the refs-in counts of each line need the local index.
 /**
  * Outlines the node a singular address names, a record's root without a fragment: a first line with its address and its size
  * in tokens, then a line for each section below it, indented by its depth below the node, with its canonical address, its
- * title and its size. Under each section listed, and under the node, its block anchors come first, indented one level below
- * it, each with its canonical address and the size of its block; for a JSON or YAML record's root, its top-level members come
+ * title and its size. Under each section listed, and under the node when it is a section or a `$body`, its block anchors
+ * come first, indented one level below it, each with its canonical address, the size of its block and its range in the
+ * `$body` (`@range [start,end]`), which tells apart blocks whose name is not unique; for a JSON or YAML record's root, its top-level members come
  * after its line, one level below it, so that an outline is useful for every format. `--depth N` goes down at most N levels,
  * every level by default, so it bounds block anchors and members as it bounds sections. A node that is not a section has no
  * sections below it.
@@ -41,7 +42,10 @@ export const OUTLINE_COMMAND: Command = {
           reading: { raw: true },
           ...(depth.value === undefined ? {} : { depth: depth.value }),
         });
-        return outcomeOutput(outline, formatOutline, storeIssueDetails(store));
+        const details = storeIssueDetails(store);
+        if (!outline.ok) return outcomeOutput(outline, () => "", details);
+        // The JSON output writes ranges as [start, end], as everywhere else; the text is written from the library's outline.
+        return outcomeOutput(succeed(jsonOutline(outline.value), outline.issues), () => formatOutline(outline.value), details);
       },
     };
   },
@@ -54,7 +58,7 @@ export const OUTLINE_COMMAND: Command = {
  */
 function formatOutline(outline: Outline): string {
   const { node } = outline;
-  const head = `${oneLine(`${outline.path}${node.address}`)}  ${formatTokens(node.size)}\n`;
+  const head = `${oneLine(`${outline.path}${node.address}`)}  ${formatTokens(node.size)}${rangeNote(node, "  ")}\n`;
   const lines: { readonly entry: OutlineEntry; readonly depth: number }[] = [
     ...(node.blocks ?? []).map((entry) => ({ entry, depth: 1 })),
     ...(outline.members ?? []).map((entry) => ({ entry, depth: 1 })),
@@ -66,9 +70,36 @@ function formatOutline(outline: Outline): string {
   const titled = lines.some(({ entry }) => entry.title !== undefined && entry.title !== "");
   const rows = lines.map(
     ({ entry, depth }): ColumnRow => ({
-      cells: [entry.address, ...(titled ? [entry.title ?? ""] : []), formatTokens(entry.size)],
+      cells: [entry.address, ...(titled ? [entry.title ?? ""] : []), formatTokens(entry.size), rangeNote(entry, "")],
       depth,
     }),
   );
   return head + formatColumns(rows);
+}
+
+/**
+ * Writes a block anchor's range in its `$body`, after `before`, as `@range [start,end]`, so that two blocks whose name is not
+ * unique, and whose address is then their `$body`'s, are told apart; the empty string for any other entry.
+ */
+function rangeNote(entry: OutlineEntry, before: string): string {
+  return entry.range === undefined ? "" : `${before}@range ${JSON.stringify(rangeJson(entry.range))}`;
+}
+
+/** An outline as `--json` writes it: each block anchor's range as `[start, end]`. */
+function jsonOutline(outline: Outline): unknown {
+  return {
+    ...outline,
+    node: jsonEntry(outline.node),
+    sections: outline.sections.map(jsonEntry),
+    ...(outline.members === undefined ? {} : { members: outline.members.map(jsonEntry) }),
+  };
+}
+
+/** An outline entry as `--json` writes it, with its range and its block anchors' as `[start, end]`. */
+function jsonEntry(entry: OutlineEntry): unknown {
+  return {
+    ...entry,
+    ...(entry.range === undefined ? {} : { range: rangeJson(entry.range) }),
+    ...(entry.blocks === undefined ? {} : { blocks: entry.blocks.map(jsonEntry) }),
+  };
 }

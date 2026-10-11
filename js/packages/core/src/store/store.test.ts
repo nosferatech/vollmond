@@ -172,6 +172,17 @@ describe("Store.get", () => {
     expect(all.meta?.["@anchors"]).toEqual([{ name: "step", kind: "block" }]);
   });
 
+  // Interim (S5): @collection is not computed until the configuration's collections are (#21, PR #91). When it is, this test
+  // fails: take @collection out of NOT_COMPUTED_FIELDS, and replace this test with the todo below.
+  test("warns for @collection under --meta all, since it is not computed yet (#21)", async () => {
+    const store = await storeOf();
+    const all = await store.get("data.json", { meta: "all" });
+    expect(successValue(all).meta?.["@collection"]).toBeNull();
+    expect(all.issues.map((issue) => issue.message)).toEqual([expect.stringContaining("@collection")]);
+  });
+
+  test.todo("raises no field-not-computed for @collection under meta all, once #21 computes it");
+
   test("gives the fields not computed yet as null, with one field-not-computed warning naming them (§5.10)", async () => {
     const store = await storeOf();
     const one = await store.get("docs/guide.md#install", { meta: ["@address", "@refs", "@depth"] });
@@ -228,7 +239,13 @@ describe("Store.outline", () => {
     // A section's range holds the sections below it.
     const install = GUIDE.slice(GUIDE.indexOf("## Install"), GUIDE.indexOf("## Use")).length;
     const linux = GUIDE.slice(GUIDE.indexOf("### Linux"), GUIDE.indexOf("## Use")).length;
-    const step = { at: "/$sections/0/$body", address: "#step", size: '- <a id="step"></a>First step.'.length };
+    const stepBlock = '- <a id="step"></a>First step.';
+    const step = {
+      at: "/$sections/0/$body",
+      address: "#step",
+      size: stepBlock.length,
+      range: { start: "Run it.\n\n".length, end: "Run it.\n\n".length + stepBlock.length },
+    };
     expect(outline.sections).toEqual([
       { at: "/$sections/0", address: "#install", key: "install", title: "Install", depth: 1, size: install, blocks: [step] },
       {
@@ -263,6 +280,32 @@ describe("Store.outline", () => {
     expect(successValue(await store.outline("page.md", { depth: 0 })).node).not.toHaveProperty("blocks");
   });
 
+  test("gives each block anchor its range, which tells apart blocks whose name is not unique (R2, S3)", async () => {
+    const store = await storeOf({
+      ...FILES,
+      "dup.md": '# P\n\n## S\n\n<a id="dup"></a>One.\n\n<a id="dup"></a>Two.\n',
+      "clash.md": '# P\n\n## Notes\n\n<a id="notes"></a>Text.\n',
+    });
+    // A duplicated name: both blocks get their $body's address, and their ranges differ.
+    expect(successValue(await store.outline("dup.md")).sections[0]?.blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: { start: 0, end: 20 } },
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: { start: 22, end: 42 } },
+    ]);
+    // A block named as a section's derived anchor: the name is not unique either.
+    expect(successValue(await store.outline("clash.md")).sections[0]?.blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#/$sections/0/$body", size: 23, range: { start: 0, end: 23 } },
+    ]);
+  });
+
+  test("lists a $body's block anchors when the $body itself is outlined", async () => {
+    const store = await storeOf();
+    const body = successValue(await store.outline("docs/guide.md#install/$body"));
+    expect(body.node.blocks?.map((block) => block.address)).toEqual(["#step"]);
+    expect(successValue(await store.outline("docs/guide.md#install/$body", { depth: 0 })).node).not.toHaveProperty("blocks");
+    // A member that is not a $body has none.
+    expect(successValue(await store.outline("data.json#status")).node).not.toHaveProperty("blocks");
+  });
+
   test("lists a JSON or YAML record's top-level members, but not $sections, whose sections it lists (decision S3)", async () => {
     const yaml = "status: open\ntags:\n  - a\n  - b\n";
     const store = await storeOf({ ...FILES, "r.yaml": yaml });
@@ -274,6 +317,13 @@ describe("Store.outline", () => {
       ["#status", "status", "open".length],
       // A YAML value's range starts at its first item, after the indentation.
       ["#tags", "tags", "- a\n  - b".length],
+    ]);
+    // The reserved members other than $sections are members too.
+    const titled = await storeOf({ ...FILES, "t.json": '{"$title": "T", "status": "open", "$body": "Text."}' });
+    expect(successValue(await titled.outline("t.json")).members?.map((member) => member.key)).toEqual([
+      "$title",
+      "status",
+      "$body",
     ]);
     // A Markdown record's front matter is in its root too, but only a data record lists members.
     const markdown = await storeOf({ ...FILES, "fm.md": "---\nstatus: open\n---\n\n# T\n" });
@@ -305,7 +355,12 @@ describe("Store.outline", () => {
       sections: [],
     });
     const block = successValue(await store.outline("docs/guide.md#step"));
-    expect(block.node).toEqual({ at: "/$sections/0/$body", address: "#step", size: '- <a id="step"></a>First step.'.length });
+    expect(block.node).toEqual({
+      at: "/$sections/0/$body",
+      address: "#step",
+      size: '- <a id="step"></a>First step.'.length,
+      range: { start: 9, end: 39 },
+    });
   });
 });
 

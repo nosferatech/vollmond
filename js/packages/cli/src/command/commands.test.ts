@@ -366,7 +366,7 @@ describe("outline", () => {
       stdout:
         "docs/guide.md  ~36 tok\n" +
         "  #install          Install  ~24 tok\n" +
-        "    #step                    ~8 tok\n" +
+        "    #step                    ~8 tok   @range [9,39]\n" +
         "    #install/linux  Linux    ~7 tok\n" +
         "  #use              Use      ~2 tok\n",
       stderr: "",
@@ -378,15 +378,45 @@ describe("outline", () => {
     const page = '# P\n\n<a id="lead"></a>Lead.\n\n## S\n\n- <a id="item"></a>Item.\n';
     const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "vmd: 1\n", "p.md": page });
     expect((await runCli(["outline", "p.md"], env(root))).stdout).toBe(
-      "p.md  ~15 tok\n  #lead       ~6 tok\n  #s       S  ~8 tok\n    #item     ~6 tok\n",
+      "p.md  ~15 tok\n  #lead       ~6 tok  @range [0,22]\n  #s       S  ~8 tok\n    #item     ~6 tok  @range [0,24]\n",
     );
     // A block is one level below its section, and --depth bounds it as it bounds sections.
     expect((await runCli(["outline", "p.md", "--depth", "1"], env(root))).stdout).toBe(
-      "p.md  ~15 tok\n  #lead     ~6 tok\n  #s     S  ~8 tok\n",
+      "p.md  ~15 tok\n  #lead     ~6 tok  @range [0,22]\n  #s     S  ~8 tok\n",
     );
     expect((await runCli(["outline", "p.md", "--depth", "0"], env(root))).stdout).toBe("p.md  ~15 tok\n");
     expect((await runCli(["outline", "data.json", "--depth", "0"], env())).stdout).toBe("data.json  ~13 tok\n");
-    expect((await runCli(["outline", "p.md#s"], env(root))).stdout).toBe("p.md#s  ~8 tok\n  #item  ~6 tok\n");
+    expect((await runCli(["outline", "p.md#s"], env(root))).stdout).toBe("p.md#s  ~8 tok\n  #item  ~6 tok  @range [0,24]\n");
+    // A $body lists its block anchors too, and a block anchor its range on its own line.
+    expect((await runCli(["outline", "p.md#s/$body"], env(root))).stdout).toBe(
+      "p.md#s/$body  ~6 tok\n  #item  ~6 tok  @range [0,24]\n",
+    );
+    expect((await runCli(["outline", "p.md#item"], env(root))).stdout).toBe("p.md#item  ~6 tok  @range [0,24]\n");
+  });
+
+  test("tells apart block anchors whose name is not unique by their range, in text and under --json (R2, S3)", async () => {
+    const root = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": "vmd: 1\n",
+      "dup.md": '# P\n\n## S\n\n<a id="dup"></a>One.\n\n<a id="dup"></a>Two.\n',
+      // The block's name is the section's derived anchor.
+      "clash.md": '# P\n\n## Notes\n\n<a id="notes"></a>Text.\n',
+    });
+    // Both blocks have their $body's address, so the range is what tells them apart.
+    expect((await runCli(["outline", "dup.md"], env(root))).stdout).toBe(
+      "dup.md  ~14 tok\n  #s          S  ~12 tok\n    #s/$body     ~5 tok   @range [0,20]\n    #s/$body     ~5 tok   @range [22,42]\n",
+    );
+    const dup = JSON.parse((await runCli(["--json", "outline", "dup.md"], env(root))).stdout as string);
+    expect(dup.value.sections[0].blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: [0, 20] },
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: [22, 42] },
+    ]);
+    const clash = JSON.parse((await runCli(["--json", "outline", "clash.md"], env(root))).stdout as string);
+    expect(clash.value.sections[0].blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#/$sections/0/$body", size: 23, range: [0, 23] },
+    ]);
+    expect((await runCli(["outline", "clash.md"], env(root))).stdout).toContain(
+      "    #/$sections/0/$body         ~6 tok  @range [0,23]\n",
+    );
   });
 
   test("lists a JSON or YAML record's top-level members, so that outline is useful for every format (decision S3)", async () => {
@@ -409,7 +439,7 @@ describe("outline", () => {
       "docs/guide.md  ~36 tok\n  #install  Install  ~24 tok\n  #use      Use      ~2 tok\n",
     );
     expect((await vmd("outline", "docs/guide.md#install")).stdout).toBe(
-      "docs/guide.md#install  ~24 tok\n  #step                  ~8 tok\n  #install/linux  Linux  ~7 tok\n",
+      "docs/guide.md#install  ~24 tok\n  #step                  ~8 tok  @range [9,39]\n  #install/linux  Linux  ~7 tok\n",
     );
   });
 
@@ -426,7 +456,7 @@ describe("outline", () => {
     });
     const guide = await vmdJson("outline", "docs/guide.md#install");
     expect((guide.outcome.value as { node: { blocks: unknown } }).node.blocks).toEqual([
-      { at: "/$sections/0/$body", address: "#step", size: bytes('- <a id="step"></a>First step.') },
+      { at: "/$sections/0/$body", address: "#step", size: bytes('- <a id="step"></a>First step.'), range: [9, 39] },
     ]);
   });
 

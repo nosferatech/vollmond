@@ -18,7 +18,7 @@ import {
   computeFields,
   NOT_COMPUTED_FIELDS,
 } from "../meta/computed-fields.js";
-import type { NodeInfo, SectionInfo } from "../record/node-index.js";
+import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, StorageReader } from "../storage/storage.js";
@@ -99,8 +99,14 @@ export interface OutlineEntry {
   /** The size of the node's source in the file, in bytes; for a block anchor, of its block. */
   readonly size: number;
   /**
-   * For a section, the block anchors of its own `$body`, in document order, when the outline goes down to them:
-   * they are one level below the section. Absent for other nodes, and for a section at the outline's last level.
+   * For a block anchor, its block's range in the `$body`'s value, as `@range` gives it. It tells apart two blocks whose name
+   * is not unique, since their canonical address is then the `$body`'s.
+   */
+  readonly range?: ByteRange;
+  /**
+   * For a section, the block anchors of its own `$body`, and for a `$body`, its block anchors, in document order, when the
+   * outline goes down to them: they are one level below the section or the `$body`. Absent for other nodes, and for a
+   * section or a `$body` at the outline's last level.
    */
   readonly blocks?: readonly OutlineEntry[];
 }
@@ -255,13 +261,10 @@ class BackendStore implements Store {
     const block = blockAnchorOf(record, target);
     const node = record.nodes.node(target.at) as NodeInfo;
     if (block !== undefined) {
-      const entry: OutlineEntry = { at: target.at, address: target.address, size: sizeOf(block.fileRange) };
-      return succeed({ path: record.path, node: entry, sections: [] });
+      return succeed({ path: record.path, node: blockEntry(record, block), sections: [] });
     }
     // Whether the outline goes down to `levels` below the node.
     const reaches = (levels: number) => depth === undefined || levels <= depth;
-    const entry = (section: NodeInfo) =>
-      outlineEntry(record, section, section.kind === "section" && reaches(section.depth - (node as SectionInfo).depth + 1));
     const sections =
       node.kind !== "section"
         ? []
@@ -269,8 +272,8 @@ class BackendStore implements Store {
             .sections()
             .filter((section) => section.at.startsWith(`${node.at}/`))
             .filter((section) => reaches(section.depth - node.depth))
-            .map(entry);
-    const outline: Outline = { path: record.path, node: entry(node), sections };
+            .map((section) => outlineEntry(record, section, reaches(section.depth - node.depth + 1)));
+    const outline: Outline = { path: record.path, node: outlineEntry(record, node, reaches(1)), sections };
     if (node.at !== "" || record.format === "md" || !reaches(1)) return succeed(outline);
     const members = record.nodes
       .children("")
@@ -362,10 +365,16 @@ function blockAnchorOf(record: ParsedRecord, target: Target): BlockAnchorEntry |
   );
 }
 
-/** Gives the outline entry of a node: for a member, with its name; for a section, with its block anchors when `withBlocks`. */
+/**
+ * Gives the outline entry of a node: for a member, with its name; for a section or a `$body`, with its block anchors when
+ * `withBlocks`.
+ */
 function outlineEntry(record: ParsedRecord, node: NodeInfo, withBlocks: boolean): OutlineEntry {
   const base = { at: node.at, address: canonicalAddress(record, node.at), size: sizeOf(node.range) };
-  if (node.kind !== "section") return typeof node.key === "string" ? { ...base, key: node.key } : base;
+  if (node.kind !== "section") {
+    const member = typeof node.key === "string" ? { ...base, key: node.key } : base;
+    return withBlocks && node.key === "$body" ? { ...member, blocks: blocksOf(record, node.at) } : member;
+  }
   const key = record.sectionKeys.get(node.at);
   const title = (valueAt(record, node.at) as ValueObject).$title;
   const section: OutlineEntry = {
@@ -374,12 +383,24 @@ function outlineEntry(record: ParsedRecord, node: NodeInfo, withBlocks: boolean)
     ...(typeof title === "string" ? { title } : {}),
     depth: node.depth,
   };
-  if (!withBlocks) return section;
-  const body = `${node.at}/$body`;
-  const blocks = record.anchors.anchors
+  return withBlocks ? { ...section, blocks: blocksOf(record, `${node.at}/$body`) } : section;
+}
+
+/** Gives the outline entries of the block anchors of the `$body` at an exact path, in document order. */
+function blocksOf(record: ParsedRecord, body: string): OutlineEntry[] {
+  return record.anchors.anchors
     .filter((entry): entry is BlockAnchorEntry => entry.kind === "block" && entry.at === body)
-    .map((entry) => ({ at: entry.at, address: blockAnchorAddress(record, entry), size: sizeOf(entry.fileRange) }));
-  return { ...section, blocks };
+    .map((entry) => blockEntry(record, entry));
+}
+
+/** Gives the outline entry of a block anchor: its `$body`, its canonical address, its block's size and its range. */
+function blockEntry(record: ParsedRecord, entry: BlockAnchorEntry): OutlineEntry {
+  return {
+    at: entry.at,
+    address: blockAnchorAddress(record, entry),
+    size: sizeOf(entry.fileRange),
+    range: entry.range,
+  };
 }
 
 /** The number of bytes in a range. */
