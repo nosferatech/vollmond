@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest";
 import { type Comparison, standardComparison } from "./compare.js";
 import { operations } from "./operations/index.js";
 import { type RunResult, runSuite } from "./runner.js";
+import { countSelfTestCases, REAL_SUITE } from "./testing/temp-suite.js";
 
-const REAL_SUITE = fileURLToPath(new URL("../../../../conformance/", import.meta.url));
 const DECLARATION = fileURLToPath(new URL("../declaration.json", import.meta.url));
 
 /** Runs the real suite with this package's declaration, narrowed to `ids` when given. */
@@ -52,7 +52,7 @@ describe("the real suite", () => {
     }
     const { results, unused_skips } = result.report;
     const selfTests = results.filter((item) => item.id.startsWith("selftest/"));
-    expect(selfTests.length).toBe(16);
+    expect(selfTests.length).toBe(await countSelfTestCases(REAL_SUITE));
     expect(selfTests.every((item) => item.verdict === "pass")).toBe(true);
     expect(results.filter((item) => !item.id.startsWith("selftest/") && item.verdict !== "skip")).toEqual([]);
     expect(results.length).toBeGreaterThan(1000);

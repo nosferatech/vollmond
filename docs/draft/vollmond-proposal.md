@@ -926,11 +926,10 @@ Shorthands are never written into records.
 | JSON / YAML | an object whose only member is `$ref` (JSON Reference) | `{"$ref": "../persons/ada.yaml#contact"}` |
 | JSON / YAML, typed | a string whose schema has `format: uri-reference` and `x-vmd-ref` (§9.3) | `parent: 0158-implement-the-v3-log.md` |
 
-A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`) at the object. The
-object's other members are still checked, and their own issues reported, so that one run shows everything to fix (C2), so
-references are
-detectable without a schema. Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is not a
-reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link brackets
+A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`) at the object, so
+references are detectable without a schema. The object's other members are still checked, and their own issues reported, so that
+one run shows everything to fix (C2). Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is
+not a reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link brackets
 ([CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore removes
 it from validation.
 
