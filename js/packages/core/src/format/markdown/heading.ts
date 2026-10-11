@@ -40,6 +40,11 @@ export interface HeadingReading {
   readonly titleRange: TextRange;
   /** Whether the title has several lines, as a setext heading can, which the serializer cannot write. */
   readonly multiLine: boolean;
+  /**
+   * Gives the UTF-8 byte offset in the title of the place at `index` of the file's text, the index of one of the title's
+   * characters; for an index between them, the offset of the next character of the title, or the title's length after it.
+   */
+  readonly titleOffsetOf: (index: number) => number;
   /** The anchor element's `id`, if any: the `$anchor`. */
   readonly anchor: string | null;
   /** The tags of the anchor element's `class` attribute, in source order, each repeat dropped: the `$tags`, when there are any. */
@@ -141,7 +146,7 @@ function titleOf(
   text: string,
   content: TextRange,
   element: AnchorElement | null,
-): Pick<HeadingReading, "title" | "titleRange" | "multiLine"> {
+): Pick<HeadingReading, "title" | "titleRange" | "multiLine" | "titleOffsetOf"> {
   let title = "";
   // The index into the file's text of each character of `title`.
   const sourceAt: number[] = [];
@@ -171,8 +176,24 @@ function titleOf(
     first === last
       ? { start: content.start, end: content.start }
       : { start: sourceAt[first] as number, end: (sourceAt[last - 1] as number) + 1 };
-  return { title: trimmed, titleRange, multiLine: trimmed.includes("\n") };
+  const titleOffsetOf = (index: number) => {
+    // The first character of the trimmed title at or after `index`, by a binary search of the increasing indexes.
+    let low = first;
+    let high = last;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((sourceAt[middle] as number) < index) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return UTF8.encode(trimmed.slice(0, low - first)).length;
+  };
+  return { title: trimmed, titleRange, multiLine: trimmed.includes("\n"), titleOffsetOf };
 }
+
+const UTF8 = new TextEncoder();
 
 /**
  * Gives the text a reader sees in inline nodes, without recursion: text values, with line breaks read as `\n`; code spans;

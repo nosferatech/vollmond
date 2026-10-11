@@ -24,6 +24,35 @@ export interface Target {
 }
 
 /**
+ * How a step of a semantic path matched a node: a field or a member of an object (`member`); a section member such as
+ * `$title` (`section-member`); a child section by a key that is its `$anchor` (`key-explicit`) or the slug of its title
+ * (`key-title`); a keyed list's item by its key (`list-key`); an array item by its index (`index`); or, for the first step, an
+ * explicit, a derived or a block anchor. A step that matches one node in several ways has each.
+ */
+export type StepMatch =
+  | "member"
+  | "section-member"
+  | "key-explicit"
+  | "key-title"
+  | "list-key"
+  | "index"
+  | "anchor-explicit"
+  | "anchor-derived"
+  | "anchor-block";
+
+// Deviation from the I2 design, recorded in issue #24: the steps of an exact path are not reported yet; their first use, the
+// refusal of positional steps under `anchors: explicit`, comes with typed references.
+/** The targets of an address, and how each step of a semantic path matched. */
+export interface StepResolution {
+  readonly targets: readonly Target[];
+  /**
+   * For a semantic path used as a singular address, how each step matched the one node it matched, a list per step; empty for
+   * an exact path, the root, and a selector.
+   */
+  readonly steps: readonly (readonly StepMatch[])[];
+}
+
+/**
  * How an address is used: as a singular address, which must name exactly one node, as a reference or a write target does; or
  * as a selector, which names every node it matches.
  */
@@ -46,6 +75,12 @@ export type AddressUse = "singular" | "selector";
  * have the record's path and no node.
  */
 export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<readonly Target[]> {
+  const resolved = resolveAddressSteps(record, fragment, use);
+  return resolved.ok ? succeed(resolved.value.targets) : resolved;
+}
+
+/** Resolves a fragment in a record as {@link resolveAddress} does, and also gives how each step matched. */
+export function resolveAddressSteps(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<StepResolution> {
   const resolver = resolverOf(record);
   const evaluated = resolver.evaluate(fragment, use === "singular");
   const shown = `${record.path}${formatFragment(fragment)}`;
@@ -70,7 +105,9 @@ export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, 
   if (use === "singular" && evaluated.matches.length === 0) {
     return fail([makeIssue({ code: "address-not-found", path: record.path, at: null, message: `${shown} matches no node` })]);
   }
-  return succeed(Object.freeze(evaluated.matches.map((match) => resolver.target(match))));
+  const targets = Object.freeze(evaluated.matches.map((match) => resolver.target(match)));
+  const steps = use === "singular" && fragment?.kind === "semantic" ? evaluated.ways : [];
+  return succeed(Object.freeze({ targets, steps: Object.freeze(steps) }));
 }
 
 /**
@@ -146,14 +183,31 @@ interface Evaluation {
   readonly ambiguous: boolean;
   /** How many steps of a semantic path were evaluated, from 1; 0 for an exact path or the root. */
   readonly steps: number;
+  /** For each step of a semantic path, from the first, that matched one node, how it matched; up to the first that did not. */
+  readonly ways: readonly (readonly StepMatch[])[];
+}
+
+/** A node or a block anchor that a step matched, and how. */
+interface StepFind {
+  readonly match: Match;
+  readonly way: StepMatch;
 }
 
 /**
- * Keeps the first of each match, in order. The index and the anchor table give one object per node and per entry, so a node
- * that a key and an anchor both name is one match.
+ * Groups what a step found by match, in the order of each match's first find, with each way once. The index and the anchor
+ * table give one object per node and per entry, so a node that a key and an anchor both name is one match.
  */
-function distinct(matches: readonly Match[]): Match[] {
-  return [...new Set(matches)];
+function grouped(finds: readonly StepFind[]): Map<Match, StepMatch[]> {
+  const byMatch = new Map<Match, StepMatch[]>();
+  for (const { match, way } of finds) {
+    const ways = byMatch.get(match);
+    if (ways === undefined) {
+      byMatch.set(match, [way]);
+    } else if (!ways.includes(way)) {
+      ways.push(way);
+    }
+  }
+  return byMatch;
 }
 
 const resolvers = new WeakMap<ParsedRecord, RecordResolver>();
@@ -185,23 +239,26 @@ class RecordResolver {
 
   /** Evaluates a fragment; a singular evaluation stops at the first step that matches several nodes. */
   evaluate(fragment: Fragment | null, singular: boolean): Evaluation {
-    if (fragment === null) return { matches: [this.#root], ambiguous: false, steps: 0 };
+    if (fragment === null) return { matches: [this.#root], ambiguous: false, steps: 0, ways: [] };
     if (fragment.kind === "exact") {
       const at = fragment.tokens.reduce<string>((parent, token) => childPath(parent, token), "");
       const node = this.#record.nodes.node(at);
-      return { matches: node === undefined ? [] : [node], ambiguous: false, steps: 0 };
+      return { matches: node === undefined ? [] : [node], ambiguous: false, steps: 0, ways: [] };
     }
     const [first, ...rest] = fragment.steps;
-    let matches: Match[] = this.#inDocumentOrder(distinct(this.#firstStep(first as string)));
+    let found = this.#inDocumentOrder(grouped(this.#firstStep(first as string)));
+    const ways: (readonly StepMatch[])[] = [];
     let steps = 1;
     for (const step of rest) {
-      if (singular && matches.length > 1) break;
-      const next = distinct(matches.flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
+      if (singular && found.size > 1) break;
+      if (found.size === 1) ways.push([...found.values()][0] as StepMatch[]);
+      const next = grouped([...found.keys()].flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
       // One match's results can come after a later match's, when the later one is its descendant.
-      matches = this.#inDocumentOrder(next);
+      found = this.#inDocumentOrder(next);
       steps++;
     }
-    return { matches, ambiguous: singular && matches.length > 1, steps };
+    if (found.size === 1 && ways.length === steps - 1) ways.push([...found.values()][0] as StepMatch[]);
+    return { matches: [...found.keys()], ambiguous: singular && found.size > 1, steps, ways };
   }
 
   /**
@@ -209,11 +266,11 @@ class RecordResolver {
    * stable, and the blocks of one `$body` come from the anchor table, in its order, which is theirs in the file; no step
    * matches both a `$body` and one of its blocks, since a block's name is an anchor and `$body` is not.
    */
-  #inDocumentOrder(matches: Match[]): Match[] {
-    if (matches.length < 2) return matches;
+  #inDocumentOrder(found: Map<Match, StepMatch[]>): Map<Match, StepMatch[]> {
+    if (found.size < 2) return found;
     const order = documentOrderOf(this.#record.nodes);
-    const place = (match: Match) => order.get(match.at) as number;
-    return matches.sort((a, b) => place(a) - place(b));
+    const place = ([match]: [Match, StepMatch[]]) => order.get(match.at) as number;
+    return new Map([...found].sort((a, b) => place(a) - place(b)));
   }
 
   /** Gives a match as a target. */
@@ -288,38 +345,52 @@ class RecordResolver {
   }
 
   /** The matches of a first step: those of a step from the root, and every anchor of that name. */
-  #firstStep(step: string): Match[] {
+  #firstStep(step: string): StepFind[] {
     const nodes = this.#record.nodes;
     const anchored = this.#record.anchors
       .named(step)
-      .map((entry): Match => (entry.kind === "block" ? entry : (nodes.node(entry.at) as NodeInfo)));
+      .map(
+        (entry): StepFind =>
+          entry.kind === "block"
+            ? { match: entry, way: "anchor-block" }
+            : { match: nodes.node(entry.at) as NodeInfo, way: entry.kind === "explicit" ? "anchor-explicit" : "anchor-derived" },
+      );
     return [...this.#step(this.#root, step), ...anchored];
   }
 
-  /** The nodes that a step other than the first matches from a node. */
-  #step(node: NodeInfo, step: string): NodeInfo[] {
+  /** The nodes that a step other than the first matches from a node, and how. */
+  #step(node: NodeInfo, step: string): StepFind[] {
     const nodes = this.#record.nodes;
     switch (node.kind) {
       case "section": {
         const member = nodes.node(childPath(node.at, step));
-        const sections = this.#sectionsByKey(node).get(step) ?? [];
-        return member === undefined ? [...sections] : [member, ...sections];
+        const sections = this.#keyedSections(node, step);
+        if (member === undefined) return sections;
+        return [{ match: member, way: step.startsWith("$") ? "section-member" : "member" }, ...sections];
       }
       case "array": {
         const holder = node.parent === null ? undefined : nodes.node(node.parent);
-        if (node.key === "$sections" && holder?.kind === "section") return [...(this.#sectionsByKey(holder).get(step) ?? [])];
+        if (node.key === "$sections" && holder?.kind === "section") return this.#keyedSections(holder, step);
         // The index names an item by its index in decimal without leading zeros, so a step names an item exactly when it is
         // RFC 6901's array index: `01`, `-`, `1e0` and a number too large to be exact name none.
         const item = nodes.node(childPath(node.at, step));
-        return item === undefined ? [] : [item];
+        return item === undefined ? [] : [{ match: item, way: "index" }];
       }
       case "object": {
         const member = nodes.node(childPath(node.at, step));
-        return member === undefined ? [] : [member];
+        return member === undefined ? [] : [{ match: member, way: "member" }];
       }
       default:
         return [];
     }
+  }
+
+  /** The child sections of a section whose key is `step`, each by its `$anchor` or by its title's slug. */
+  #keyedSections(section: NodeInfo, step: string): StepFind[] {
+    return (this.#sectionsByKey(section).get(step) ?? []).map((child) => ({
+      match: child,
+      way: this.#record.nodes.node(childPath(child.at, "$anchor")) === undefined ? "key-title" : "key-explicit",
+    }));
   }
 
   /** The child sections of a section, by key, each key's in document order. */

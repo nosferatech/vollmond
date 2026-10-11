@@ -17,7 +17,10 @@ export {
   canonicalAddress,
   type RecordLookup,
   resolveAddress,
+  resolveAddressSteps,
   resolveStoreAddress,
+  type StepMatch,
+  type StepResolution,
   type StoreResolution,
   type Target,
 } from "./address/resolve.js";
@@ -47,8 +50,8 @@ export {
   type ComputedFieldName,
   type ComputedFields,
   type ComputedIssue,
+  type ComputedReference,
   computeFields,
-  NOT_COMPUTED_FIELDS,
   type SourceLocation,
 } from "./meta/computed-fields.js";
 export { childPath } from "./record/exact-path.js";
@@ -68,6 +71,16 @@ export {
 export { blockText, valueAt } from "./record/node-value.js";
 export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
+export { type Alias, type AliasTable, type AnchorAlias, type RecordAlias, readAliases } from "./reference/aliases.js";
+export { occurrencesOf } from "./reference/extract.js";
+export type {
+  Reference,
+  ReferenceForm,
+  ReferenceOccurrence,
+  ReferenceStatus,
+  ReferenceTarget,
+} from "./reference/reference.js";
+export { resolveReferenceUri, type UriResolution } from "./reference/uri.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
 export { compileLineTest, type LineTest } from "./storage/grep.js";
 export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";
@@ -100,6 +113,7 @@ export {
   type Outline,
   type OutlineEntry,
   openStore,
+  type ReferencesQuery,
   type Store,
   type StoreEntry,
   type StoreListQuery,

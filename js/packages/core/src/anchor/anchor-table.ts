@@ -6,6 +6,11 @@ export interface NodeAnchor {
   readonly kind: "explicit" | "derived";
   /** The exact path of the node. */
   readonly at: string;
+  /**
+   * For a derived anchor, its heading's slug, which the anchor is with its repeat suffix, if any: `notes` for `notes-1`. Two
+   * headings whose derived anchors share a slug renumber each other when either changes.
+   */
+  readonly slug?: string;
 }
 
 /** An anchor that names a paragraph or a list item of a `$body`: a range of the `$body`'s text, not a node. */

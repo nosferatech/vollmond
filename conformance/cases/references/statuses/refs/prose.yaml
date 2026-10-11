@@ -1,0 +1,6 @@
+$title: Notes
+$body: |
+  First line.
+  See ![logo](../assets/missing.png).
+$sections:
+  - $title: Part [p](../docs/twin.md)

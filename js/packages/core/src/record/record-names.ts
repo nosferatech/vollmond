@@ -1,4 +1,10 @@
-import { type AnchorEntry, anchorTableOf, type BlockAnchorEntry, type TagEntry } from "../anchor/anchor-table.js";
+import {
+  type AnchorEntry,
+  anchorTableOf,
+  type BlockAnchorEntry,
+  type NodeAnchor,
+  type TagEntry,
+} from "../anchor/anchor-table.js";
 import { isAnchorName } from "../anchor/slug.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
 import type { BlockAnchor } from "../format/markdown/body.js";
@@ -30,7 +36,7 @@ export type UnnamedRecord = Omit<ParsedRecord, "anchors" | "sectionKeys">;
  *
  * - **Anchors.** An explicit anchor is the `$anchor` of a section or of any object in a field's value; the root's `$schema` is
  *   stored data and is not looked into. A Markdown heading's derived anchor is the one its section's heading has in the index,
- *   and its block anchors are those of `markdown`. Every anchor is in one namespace.
+ *   with its heading's slug from `markdown`, and its block anchors are those of `markdown`. Every anchor is in one namespace.
  * - **Tags** are the `$tags` of the same objects, each once per node.
  * - **Section keys.** A section's key is its `$anchor`, or else its slug: a Markdown heading's slug, from `markdown`, or for a
  *   JSON or YAML section the slug of its `$title` read as a heading's inline content, with the link reference definitions of
@@ -147,7 +153,9 @@ class RecordNames {
     for (const section of this.#record.nodes.sections()) {
       const derived = section.heading?.derivedAnchor ?? null;
       if (derived !== null) {
-        anchors.push({ entry: { name: derived, kind: "derived", at: section.at }, order: this.#order(section.at) });
+        const slug = this.#markdown?.headingSlugs.get(section.at) ?? derived;
+        const entry: NodeAnchor = { name: derived, kind: "derived", at: section.at, slug };
+        anchors.push({ entry, order: this.#order(section.at) });
       }
     }
     for (const block of this.#markdown?.blockAnchors ?? []) {

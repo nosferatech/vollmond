@@ -3,8 +3,9 @@ import { parseAddress } from "../address/address.js";
 import { resolveAddress, type Target } from "../address/resolve.js";
 import { parseRecord } from "../format/parse-record.js";
 import type { ParsedRecord } from "../record/record.js";
+import type { Reference } from "../reference/reference.js";
 import { nodeVersion } from "../value/digest.js";
-import { COMPUTED_FIELD_NAMES, computeFields, NOT_COMPUTED_FIELDS } from "./computed-fields.js";
+import { COMPUTED_FIELD_NAMES, computeFields } from "./computed-fields.js";
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
 
@@ -45,7 +46,7 @@ describe("computed fields", () => {
   const ticket = record("tickets/0171.md", TICKET);
 
   test("give every field but @nodes for `all`, as the specification's example of a section does", async () => {
-    const fields = await computeFields(ticket, "/$sections/1", "all");
+    const fields = await computeFields(ticket, "/$sections/1", "all", { references: [] });
     const value = ticket.value.$sections as readonly unknown[];
     const start = TICKET.indexOf("## What was done");
     expect(fields).toEqual({
@@ -60,7 +61,7 @@ describe("computed fields", () => {
       "@version": await nodeVersion(value[1] as never),
       "@source": { range: { start, end: TICKET.length }, line: 14, col: 1 },
       "@issues": [],
-      "@refs": null,
+      "@refs": [],
       "@depth": 1,
     });
     expect(Object.keys(fields)).toEqual([
@@ -105,12 +106,46 @@ describe("computed fields", () => {
     expect(Object.keys(fields)).toEqual(["@key", "@path"]);
   });
 
-  test("give @refs, which is not computed yet, as null, and leave @collection out for a record in no collection", async () => {
-    expect(await computeFields(ticket, "/status", ["@refs", "@collection", "@path"])).toEqual({
-      "@refs": null,
-      "@path": "tickets/0171.md",
+  test("leave @refs out without the context's references, which need the store, and @collection for a record in none", async () => {
+    expect(await computeFields(ticket, "/status", ["@refs", "@collection", "@path"])).toEqual({ "@path": "tickets/0171.md" });
+  });
+
+  test("give @refs from the context's references: the node's and those below it, or for a block those at its offsets", async () => {
+    const text = '# T\n\n<a id="a"></a>See [a](a.md).\n\n<a id="b"></a>See [b](b.md).\n\n## S [t](t.md)\n\n[c](c.md)\n';
+    const parsed = record("r.md", text);
+    const reference = (at: string, offset: number, raw: string): Reference => ({
+      form: "link",
+      at,
+      offset,
+      raw,
+      uri: raw,
+      from: { path: "r.md", at, offset },
+      status: "dangling",
+      targets: [],
+      issues: [],
     });
-    expect(NOT_COMPUTED_FIELDS).toEqual(["@refs"]);
+    const references = [
+      reference("/$body", 15, "a.md"),
+      reference("/$body", 43, "b.md"),
+      reference("/$sections/0/$title", 2, "t.md"),
+      reference("/$sections/0/$body", 0, "c.md"),
+    ];
+    const refs = async (subject: string | Target) =>
+      ((await computeFields(parsed, subject, ["@refs"], { references }))["@refs"] ?? []).map((ref) => ref.raw);
+    expect(await refs("")).toEqual(["a.md", "b.md", "t.md", "c.md"]);
+    expect(await refs("/$sections/0")).toEqual(["t.md", "c.md"]);
+    expect(await refs("/$sections/0/$title")).toEqual(["t.md"]);
+    expect(await refs("/$body")).toEqual(["a.md", "b.md"]);
+    // A path that only starts like the node's is not below it.
+    expect(await refs("/$sections/0/$body")).toEqual(["c.md"]);
+    const [a] = targets(parsed, "#a");
+    const [b] = targets(parsed, "#b");
+    expect(await refs(a as Target)).toEqual(["a.md"]);
+    expect(await refs(b as Target)).toEqual(["b.md"]);
+    // The shape of `refs` without where the reference is, but for a link's offset.
+    expect((await computeFields(parsed, "/$sections/0/$body", ["@refs"], { references }))["@refs"]).toEqual([
+      { raw: "c.md", status: "dangling", targets: [], offset: 0 },
+    ]);
   });
 
   test("give @collection from the context, for every node and every section below a section", async () => {
@@ -182,7 +217,6 @@ describe("computed fields", () => {
       "@source": { range: { start, end: start + item.length }, line: 3, col: 1 },
       "@range": { start: 0, end: item.length },
       "@issues": [],
-      "@refs": null,
     });
   });
 

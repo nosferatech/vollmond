@@ -4,6 +4,7 @@ import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { applySeverities } from "../issue/severity.js";
 import type { ParsedRecord } from "../record/record.js";
+import type { ReferenceResolver } from "../reference/resolve.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { FileInfo, StorageReader } from "../storage/storage.js";
 import { filenameMismatch, type ListedPath, pathRuleIssues } from "../store/path-rules.js";
@@ -34,6 +35,8 @@ export interface CheckedStore {
   parse(path: string): Promise<Outcome<ParsedRecord>>;
   /** The issue that makes a collection's schema unusable, the same one each time; null when its schema can be used or it has none. */
   schemaIssue(collection: Collection): Promise<Issue | null>;
+  /** The resolver of the store's references, the same one each time, or why there is none, such as an invalid alias file. */
+  referenceResolver(): Promise<Outcome<ReferenceResolver>>;
 }
 
 /** How many paths a page of the listing that a check reads holds. */
@@ -49,10 +52,14 @@ const LIST_PAGE = 1000;
  * - `collection-conflict` for a record that several collections claim, which is then checked as a record of none;
  *   `filename-mismatch` for a record whose name does not match its collection's pattern;
  * - once per collection, the issue that makes its schema unusable; the collection's records are still checked for everything
- *   else.
+ *   else;
+ * - the issues of the references of each record without a structural error, resolved against the store as readers read it,
+ *   and `alias-shadowed`
+ *   for a record's path, or an anchor of it, that an alias has as its old name.
  *
  * With `records`, only those records' issues are reported, and a collection's schema issue only when one of them is in it.
- * Fails as the backend's `list` does, with nothing checked.
+ * Fails as the backend's `list` does, with nothing checked, and with the issue of an alias file that cannot be read as one,
+ * since without its aliases references would be reported dangling that are not.
  */
 // TODO(#22): schemas are not compiled yet, so a record of a collection whose schema file can be read is checked without it.
 export async function checkStore(store: CheckedStore, options: CheckOptions = {}): Promise<Outcome<CheckSummary>> {
@@ -83,6 +90,8 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
   ).length;
   let checked = failedRecords;
   let unreadable = failedRecords;
+  const resolver = await store.referenceResolver();
+  if (!resolver.ok) return fail(resolver.issues);
   for (const record of records) {
     if (!inScope(record.path)) continue;
     checked += 1;
@@ -100,6 +109,7 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       unreadable += 1;
       issues.push(...parsed.issues);
     }
+    issues.push(...(await resolver.value.issuesOf(record.path, parsed.ok ? parsed.value : null)));
   }
   for (const collection of store.configuration.collections) {
     if (!collectionsInScope.has(collection)) continue;

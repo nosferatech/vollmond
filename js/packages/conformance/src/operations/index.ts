@@ -4,6 +4,7 @@ import { checkOperation } from "./check.js";
 import { compareOperation } from "./compare.js";
 import { metaOperation } from "./meta.js";
 import { parseOperation } from "./parse.js";
+import { refsOperation } from "./refs.js";
 import { resolveOperation } from "./resolve.js";
 
 /**
@@ -16,5 +17,6 @@ export const operations: OperationRegistry = new Map([
   ["compare", compareOperation],
   ["meta", metaOperation],
   ["parse", parseOperation],
+  ["refs", refsOperation],
   ["resolve", resolveOperation],
 ]);

@@ -1,0 +1,18 @@
+{
+  "defaults": {"spec": ["13.6", "D"], "profiles": ["validate"], "operation": "check", "input": {"store": "aliases-invalid"}},
+  "cases": [
+    {
+      "id": "check-stops-on-invalid-alias-file",
+      "description": "An alias file with an entry that is not an alias, here a from that is not a store path, is alias-file-invalid, an operation error with no record, and the check reports nothing else, since without the aliases references would be reported dangling that are not (§13.6, Appendix D; the valid file of the aliases store is its near miss).",
+      "input": {"records": ["docs/a.md"]},
+      "expect": {"issues": [{"code": "alias-file-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "refs-fail-on-invalid-alias-file",
+      "operation": "refs",
+      "description": "Reading references fails on the same file, with the same issue (§13.6).",
+      "input": {"record": "docs/a.md"},
+      "expect": {"fails": true, "issues": [{"code": "alias-file-invalid", "severity": "error", "path": null, "at": null}]}
+    }
+  ]
+}

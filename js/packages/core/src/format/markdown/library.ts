@@ -10,6 +10,7 @@ import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
 import { gfmTable } from "micromark-extension-gfm-table";
 import { gfmTaskListItem } from "micromark-extension-gfm-task-list-item";
 import { MAX_EMPHASIS_RUNS, MAX_NESTING } from "../limits.js";
+import { DESTINATION_RANGES } from "./links.js";
 
 // The types of micromark's constructs, which its package does not export by name, from the parser it does export.
 type ParseContext = ReturnType<typeof parse>;
@@ -31,7 +32,8 @@ const { transforms: AUTOLINK_TRANSFORMS = [], ...autolinkLiteralFromMarkdown }: 
 /**
  * CommonMark with exactly the extensions of GitHub Flavored Markdown 0.29: tables, strikethrough, task list items and autolink
  * literals. The bundle of all of GitHub's extensions is not used, since its footnotes are not part of GFM 0.29 and change
- * block structure: a `[^1]: target` line is a link reference definition without them.
+ * block structure: a `[^1]: target` line is a link reference definition without them. The tree keeps each link's,
+ * image's and definition's destination range, which references need.
  */
 const GFM_EXTENSIONS: readonly MicromarkExtension[] = [gfmTable(), gfmStrikethrough(), gfmTaskListItem(), gfmAutolinkLiteral()];
 const GFM_FROM_MARKDOWN: readonly Extension[] = [
@@ -39,6 +41,7 @@ const GFM_FROM_MARKDOWN: readonly Extension[] = [
   gfmStrikethroughFromMarkdown(),
   gfmTaskListItemFromMarkdown(),
   autolinkLiteralFromMarkdown,
+  DESTINATION_RANGES,
 ];
 
 /** The library's own container constructs, block quotes and lists, by the character that starts them. */

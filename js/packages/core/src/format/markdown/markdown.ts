@@ -1,4 +1,4 @@
-import type { RootContent } from "mdast";
+import type { Nodes, RootContent } from "mdast";
 import { deriveAnchors } from "../../anchor/derived-anchors.js";
 import { slugOf } from "../../anchor/slug.js";
 import type { IssueCode } from "../../issue/codes.js";
@@ -8,17 +8,19 @@ import { childPath } from "../../record/exact-path.js";
 import { NodeIndexBuilder } from "../../record/node-index.js";
 import { type ParsedRecord, parseOutcome } from "../../record/record.js";
 import { nameRecord } from "../../record/record-names.js";
+import type { ReferenceOccurrence } from "../../reference/reference.js";
 import type { ByteRange, SourceText } from "../../text/source-text.js";
 import { sliceUnitText } from "../../text/unit-text.js";
 import { createValueObject, type MutableValueObject, type Value, type ValueObject } from "../../value/value.js";
 import { parseYamlUnit } from "../yaml.js";
 import { startOf } from "./anchor-element.js";
-import { type BlockAnchor, type Body, findBody, readBlockAnchors } from "./body.js";
+import { type BlockAnchor, type Body, BodyOffsets, findBody, readBlockAnchors } from "./body.js";
 import { type DataBlock, type DataBlockNode, parseDataBlock, readFence } from "./data-block.js";
 import { findFrontMatter } from "./front-matter.js";
 import { type HeadingReading, readHeading, type TextRange } from "./heading.js";
 import { parseMarkdownTree } from "./library.js";
 import { lineStartOf, nextLineStart } from "./lines.js";
+import { collectLinks } from "./links.js";
 
 /** A heading that names a node: the title heading, at the root, or a section's. */
 export interface MarkdownHeading {
@@ -41,6 +43,8 @@ export interface MarkdownReading {
   readonly headings: readonly MarkdownHeading[];
   /** The block anchors of every `$body`, in document order. */
   readonly blockAnchors: readonly BlockAnchor[];
+  /** The links, images and link reference definitions of every `$title` and `$body`, in document order. */
+  readonly links: readonly ReferenceOccurrence[];
 }
 
 /** What a section, or the root, is made of: its heading, its fields, its body and its children. */
@@ -103,7 +107,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const position = source.position(source.byteOffset(index));
     issues.push(makeIssue({ code, path, at, message, position, ...(offset === undefined ? {} : { offset }) }));
   };
-  const nothing = (): MarkdownReading => ({ path, source, issues, root: null, headings: [], blockAnchors: [] });
+  const nothing = (): MarkdownReading => ({ path, source, issues, root: null, headings: [], blockAnchors: [], links: [] });
 
   const afterBom = source.hasBom ? 1 : 0;
   const frontMatter = findFrontMatter(text, afterBom);
@@ -133,6 +137,23 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   const blocks = tree.root.children;
   const headings: MarkdownHeading[] = [];
   const blockAnchors: BlockAnchor[] = [];
+  const links: ReferenceOccurrence[] = [];
+  /** Adds the links of `nodes`, which a `$title` or a `$body` at `at` holds, with `offsetOf` giving a place's offset in it. */
+  const addLinks = (nodes: readonly Nodes[], at: string, offsetOf: (index: number) => number) => {
+    for (const link of collectLinks(nodes, text, shift)) {
+      const destination = link.destination;
+      const start = destination === null ? 0 : shift + destination.start;
+      const end = destination === null ? 0 : shift + destination.end;
+      links.push({
+        form: link.form,
+        at,
+        offset: offsetOf(shift + link.start),
+        raw: text.slice(start, end),
+        uri: link.url,
+        ...(destination === null ? {} : { destination: { start: source.byteOffset(start), end: source.byteOffset(end) } }),
+      });
+    }
+  };
 
   const levelOnes = blocks.filter((block) => block.type === "heading" && block.depth === 1);
   if (levelOnes.length > 1) {
@@ -164,6 +185,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
       raise("not-representable", childPath(draft.at, "$title"), message, heading.titleRange.start);
     }
     headings.push({ at: draft.at, level: heading.level, visibleText: heading.visibleText });
+    addLinks(block.children, childPath(draft.at, "$title"), heading.titleOffsetOf);
     return heading;
   };
   /** Reads the `$body` of `draft` from `from` to the block at `nextIndex`, a heading, or the end. */
@@ -175,9 +197,12 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     draft.body = body;
     if (body === null) return;
     const bodyAt = childPath(draft.at, "$body");
-    const found = readBlockAnchors(source, blocks.slice(firstIndex, nextIndex), shift, body, bodyAt);
+    const bodyBlocks = blocks.slice(firstIndex, nextIndex);
+    const found = readBlockAnchors(source, bodyBlocks, shift, body, bodyAt);
     blockAnchors.push(...found.anchors);
     for (const problem of found.problems) raise(problem.code, bodyAt, problem.message, problem.index, problem.offset);
+    const offsets = new BodyOffsets(source, body.range);
+    addLinks(bodyBlocks, bodyAt, (index) => offsets.valueOffset(index));
   };
   const nextHeadingIndex = (from: number) => {
     let index = from;
@@ -251,7 +276,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     readBodyOf(draft, nextLineStart(text, after), index + 1, next);
     index = next;
   }
-  return { path, source, issues, root, headings, blockAnchors };
+  return { path, source, issues, root, headings, blockAnchors, links };
 }
 
 // Deviation from the I1 design, recorded in issue #14: the derived anchors are computed here, after the structural check,
@@ -335,7 +360,10 @@ export function buildMarkdownRecord(reading: MarkdownReading): Outcome<ParsedRec
 
     const value = section(root);
     const nodes = builder.build(derivedAnchors);
-    return nameRecord({ path, format: "md", value, source, nodes, issues }, { headingSlugs, blockAnchors: reading.blockAnchors });
+    return nameRecord(
+      { path, format: "md", value, source, nodes, issues, links: reading.links },
+      { headingSlugs, blockAnchors: reading.blockAnchors },
+    );
   });
 }
 

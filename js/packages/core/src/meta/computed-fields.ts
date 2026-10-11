@@ -5,6 +5,7 @@ import { applySeverities, type SeverityConfiguration } from "../issue/severity.j
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
+import type { Reference, ReferenceStatus, ReferenceTarget } from "../reference/reference.js";
 import type { ByteRange } from "../text/source-text.js";
 import { nodeVersion } from "../value/digest.js";
 
@@ -28,14 +29,6 @@ export const COMPUTED_FIELD_NAMES = [
 /** The name of a computed field. */
 export type ComputedFieldName = (typeof COMPUTED_FIELD_NAMES)[number];
 
-// TODO(#24): `@refs` needs references.
-/**
- * The computed fields that are not computed yet, in the order of {@link COMPUTED_FIELD_NAMES}. Until they are, a read that
- * requests them gives them as `null`, with a warning `field-not-computed` that names them, so that a field that is absent and
- * one not computed yet cannot be confused.
- */
-export const NOT_COMPUTED_FIELDS: readonly ComputedFieldName[] = ["@refs"];
-
 /** An anchor as `@anchors` lists it. */
 export interface ComputedAnchor {
   readonly name: string;
@@ -52,6 +45,15 @@ export interface SourceLocation {
   readonly col: number;
   /** For an object member, from the start of its key to the end of its value. */
   readonly memberRange?: ByteRange;
+}
+
+/** A reference as `@refs` lists it: what `refs` gives, without where the reference is but a link's offset. */
+export interface ComputedReference {
+  readonly raw: string;
+  readonly status: ReferenceStatus;
+  readonly targets: readonly ReferenceTarget[];
+  /** For a link, an image or a definition, its offset in the `$body` or `$title` that holds it, in UTF-8 bytes. */
+  readonly offset?: number;
 }
 
 /** An issue as `@issues` lists it. */
@@ -86,8 +88,8 @@ export interface ComputedFields {
   readonly "@range"?: ByteRange;
   /** The issues found while parsing that are attached to the node; for a block anchor, those at its offsets. */
   readonly "@issues"?: readonly ComputedIssue[];
-  /** The references the node contains: null, since they are not computed yet ({@link NOT_COMPUTED_FIELDS}). */
-  readonly "@refs"?: null;
+  /** The references the node and the nodes below it make, in document order; for a block anchor, those in its block. */
+  readonly "@refs"?: readonly ComputedReference[];
   /** The name of the record's collection; absent for a record that no collection, or several, claim. */
   readonly "@collection"?: string;
   /** A section's depth, 0 for the root. */
@@ -102,6 +104,8 @@ export interface ComputedFieldContext {
   readonly collection?: string;
   /** The configuration's severities, which `@issues` applies; without them, issues have their default severities. */
   readonly severities?: SeverityConfiguration;
+  /** The references of the record, resolved, for `@refs`: at least those of the node and below it. */
+  readonly references?: readonly Reference[];
 }
 
 // Deviation from the I1 design, recorded in issue #15: the subject is a node's exact path or a target, not a path alone, since a
@@ -110,8 +114,9 @@ export interface ComputedFieldContext {
 /**
  * Computes the requested fields of a node of a parsed record, given by its exact path, or of a target that resolving an
  * address in the record gave, which may be a block anchor. `all` requests every field but `@nodes`, which is requested by
- * name. `@refs` is not computed yet, and is given as `null` ({@link NOT_COMPUTED_FIELDS}), which the caller warns about.
- * `@collection` is the context's collection, absent without one. `@issues` holds the issues found while parsing, with the
+ * name. `@refs` lists those of the context's references that the node, or a node below it, makes, and is absent when the
+ * context gives no references, since resolving them needs the store. `@collection` is the context's collection, absent
+ * without one. `@issues` holds the issues found while parsing, with the
  * context's severities applied, or with their default severities when it gives none.
  *
  * Throws a `RangeError` when the record has no node at the path, for a target of another record, and for a target with a
@@ -198,8 +203,24 @@ async function fieldOf(
     }
     case "@collection":
       return context.collection;
-    case "@refs":
-      return null;
+    case "@refs": {
+      if (context.references === undefined) return undefined;
+      const inside = (reference: Reference) =>
+        block === undefined
+          ? node.at === "" || reference.at === node.at || reference.at.startsWith(`${node.at}/`)
+          : reference.at === block.at &&
+            reference.offset !== undefined &&
+            reference.offset >= block.range.start &&
+            reference.offset < block.range.end;
+      return context.references.filter(inside).map(
+        ({ raw, status, targets, offset }): ComputedReference => ({
+          raw,
+          status,
+          targets,
+          ...(offset === undefined ? {} : { offset }),
+        }),
+      );
+    }
   }
 }
 

@@ -3,7 +3,7 @@ import { parseRecord } from "../format/parse-record.js";
 import type { Outcome } from "../issue/outcome.js";
 import type { ParsedRecord } from "../record/record.js";
 import { parseAddress } from "./address.js";
-import { canonicalAddress, resolveAddress, resolveStoreAddress, type Target } from "./resolve.js";
+import { canonicalAddress, resolveAddress, resolveAddressSteps, resolveStoreAddress, type Target } from "./resolve.js";
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
 
@@ -368,5 +368,33 @@ describe("resolving in a store", () => {
   test("reads characters outside a fragment raw when asked", async () => {
     const outcome = await resolveStoreAddress(lookup, "notes/design.md#config/retries", "singular", { raw: true });
     expect(outcome.ok).toBe(true);
+  });
+});
+
+describe("resolveAddressSteps", () => {
+  const ways = (parsed: ParsedRecord, address: string, use: "singular" | "selector" = "singular") => {
+    const read = parseAddress(`${parsed.path}${address}`);
+    if (!read.ok) throw new Error(`malformed: ${address}`);
+    const outcome = resolveAddressSteps(parsed, read.value.fragment, use);
+    if (!outcome.ok) throw new Error(`failed: ${address}`);
+    return outcome.value.steps;
+  };
+
+  test("gives how each step of a singular semantic path matched, every way of one node once", () => {
+    const md = record("g.md", '# G\n\n## Install\n\n## Done <a id="done"></a>\n\n- <a id="b"></a>Item.\n');
+    expect(ways(md, "#install")).toEqual([["key-title", "anchor-derived"]]);
+    expect(ways(md, "#done")).toEqual([["key-explicit", "anchor-explicit", "anchor-derived"]]);
+    expect(ways(md, "#install/$title")).toEqual([["key-title", "anchor-derived"], ["section-member"]]);
+    expect(ways(md, "#b")).toEqual([["anchor-block"]]);
+    const json = record("d.json", '{"a": {"b": [1, 2]}, "$sections": [{"$title": "S"}]}');
+    expect(ways(json, "#a/b/1")).toEqual([["member"], ["member"], ["index"]]);
+    expect(ways(json, "#s")).toEqual([["key-title"]]);
+  });
+
+  test("gives no ways for an exact path, the root, and a selector", () => {
+    const json = record("d.json", '{"a": {"b": 1}}');
+    expect(ways(json, "#/a/b")).toEqual([]);
+    expect(ways(json, "")).toEqual([]);
+    expect(ways(json, "#a/b", "selector")).toEqual([]);
   });
 });
