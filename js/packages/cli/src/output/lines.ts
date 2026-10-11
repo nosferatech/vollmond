@@ -20,8 +20,11 @@ export function oneLine(text: string): string {
 
 const NOTHING_KEPT: ReadonlySet<string> = new Set();
 
-/** The characters {@link terminalText} keeps: a line break and a tab. */
-const LINES_KEPT: ReadonlySet<string> = new Set(["\n", "\t"]);
+/**
+ * The characters {@link terminalText} keeps: a line feed and a tab, and the line and paragraph separators, which are neither
+ * controls nor bidirectional formatting characters.
+ */
+const LINES_KEPT: ReadonlySet<string> = new Set(["\n", "\t", "\u2028", "\u2029"]);
 
 /** The character {@link oneLineWithTabs} keeps: a tab. */
 const TAB_KEPT: ReadonlySet<string> = new Set(["\t"]);
@@ -35,8 +38,10 @@ export function oneLineWithTabs(text: string): string {
 }
 
 /**
- * Returns text of several lines safe to print on a terminal: as {@link oneLine} does, but with its line feeds and tabs kept.
- * A carriage return is escaped like every other control.
+ * Returns text of several lines safe to print on a terminal, so that a record cannot retitle it or reorder what it shows:
+ * each control character (C0, DEL and C1) and each bidirectional formatting character (`Bidi_Control`: ALM, LRM, RLM, the
+ * embeddings, overrides and isolates) is written as a JSON escape, except the line feed and the tab. A carriage return is
+ * escaped like every other control; every other character, the line and paragraph separators included, is kept.
  */
 export function terminalText(text: string): string {
   return escapeUnsafe(text, LINES_KEPT);

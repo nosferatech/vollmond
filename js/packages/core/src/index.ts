@@ -36,6 +36,7 @@ export {
   type ComputedFields,
   type ComputedIssue,
   computeFields,
+  NOT_COMPUTED_FIELDS,
   type SourceLocation,
 } from "./meta/computed-fields.js";
 export { childPath } from "./record/exact-path.js";

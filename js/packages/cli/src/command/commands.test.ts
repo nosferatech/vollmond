@@ -34,6 +34,8 @@ function fixtureStore(): string {
   return writeFiles(temporaryDirectory(), {
     ".vmd/config.yaml": "vmd: 1\n",
     ".gitignore": "Use\n",
+    ".hidden.md": "# Hidden\n\nUse it.\n",
+    "docs/.draft/notes.md": "# Notes\n\nUse this.\n",
     "broken.json": "{",
     "data.json": '{"status": "open", "range": {"start": 1, "end": 2}}',
     "docs/guide.md": GUIDE,
@@ -116,6 +118,8 @@ describe("command options", () => {
     ["outline", "a.md", "--depth", "01"],
     ["get"],
     ["get", "a.md", "--value", "--body"],
+    ["get", "a.md", "--source", "--value"],
+    ["get", "a.md", "--source", "--body"],
     ["get", "a.md", "--max-chars", "0"],
     ["get", "a.md", "--meta", "nope"],
     ["get", "a.md", "--meta", "@path,"],
@@ -131,6 +135,7 @@ describe("command options", () => {
     expect((await vmd("grep", "x", "-C", "0")).exitCode).toBe(0);
     expect((await vmd("outline", "docs/guide.md", "--depth", "0")).exitCode).toBe(0);
     expect((await vmd("get", "data.json", "--max-chars", "1", "--meta", "path,@at,all")).exitCode).toBe(0);
+    for (const form of ["--source", "--value", "--body"]) expect((await vmd("get", "docs/guide.md", form)).exitCode).toBe(0);
   });
 });
 
@@ -211,6 +216,32 @@ describe("ls", () => {
   });
 });
 
+describe(".vmd/ and dotfiles (decision S6)", () => {
+  test("are neither listed nor searched, even by a glob or a pattern that names them", async () => {
+    expect((await vmd("ls", ".vmd/**")).stdout).toBe("");
+    expect((await vmd("ls", "docs/.draft/*")).stdout).toBe("");
+    expect((await vmd("ls", "**/*.md")).stdout).toBe(`docs/guide.md  ${SIZE.guide} B  ~36 tok\ndocs/twin.md   42 B   ~11 tok\n`);
+    expect(await vmd("grep", "^Use (it|this)")).toEqual({ stdout: "", stderr: "", exitCode: 0 });
+    expect((await vmd("grep", "vmd", ".vmd/*")).stdout).toBe("");
+  });
+
+  test("are read by cat when named, so that a configuration can be inspected", async () => {
+    expect(await vmd("cat", ".vmd/config.yaml")).toEqual({ stdout: "vmd: 1\n", stderr: "", exitCode: 0 });
+    expect((await vmd("cat", ".gitignore")).stdout).toBe("Use\n");
+    expect((await vmd("cat", "docs/.draft/notes.md", "--lines", "3:4")).stdout).toBe("Use this.\n");
+  });
+
+  test("are not records, so get and outline do not find one there", async () => {
+    for (const address of [".hidden.md", "docs/.draft/notes.md#notes"]) {
+      for (const command of ["get", "outline"]) {
+        const { outcome, exitCode } = await vmdJson(command, address);
+        expect(exitCode).toBe(1);
+        expect(codes(outcome)).toEqual(["address-not-found"]);
+      }
+    }
+  });
+});
+
 describe("cat", () => {
   test("prints a file's bytes as they are, also when they are not UTF-8", async () => {
     const result = await runCli(["cat", "image.bin"], env());
@@ -274,6 +305,23 @@ describe("grep", () => {
     );
   });
 
+  test("prints -- between groups with -C 0 too, as GNU grep does when context is given, and not without -C", async () => {
+    expect((await vmd("grep", "^(first|second)$", "-C", "0")).stdout).toBe("docs/twin.md:5:first\n--\ndocs/twin.md:9:second\n");
+    expect((await vmd("grep", "^(first|second)$")).stdout).toBe("docs/twin.md:5:first\ndocs/twin.md:9:second\n");
+    // Adjacent matches are one group.
+    expect((await vmd("grep", "^- ", "-C", "0")).stdout).toBe(
+      'docs/guide.md:9:- <a id="step"></a>First step.\ndocs/guide.md:10:- Second step.\n',
+    );
+  });
+
+  test("keeps GNU's format for a path that holds :N:, which --json gives exactly (decision S2)", async () => {
+    const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "vmd: 1\n", "a:12:b.txt": "x\ny\n" });
+    const text = await runCli(["grep", "y", "-C", "1"], env(root));
+    expect(text.stdout).toBe("a:12:b.txt-1-x\na:12:b.txt:2:y\n");
+    const json = JSON.parse((await runCli(["--json", "grep", "y"], env(root))).stdout as string);
+    expect(json.value.items).toEqual([{ path: "a:12:b.txt", line: 2, text: "y", before: [], after: [] }]);
+  });
+
   test("takes the pattern literally with -F, and ignores case with -i", async () => {
     expect((await vmd("grep", "t.o", "lines.txt")).stdout).toBe("lines.txt:2:two\n");
     expect((await vmd("grep", "-F", "t.o", "lines.txt")).stdout).toBe("");
@@ -318,6 +366,7 @@ describe("outline", () => {
       stdout:
         "docs/guide.md  ~36 tok\n" +
         "  #install          Install  ~24 tok\n" +
+        "    #step                    ~8 tok   @range [9,39]\n" +
         "    #install/linux  Linux    ~7 tok\n" +
         "  #use              Use      ~2 tok\n",
       stderr: "",
@@ -325,12 +374,72 @@ describe("outline", () => {
     });
   });
 
+  test("lists each section's block anchors under it, indented one level below it, before its sections (decision S3)", async () => {
+    const page = '# P\n\n<a id="lead"></a>Lead.\n\n## S\n\n- <a id="item"></a>Item.\n';
+    const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "vmd: 1\n", "p.md": page });
+    expect((await runCli(["outline", "p.md"], env(root))).stdout).toBe(
+      "p.md  ~15 tok\n  #lead       ~6 tok  @range [0,22]\n  #s       S  ~8 tok\n    #item     ~6 tok  @range [0,24]\n",
+    );
+    // A block is one level below its section, and --depth bounds it as it bounds sections.
+    expect((await runCli(["outline", "p.md", "--depth", "1"], env(root))).stdout).toBe(
+      "p.md  ~15 tok\n  #lead     ~6 tok  @range [0,22]\n  #s     S  ~8 tok\n",
+    );
+    expect((await runCli(["outline", "p.md", "--depth", "0"], env(root))).stdout).toBe("p.md  ~15 tok\n");
+    expect((await runCli(["outline", "data.json", "--depth", "0"], env())).stdout).toBe("data.json  ~13 tok\n");
+    expect((await runCli(["outline", "p.md#s"], env(root))).stdout).toBe("p.md#s  ~8 tok\n  #item  ~6 tok  @range [0,24]\n");
+    // A $body lists its block anchors too, and a block anchor its range on its own line.
+    expect((await runCli(["outline", "p.md#s/$body"], env(root))).stdout).toBe(
+      "p.md#s/$body  ~6 tok\n  #item  ~6 tok  @range [0,24]\n",
+    );
+    expect((await runCli(["outline", "p.md#item"], env(root))).stdout).toBe("p.md#item  ~6 tok  @range [0,24]\n");
+  });
+
+  test("tells apart block anchors whose name is not unique by their range, in text and under --json (R2, S3)", async () => {
+    const root = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": "vmd: 1\n",
+      "dup.md": '# P\n\n## S\n\n<a id="dup"></a>One.\n\n<a id="dup"></a>Two.\n',
+      // The block's name is the section's derived anchor.
+      "clash.md": '# P\n\n## Notes\n\n<a id="notes"></a>Text.\n',
+    });
+    // Both blocks have their $body's address, so the range is what tells them apart.
+    expect((await runCli(["outline", "dup.md"], env(root))).stdout).toBe(
+      "dup.md  ~14 tok\n  #s          S  ~12 tok\n    #s/$body     ~5 tok   @range [0,20]\n    #s/$body     ~5 tok   @range [22,42]\n",
+    );
+    const dup = JSON.parse((await runCli(["--json", "outline", "dup.md"], env(root))).stdout as string);
+    expect(dup.value.sections[0].blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: [0, 20] },
+      { at: "/$sections/0/$body", address: "#s/$body", size: 20, range: [22, 42] },
+    ]);
+    const clash = JSON.parse((await runCli(["--json", "outline", "clash.md"], env(root))).stdout as string);
+    expect(clash.value.sections[0].blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#/$sections/0/$body", size: 23, range: [0, 23] },
+    ]);
+    expect((await runCli(["outline", "clash.md"], env(root))).stdout).toContain(
+      "    #/$sections/0/$body         ~6 tok  @range [0,23]\n",
+    );
+  });
+
+  test("lists a JSON or YAML record's top-level members, so that outline is useful for every format (decision S3)", async () => {
+    expect(await vmd("outline", "data.json")).toEqual({
+      stdout: "data.json  ~13 tok\n  #status  ~2 tok\n  #range   ~6 tok\n",
+      stderr: "",
+      exitCode: 0,
+    });
+    const { outcome } = await vmdJson("outline", "data.json");
+    expect((outcome.value as { members: unknown }).members).toEqual([
+      { at: "/status", address: "#status", key: "status", size: 6 },
+      { at: "/range", address: "#range", key: "range", size: 22 },
+    ]);
+    // A member is not a record: it has no members of its own listed.
+    expect((await vmd("outline", "data.json#range")).stdout).toBe("data.json#range  ~6 tok\n");
+  });
+
   test("goes down at most --depth levels, from the node it is given", async () => {
     expect((await vmd("outline", "docs/guide.md", "--depth", "1")).stdout).toBe(
       "docs/guide.md  ~36 tok\n  #install  Install  ~24 tok\n  #use      Use      ~2 tok\n",
     );
     expect((await vmd("outline", "docs/guide.md#install")).stdout).toBe(
-      "docs/guide.md#install  ~24 tok\n  #install/linux  Linux  ~7 tok\n",
+      "docs/guide.md#install  ~24 tok\n  #step                  ~8 tok  @range [9,39]\n  #install/linux  Linux  ~7 tok\n",
     );
   });
 
@@ -338,13 +447,17 @@ describe("outline", () => {
     const { outcome } = await vmdJson("outline", "docs/twin.md");
     expect(outcome.value).toEqual({
       path: "docs/twin.md",
-      node: { at: "", address: "", title: "Twin", depth: 0, size: TWIN.length },
+      node: { at: "", address: "", title: "Twin", depth: 0, size: TWIN.length, blocks: [] },
       sections: [
         // Both sections have the key notes, so the first is named by its exact path, the second by its derived anchor.
-        { at: "/$sections/0", address: "#/$sections/0", key: "notes", title: "Notes", depth: 1, size: 17 },
-        { at: "/$sections/1", address: "#notes-1", key: "notes", title: "Notes", depth: 1, size: 17 },
+        { at: "/$sections/0", address: "#/$sections/0", key: "notes", title: "Notes", depth: 1, size: 17, blocks: [] },
+        { at: "/$sections/1", address: "#notes-1", key: "notes", title: "Notes", depth: 1, size: 17, blocks: [] },
       ],
     });
+    const guide = await vmdJson("outline", "docs/guide.md#install");
+    expect((guide.outcome.value as { node: { blocks: unknown } }).node.blocks).toEqual([
+      { at: "/$sections/0/$body", address: "#step", size: bytes('- <a id="step"></a>First step.'), range: [9, 39] },
+    ]);
   });
 
   test("fails for an ambiguous address, listing the candidates", async () => {
@@ -371,6 +484,33 @@ describe("get", () => {
     expect((await vmd("get", "docs/guide.md#step")).stdout).toBe('- <a id="step"></a>First step.\n');
   });
 
+  test("prints the source with --source, as by default (decision S4)", async () => {
+    expect(await vmd("get", "docs/guide.md#linux", "--source")).toEqual(await vmd("get", "docs/guide.md#linux"));
+    expect((await vmd("get", "data.json#range", "--source")).stdout).toBe('{"start": 1, "end": 2}\n');
+  });
+
+  test("gives the source text under --json with --source, with the computed fields beside it (decision S4)", async () => {
+    expect((await vmdJson("get", "data.json#range", "--source")).outcome).toEqual({
+      ok: true,
+      value: '{"start": 1, "end": 2}',
+      issues: [],
+    });
+    const { outcome } = await vmdJson("get", "docs/guide.md#linux", "--source", "--meta", "at");
+    expect(outcome.value).toEqual({ value: "### Linux\n\nUse the package.\n\n", meta: { "@at": "/$sections/0/$sections/0" } });
+  });
+
+  test("cuts at --max-chars in text output only: under --json every form is whole (decision S4)", async () => {
+    expect((await vmdJson("get", "docs/guide.md", "--source", "--max-chars", "5")).outcome.value).toBe(GUIDE);
+    expect((await vmdJson("get", "docs/guide.md#install", "--body", "--max-chars", "5")).outcome.value).toBe(
+      'Run it.\n\n- <a id="step"></a>First step.\n- Second step.',
+    );
+    expect((await vmdJson("get", "data.json", "--max-chars", "1")).outcome.value).toEqual({
+      status: "open",
+      range: { start: 1, end: 2 },
+    });
+    expect((await vmd("get", "docs/guide.md", "--source", "--max-chars", "5")).stdout).toMatch(/^# Gui\n… cut after 5 /);
+  });
+
   test("gives the value view under --json, or the $body with --body", async () => {
     expect((await vmdJson("get", "data.json#status")).outcome).toEqual({ ok: true, value: "open", issues: [] });
     expect((await vmdJson("get", "docs/guide.md#linux", "--body")).outcome.value).toBe("Use the package.");
@@ -380,13 +520,15 @@ describe("get", () => {
     });
   });
 
-  test("prints the requested computed fields before the node, and says which are not computed yet", async () => {
+  test("prints the requested computed fields before the node, those not computed yet as null, with a warning", async () => {
     const result = await vmd("get", "docs/guide.md#use", "--meta", "@address,depth,@key,@refs,@source");
     expect(result.stdout).toBe(
-      "@address  #use\n@depth    1\n@key      use\n@refs     (not computed yet)\n" +
+      "@address  #use\n@depth    1\n@key      use\n@refs     null\n" +
         `@source   {"range":[${at("## Use")},${SIZE.guide}],"line":16,"col":1}\n` +
         "\n## Use\n\n",
     );
+    expect(result.stderr).toBe("warning field-not-computed: @refs is not computed yet, so it is given as null\n");
+    expect(result.exitCode).toBe(0);
     // The root's address is empty, which is written as JSON so that the line shows it.
     expect((await vmd("get", "docs/twin.md", "--meta", "address", "--max-chars", "6")).stdout).toMatch(
       /^@address {2}""\n\n# Twin\n/,
@@ -455,7 +597,23 @@ describe("get", () => {
     expect(codes(broken.outcome)).toEqual(["syntax-error"]);
     expect(codes((await vmdJson("get", "missing.md#x")).outcome)).toEqual(["address-not-found"]);
     expect(codes((await vmdJson("get", "image.bin")).outcome)).toEqual(["address-not-found"]);
-    expect(codes((await vmdJson("get", "data.json#status", "--body")).outcome)).toEqual(["address-not-found"]);
+  });
+
+  test("refuses --body on a node that is not a section with usage-invalid, a hint and exit code 2 (decision S7)", async () => {
+    const json = await vmdJson("get", "data.json#status", "--body");
+    expect(json.exitCode).toBe(2);
+    expect(codes(json.outcome)).toEqual(["usage-invalid"]);
+    expect(await vmd("get", "data.json#status", "--body")).toEqual({
+      stdout: "",
+      stderr:
+        "data.json error usage-invalid: data.json#status is not a section, so it has no $body\n" +
+        "  hint --body reads a section, a $body or a block anchor; read this node without it\n",
+      exitCode: 2,
+    });
+    // A section, a $body and a block anchor take --body.
+    for (const address of ["data.json", "docs/guide.md#install/$body", "docs/guide.md#step"]) {
+      expect((await vmd("get", address, "--body")).exitCode).toBe(0);
+    }
   });
 
   test("reads an address with characters outside a fragment's raw, as the command line does, in get and outline", async () => {
@@ -466,24 +624,81 @@ describe("get", () => {
     expect(outline).toEqual({ stdout: "s.json#a%20b  ~0 tok\n", stderr: "", exitCode: 0 });
   });
 
+  test("gives the fields not computed yet as null under --json, with field-not-computed, which --quiet leaves out (S5)", async () => {
+    const { outcome, exitCode } = await vmdJson("get", "data.json", "--meta", "collection,refs,path");
+    expect(exitCode).toBe(0);
+    expect(outcome.value).toEqual({
+      value: { status: "open", range: { start: 1, end: 2 } },
+      meta: { "@collection": null, "@refs": null, "@path": "data.json" },
+    });
+    expect(outcome.issues).toEqual([
+      expect.objectContaining({
+        code: "field-not-computed",
+        severity: "warning",
+        message: expect.stringMatching(/@refs and @collection/),
+      }),
+    ]);
+    const quiet = await runCli(["--json", "--quiet", "get", "data.json", "--meta", "refs"], env());
+    expect(JSON.parse(quiet.stdout as string).issues).toEqual([]);
+    expect((await vmd("--quiet", "get", "data.json", "--meta", "refs")).stderr).toBe("");
+    // A read that requests neither has no warning.
+    expect((await vmdJson("get", "data.json", "--meta", "path")).outcome.issues).toEqual([]);
+  });
+
   test("gives every computed field but @nodes for --meta all, and @nodes when it is named too", async () => {
     const all = await vmdJson("get", "docs/guide.md#install", "--meta", "all");
     const fields = Object.keys((all.outcome.value as { meta: object }).meta);
-    expect(fields).toEqual(["@path", "@at", "@address", "@key", "@anchors", "@version", "@source", "@issues", "@depth"]);
+    expect(fields).toEqual([
+      "@path",
+      "@at",
+      "@address",
+      "@key",
+      "@anchors",
+      "@version",
+      "@source",
+      "@issues",
+      "@refs",
+      "@collection",
+      "@depth",
+    ]);
     const withNodes = await vmdJson("get", "docs/guide.md#install", "--meta", "all,@nodes");
     expect(Object.keys((withNodes.outcome.value as { meta: object }).meta)).toEqual([...fields, "@nodes"]);
   });
 });
 
-describe("text on a terminal", () => {
+describe("text on a terminal (decision S1)", () => {
   // An escape sequence that colours the terminal, a right-to-left override, a carriage return, a tab and line feeds.
-  const CONTROLS = "# C\n\nred \u001b[31mtext\u001b[0m‮ end\r\ncol\tumn\n";
-  const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": "vmd: 1\n", "c.md": CONTROLS });
+  const CONTROLS = "# C\n\nred \u001b[31mtext\u001b[0m\u202e end\r\ncol\tumn\n";
+  // Every bidirectional formatting character (Bidi_Control), C1 controls and DEL; then characters that are neither.
+  const BIDI = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069";
+  const OTHERS = "\u0080\u009f\u007f\u0000";
+  const KEPT = "\u2028\u2029\u200d\u200b\ufeffé😀\\u001b";
+  const MIXED = `# M\n\n${BIDI}|${OTHERS}|${KEPT}\n`;
+  const DATA = JSON.stringify({ t: "\u202e\u0085" });
+  const root = writeFiles(temporaryDirectory(), {
+    ".vmd/config.yaml": "vmd: 1\n",
+    "c.md": CONTROLS,
+    "m.md": MIXED,
+    "d.json": DATA,
+  });
   const terminal = (stdoutIsTerminal: boolean): Partial<CliEnvironment> => ({ ...env(root), stdoutIsTerminal });
 
-  test("get escapes controls, separators and bidirectional controls there, keeping line feeds and tabs", async () => {
+  test("get escapes controls and bidirectional formatting characters there, keeping line feeds and tabs", async () => {
     const result = await runCli(["get", "c.md"], terminal(true));
     expect(result.stdout).toBe("# C\n\nred \\u001b[31mtext\\u001b[0m\\u202e end\\r\ncol\tumn\n");
+  });
+
+  test("get escapes exactly the controls and the bidirectional formatting characters, and nothing else", async () => {
+    const result = await runCli(["get", "m.md"], terminal(true));
+    const escapedBidi = [...BIDI].map((c) => `\\u${c.codePointAt(0)?.toString(16).padStart(4, "0")}`).join("");
+    expect(result.stdout).toBe(`# M\n\n${escapedBidi}|\\u0080\\u009f\\u007f\\u0000|${KEPT}\n`);
+  });
+
+  test("get escapes the value and the body forms there too, but not --json, which is exact", async () => {
+    expect((await runCli(["get", "d.json", "--value"], terminal(true))).stdout).toBe('{\n  "t": "\\u202e\\u0085"\n}\n');
+    expect((await runCli(["get", "c.md", "--body"], terminal(true))).stdout).toContain("\\u001b[31m");
+    const json = await runCli(["--json", "get", "c.md", "--source"], terminal(true));
+    expect(JSON.parse(json.stdout as string).value).toBe(CONTROLS);
   });
 
   test("get writes the node raw to a pipe or a file, and cat writes the file raw even to a terminal", async () => {
@@ -510,6 +725,10 @@ describe("ls of a directory", () => {
 describe("help", () => {
   test("says what each option means: --lines half-open, the regex, the computed fields, globs", async () => {
     const help = async (name: string) => (await vmd(name, "--help")).stdout;
+    expect(await help("grep")).toContain("path:line:text");
+    expect(await help("grep")).toContain("--json");
+    expect(await help("get")).toContain("--source");
+    expect(await help("outline")).toContain("block anchors");
     expect(await help("cat")).toContain("1:4 prints lines 1, 2 and 3");
     expect(await help("grep")).toContain("a portable regex: the subset RE2, Python re and ECMAScript all accept");
     expect(await help("get")).toContain("@path, @at, @address, @key, @anchors, @version, @source, @range, @issues");
