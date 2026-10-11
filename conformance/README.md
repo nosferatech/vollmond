@@ -272,8 +272,12 @@ Case files are UTF-8 JSON as RFC 8259 defines it. A runner reads case files with
 
 The check in the second rule needs each number's source text, since a plain double has already lost the difference between
 `9007199254740993` and `9007199254740992`. In JavaScript, a `JSON.parse` reviver gets it from `context.source` (the proposal's
-Appendix B). Without the check, a case written with such a number would expect a value that no implementation can produce, and
-could pass against the rounded one.
+Appendix B), and a parser that gives offsets, such as `jsonc-parser`, gets it from them. Without the check, a case written with
+such a number would expect a value that no implementation can produce, and could pass against the rounded one.
+
+The TypeScript runner builds each value from `jsonc-parser`'s syntax tree, and uses `JSON.parse` only to check the syntax, never
+its value: Node 24.21.0's `JSON.parse` can misread an escaped member name, such as `"\n"` after `"\\"`, in a process that has
+parsed a similar one (#70).
 
 A case file the runner cannot read, or a case that breaks the rules of this section, gives `error` for each case concerned, or
 for every case of the file when the file cannot be read at all.

@@ -1,4 +1,4 @@
-import { visit } from "jsonc-parser";
+import { type Node, type ParseError, parseTree } from "jsonc-parser";
 import { readNumber } from "./number.js";
 
 /** A JSON value as the runner holds it: numbers are doubles, and objects are plain objects with own members. */
@@ -27,14 +27,10 @@ export type JsonReading =
   | { readonly ok: true; readonly value: JsonValue; readonly problems: readonly JsonProblem[] }
   | { readonly ok: false; readonly detail: string };
 
-/** The extra argument that `JSON.parse` gives a reviver for a primitive value, which TypeScript's library does not declare. */
-interface ReviverContext {
-  readonly source?: string;
-}
-
-/** A number replaced while parsing, until its path is known. */
-class RejectedNumber {
-  constructor(readonly detail: string) {}
+/** What a walk of a syntax tree needs besides the node: the document's text, and the problems found so far. */
+interface TreeWalk {
+  readonly text: string;
+  readonly problems: JsonProblem[];
 }
 
 const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -51,66 +47,63 @@ export function readJson(bytes: Uint8Array): JsonReading {
   } catch {
     return { ok: false, detail: "the file is not UTF-8" };
   }
-  let rejected = false;
-  let value: JsonValue;
+  // JSON.parse only decides what is JSON, and its value is not used: Node 24.21.0's JSON.parse can misread an escaped member
+  // name after parsing a similar one. The value is built from jsonc-parser's tree.
   try {
-    value = JSON.parse(text, (_key: string, item: unknown, context?: ReviverContext) => {
-      if (typeof item !== "number" || context?.source === undefined) {
-        return item;
-      }
-      const reading = readNumber(context.source, item);
-      if (reading.ok) {
-        return reading.value;
-      }
-      rejected = true;
-      return new RejectedNumber(reading.detail);
-    }) as JsonValue;
+    JSON.parse(text);
   } catch (error) {
     return { ok: false, detail: error instanceof Error ? error.message : String(error) };
   }
-  const problems: JsonProblem[] = [...findDuplicateMembers(text)];
-  if (rejected) {
-    value = replaceRejectedNumbers(value, [], problems);
+  const errors: ParseError[] = [];
+  const root = parseTree(text, errors, { disallowComments: true, allowTrailingComma: false, allowEmptyContent: false });
+  if (root === undefined || errors.length > 0) {
+    return { ok: false, detail: "jsonc-parser cannot read what JSON.parse reads" };
   }
-  return { ok: true, value, problems };
-}
-
-/** Lists every member name that repeats one of an earlier member of the same object, with the duplicate's path. */
-function findDuplicateMembers(text: string): JsonProblem[] {
   const problems: JsonProblem[] = [];
-  const names: Set<string>[] = [];
-  visit(text, {
-    onObjectBegin: () => {
-      names.push(new Set());
-    },
-    onObjectEnd: () => {
-      names.pop();
-    },
-    onObjectProperty: (name, _offset, _length, _line, _column, pathSupplier) => {
-      const seen = names.at(-1);
-      if (seen?.has(name)) {
-        problems.push({ path: [...pathSupplier(), name], detail: `the member name ${JSON.stringify(name)} is repeated` });
-      }
-      seen?.add(name);
-    },
-  });
-  return problems;
+  return { ok: true, value: buildValue(root, [], { text, problems }), problems };
 }
 
-/** Returns `value` with each rejected number replaced by `null`, and adds a problem for each at its path. */
-function replaceRejectedNumbers(value: unknown, path: JsonPath, problems: JsonProblem[]): JsonValue {
-  if (value instanceof RejectedNumber) {
-    problems.push({ path, detail: value.detail });
-    return null;
+/**
+ * Builds the value of a node of a syntax tree without errors. A repeated member name is a problem, and keeps the first member's
+ * place and the last one's value, as `JSON.parse` does. A number that `readNumber` rejects is a problem, and `null`.
+ */
+function buildValue(node: Node, path: JsonPath, walk: TreeWalk): JsonValue {
+  switch (node.type) {
+    case "object": {
+      const object: Record<string, JsonValue> = {};
+      for (const [name, item] of (node.children ?? []).map(readMember)) {
+        if (Object.hasOwn(object, name)) {
+          walk.problems.push({ path: [...path, name], detail: `the member name ${JSON.stringify(name)} is repeated` });
+        }
+        // defineProperty, since assigning to `__proto__` would set the prototype instead of making an own member.
+        const value = buildValue(item, [...path, name], walk);
+        Object.defineProperty(object, name, { value, enumerable: true, writable: true, configurable: true });
+      }
+      return object;
+    }
+    case "array":
+      return (node.children ?? []).map((item, index) => buildValue(item, [...path, index], walk));
+    case "number": {
+      const source = walk.text.slice(node.offset, node.offset + node.length);
+      const reading = readNumber(source, Number(source));
+      if (reading.ok) {
+        return reading.value;
+      }
+      walk.problems.push({ path, detail: reading.detail });
+      return null;
+    }
+    default:
+      return node.value as JsonValue;
   }
-  if (Array.isArray(value)) {
-    return value.map((item, index) => replaceRejectedNumbers(item, [...path, index], problems));
+}
+
+/** Returns the name and the value node of a member node of a syntax tree without errors. */
+function readMember(property: Node): [string, Node] {
+  const [key, item] = property.children ?? [];
+  if (key === undefined || item === undefined || typeof key.value !== "string") {
+    throw new Error("a member of a syntax tree without errors has a name and a value");
   }
-  if (typeof value === "object" && value !== null) {
-    const entries = Object.entries(value).map(([name, item]) => [name, replaceRejectedNumbers(item, [...path, name], problems)]);
-    return Object.fromEntries(entries) as JsonObject;
-  }
-  return value as JsonValue;
+  return [key.value, item];
 }
 
 /** Whether a value is a JSON object, not an array or `null`. */

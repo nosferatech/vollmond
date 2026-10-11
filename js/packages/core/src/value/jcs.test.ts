@@ -96,15 +96,16 @@ describe("RFC 8785", () => {
   });
 
   test("section 3.2.3: properties are sorted by UTF-16 code units", () => {
-    const value = parseTilde(`{
-      "~u20ac": "Euro Sign",
-      "~r": "Carriage Return",
-      "~ufb33": "Hebrew Letter Dalet With Dagesh",
+    // A literal, not JSON.parse, which on Node 24.21.0 can misread an escaped member name after parsing a similar one.
+    const value: Value = {
+      "€": "Euro Sign",
+      "\r": "Carriage Return",
+      דּ: "Hebrew Letter Dalet With Dagesh",
       "1": "One",
-      "~ud83d~ude00": "Emoji: Grinning Face",
-      "~u0080": "Control",
-      "~u00f6": "Latin Small Letter O With Diaeresis"
-    }`);
+      "😀": "Emoji: Grinning Face",
+      "\u0080": "Control",
+      ö: "Latin Small Letter O With Diaeresis",
+    };
     const order = [...jcs(value).matchAll(/:"([^"]*)"/g)].map((match) => match[1]);
     expect(order).toEqual([
       "Carriage Return",

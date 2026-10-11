@@ -516,8 +516,11 @@ export interface Store {
 
 - **Stores** are read byte for byte into `core`'s memory backend, so conformance tests `core` alone. A `config` input names the
   file in `.vmd/` that `openStore` receives in place of `config.yaml`.
-- **Independence from the code under test.** Case files are read with `JSON.parse` and a reviver that applies §4.2 through
-  `context.source` (survey section 3.3), plus a duplicate-name check with `jsonc-parser`'s `visit`; versions manifests are checked
+- **Independence from the code under test.** Case files are read by building their values from `jsonc-parser`'s `parseTree` in
+  strict mode, one walk applying §4.2 to each number's text and finding duplicate names. `JSON.parse` only checks the syntax,
+  and its value is not used, since Node 24.21.0's `JSON.parse` can misread an escaped member name (#70; a reviver reading
+  `context.source`, survey section 3.3, was the first design). `core`'s code is not used, though `jsonc-parser` is shared.
+  Versions manifests are checked
   with `node:crypto`; the comparison is the runner's own, checked by the `selftest` cases. A bug in `core`'s JSON parser or digest
   then cannot hide itself. The runner exits with 2 on an `input` member that an operation does not take (Draft v0.6's suite
   README).
