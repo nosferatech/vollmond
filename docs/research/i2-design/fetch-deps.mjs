@@ -16,7 +16,7 @@ const packuments = new Map();
 function packument(name) {
   let p = packuments.get(name);
   if (p === undefined) {
-    const url = `https://registry.npmjs.org/${name.replace("/", "%2f")}`;
+    const url = `https://registry.npmjs.org/${name.replaceAll("/", "%2f")}`;
     p = JSON.parse(execFileSync("curl", ["-sS", "--max-time", "60", url], { maxBuffer: 1 << 28 }).toString());
     packuments.set(name, p);
   }
