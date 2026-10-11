@@ -24,8 +24,8 @@ export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./re
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
 export { compileLineTest, type LineTest } from "./storage/grep.js";
 export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";
-export { checkStoragePath, compareUtf8 } from "./storage/path.js";
-export { checkPortableRegex } from "./storage/portable-regex.js";
+export { checkStoragePath, compareUtf8, compileGlob } from "./storage/path.js";
+export { checkPortableRegex, portableRegexToJavaScript } from "./storage/portable-regex.js";
 export type {
   ContentRange,
   FileChange,

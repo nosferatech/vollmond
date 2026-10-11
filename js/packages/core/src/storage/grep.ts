@@ -1,5 +1,5 @@
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
-import { checkPortableRegex } from "./portable-regex.js";
+import { checkPortableRegex, portableRegexToJavaScript } from "./portable-regex.js";
 import type { GrepMatch, GrepQuery } from "./storage.js";
 
 /** A test of one line, without its line break. */
@@ -7,10 +7,11 @@ export type LineTest = (line: string) => boolean;
 
 /**
  * Compiles the pattern of a grep query into a test of one line. A `literal` pattern matches where the line contains it. A
- * `regex` pattern is checked against the portable subset, and fails with its issues when it is outside it. It then runs on
+ * `regex` pattern is checked against the portable subset, and fails with its issues when it is outside it. It then means what
+ * RE2 reads it as: it is translated where JavaScript reads it otherwise ({@link portableRegexToJavaScript}), and runs on
  * JavaScript's engine with the flags `u`, so that `.` and classes read code points, and `s`, so that `.` matches U+2028 and
- * U+2029, as it does in RE2 and Python. A line is matched alone, so `^` and `$` are its start and end; the flag `m` is never
- * set, since JavaScript's would also match them around U+2028 and U+2029 within the line.
+ * U+2029, as it does in RE2. A line is matched alone, so `^` and `$` are its start and end; the flag `m` is never set, since
+ * JavaScript's would also match them around U+2028 and U+2029 within the line.
  *
  * JavaScript's engine backtracks, so matching is not linear in time: `(a+)+$` takes time exponential in the length of a run
  * of `a` that ends in another character. No time limit is set, since a local backend runs its user's own patterns; a backend
@@ -23,7 +24,8 @@ export function compileLineTest(query: Pick<GrepQuery, "pattern" | "mode" | "ign
   }
   const issues = checkPortableRegex(query.pattern);
   if (issues.length > 0) return fail(issues);
-  const expression = new RegExp(query.pattern, query.ignoreCase === true ? "usi" : "us");
+  const ignoreCase = query.ignoreCase === true;
+  const expression = new RegExp(portableRegexToJavaScript(query.pattern, ignoreCase), ignoreCase ? "usi" : "us");
   return succeed((line) => expression.test(line));
 }
 

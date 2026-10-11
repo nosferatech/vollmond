@@ -32,9 +32,21 @@ export interface ContentRange {
   readonly end: number;
 }
 
+/** How many items remain after a page: an exact count, or an estimate marked as one. */
+export interface RemainingCount {
+  readonly count: number;
+  /** False when `count` is an estimate. */
+  readonly exact: boolean;
+}
+
 /** One page of items in UTF-8 byte order of their paths, and the cursor for the next page. */
 export interface Page<T> {
   readonly items: readonly T[];
+  /**
+   * How many items remain after this page: `list` counts the paths exactly, and `grep` estimates the matching lines, exactly
+   * only once it has read every file. It is 0, and exact, when the cursor is null.
+   */
+  readonly remaining: RemainingCount;
   /**
    * The cursor that continues after this page, null when nothing remains. It is opaque: a caller passes it back to the same
    * operation, with the same query, and does not read or build one.

@@ -16,18 +16,47 @@ import { type Issue, makeIssue } from "../issue/issue.js";
  * escapes, `\uHHHH` and the other escapes one of the three engines lacks are reported, and so is syntax the engines read
  * differently: a `]` first in a class, an unescaped `{`, `}` or `]` outside a class, an unescaped `[` in a class, a `-` in the
  * middle of a class, `&&`, `||` and `~~` in a class, and `{,n}`. A pattern that does not parse (an unclosed group, a reversed
- * range) is reported too. The check is syntactic: the engines still differ in what `\d`, `\w`, `\s`, `\b` and
- * case-insensitive matching accept outside ASCII.
+ * range) is reported too. The check is syntactic. A portable pattern means what RE2 reads it as, whose classes and boundaries
+ * are ASCII; the engines read `\s` and, under `i`, `\b` otherwise, which {@link portableRegexToJavaScript} translates for
+ * JavaScript.
  *
  * Its cost is linear in the length of the pattern.
  */
 export function checkPortableRegex(pattern: string): readonly Issue[] {
+  return readPortableRegex(pattern, false).issues;
+}
+
+/**
+ * Translates a portable pattern into the source of a JavaScript regular expression that matches what RE2 reads the pattern
+ * as, for the flags `u` and `s`, and `i` when `ignoreCase` is set. The translation follows RE2's ASCII classes:
+ *
+ * - `\s` and `\S` are written out as `[\t\n\f\r ]` and `[^\t\n\f\r ]`, and in a class as those characters, since
+ *   JavaScript's `\s` is Unicode white space, `\v` included; a class holding `\S` becomes an alternation or a lookahead;
+ * - under `i`, `\b` and `\B` are rewritten with the word class `(?-i:[0-9A-Za-z_])`, since JavaScript's `\b` under `ui`
+ *   counts U+017F and U+212A as word characters, and RE2's boundaries stay ASCII;
+ * - `\d`, `\D`, `\w` and `\W` are left as they are: JavaScript's are ASCII, and under `ui` its `\w` folds as RE2's does.
+ *
+ * The pattern's own text is not changed; only the expression compiled from it is.
+ *
+ * Throws a `RangeError` for a pattern outside the subset, which {@link checkPortableRegex} reports.
+ */
+export function portableRegexToJavaScript(pattern: string, ignoreCase: boolean): string {
+  const read = readPortableRegex(pattern, ignoreCase);
+  if (read.issues.length > 0) throw new RangeError(read.issues[0]?.message);
+  return read.javascript;
+}
+
+/** Checks a pattern and, when it is portable, translates it for the flag `i` as `ignoreCase` says. */
+function readPortableRegex(
+  pattern: string,
+  ignoreCase: boolean,
+): { readonly issues: readonly Issue[]; readonly javascript: string } {
   if (!pattern.isWellFormed()) {
-    return [patternIssue(pattern, "a lone surrogate, which is not a character", null)];
+    return { issues: [patternIssue(pattern, "a lone surrogate, which is not a character", null)], javascript: "" };
   }
-  const checker = new PortableRegexChecker(pattern);
+  const checker = new PortableRegexChecker(pattern, ignoreCase);
   checker.check();
-  return checker.issues;
+  return { issues: checker.issues, javascript: checker.translation() };
 }
 
 function patternIssue(pattern: string, what: string, column: number | null, hint?: string): Issue {
@@ -47,20 +76,49 @@ const SYNTAX_CHARACTERS = new Set("^$\\.*+?()[]{}|/");
 const MAX_REPEAT = 1000;
 /** What the term before a quantifier was, which decides whether it may be repeated. */
 type TermKind = "none" | "atom" | "assertion" | "quantified";
-/** What one item of a class is: a single character, which may bound a range, or a set such as `\d`. */
-type ClassAtom = { readonly kind: "character"; readonly codePoint: number } | { readonly kind: "set" } | null;
+/** What one item of a class is: a single character, which may bound a range, or a set such as `\d`, by its letter. */
+type ClassAtom =
+  | { readonly kind: "character"; readonly codePoint: number }
+  | { readonly kind: "set"; readonly letter: string }
+  | null;
+
+/** RE2's `\s`, written out for JavaScript, whose `\s` is Unicode white space. */
+const SPACE_CHARACTERS = "\\t\\n\\f\\r ";
+/** RE2's word class, ASCII under the flag `i` too, for the boundaries that JavaScript would fold. */
+const ASCII_WORD = "(?-i:[0-9A-Za-z_])";
+/** The JavaScript text of a part of the pattern: the UTF-16 range `[start, end)` of the pattern, and what replaces it. */
+interface Replacement {
+  readonly start: number;
+  readonly end: number;
+  readonly text: string;
+}
 
 /** A recursive-descent reader of one pattern, which collects the issues it finds. */
 class PortableRegexChecker {
   readonly issues: Issue[] = [];
   readonly #pattern: string;
+  readonly #ignoreCase: boolean;
+  /** The parts of the pattern that JavaScript reads otherwise than RE2, in order, without overlaps. */
+  readonly #replacements: Replacement[] = [];
   /** The UTF-16 index of the next character. */
   #index = 0;
   /** Set when the pattern cannot be read further, after the issue that says why. */
   #stopped = false;
 
-  constructor(pattern: string) {
+  constructor(pattern: string, ignoreCase: boolean) {
     this.#pattern = pattern;
+    this.#ignoreCase = ignoreCase;
+  }
+
+  /** Gives the JavaScript source of the pattern, once it has been checked. */
+  translation(): string {
+    let text = "";
+    let from = 0;
+    for (const replacement of this.#replacements) {
+      text += this.#pattern.slice(from, replacement.start) + replacement.text;
+      from = replacement.end;
+    }
+    return text + this.#pattern.slice(from);
   }
 
   /** Reads the whole pattern. */
@@ -235,7 +293,7 @@ class PortableRegexChecker {
     for (const [prefix, what] of withBody) {
       const match = prefix.exec(rest);
       if (match === null) continue;
-      this.#report(what, start, what === "inline flags" ? "give the flags i and m with the query" : undefined);
+      this.#report(what, start, what === "inline flags" ? "give the flag i with the query" : undefined);
       this.#index += 1 + match[0].length;
       return true;
     }
@@ -248,7 +306,7 @@ class PortableRegexChecker {
     for (const [prefix, what] of whole) {
       const match = prefix.exec(rest);
       if (match === null) continue;
-      this.#report(what, start, what === "inline flags" ? "give the flags i and m with the query" : undefined);
+      this.#report(what, start, what === "inline flags" ? "give the flag i with the query" : undefined);
       this.#index += 1 + match[0].length;
       return false;
     }
@@ -269,6 +327,11 @@ class PortableRegexChecker {
     }
     if (next === "b" || next === "B") {
       this.#index += 2;
+      if (this.#ignoreCase) {
+        const boundary = `(?:(?<=${ASCII_WORD})(?!${ASCII_WORD})|(?<!${ASCII_WORD})(?=${ASCII_WORD}))`;
+        const inside = `(?:(?<=${ASCII_WORD})(?=${ASCII_WORD})|(?<!${ASCII_WORD})(?!${ASCII_WORD}))`;
+        this.#replacements.push({ start, end: this.#index, text: next === "b" ? boundary : inside });
+      }
       return "assertion";
     }
     if (next === "A" || next === "z" || next === "Z" || next === "G") {
@@ -276,7 +339,11 @@ class PortableRegexChecker {
       this.#index += 2;
       return "assertion";
     }
-    this.#characterEscape(false);
+    const atom = this.#characterEscape(false);
+    if (atom?.kind === "set" && (atom.letter === "s" || atom.letter === "S")) {
+      const text = atom.letter === "s" ? `[${SPACE_CHARACTERS}]` : `[^${SPACE_CHARACTERS}]`;
+      this.#replacements.push({ start, end: this.#index, text });
+    }
     return "atom";
   }
 
@@ -286,7 +353,7 @@ class PortableRegexChecker {
     const next = this.#pattern.codePointAt(start + 1) as number;
     const letter = String.fromCodePoint(next);
     this.#index += 1 + letter.length;
-    if ("dDwWsS".includes(letter)) return { kind: "set" };
+    if ("dDwWsS".includes(letter)) return { kind: "set", letter };
     const control: Record<string, number> = { t: 0x09, n: 0x0a, v: 0x0b, f: 0x0c, r: 0x0d };
     const controlCode = control[letter];
     if (controlCode !== undefined) return { kind: "character", codePoint: controlCode };
@@ -363,8 +430,13 @@ class PortableRegexChecker {
   #characterClass(): void {
     const start = this.#index;
     this.#index += 1;
-    if (this.#peek() === "^") this.#index += 1;
+    const negated = this.#peek() === "^";
+    if (negated) this.#index += 1;
     const first = this.#index;
+    // The class's items as JavaScript text, `\s` written out and `\S` left out, and whether `\S` was among them.
+    let items = "";
+    let spaceWrittenOut = false;
+    let nonSpace = false;
     let reported = false;
     if (this.#peek() === "]") {
       this.#report("a ] first in a class, an empty class in ECMAScript and a literal ] elsewhere", this.#index, "write \\]");
@@ -381,6 +453,9 @@ class PortableRegexChecker {
       const character = this.#peek();
       if (character === "]") {
         this.#index += 1;
+        if (spaceWrittenOut || nonSpace) {
+          this.#replacements.push({ start, end: this.#index, text: classWithoutNonSpace(items, negated, nonSpace) });
+        }
         return;
       }
       const atomStart = this.#index;
@@ -390,8 +465,17 @@ class PortableRegexChecker {
         continue;
       }
       const low = this.#classAtom();
-      if (this.#peek() !== "-" || this.#pattern[this.#index + 1] === "]" || this.#pattern[this.#index + 1] === undefined)
+      if (this.#peek() !== "-" || this.#pattern[this.#index + 1] === "]" || this.#pattern[this.#index + 1] === undefined) {
+        if (low?.kind === "set" && low.letter === "s") {
+          items += SPACE_CHARACTERS;
+          spaceWrittenOut = true;
+        } else if (low?.kind === "set" && low.letter === "S") {
+          nonSpace = true;
+        } else {
+          items += this.#pattern.slice(atomStart, this.#index);
+        }
         continue;
+      }
       this.#index += 1;
       const highStart = this.#index;
       if (this.#peek() === "-") this.#report("-- in a class", atomStart, "write \\- for a literal hyphen");
@@ -405,6 +489,7 @@ class PortableRegexChecker {
       } else if (low !== null && high !== null && low.codePoint > high.codePoint) {
         this.#report("a range whose start is above its end", atomStart);
       }
+      items += this.#pattern.slice(atomStart, this.#index);
     }
   }
 
@@ -463,4 +548,17 @@ class PortableRegexChecker {
     const column = [...this.#pattern.slice(0, start)].length + 1;
     this.issues.push(patternIssue(this.#pattern, what, column, hint));
   }
+}
+
+/**
+ * Writes a class for JavaScript from its items, with `\s` already written out in `items`. Without `\S`, it is the class of
+ * those items. With `\S`, which a JavaScript class cannot hold written out, it is the items or a non-space character, or,
+ * negated, a space character that is none of the items.
+ */
+function classWithoutNonSpace(items: string, negated: boolean, nonSpace: boolean): string {
+  // A `^` first would negate the class it is moved into.
+  const body = items.startsWith("^") ? `\\${items}` : items;
+  if (!nonSpace) return `[${negated ? "^" : ""}${body}]`;
+  if (negated) return body === "" ? `[${SPACE_CHARACTERS}]` : `(?:(?![${body}])[${SPACE_CHARACTERS}])`;
+  return body === "" ? `[^${SPACE_CHARACTERS}]` : `(?:[${body}]|[^${SPACE_CHARACTERS}])`;
 }

@@ -74,8 +74,11 @@ export function prefixDirectory(prefix: string): { readonly directory: string } 
 }
 
 /**
- * Compiles a glob over whole store paths: a `**` segment matches any number of segments, none included, `*` matches any run of
- * characters within a segment, and every other character matches itself. Returns a test of a path.
+ * Compiles a glob over whole store paths, in the one glob syntax that listings, grep, a collection's `match` and `exclude`, the
+ * configuration's `ignore` and VQL's `@path` share. A `**` segment matches any number of whole segments, none included, and
+ * keeps the `/` around it, so `docs/**` matches every path below `docs/` but not `docs`. `*` matches any run of characters
+ * within a segment, none included, a leading `.` too, so dotfiles are not special. Every other character matches itself.
+ * Returns a test of a path.
  */
 export function compileGlob(glob: string): (path: string) => boolean {
   const segments = glob.split("/");

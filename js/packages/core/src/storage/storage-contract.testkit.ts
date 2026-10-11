@@ -99,6 +99,22 @@ export function describeStorageContract(backend: ContractBackend): void {
         expect(second.cursor).toBeNull();
       });
 
+      test("counts exactly the paths that remain after the page", async () => {
+        const storage = await create(files);
+        const first = successValue(await storage.list({ prefix: "", limit: 2 }));
+        expect(first.remaining).toEqual({ count: 3, exact: true });
+        const middle = successValue(await storage.list({ prefix: "", limit: 1, cursor: first.cursor as string }));
+        expect(middle.remaining).toEqual({ count: 2, exact: true });
+        const last = successValue(await storage.list({ prefix: "", limit: 3, cursor: first.cursor as string }));
+        expect(last.remaining).toEqual({ count: 0, exact: true });
+        // Only the paths the prefix and the glob select.
+        expect(successValue(await storage.list({ prefix: "a", limit: 1 })).remaining).toEqual({ count: 2, exact: true });
+        expect(successValue(await storage.list({ prefix: "", glob: "*.md", limit: 1 })).remaining).toEqual({
+          count: 1,
+          exact: true,
+        });
+      });
+
       test("throws on a limit below 1, a caller's bug", async () => {
         const storage = await create(files);
         await expect(storage.list({ prefix: "", limit: 0 })).rejects.toThrow(RangeError);
@@ -303,6 +319,24 @@ export function describeStorageContract(backend: ContractBackend): void {
         const second = await grep(storage, "x", { limit: 2, cursor: first.cursor as string });
         expect(where(second)).toEqual(["a.md:3", "b.md:1"]);
         expect(second.cursor).toBeNull();
+      });
+
+      test("estimates the matches that remain, marked as an estimate while files are left unread", async () => {
+        const storage = await create({ "a.md": "x\nx\nx\n", "b.md": "x\n", "c.md": "x\n" });
+        const first = await grep(storage, "x", { limit: 2 });
+        // a.md's third line is known to remain; b.md and c.md are not read, so the count is an estimate.
+        expect(first.remaining.exact).toBe(false);
+        expect(first.remaining.count).toBeGreaterThanOrEqual(1);
+        const last = await grep(storage, "x", { limit: 5, cursor: first.cursor as string });
+        expect(where(last)).toEqual(["a.md:3", "b.md:1", "c.md:1"]);
+        expect(last.remaining).toEqual({ count: 0, exact: true });
+      });
+
+      test("counts the remaining matches exactly when every file has been read", async () => {
+        const storage = await create({ "a.md": "x\n", "b.md": "x\nx\nx\nx\n" });
+        const page = await grep(storage, "x", { limit: 2 });
+        expect(where(page)).toEqual(["a.md:1", "b.md:1"]);
+        expect(page.remaining).toEqual({ count: 3, exact: true });
       });
 
       test("fails with an issue for a pattern outside the portable subset", async () => {
