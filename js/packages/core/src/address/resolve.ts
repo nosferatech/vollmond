@@ -39,8 +39,9 @@ export type AddressUse = "singular" | "selector";
  * is a range of its `$body` and no later step goes into it. A node that a step matches several ways is one match.
  *
  * As a selector, the result is every match, possibly none. As a singular address it is exactly one target, and the outcome
- * fails with `address-ambiguous`, whose candidates are the matches, when a step matches several nodes, even when a later
- * step would leave one; and with `address-not-found` when nothing matches. Issues have the record's path and no node.
+ * fails with `address-ambiguous` when a step matches several nodes, even when a later step would leave one: evaluation stops
+ * there, and the candidates are that step's matches. It fails with `address-not-found` when nothing matches. Issues have the
+ * record's path and no node.
  */
 export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<readonly Target[]> {
   const resolver = resolverOf(record);
@@ -48,13 +49,18 @@ export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, 
   const shown = `${record.path}${formatFragment(fragment)}`;
   if (evaluated.ambiguous) {
     const candidates = evaluated.matches.map((match) => resolver.target(match));
+    const steps = fragment?.kind === "semantic" ? fragment.steps : [];
+    const step = steps[evaluated.steps - 1] as string;
     return fail([
       makeIssue({
         code: "address-ambiguous",
         path: record.path,
         at: null,
-        message: `${shown} matches ${candidates.length} nodes`,
-        hint: "use one of the candidates' addresses, or give the node you mean an explicit anchor",
+        message: `${shown}: its step ${evaluated.steps}, ${JSON.stringify(step)}, matches ${candidates.length} nodes`,
+        hint:
+          evaluated.steps === steps.length
+            ? "use the address of the candidate you mean, or give it an explicit anchor"
+            : "the candidates are what that step matches; address the one you mean, or give it an explicit anchor",
         candidates,
       }),
     ]);
@@ -96,20 +102,27 @@ export function blockAnchorAddress(record: ParsedRecord, entry: BlockAnchorEntry
 /** Reads the record at a store path: its parse outcome, or null when the store holds no record there. */
 export type RecordLookup = (path: string) => Promise<Outcome<ParsedRecord> | null>;
 
+/** What an address resolved to in a store: the record it names, as the lookup read it, and the targets in it. */
+export interface StoreResolution {
+  readonly record: ParsedRecord;
+  readonly targets: readonly Target[];
+}
+
 /**
  * Resolves an address in the record it names, which `lookup` reads, as {@link resolveAddress} does. Fails with
  * `address-malformed` for an address that does not read, before any lookup; with `address-not-found` for a record the store
  * does not hold, as a singular address and as a selector; and with the lookup's issues when it fails, such as a record's
- * structural errors, whatever the fragment.
+ * structural errors, whatever the fragment. On success it gives the record the lookup read with the targets, so that a caller
+ * reads their values and computed fields without a second lookup.
  */
 export async function resolveStoreAddress(
   lookup: RecordLookup,
   address: string,
   use: AddressUse,
   reading?: AddressReading,
-): Promise<Outcome<readonly Target[]>> {
+): Promise<Outcome<StoreResolution>> {
   const parsed = parseAddress(address, reading);
-  if (!parsed.ok) return parsed;
+  if (!parsed.ok) return fail(parsed.issues);
   const { record, fragment } = parsed.value;
   const loaded = await lookup(record);
   if (loaded === null) {
@@ -118,7 +131,8 @@ export async function resolveStoreAddress(
     ]);
   }
   if (!loaded.ok) return fail(loaded.issues);
-  return resolveAddress(loaded.value, fragment, use);
+  const resolved = resolveAddress(loaded.value, fragment, use);
+  return resolved.ok ? succeed(Object.freeze({ record: loaded.value, targets: resolved.value })) : fail(resolved.issues);
 }
 
 /** What a step can match: a node of the value view, or a block anchor. */
@@ -128,6 +142,8 @@ type Match = NodeInfo | BlockAnchorEntry;
 interface Evaluation {
   readonly matches: readonly Match[];
   readonly ambiguous: boolean;
+  /** How many steps of a semantic path were evaluated, from 1; 0 for an exact path or the root. */
+  readonly steps: number;
 }
 
 /**
@@ -167,19 +183,21 @@ class RecordResolver {
 
   /** Evaluates a fragment; a singular evaluation stops at the first step that matches several nodes. */
   evaluate(fragment: Fragment | null, singular: boolean): Evaluation {
-    if (fragment === null) return { matches: [this.#root], ambiguous: false };
+    if (fragment === null) return { matches: [this.#root], ambiguous: false, steps: 0 };
     if (fragment.kind === "exact") {
       const at = fragment.tokens.reduce<string>((parent, token) => childPath(parent, token), "");
       const node = this.#record.nodes.node(at);
-      return { matches: node === undefined ? [] : [node], ambiguous: false };
+      return { matches: node === undefined ? [] : [node], ambiguous: false, steps: 0 };
     }
     const [first, ...rest] = fragment.steps;
     let matches: Match[] = distinct(this.#firstStep(first as string));
+    let steps = 1;
     for (const step of rest) {
       if (singular && matches.length > 1) break;
       matches = distinct(matches.flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
+      steps++;
     }
-    return { matches, ambiguous: singular && matches.length > 1 };
+    return { matches, ambiguous: singular && matches.length > 1, steps };
   }
 
   /** Gives a match as a target. */

@@ -172,6 +172,20 @@ describe("computed fields", () => {
       },
     });
     expect(await computeFields(ticket, "/$sections/1", ["@nodes"])).toEqual({ "@nodes": {} });
+    // Every section below, at any depth, not only the children.
+    const nested = record("n.md", "# R\n\n## A\n\n### B\n\n#### D\n\nx\n\n## C\n\ny\n");
+    expect(await computeFields(nested, "", ["@key", "@nodes"])).toEqual({
+      "@nodes": {
+        "/$sections/0": { "@key": "a" },
+        "/$sections/0/$sections/0": { "@key": "b" },
+        "/$sections/0/$sections/0/$sections/0": { "@key": "d" },
+        "/$sections/1": { "@key": "c" },
+      },
+    });
+    expect(await computeFields(nested, "/$sections/0", ["@depth", "@nodes"])).toEqual({
+      "@depth": 1,
+      "@nodes": { "/$sections/0/$sections/0": { "@depth": 2 }, "/$sections/0/$sections/0/$sections/0": { "@depth": 3 } },
+    });
     expect(await computeFields(ticket, "/status", ["@nodes"])).toEqual({});
   });
 

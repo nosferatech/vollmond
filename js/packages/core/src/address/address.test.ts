@@ -59,6 +59,11 @@ describe("reading an address", () => {
     expect(fragmentOf("a.json#%F0%9F%98%80")).toEqual({ kind: "semantic", steps: ["😀"] });
   });
 
+  test("keeps an escaped U+FEFF at the start of a step or a token, which is a character and not a byte order mark", () => {
+    expect(fragmentOf("a.json#%EF%BB%BFa")).toEqual({ kind: "semantic", steps: ["﻿a"] });
+    expect(fragmentOf("a.json#/%EF%BB%BF")).toEqual({ kind: "exact", tokens: ["﻿"] });
+  });
+
   test("takes every fragment character but `/` in a step: pchar and `?`", () => {
     const step = "Az09-._~!$&'()*+,;=:@?";
     expect(fragmentOf(`a.json#${step}`)).toEqual({ kind: "semantic", steps: [step] });

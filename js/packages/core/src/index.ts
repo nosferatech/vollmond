@@ -18,6 +18,7 @@ export {
   type RecordLookup,
   resolveAddress,
   resolveStoreAddress,
+  type StoreResolution,
   type Target,
 } from "./address/resolve.js";
 export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
@@ -51,6 +52,7 @@ export {
   type ValueKind,
   type ValueNodeInfo,
 } from "./record/node-index.js";
+export { blockText, valueAt } from "./record/node-value.js";
 export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";

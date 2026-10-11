@@ -25,7 +25,7 @@ export const resolveOperation: OperationAdapter = {
     };
     const outcome = await resolveStoreAddress(lookup, input.address as string, input.as as "singular" | "selector");
     return outcome.ok
-      ? { ok: true, result: outcome.value.map(targetResult), issues: [] }
+      ? { ok: true, result: outcome.value.targets.map(targetResult), issues: [] }
       : { ok: false, issues: outcome.issues.map(compared) };
   },
   equalResults: (expected: JsonValue, actual: JsonValue, input: JsonObject, { comparison }) =>

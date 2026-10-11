@@ -593,8 +593,9 @@ address the same code produced checks the code against itself. PR I adds one any
 
 7. every node's and block anchor's canonical address reads back through the grammar and resolves, as a singular address, to
    that node alone, over JSON records whose member names need encoding and Markdown records whose headings and anchors repeat;
-   and an explicit anchor that names its node alone is that node's canonical address. Which of §7.5's forms wins otherwise is
-   left to the suite and the unit tests, since the property would accept a wrong choice that resolves.
+   and an explicit anchor that names its node alone is that node's canonical address. Only that last part has an oracle of its
+   own. For forms 2 to 4 the property is a consistency check of the code against itself: a wrong choice of form that still
+   resolves passes it, so which form wins is tested by the suite's `resolve` and `meta` cases and the unit tests.
 
 **Structural codes the suite does not cover yet** get unit tests in the pull requests that raise them, each firing once and
 accepting its near miss:

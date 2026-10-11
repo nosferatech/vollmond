@@ -135,6 +135,8 @@ function percentEncode(text: string, keepSlash: boolean): string {
   return encoded;
 }
 
+// Deviation from the specification, recorded in issue #15: escapes whose bytes are not UTF-8, such as `%E9`, match the
+// grammar's `pct-encoded` but are `address-malformed`, since no member name of a value view can hold them.
 /**
  * Decodes the percent-encoded text of a step or of a whole exact path, or says why it cannot be decoded. Outside raw reading,
  * every character must be a fragment character, `/` or part of an escape.

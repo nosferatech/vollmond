@@ -75,6 +75,16 @@ describe("formatIssue", () => {
     );
   });
 
+  test("percent-encodes the exact paths it prints, so that each reads back as an address", () => {
+    const candidates = [
+      { path: "d.json", at: "/100%", address: "#100%25" },
+      { path: "d.json", at: "/a b/é", address: "#a%20b/%C3%A9" },
+    ];
+    const text = formatIssue(issue({ code: "address-ambiguous", path: "d.json", at: "/x y", candidates }));
+    expect(text).toContain("\n  in   #/x%20y\n");
+    expect(text).toContain("  candidates  #/100%25\n              #/a%20b/%C3%A9\n");
+  });
+
   test("prints no candidates line for an issue without candidates", () => {
     expect(formatIssue(ambiguity, { candidateNotes: [{ line: 1 }] })).not.toContain("candidates");
   });

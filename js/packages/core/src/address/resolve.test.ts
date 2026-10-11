@@ -198,6 +198,14 @@ describe("cardinality", () => {
 
   test("a singular address is ambiguous at the step that meets the duplicate, even when a later step names one node", () => {
     expect(failure(nested, "#same/same")).toEqual([["address-ambiguous", "same.md", null]]);
+    const [first] = resolve(nested, "#same/same", "singular").issues;
+    expect(first?.message).toBe('same.md#same/same: its step 1, "same", matches 2 nodes');
+    expect(first?.hint).toMatch(/^the candidates are what that step matches/);
+    expect(first?.candidates?.map((candidate) => candidate.at)).toEqual(["/$sections/0", "/$sections/0/$sections/0"]);
+    const week = record("w.md", "# W\n\n## Log\n\n### Entry\n\nMon.\n\n### Entry\n\nTue.\n");
+    const [last] = resolve(week, "#log/entry", "singular").issues;
+    expect(last?.message).toBe('w.md#log/entry: its step 2, "entry", matches 2 nodes');
+    expect(last?.hint).toMatch(/^use the address of the candidate you mean/);
     expect(selected(nested, "#same/same")).toEqual(["/$sections/0/$sections/0"]);
   });
 
@@ -301,11 +309,13 @@ describe("resolving in a store", () => {
   };
 
   test("resolves an address in the record it names", async () => {
-    expect(await resolveStoreAddress(lookup, "notes/design.md#past", "singular")).toEqual({
-      ok: true,
-      value: [{ path: "notes/design.md", at: "/$sections/0/$sections/0", address: "#past" }],
-      issues: [],
-    });
+    const outcome = await resolveStoreAddress(lookup, "notes/design.md#past", "singular");
+    if (!outcome.ok) throw new Error("failed");
+    expect(outcome.value.targets).toEqual([{ path: "notes/design.md", at: "/$sections/0/$sections/0", address: "#past" }]);
+    // The record the lookup read comes back, for the targets' values and computed fields.
+    expect(outcome.value.record.path).toBe("notes/design.md");
+    expect(outcome.value.record.nodes.node("/$sections/0/$sections/0")?.kind).toBe("section");
+    expect(outcome.issues).toEqual([]);
   });
 
   test("address-not-found fires on a record the store does not hold, as a singular address and as a selector", async () => {

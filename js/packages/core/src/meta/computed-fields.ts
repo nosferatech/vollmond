@@ -2,10 +2,10 @@ import { blockAnchorAddress, canonicalAddress, type Target } from "../address/re
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import type { IssueCode, Severity } from "../issue/codes.js";
 import type { NodeInfo } from "../record/node-index.js";
+import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ByteRange } from "../text/source-text.js";
 import { nodeVersion } from "../value/digest.js";
-import type { Value } from "../value/value.js";
 
 /** The computed fields a caller can request, in the order a read that requests them all gives them. */
 export const COMPUTED_FIELD_NAMES = [
@@ -142,7 +142,7 @@ async function fieldOf(
       if (block !== undefined) return [{ name: block.name, kind: block.kind }];
       return record.anchors.of(node.at).map(({ name: anchor, kind }) => ({ name: anchor, kind }));
     case "@version":
-      return nodeVersion(block === undefined ? valueAt(record, node) : blockText(record, node, block));
+      return nodeVersion(block === undefined ? valueAt(record, node.at) : blockText(record, block));
     case "@source": {
       const range = block === undefined ? node.range : block.fileRange;
       const { line, col } = record.source.position(range.start);
@@ -188,24 +188,4 @@ function blockAnchorOf(record: ParsedRecord, at: string, range: ByteRange): Bloc
     }
   }
   throw new RangeError(`no block anchor at ${JSON.stringify(at)} [${range.start}, ${range.end})`);
-}
-
-/** Gives the value of a node, walking down from the record's value by the keys of its ancestors. */
-function valueAt(record: ParsedRecord, node: NodeInfo): Value {
-  const keys: (string | number)[] = [];
-  for (let current: NodeInfo | undefined = node; current?.key != null; ) {
-    keys.push(current.key);
-    current = current.parent === null ? undefined : record.nodes.node(current.parent);
-  }
-  let value: Value = record.value;
-  for (const key of keys.reverse()) {
-    value = (value as Record<string | number, Value>)[key] as Value;
-  }
-  return value;
-}
-
-/** Gives a block anchor's text: its range of the `$body`'s value, which counts UTF-8 bytes. */
-function blockText(record: ParsedRecord, body: NodeInfo, block: BlockAnchorEntry): string {
-  const bytes = new TextEncoder().encode(valueAt(record, body) as string);
-  return new TextDecoder().decode(bytes.subarray(block.range.start, block.range.end));
 }

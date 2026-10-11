@@ -1,7 +1,7 @@
 // The issue format: where the issue is, its severity, code and message, then the node it is in, the candidates of an ambiguity
 // and the hint, each on its own indented line.
 
-import type { Issue, IssueCode } from "@vollmond/core";
+import { encodeExactPath, type Issue, type IssueCode } from "@vollmond/core";
 import { oneLine } from "./lines.js";
 import { formatCount } from "./sizes.js";
 
@@ -48,7 +48,8 @@ export const DEFAULT_ISSUE_LIMIT = 20;
  * path and its exact path when `details` gives the semantic one, by its exact path alone otherwise, and is left out for an
  * issue about the whole record (`at` is `""`) or about no node (`at` is null). Each of the issue's candidates is written by its
  * exact path, after its record's path when that is another record, and a record's root by the record's path, with the line and
- * derived anchor `details` notes for it. Every line is made safe for a terminal with {@link oneLine}.
+ * derived anchor `details` notes for it. Exact paths are percent-encoded as addresses are, so each reads back as one. Every
+ * line is made safe for a terminal with {@link oneLine}.
  */
 export function formatIssue(issue: Issue, details?: IssueDetails): string {
   const file = issue.path ?? details?.file ?? null;
@@ -56,14 +57,14 @@ export function formatIssue(issue: Issue, details?: IssueDetails): string {
   const where = file === null ? "" : `${file}${position} `;
   const lines = [`${where}${issue.severity} ${issue.code}: ${issue.message}`];
   if (issue.at !== null && issue.at !== "") {
-    const exact = `#${issue.at}`;
+    const exact = `#${encodeExactPath(issue.at)}`;
     const semantic = details?.semantic;
     lines.push(semantic === undefined || semantic === exact ? `  in   ${exact}` : `  in   ${semantic}  (exact ${exact})`);
   }
   const candidates = issue.candidates ?? [];
   candidates.forEach((candidate, index) => {
     const record = candidate.path === issue.path ? "" : candidate.path;
-    const address = candidate.at === "" ? candidate.path : `${record}#${candidate.at}`;
+    const address = candidate.at === "" ? candidate.path : `${record}#${encodeExactPath(candidate.at)}`;
     const note = details?.candidateNotes?.[index];
     const notes = [
       note?.line === undefined ? null : `line ${note.line}`,
