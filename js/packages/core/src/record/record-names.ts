@@ -8,10 +8,10 @@ import {
 import { isAnchorName } from "../anchor/slug.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
 import type { BlockAnchor } from "../format/markdown/body.js";
-import { definitionLabelsIn } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Value, ValueObject } from "../value/value.js";
+import { definitionLabelsOfRecord } from "./definition-labels.js";
 import { documentOrderOf } from "./document-order.js";
 import { childPath } from "./exact-path.js";
 import type { NodeInfo } from "./node-index.js";
@@ -228,16 +228,7 @@ class RecordNames {
 
   /** The labels of the link reference definitions in every section's `$body`, found on the first call. */
   #definitionLabels(): readonly string[] {
-    if (this.#labels === null) {
-      const labels: string[] = [];
-      const pending: Value[] = [this.#record.value];
-      for (let section = pending.pop(); section !== undefined; section = pending.pop()) {
-        if (!isObject(section)) continue;
-        if (typeof section.$body === "string") labels.push(...definitionLabelsIn(section.$body));
-        if (Array.isArray(section.$sections)) pending.push(...section.$sections);
-      }
-      this.#labels = labels;
-    }
+    if (this.#labels === null) this.#labels = definitionLabelsOfRecord(this.#record.value);
     return this.#labels;
   }
 

@@ -78,11 +78,8 @@ const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, runCountExtension(fa
 /** The extension that counts the runs of a data `$title`, all its lines together, made once. */
 const TITLE_RUN_COUNT: MicromarkExtension = runCountExtension(true);
 
-/** The options of the parse that checks the limits of a title, without link reference definitions, made once. */
+/** The options of the parse that checks the limits of a title without a `[`, whose reading no definition changes, made once. */
 const TITLE_LIMIT_OPTIONS: Options = optionsOf([...inlineContentExtensions([]), TITLE_RUN_COUNT]);
-
-/** The characters that a run of emphasis, strikethrough or a link takes: `*`, `_`, `~` and `[`. */
-const NESTING_CHARACTERS: readonly number[] = [...RUN_CHARACTERS, 0x5b];
 
 /** The syntax tree of a Markdown text, or where it passes a resource limit and why. */
 export type MarkdownTree =
@@ -201,19 +198,23 @@ export interface LimitPassage {
  *
  * It reads the text with the counter and the nesting walk of {@link parseMarkdownTree}, in one parse that stops at the first
  * run too many, before the library resolves the emphasis, so that its cost stays linear in the text but for the library's
- * own. It has no link reference definitions, so a reference link that a definition elsewhere would make counts as text.
+ * own. `labels` gives the labels of the link reference definitions in scope, as {@link parseInlineContent} takes them, which
+ * decide what is a reference link and what its label holds. It is called only for a text that has a `[`, and only once.
  */
-export function inlineLimitPassedIn(text: string): LimitPassage | null {
-  // A run, and a level of nesting, takes a character of `*`, `_`, `~` or `[`, so a text with no more of them than the nesting
-  // limit passes neither limit, which most titles show without the library.
+export function inlineLimitPassedIn(text: string, labels: () => readonly string[]): LimitPassage | null {
+  // Each level of emphasis or strikethrough needs an opener and a closer, characters of `*`, `_` or `~` that no other level
+  // shares, so a text with at most MAX_NESTING of them has at most half that many levels, and at most one link or autolink
+  // on top, which cannot hold another. It also holds at most that many runs. Most titles show this without the library.
   let candidates = 0;
   for (let index = 0; index < text.length && candidates <= MAX_NESTING; index++) {
-    if (NESTING_CHARACTERS.includes(text.charCodeAt(index))) candidates += 1;
+    if (RUN_CHARACTERS.includes(text.charCodeAt(index))) candidates += 1;
   }
   if (candidates <= MAX_NESTING) return null;
   let root: Root;
   try {
-    root = fromMarkdown(text, TITLE_LIMIT_OPTIONS);
+    // Only a reference link has a label to look up, and it holds a `[`.
+    const options = text.includes("[") ? optionsOf([...inlineContentExtensions(labels()), TITLE_RUN_COUNT]) : TITLE_LIMIT_OPTIONS;
+    root = fromMarkdown(text, options);
   } catch (error) {
     if (error instanceof LimitPassed) return { at: error.at, message: error.message };
     throw error;

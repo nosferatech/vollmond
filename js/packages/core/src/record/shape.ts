@@ -3,6 +3,7 @@ import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
 import { hasMember, type Value, type ValueObject } from "../value/value.js";
+import { definitionLabelsOfRecord } from "./definition-labels.js";
 import { childPath } from "./exact-path.js";
 import type { NodeIndex } from "./node-index.js";
 
@@ -49,7 +50,7 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * `$schema` is stored data and is not looked into. Every structural issue is an error; positions come from `context.locate`.
  */
 export function checkShape(unit: ShapeUnit, value: ValueObject, at: string, context: ShapeContext): Issue[] {
-  const checker = new ShapeChecker(context);
+  const checker = new ShapeChecker(context, value);
   if (unit === "record") {
     checker.section(value, at, true);
   } else {
@@ -72,9 +73,21 @@ export function nodeLocator(index: NodeIndex, source: SourceText): (at: string) 
 class ShapeChecker {
   readonly issues: Issue[] = [];
   readonly #context: ShapeContext;
+  /** The object being checked, the record's root for a record, whose `$body` values hold the definitions in scope. */
+  readonly #root: ValueObject;
+  #definitionLabels: readonly string[] | null = null;
+  /** Whether a `$title` has passed a resource limit, which is one `syntax-error` for the record. */
+  #titleLimitPassed = false;
 
-  constructor(context: ShapeContext) {
+  constructor(context: ShapeContext, root: ValueObject) {
     this.#context = context;
+    this.#root = root;
+  }
+
+  /** The labels of the link reference definitions in every section's `$body`, found on the first call. */
+  #labels(): readonly string[] {
+    if (this.#definitionLabels === null) this.#definitionLabels = definitionLabelsOfRecord(this.#root);
+    return this.#definitionLabels;
   }
 
   section(section: ValueObject, at: string, isRoot: boolean): void {
@@ -84,10 +97,13 @@ class ShapeChecker {
         case "$title":
           if (typeof member !== "string") {
             this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
-          } else {
-            const passed = inlineLimitPassedIn(member);
-            // The record is beyond a resource limit, which is a syntax error at the root, positioned at the title.
-            if (passed !== null) this.#raise("syntax-error", "", `$title passes a resource limit: ${passed.message}`, memberAt);
+          } else if (!this.#titleLimitPassed) {
+            const passed = inlineLimitPassedIn(member, () => this.#labels());
+            if (passed !== null) {
+              // The record is beyond a resource limit, which is one syntax error at the root, positioned at the first title.
+              this.#titleLimitPassed = true;
+              this.#raise("syntax-error", "", `$title passes a resource limit: ${passed.message}`, memberAt);
+            }
           }
           break;
         case "$body":

@@ -53,6 +53,33 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ $title: "\\* ".repeat(5000) })).toEqual([]);
   });
 
+  test("the link reference definitions of the record's $body values are in scope for a $title's runs, as in Markdown", () => {
+    // The `*` of a defined label are not runs, since the library reads the label without its text constructs.
+    const title = "[a][*b*] ".repeat(2049);
+    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: title }] })).toEqual([]);
+    expect(issuesOf({ $sections: [{ $title: title, $body: "[*b*]: /x" }] })).toEqual([]);
+    expect(issuesOf({ $sections: [{ $title: "S", $body: "[*b*]: /x", $sections: [{ $title: title }] }] })).toEqual([]);
+    // Without the definition they are runs: 4,098 of them.
+    expect(issuesOf({ $sections: [{ $title: title }] })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: "[b]: /x", $sections: [{ $title: title }] })).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a reference link that a definition makes counts as an inline level of a $title, as in Markdown", () => {
+    const around = (levels: number) => `${"*a ".repeat(levels)}[b][r]${" a*".repeat(levels)}`;
+    const definition = "[r]: /x";
+    expect(issuesOf({ $body: definition, $sections: [{ $title: around(255) }] })).toEqual([]);
+    expect(issuesOf({ $body: definition, $sections: [{ $title: around(256) }] })).toEqual([["syntax-error", ""]]);
+    // Without the definition it is text, and 256 levels of emphasis are within the limit.
+    expect(issuesOf({ $sections: [{ $title: around(256) }] })).toEqual([]);
+  });
+
+  test("a record with several titles beyond a limit has one syntax-error, at the first", () => {
+    const title = "*a* ".repeat(2049);
+    const nested = `${"*a ".repeat(257)}b${" a*".repeat(257)}`;
+    expect(issuesOf({ $title: title, $sections: [{ $title: title }, { $title: nested }] })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $sections: [{ $title: "S" }, { $title: nested }, { $title: title }] })).toEqual([["syntax-error", ""]]);
+  });
+
   test("a title with too many runs is positioned at its member, and is not looked at when it is not a string", () => {
     const decoded = decodeSource("r.json", new TextEncoder().encode(" ".repeat(40)));
     if (!decoded.ok) throw new Error("not UTF-8");

@@ -39,50 +39,80 @@ describe("parseMarkdownTree", () => {
 
 describe("inlineLimitPassedIn", () => {
   const runs = (count: number, run = "*a* ") => run.repeat(count);
+  const limitPassedIn = (text: string, labels: readonly string[] = []) => inlineLimitPassedIn(text, () => labels);
+
+  test("stops at the first run beyond the limit, however many follow, so that the emphasis is never resolved", () => {
+    // 20,000 `*a*` hold 40,000 runs; the 4,097th is the first of the 2,049th `*a*`.
+    expect(limitPassedIn(runs(20_000))).toEqual({ at: 4 * 2048, message: `more than ${MAX_EMPHASIS_RUNS} runs` });
+  });
+
+  test("reads a reference label as the definitions in scope say, whose characters are then no runs", () => {
+    const title = "[a][*b*] ".repeat(2049);
+    expect(limitPassedIn(title, ["*b*"])).toBeNull();
+    expect(limitPassedIn(title, ["B"])).not.toBeNull();
+    expect(limitPassedIn(title)).not.toBeNull();
+    const around = (levels: number) => `${"*a ".repeat(levels)}[b][r]${" a*".repeat(levels)}`;
+    expect(limitPassedIn(around(MAX_NESTING - 1), ["r"])).toBeNull();
+    expect(limitPassedIn(around(MAX_NESTING), ["r"])?.at).toBe(around(MAX_NESTING).indexOf("[b]"));
+    expect(limitPassedIn(around(MAX_NESTING), ["s"])).toBeNull();
+  });
+
+  test("asks for the labels only of a title that has a [ and is not shown within the limits without the library", () => {
+    let asked = 0;
+    const labels = () => {
+      asked += 1;
+      return [];
+    };
+    inlineLimitPassedIn(runs(MAX_EMPHASIS_RUNS), labels);
+    inlineLimitPassedIn("[a][b] *a*", labels);
+    expect(asked).toBe(0);
+    inlineLimitPassedIn(`[a] ${runs(MAX_EMPHASIS_RUNS)}`, labels);
+    expect(asked).toBe(1);
+  });
 
   test("finds the first run beyond the limit, at its index, and none at the limit", () => {
-    expect(inlineLimitPassedIn(runs(MAX_EMPHASIS_RUNS / 2))).toBeNull();
+    expect(limitPassedIn(runs(MAX_EMPHASIS_RUNS / 2))).toBeNull();
     const title = `${runs(MAX_EMPHASIS_RUNS / 2)}_b_`;
-    expect(inlineLimitPassedIn(title)?.at).toBe(title.indexOf("_b_"));
+    expect(limitPassedIn(title)?.at).toBe(title.indexOf("_b_"));
   });
 
   test("counts all the lines of a title together, however a blank line splits them", () => {
     // Each unit holds two runs.
     const quarter = runs(MAX_EMPHASIS_RUNS / 8);
-    expect(inlineLimitPassedIn(`${quarter}\n${quarter}\n\n${quarter}\n\n${quarter}`)).toBeNull();
-    expect(inlineLimitPassedIn(`${quarter}\n${quarter}\n\n${quarter}\n\n${quarter}*`)).not.toBeNull();
+    expect(limitPassedIn(`${quarter}\n${quarter}\n\n${quarter}\n\n${quarter}`)).toBeNull();
+    expect(limitPassedIn(`${quarter}\n${quarter}\n\n${quarter}\n\n${quarter}*`)).not.toBeNull();
   });
 
   test("counts nothing in a title without a character of a run", () => {
-    expect(inlineLimitPassedIn("a plain title ".repeat(10_000))).toBeNull();
+    expect(limitPassedIn("a plain title ".repeat(10_000))).toBeNull();
   });
 
   test("near miss: many characters of runs are not many runs: an escaped one, one in a code span or a long run is none or one", () => {
-    expect(inlineLimitPassedIn("\\* ".repeat(MAX_EMPHASIS_RUNS + 1))).toBeNull();
-    expect(inlineLimitPassedIn(`\`${"* ".repeat(MAX_EMPHASIS_RUNS + 1)}\``)).toBeNull();
-    expect(inlineLimitPassedIn(`${"*".repeat(MAX_EMPHASIS_RUNS * 2)}a`)).toBeNull();
-    expect(inlineLimitPassedIn("~~~ ".repeat(MAX_EMPHASIS_RUNS))).toBeNull();
+    expect(limitPassedIn("\\* ".repeat(MAX_EMPHASIS_RUNS + 1))).toBeNull();
+    expect(limitPassedIn(`\`${"* ".repeat(MAX_EMPHASIS_RUNS + 1)}\``)).toBeNull();
+    expect(limitPassedIn(`${"*".repeat(MAX_EMPHASIS_RUNS * 2)}a`)).toBeNull();
+    expect(limitPassedIn("~~~ ".repeat(MAX_EMPHASIS_RUNS))).toBeNull();
   });
 
   test("finds an inline node nested deeper than the limit, at its start, and none at the limit", () => {
     const nested = (levels: number) => `${"*a ".repeat(levels)}b${" a*".repeat(levels)}`;
-    expect(inlineLimitPassedIn(nested(MAX_NESTING))).toBeNull();
-    const passed = inlineLimitPassedIn(nested(MAX_NESTING + 1));
+    expect(limitPassedIn(nested(MAX_NESTING))).toBeNull();
+    const passed = limitPassedIn(nested(MAX_NESTING + 1));
     expect(passed?.message).toContain("nest");
     // At the start of the 257th level's opener.
     expect(passed?.at).toBe(MAX_NESTING * 3);
     // A link inside 256 levels of emphasis is the 257th level; one inside 255 is the 256th.
     const link = (levels: number) => `${"*a ".repeat(levels)}[b](/x)${" a*".repeat(levels)}`;
-    expect(inlineLimitPassedIn(link(MAX_NESTING - 1))).toBeNull();
-    expect(inlineLimitPassedIn(link(MAX_NESTING))?.at).toBe(link(MAX_NESTING).indexOf("[b]"));
+    expect(limitPassedIn(link(MAX_NESTING - 1))).toBeNull();
+    expect(limitPassedIn(link(MAX_NESTING))?.at).toBe(link(MAX_NESTING).indexOf("[b]"));
     // Strikethrough and single-character runs count as levels too.
-    expect(inlineLimitPassedIn(`${"~a ".repeat(MAX_NESTING + 1)}b${" a~".repeat(MAX_NESTING + 1)}`)).not.toBeNull();
+    expect(limitPassedIn(`${"~a ".repeat(MAX_NESTING + 1)}b${" a~".repeat(MAX_NESTING + 1)}`)).not.toBeNull();
   });
 
   test("near miss: many characters of nesting are not deep nesting: a long list of siblings, or brackets that are text", () => {
-    expect(inlineLimitPassedIn("*a* ".repeat(MAX_NESTING * 4))).toBeNull();
-    expect(inlineLimitPassedIn("[a](/x) ".repeat(MAX_NESTING * 2))).toBeNull();
-    expect(inlineLimitPassedIn("[".repeat(MAX_NESTING * 2))).toBeNull();
+    expect(limitPassedIn("*a* ".repeat(MAX_NESTING * 4))).toBeNull();
+    expect(limitPassedIn("[a](/x) ".repeat(MAX_NESTING * 2))).toBeNull();
+    expect(limitPassedIn("[".repeat(MAX_NESTING * 2))).toBeNull();
   });
 
   // The count is the one a paragraph gets, whichever way the emphasis would be resolved: each unit holds the given runs.
@@ -101,8 +131,8 @@ describe("inlineLimitPassedIn", () => {
     const beyond = Math.ceil((MAX_EMPHASIS_RUNS + 1) / runsPerUnit);
     expect(parseMarkdownTree(unit.repeat(beyond - 1)).ok).toBe(true);
     expect(parseMarkdownTree(unit.repeat(beyond)).ok).toBe(false);
-    expect(inlineLimitPassedIn(unit.repeat(beyond - 1))).toBeNull();
-    expect(inlineLimitPassedIn(unit.repeat(beyond))).not.toBeNull();
+    expect(limitPassedIn(unit.repeat(beyond - 1))).toBeNull();
+    expect(limitPassedIn(unit.repeat(beyond))).not.toBeNull();
   });
 });
 

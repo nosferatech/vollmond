@@ -101,12 +101,20 @@ describe("parseRecord", () => {
     },
   );
 
-  test("a $title of 20,000 *a* is refused without resolving its emphasis", () => {
-    const started = performance.now();
-    const outcome = parseRecord("a.json", bytes(JSON.stringify({ $sections: [{ $title: "*a* ".repeat(20_000) }] })));
-    expect(outcome.ok).toBe(false);
-    // Resolved, the emphasis takes about a second; refused at run 4,097, a few milliseconds. The bound is far from both.
-    expect(performance.now() - started).toBeLessThan(5000);
+  test.each([
+    ["runs in the labels of references", "[a][*b*] ".repeat(2049), "[*b*]: /x", true],
+    ["runs in the labels of undefined references", "[a][*b*] ".repeat(2049), "[b]: /x", false],
+    ["a reference link in 255 levels of emphasis", `${"*a ".repeat(255)}[b][r]${" a*".repeat(255)}`, "[r]: /x", true],
+    ["a reference link in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[r]: /x", false],
+    ["an undefined reference in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[s]: /x", true],
+  ])("a JSON, YAML and Markdown record agree on %s", (_name, text, definition, reads) => {
+    const json = JSON.stringify({ $body: definition, $sections: [{ $title: "S", $body: text }, { $title: text }] });
+    const yaml = `$body: ${JSON.stringify(definition)}\n$sections:\n  - $title: S\n  - $title: ${JSON.stringify(text)}\n`;
+    // In Markdown the same text is a paragraph and a heading, beside the definition.
+    const markdown = `${definition}\n\n${text}\n\n# ${text}\n`;
+    expect(parseRecord("a.json", bytes(json)).ok).toBe(reads);
+    expect(parseRecord("a.yaml", bytes(yaml)).ok).toBe(reads);
+    expect(parseRecord("a.md", bytes(markdown)).ok).toBe(reads);
   });
 
   test("fails with the Markdown parser's structural errors", () => {
