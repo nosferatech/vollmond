@@ -33,4 +33,6 @@ To run the command from a checkout, build first and then, in `js/`, use `node pa
 
 `@vollmond/core` must not use Node APIs. Its `tsconfig.json` leaves out Node's types, and
 `js/packages/core/src/no-node-types.typecheck.ts` makes
-`npm run typecheck` fail if they ever become visible to it.
+`npm run typecheck` fail if they ever become visible to it. The one exception is the tests named `*.suite.test.ts`, which
+read the proposal and the conformance suite from the repository with `node:fs`. Core's `tsconfig.json` leaves them out, and
+`tsconfig.suite.json` type checks them with Node's types.
