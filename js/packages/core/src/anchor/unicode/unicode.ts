@@ -13,6 +13,7 @@ import {
   LETTER_MARK_DIGIT_CONNECTOR,
   LOWER_CASE_EXPANSIONS,
   LOWER_CASE_RUNS,
+  UNASSIGNED,
   UNICODE_VERSION,
   WHITE_SPACE,
 } from "./unicode-17.0.0.generated.js";
@@ -106,6 +107,7 @@ function lastAtOrBelow(sorted: Uint32Array, value: number): number {
 const whiteSpace = new CodePointRanges(WHITE_SPACE);
 const defaultIgnorable = new CodePointRanges(DEFAULT_IGNORABLE_CODE_POINT);
 const letterMarkDigitConnector = new CodePointRanges(LETTER_MARK_DIGIT_CONNECTOR);
+const unassigned = new CodePointRanges(UNASSIGNED);
 const lowerCase = new LowerCaseMapping(LOWER_CASE_RUNS, LOWER_CASE_EXPANSIONS);
 
 /** Returns whether `codePoint` has the White_Space property, which includes U+0085 and excludes U+FEFF. */
@@ -121,6 +123,14 @@ export function isDefaultIgnorable(codePoint: number): boolean {
 /** Returns whether the general category of `codePoint` is a letter (L), a mark (M), a decimal digit (Nd) or a connector (Pc). */
 export function isLetterMarkDigitOrConnector(codePoint: number): boolean {
   return letterMarkDigitConnector.has(codePoint);
+}
+
+/**
+ * Returns whether `codePoint` is unassigned in the tables' Unicode version, of General_Category Cn, as noncharacters such as
+ * U+FDD0 and U+FFFF are. A runtime with newer Unicode data may have assigned it.
+ */
+export function isUnassigned(codePoint: number): boolean {
+  return unassigned.has(codePoint);
 }
 
 /**

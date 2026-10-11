@@ -611,15 +611,16 @@ describe("spans", () => {
     expect(rangeAt(parsed, "/$sections/0/$body")).toEqual(bytesOf(text, "One text."));
   });
 
-  test("a section's heading has its level and its lines", () => {
+  test("a section's heading has its level, its lines and its derived anchor", () => {
     const section = parsed.nodes.node("/$sections/0");
     expect(section?.kind === "section" && section.heading).toEqual({
       level: 2,
       range: bytesOf(text, "## One"),
-      derivedAnchor: null,
+      derivedAnchor: "one",
     });
     const root = parsed.nodes.node("");
     expect(root?.kind === "section" && root.heading?.range).toEqual(bytesOf(text, '# Ticket <a id="t" class="x y"></a>'));
+    expect(root?.kind === "section" && root.heading?.derivedAnchor).toBe("ticket");
   });
 
   test("the index lists a section's members in source order", () => {

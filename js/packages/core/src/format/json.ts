@@ -14,6 +14,7 @@ import type { Outcome } from "../issue/outcome.js";
 import { childPath } from "../record/exact-path.js";
 import { NodeIndexBuilder, type NodeSink, type ValueKind } from "../record/node-index.js";
 import { type ParsedRecord, parseOutcome } from "../record/record.js";
+import { nameRecord } from "../record/record-names.js";
 import { checkShape, nodeLocator } from "../record/shape.js";
 import type { ByteRange, Position, SourceText } from "../text/source-text.js";
 import { readNumberLiteral } from "../value/number.js";
@@ -111,14 +112,9 @@ export function parseJsonRecord(path: string, source: SourceText): Outcome<Parse
   const issues = [...unit.issues];
   const value = unit.value;
   if (value !== null) issues.push(...checkShape("record", value, "", { path, locate: nodeLocator(nodes, source) }));
-  return parseOutcome(issues, (recordIssues) => ({
-    path,
-    format: "json",
-    value: value ?? createValueObject(),
-    source,
-    nodes,
-    issues: recordIssues,
-  }));
+  return parseOutcome(issues, (recordIssues) =>
+    nameRecord({ path, format: "json", value: value ?? createValueObject(), source, nodes, issues: recordIssues }),
+  );
 }
 
 /** jsonc-parser in strict mode: RFC 8259 JSON, without comments, trailing commas or empty content. */

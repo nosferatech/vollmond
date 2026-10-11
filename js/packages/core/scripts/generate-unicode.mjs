@@ -17,8 +17,13 @@
 //   PropList.txt                          field 1 = White_Space                    → White_Space (steps 4 and 5)
 //   DerivedCoreProperties.txt             field 1 = Default_Ignorable_Code_Point   → Default_Ignorable_Code_Point (step 2)
 //   extracted/DerivedGeneralCategory.txt  field 1 in L*, M*, Nd, Pc                → the categories step 5 keeps
+//   extracted/DerivedGeneralCategory.txt  field 1 = Cn                             → the unassigned code points step 2 removes
 //   UnicodeData.txt                       field 13, Simple_Lowercase_Mapping
 //   SpecialCasing.txt                     field 1, the lower-case mapping, of entries with no condition list (field 4)
+//
+// The file lists Cn explicitly, and its `@missing` line gives Cn to every code point it does not list. The unassigned set is
+// taken as every code point not listed with another category, and the generator checks that it equals the explicit Cn lines,
+// so the two readings of the file cannot differ silently. Noncharacters are Cn.
 //
 // Step 3 maps each code point by the unconditional entry of SpecialCasing.txt where there is one, and otherwise by
 // UnicodeData.txt's simple mapping. Conditional entries (Final_Sigma, the language-specific ones) are left out.
@@ -93,6 +98,27 @@ function propertySet(text, accept) {
     if (!accept(fields[1])) continue;
     const [first, last] = parseRange(fields[0]);
     member.fill(1, first, last + 1);
+  }
+  return member;
+}
+
+/**
+ * The code points of General_Category Cn: those the file lists with no other category. Throws when that set differs from the
+ * code points the file lists as Cn, or when one code point is listed twice.
+ */
+function unassignedSet(text) {
+  const listed = new Uint8Array(MAX_CODE_POINT + 1);
+  const explicit = new Uint8Array(MAX_CODE_POINT + 1);
+  for (const fields of records(text)) {
+    const [first, last] = parseRange(fields[0]);
+    for (let cp = first; cp <= last; cp++) {
+      if (listed[cp] || explicit[cp]) throw new Error(`DerivedGeneralCategory.txt lists ${hex(cp)} twice`);
+    }
+    (fields[1] === "Cn" ? explicit : listed).fill(1, first, last + 1);
+  }
+  const member = listed.map((isListed) => (isListed ? 0 : 1));
+  for (let cp = 0; cp <= MAX_CODE_POINT; cp++) {
+    if (member[cp] !== explicit[cp]) throw new Error(`DerivedGeneralCategory.txt: ${hex(cp)} is Cn by one reading only`);
   }
   return member;
 }
@@ -175,6 +201,7 @@ const defaultIgnorable = encodeRanges(
   propertySet(texts["DerivedCoreProperties.txt"], (value) => value === "Default_Ignorable_Code_Point"),
 );
 const kept = encodeRanges(propertySet(texts["extracted/DerivedGeneralCategory.txt"], (value) => KEPT_CATEGORIES.has(value)));
+const unassigned = encodeRanges(unassignedSet(texts["extracted/DerivedGeneralCategory.txt"]));
 const mappings = lowerCaseMappings(texts["UnicodeData.txt"], texts["SpecialCasing.txt"]);
 const runs = encodeLowerCaseRuns(mappings);
 const expansions = [...mappings].filter(([, lower]) => lower.length > 1).sort(([a], [b]) => a - b);
@@ -200,6 +227,12 @@ export const DEFAULT_IGNORABLE_CODE_POINT: readonly number[] = [${defaultIgnorab
 export const LETTER_MARK_DIGIT_CONNECTOR: readonly number[] = [${kept.encoded.join(", ")}];
 
 /**
+ * General_Category Cn, unassigned, noncharacters included (extracted/DerivedGeneralCategory.txt): ${unassigned.count} ranges as
+ * [gap, length] pairs.
+ */
+export const UNASSIGNED: readonly number[] = [${unassigned.encoded.join(", ")}];
+
+/**
  * Lower-case mappings to one other code point (UnicodeData.txt field 13, overridden by SpecialCasing.txt's unconditional
  * entries): ${runs.count} runs as [start gap, count, stride, delta].
  */
@@ -214,5 +247,5 @@ await writeFile(outFile, output);
 execFileSync(join(coreDir, "..", "..", "node_modules", ".bin", "biome"), ["format", "--write", outFile], { stdio: "inherit" });
 console.log(
   `${outFile}: White_Space ${whiteSpace.count} ranges, Default_Ignorable_Code_Point ${defaultIgnorable.count}, ` +
-    `L/M/Nd/Pc ${kept.count}, lower case ${runs.count} runs and ${expansions.length} expansions`,
+    `L/M/Nd/Pc ${kept.count}, Cn ${unassigned.count}, lower case ${runs.count} runs and ${expansions.length} expansions`,
 );

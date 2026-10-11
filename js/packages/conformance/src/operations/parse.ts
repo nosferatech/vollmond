@@ -22,6 +22,6 @@ export const parseOperation: OperationAdapter = {
 };
 
 /** The members of an issue that the suite compares. */
-function compared({ code, severity, path, at }: Issue): ComparedIssue {
+export function compared({ code, severity, path, at }: Issue): ComparedIssue {
   return { code, severity, path, at };
 }

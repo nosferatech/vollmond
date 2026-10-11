@@ -1,3 +1,4 @@
+import type { AnchorTable } from "../anchor/anchor-table.js";
 import { hasStructuralError, type Issue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import type { SourceText } from "../text/source-text.js";
@@ -7,8 +8,6 @@ import type { NodeIndex } from "./node-index.js";
 /** The format of a record, from its file's extension. */
 export type RecordFormat = "md" | "yaml" | "json";
 
-// Deviation from the I1 design, recorded in issue #10: no `anchors` member yet, since the anchor table needs the slug rule,
-// which comes with section keys and anchors.
 /** A record that parsed: it had no structural error. */
 export interface ParsedRecord {
   /** The record's store path. */
@@ -18,6 +17,13 @@ export interface ParsedRecord {
   readonly value: ValueObject;
   readonly source: SourceText;
   readonly nodes: NodeIndex;
+  /** The anchors and tags of the record. */
+  readonly anchors: AnchorTable;
+  // Deviation from the I1 design, recorded in issue #14: the design gives a section's key as the `key` of its node in the index,
+  // which holds the section's index in `$sections`, as every other item's; the key goes here instead, so that the index
+  // keeps one meaning of `key` for every node.
+  /** The key of each section but the root, by its exact path: its `$anchor`, or else the slug of its title. */
+  readonly sectionKeys: ReadonlyMap<string, string>;
   /** The validation issues found while parsing, such as duplicate keys; never a structural error. */
   readonly issues: readonly Issue[];
 }

@@ -4,10 +4,6 @@
   "profiles": ["read"],
   "skip": [
     {
-      "operation": "anchors",
-      "reason": "anchors come with I1.5, #14"
-    },
-    {
       "operation": "meta",
       "reason": "computed fields come with I1.6, #15"
     },
