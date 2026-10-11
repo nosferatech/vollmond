@@ -51,7 +51,8 @@ const NOT_A_FILE_HINT = "make .vmd/config.yaml a file holding the configuration,
  *
  * - With `--store`, the root is that directory. Without `--config`, it must hold `.vmd/config.yaml`; with it, it need not.
  * - Otherwise the root is the nearest directory, from the working directory up to the filesystem's root, that holds
- *   `.vmd/config.yaml` (a symbolic link to a file counts). `--config` does not stop the search, since a store whose
+ *   `.vmd/config.yaml` (a symbolic link to a file counts here, although reading the configuration then refuses it, since the
+ *   store's own files are read through its backend). `--config` does not stop the search, since a store whose
  *   configuration lives elsewhere has no file to find: such a store is named with `--store`.
  * - `--config` replaces the root's configuration file, which is then not read. Its path is not checked here; reading it is.
  *

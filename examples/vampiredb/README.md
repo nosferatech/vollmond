@@ -3,7 +3,8 @@
 The demonstration of phase I1 ([implementation plan](../../docs/plan/implementation-plan.md), task I1.11, issue
 [#20](https://github.com/nosferatech/vollmond/issues/20)): `vmd outline` and `vmd get` over the store whose root is the `docs/`
 directory of a vampiredb checkout. The store is read with this directory's [`config.yaml`](config.yaml) through `--config`, so
-vampiredb is not modified (decision K3). The configuration holds only `vmd: 1`, the one member I1 reads.
+vampiredb is not modified (decision K3). The configuration holds only `vmd: 1`, so the store has no collections and nothing
+ignored beyond dotfiles; its schemas, when I2.7 adds them, go in `schema/` beside it (decision U13).
 
 ```sh
 cd js && npm ci && npm run build && cd ..

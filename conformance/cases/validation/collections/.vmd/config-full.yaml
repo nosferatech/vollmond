@@ -1,0 +1,21 @@
+vmd: 1.4
+uniqueness: lenient
+yaml_quoting: minimal
+issues:
+  heading-html: error
+  multiple-h1: "off"
+  duplicate-key: "off"
+  schema-violation: error
+collections:
+  tickets:
+    match: ["tickets/*.md"]
+    exclude: ["tickets/README.md"]
+    schema: ticket.schema.json
+    filename: "^[0-9]{4}-[a-z0-9-]+\\.md$"
+    key: { filename: "^([0-9]{4})-" }
+    query: { target: nodes }
+  notes:
+    match: ["notes/**"]
+    key: { field: id }
+    query: { target: records }
+ignore: ["drafts/**"]

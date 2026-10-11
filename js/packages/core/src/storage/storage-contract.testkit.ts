@@ -283,6 +283,29 @@ export function describeStorageContract(backend: ContractBackend): void {
         await expect(storage.read("t.md", { range: { unit: "bytes", start: 2, end: 1 } })).rejects.toThrow(RangeError);
         await expect(storage.read("t.md", { range: { unit: "lines", start: 0, end: 1 } })).rejects.toThrow(RangeError);
       });
+
+      test("with maxBytes, refuses a larger file as oversized, without content or version", async () => {
+        const storage = await create({ "t.md": "abcde" });
+        expect(successValue(await storage.read("t.md", { maxBytes: 4 }))).toEqual({ path: "t.md", oversized: true, size: 5 });
+        expect(successValue(await storage.read("t.md", { maxBytes: 0 }))).toEqual({ path: "t.md", oversized: true, size: 5 });
+      });
+
+      test("with maxBytes, reads a file of exactly that size, or smaller, as a read without it does", async () => {
+        const storage = await create({ "t.md": "abcde", "e.md": "" });
+        const whole = successValue(await storage.read("t.md"));
+        expect(successValue(await storage.read("t.md", { maxBytes: 5 }))).toEqual(whole);
+        expect(successValue(await storage.read("t.md", { maxBytes: 9 }))).toEqual(whole);
+        const ranged = successValue(await storage.read("t.md", { maxBytes: 5, range: { unit: "bytes", start: 1, end: 3 } }));
+        expect("content" in ranged && text(ranged.content)).toBe("bc");
+        expect(successValue(await storage.read("e.md", { maxBytes: 0 }))).toMatchObject({ size: 0 });
+      });
+
+      test("with maxBytes, fails as a read without it does for a missing file, and throws on a negative bound", async () => {
+        const storage = await create({ "t.md": "abc" });
+        expect(failureCodes(await storage.read("u.md", { maxBytes: 9 }))).toEqual(["address-not-found"]);
+        await expect(storage.read("t.md", { maxBytes: -1 })).rejects.toThrow(RangeError);
+        await expect(storage.read("t.md", { maxBytes: 1.5 })).rejects.toThrow(RangeError);
+      });
     });
 
     describe("grep", () => {

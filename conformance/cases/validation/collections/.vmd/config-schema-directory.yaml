@@ -1,0 +1,8 @@
+vmd: 1
+collections:
+  tickets:
+    match: ["tickets/*.md"]
+    exclude: ["tickets/README.md"]
+    schema: directory.schema.json
+    filename: "^[0-9]{4}-[a-z0-9-]+\\.md$"
+ignore: ["drafts/**"]

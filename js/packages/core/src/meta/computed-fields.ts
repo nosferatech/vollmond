@@ -1,6 +1,7 @@
 import { blockAnchorAddress, canonicalAddress, type Target } from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import type { IssueCode, Severity } from "../issue/codes.js";
+import { applySeverities, type SeverityConfiguration } from "../issue/severity.js";
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
@@ -27,13 +28,13 @@ export const COMPUTED_FIELD_NAMES = [
 /** The name of a computed field. */
 export type ComputedFieldName = (typeof COMPUTED_FIELD_NAMES)[number];
 
-// TODO(#24): `@refs` needs references, and TODO(#21): `@collection` needs the configuration's collections.
+// TODO(#24): `@refs` needs references.
 /**
  * The computed fields that are not computed yet, in the order of {@link COMPUTED_FIELD_NAMES}. Until they are, a read that
  * requests them gives them as `null`, with a warning `field-not-computed` that names them, so that a field that is absent and
  * one not computed yet cannot be confused.
  */
-export const NOT_COMPUTED_FIELDS: readonly ComputedFieldName[] = ["@refs", "@collection"];
+export const NOT_COMPUTED_FIELDS: readonly ComputedFieldName[] = ["@refs"];
 
 /** An anchor as `@anchors` lists it. */
 export interface ComputedAnchor {
@@ -87,12 +88,20 @@ export interface ComputedFields {
   readonly "@issues"?: readonly ComputedIssue[];
   /** The references the node contains: null, since they are not computed yet ({@link NOT_COMPUTED_FIELDS}). */
   readonly "@refs"?: null;
-  /** The record's collection: null, since it is not computed yet ({@link NOT_COMPUTED_FIELDS}). */
-  readonly "@collection"?: null;
+  /** The name of the record's collection; absent for a record that no collection, or several, claim. */
+  readonly "@collection"?: string;
   /** A section's depth, 0 for the root. */
   readonly "@depth"?: number;
   /** For a section, the same requested fields of each section below it, at any depth, by exact path. */
   readonly "@nodes"?: Readonly<Record<string, ComputedFields>>;
+}
+
+/** What the store knows of a record that its computed fields need beyond the record itself. */
+export interface ComputedFieldContext {
+  /** The name of the record's collection, for `@collection`; absent for a record in none. */
+  readonly collection?: string;
+  /** The configuration's severities, which `@issues` applies; without them, issues have their default severities. */
+  readonly severities?: SeverityConfiguration;
 }
 
 // Deviation from the I1 design, recorded in issue #15: the subject is a node's exact path or a target, not a path alone, since a
@@ -101,8 +110,9 @@ export interface ComputedFields {
 /**
  * Computes the requested fields of a node of a parsed record, given by its exact path, or of a target that resolving an
  * address in the record gave, which may be a block anchor. `all` requests every field but `@nodes`, which is requested by
- * name. `@refs` and `@collection` are not computed yet, and are given as `null` ({@link NOT_COMPUTED_FIELDS}), which the
- * caller warns about. `@issues` holds the issues found while parsing, with their default severities.
+ * name. `@refs` is not computed yet, and is given as `null` ({@link NOT_COMPUTED_FIELDS}), which the caller warns about.
+ * `@collection` is the context's collection, absent without one. `@issues` holds the issues found while parsing, with the
+ * context's severities applied, or with their default severities when it gives none.
  *
  * Throws a `RangeError` when the record has no node at the path, for a target of another record, and for a target with a
  * range that is not one of the record's block anchors. `@version` hashes the value with the runtime's Web Crypto API.
@@ -111,6 +121,7 @@ export async function computeFields(
   record: ParsedRecord,
   subject: string | Target,
   names: readonly ComputedFieldName[] | "all",
+  context: ComputedFieldContext = {},
 ): Promise<ComputedFields> {
   const requested = names === "all" ? COMPUTED_FIELD_NAMES.filter((name) => name !== "@nodes") : [...new Set(names)];
   const at = typeof subject === "string" ? subject : subject.at;
@@ -123,7 +134,7 @@ export async function computeFields(
   const block = range === undefined ? undefined : blockAnchorOf(record, at, range);
   const fields: Record<string, unknown> = {};
   for (const name of requested) {
-    const value = await fieldOf(record, node, block, name, requested);
+    const value = await fieldOf(record, node, block, name, requested, context);
     if (value !== undefined) fields[name] = value;
   }
   return fields as ComputedFields;
@@ -136,6 +147,7 @@ async function fieldOf(
   block: BlockAnchorEntry | undefined,
   name: ComputedFieldName,
   requested: readonly ComputedFieldName[],
+  context: ComputedFieldContext,
 ): Promise<unknown> {
   switch (name) {
     case "@path":
@@ -165,7 +177,7 @@ async function fieldOf(
     case "@range":
       return block?.range;
     case "@issues":
-      return record.issues
+      return (context.severities === undefined ? record.issues : applySeverities(record.issues, context.severities))
         .filter((issue) => issue.at === node.at)
         .filter(
           (issue) =>
@@ -180,12 +192,13 @@ async function fieldOf(
       const inner = requested.filter((field) => field !== "@nodes");
       const below: Record<string, ComputedFields> = {};
       for (const section of record.nodes.sections()) {
-        if (section.at.startsWith(`${node.at}/`)) below[section.at] = await computeFields(record, section.at, inner);
+        if (section.at.startsWith(`${node.at}/`)) below[section.at] = await computeFields(record, section.at, inner, context);
       }
       return below;
     }
-    case "@refs":
     case "@collection":
+      return context.collection;
+    case "@refs":
       return null;
   }
 }

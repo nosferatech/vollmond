@@ -1,9 +1,22 @@
 import { describe, expect, test } from "vitest";
+import { MAX_RECORD_BYTES } from "./limits.js";
 import { parseRecord } from "./parse-record.js";
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
 describe("parseRecord", () => {
+  test("fails with one syntax-error at the root for a record over 16 MiB, and parses one of exactly 16 MiB", () => {
+    expect(MAX_RECORD_BYTES).toBe(16 * 1024 * 1024);
+    const record = (size: number) => new TextEncoder().encode(`{"a": "${"x".repeat(size - 9)}"}`);
+    expect(record(MAX_RECORD_BYTES)).toHaveLength(MAX_RECORD_BYTES);
+    expect(parseRecord("a.json", record(MAX_RECORD_BYTES)).ok).toBe(true);
+    const larger = parseRecord("a.json", record(MAX_RECORD_BYTES + 1));
+    expect(larger.issues.map(({ code, path, at }) => ({ code, path, at }))).toEqual([
+      { code: "syntax-error", path: "a.json", at: "" },
+    ]);
+    expect(larger.issues[0]?.message).toContain("larger than 16777216 bytes");
+  });
+
   test("parses a .json record as JSON", () => {
     const outcome = parseRecord("notes/a.json", bytes('{"a": 1}'));
     expect(outcome.ok && outcome.value).toMatchObject({ path: "notes/a.json", format: "json", value: { a: 1 } });

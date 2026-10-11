@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { MAX_CONFIGURATION_BYTES } from "../config/configuration.js";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
@@ -78,7 +79,11 @@ describe("openStore", () => {
   test("reads the backend's .vmd/config.yaml, or the configuration it is given", async () => {
     expect((await storeOf()).configuration.vmd).toBe(1);
     const given = await openStore(createMemoryStorage({ files: { "a.md": "# A\n" } }), {
-      config: new TextEncoder().encode(CONFIG),
+      configuration: {
+        content: new TextEncoder().encode(CONFIG),
+        name: "given.yaml",
+        readSchema: async () => expect.fail("no schema is read"),
+      },
     });
     expect(successValue(given).configuration.vmd).toBe(1);
   });
@@ -93,6 +98,30 @@ describe("openStore", () => {
   test("fails with storage-failed when the backend cannot read the configuration", async () => {
     const files = { ".vmd/config.yaml": { content: CONFIG, unreadable: true } };
     expect(codesOf(await openStore(createMemoryStorage({ files })))).toEqual(["storage-failed"]);
+  });
+
+  test("refuses a configuration over a mebibyte by its size, asking the backend for no more, and reads one of exactly that", async () => {
+    const config = (size: number) => `vmd: 1\n#${"x".repeat(size - 9)}\n`;
+    expect(config(MAX_CONFIGURATION_BYTES)).toHaveLength(MAX_CONFIGURATION_BYTES);
+    const bounds: (number | undefined)[] = [];
+    const inner = createMemoryStorage({ files: { ".vmd/config.yaml": config(MAX_CONFIGURATION_BYTES + 1) } });
+    const backend: StorageReader = {
+      list: (query) => inner.list(query),
+      stat: (path) => inner.stat(path),
+      read: ((path: string, options?: { maxBytes?: number }) => {
+        bounds.push(options?.maxBytes);
+        return inner.read(path, options as never);
+      }) as StorageReader["read"],
+      grep: (query) => inner.grep(query),
+      head: () => inner.head(),
+      history: inner.history,
+    };
+    const larger = await openStore(backend);
+    expect(codesOf(larger)).toEqual(["config-invalid"]);
+    expect(larger.issues[0]?.message).toContain("larger than 1048576 bytes");
+    expect(bounds).toEqual([MAX_CONFIGURATION_BYTES]);
+    const fits = await openStore(createMemoryStorage({ files: { ".vmd/config.yaml": config(MAX_CONFIGURATION_BYTES) } }));
+    expect(fits.ok).toBe(true);
   });
 });
 
@@ -172,16 +201,12 @@ describe("Store.get", () => {
     expect(all.meta?.["@anchors"]).toEqual([{ name: "step", kind: "block" }]);
   });
 
-  // Interim (S5): @collection is not computed until the configuration's collections are (#21, PR #91). When it is, this test
-  // fails: take @collection out of NOT_COMPUTED_FIELDS, and replace this test with the todo below.
-  test("warns for @collection under --meta all, since it is not computed yet (#21)", async () => {
+  test("raises no field-not-computed for @collection under meta all, and leaves it out for a record in no collection", async () => {
     const store = await storeOf();
     const all = await store.get("data.json", { meta: "all" });
-    expect(successValue(all).meta?.["@collection"]).toBeNull();
-    expect(all.issues.map((issue) => issue.message)).toEqual([expect.stringContaining("@collection")]);
+    expect(successValue(all).meta).not.toHaveProperty("@collection");
+    expect(all.issues.map((issue) => issue.message)).toEqual([expect.not.stringContaining("@collection")]);
   });
-
-  test.todo("raises no field-not-computed for @collection under meta all, once #21 computes it");
 
   test("gives the fields not computed yet as null, with one field-not-computed warning naming them (§5.10)", async () => {
     const store = await storeOf();
@@ -203,17 +228,16 @@ describe("Store.get", () => {
       "@source",
       "@issues",
       "@refs",
-      "@collection",
       "@depth",
     ]);
-    expect(successValue(all).meta?.["@collection"]).toBeNull();
+    expect(successValue(all).meta?.["@refs"]).toBeNull();
     expect(all.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
-    expect(all.issues[0]?.message).toMatch(/@refs and @collection/);
+    expect(all.issues[0]?.message).toMatch(/^@refs is not computed yet/);
     // The sections below a node, with @nodes, give them as null too, under the one warning.
-    const nodes = await store.get("docs/guide.md#install", { meta: ["@collection", "@nodes"] });
+    const nodes = await store.get("docs/guide.md#install", { meta: ["@refs", "@nodes"] });
     expect(successValue(nodes).meta).toEqual({
-      "@collection": null,
-      "@nodes": { "/$sections/0/$sections/0": { "@collection": null } },
+      "@refs": null,
+      "@nodes": { "/$sections/0/$sections/0": { "@refs": null } },
     });
     expect(nodes.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
   });

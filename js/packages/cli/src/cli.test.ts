@@ -196,7 +196,7 @@ describe("the command line", () => {
     expect(seen?.options).toEqual({ value: true });
     expect(seen?.globals).toEqual({ store: root, json: false, quiet: true });
     expect(seen?.store?.location.root).toBe(root);
-    expect(seen?.store?.configuration).toEqual({ vmd: 1, declared: 1 });
+    expect(seen?.store?.configuration).toMatchObject({ vmd: 1, declared: 1, uniqueness: "strict", collections: [] });
   });
 
   test("prints a command's help for --help after its name, without running it", async () => {

@@ -2,7 +2,7 @@ import { makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { createStorageReader, type FileSource, type StoredFile } from "./file-source.js";
 import { checkStoragePath } from "./path.js";
-import type { StorageReader } from "./storage.js";
+import type { OversizedFile, StorageReader } from "./storage.js";
 
 /** A file of an in-memory store: its content, as bytes or as text encoded in UTF-8, and how the backend treats it. */
 export interface MemoryFile {
@@ -67,6 +67,14 @@ class MemoryFileSource implements FileSource {
       return fail([makeIssue({ code: "storage-failed", path, at: null, message: `cannot read ${path}: permission denied` })]);
     }
     return succeed({ bytes: file.bytes, modified: file.modified });
+  }
+
+  async readFileWithin(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>> {
+    const file = this.#files.get(path);
+    if (file !== undefined && !file.unreadable && file.bytes.length > maxBytes) {
+      return succeed({ path, oversized: true, size: file.bytes.length });
+    }
+    return this.readFile(path);
   }
 
   async head(): Promise<Outcome<string | null>> {

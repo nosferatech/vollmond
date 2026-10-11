@@ -79,8 +79,11 @@ differ from GitHub's gives GitHub's in its description.
   schemas are ordinary files. A store that one case file uses sits next to it under the case file's name, and a store that
   several use sits under `stores/`.
 - **Every path in the suite follows §3.2**, so that the suite checks out unchanged on macOS, Windows and Linux. The exceptions
-  are segments beginning with `.`, such as `.vmd`, `.gitattributes`, `.editorconfig` and the dotfiles that §3.3 cases need.
-  Cases that need a path §3.2 forbids cannot be written as files, and are left out for now (decision C26, §19.1). A later case
+  are segments beginning with `.`, such as `.vmd`, `.gitattributes`, `.editorconfig` and the dotfiles that §3.3 cases need,
+  and the store of `cases/paths/rules.cases.json`, whose paths break §3.2's segment rule only with characters that every
+  filesystem and git keep as they are: a space, a leading `_`, a `+`. Cases that need a path that cannot be a file on all three,
+  such as two paths that differ only by case, a Windows reserved name or a path that is not NFC, are left out for now
+  (decision C26, §19.1), and implementations test those rules on their own. A later case
   format may add a manifest store, a JSON file from store paths to contents that the runner gives its implementation through an
   in-memory backend, used only for such cases.
 - **Nothing may rewrite the suite's bytes.** `.gitattributes` turns off git's line-ending conversion for every file under

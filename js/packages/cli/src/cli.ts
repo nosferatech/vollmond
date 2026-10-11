@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import {
+  type ConfigurationSource,
   fail,
   type Issue,
   type IssueCode,
@@ -13,7 +14,7 @@ import { GLOBAL_OPTIONS, type GlobalOptions, type OptionSpec, readCommandLine, r
 import { createFilesystemStorage } from "./backend/filesystem.js";
 import type { Command, IssueOutput, OpenedStore } from "./command/command.js";
 import { BUILT_IN_COMMANDS } from "./command/index.js";
-import { readConfigurationFile } from "./configuration-file.js";
+import { configurationFileSource, readConfigurationFile } from "./configuration-file.js";
 import { ExitCode, exitCodeOf } from "./exit-code.js";
 import { formatIssues, type IssueDetailsSource } from "./output/issues.js";
 import { oneLine } from "./output/lines.js";
@@ -242,19 +243,31 @@ async function openCommandStore(
   const location = discovered.value;
   const name = location.configurationName;
   const details = () => ({ file: name });
-  const reading = await readConfigurationFile(location.configurationFile);
-  if (reading.kind === "unreadable") {
-    const hint = globals.config === undefined ? "check its permissions" : "check the path given to --config";
-    return {
-      kind: "failed",
-      report: failure("config-invalid", `cannot read the configuration ${name}: ${reading.reason}`, hint),
-    };
-  }
-  if (reading.kind === "invalid") {
-    return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
-  }
   const storage = createFilesystemStorage(location.root);
-  const opened = await openStore(storage, { config: reading.content });
+  let configuration: ConfigurationSource | undefined;
+  // Deviation from the I2 design, recorded in issue #21: the design reads the store's own configuration here too; it is read
+  // by core through the store's backend instead, so that core and the command line follow one rule for the store's files.
+  if (globals.config !== undefined) {
+    // A configuration named with --config, and the schema/ directory beside it, are files the user named rather than files
+    // of the store, so a symbolic link on the way to them is followed. The store's own .vmd/config.yaml and .vmd/schema/ are
+    // read by openStore through the store's backend, whose rule refuses a path reached through a symbolic link.
+    const reading = await readConfigurationFile(location.configurationFile);
+    if (reading.kind === "unreadable") {
+      return {
+        kind: "failed",
+        report: failure(
+          "config-invalid",
+          `cannot read the configuration ${name}: ${reading.reason}`,
+          "check the path given to --config",
+        ),
+      };
+    }
+    if (reading.kind === "invalid") {
+      return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
+    }
+    configuration = configurationFileSource(location.configurationFile, name, reading.content);
+  }
+  const opened = await openStore(storage, configuration === undefined ? {} : { configuration });
   if (!opened.ok) {
     return {
       kind: "failed",
@@ -266,7 +279,6 @@ async function openCommandStore(
     store: {
       location,
       configuration: opened.value.configuration,
-      configurationContent: reading.content,
       storage,
       store: opened.value,
     },
@@ -353,7 +365,7 @@ function generalHelp(commands: readonly Command[]): string {
     "       vmd --version | --help\n\n" +
     `commands:\n${list}\n` +
     "  --store DIR    the store root; by default the nearest directory upwards that holds .vmd/config.yaml\n" +
-    "  --config FILE  a configuration used in place of the store's .vmd/config.yaml\n" +
+    "  --config FILE  a configuration used in place of the store's .vmd/config.yaml, with its schemas in schema/ beside it\n" +
     "  --json         print every outcome, a failure included, as one JSON object\n" +
     "  --quiet        leave out warnings\n"
   );

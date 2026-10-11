@@ -9,6 +9,7 @@ import {
   type Issue,
   makeIssue,
   type Outcome,
+  type OversizedFile,
   type StorageReader,
   type StoredFile,
   succeed,
@@ -119,6 +120,20 @@ class FilesystemFileSource implements FileSource {
   }
 
   async readFile(path: string): Promise<Outcome<StoredFile>> {
+    const read = await this.#read(path, Number.POSITIVE_INFINITY);
+    if (read.ok && "oversized" in read.value) throw new Error("a read without a bound refused a file");
+    return read as Outcome<StoredFile>;
+  }
+
+  readFileWithin(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>> {
+    return this.#read(path, maxBytes);
+  }
+
+  /**
+   * Reads a file, refusing it as oversized when the open file's size is more than `maxBytes`, before reading anything; a file
+   * that grows meanwhile is read up to `maxBytes` and one byte, and refused too.
+   */
+  async #read(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>> {
     const located = await this.#locate(path);
     if (located.kind === "absent") return fail([notFound(path)]);
     if (located.kind === "failed") return fail([storageFailed(path, `cannot read ${path}`, located.cause)]);
@@ -133,8 +148,19 @@ class FilesystemFileSource implements FileSource {
     try {
       const stats = await handle.stat();
       if (!stats.isFile()) return fail([notFound(path)]);
-      const bytes = new Uint8Array(await handle.readFile());
-      return succeed({ bytes, modified: stats.mtime.toISOString() });
+      if (stats.size > maxBytes) return succeed({ path, oversized: true, size: stats.size });
+      if (maxBytes === Number.POSITIVE_INFINITY) {
+        return succeed({ bytes: new Uint8Array(await handle.readFile()), modified: stats.mtime.toISOString() });
+      }
+      const buffer = new Uint8Array(maxBytes + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, null);
+        if (bytesRead === 0) break;
+        length += bytesRead;
+      }
+      if (length > maxBytes) return succeed({ path, oversized: true, size: length });
+      return succeed({ bytes: buffer.slice(0, length), modified: stats.mtime.toISOString() });
     } catch (error) {
       return fail([storageFailed(path, `cannot read ${path}`, error)]);
     } finally {

@@ -5,11 +5,15 @@ import type { OperationContext } from "../operation.js";
 import { metaOperation } from "./meta.js";
 import { resolveOperation } from "./resolve.js";
 
-const context = (files: Record<string, string>): OperationContext => ({
-  store: { files: new Map(Object.entries(files).map(([path, text]) => [path, new TextEncoder().encode(text)])) },
-  comparison: standardComparison,
-  signal: new AbortController().signal,
-});
+/** The context of a case whose store holds these files, and a configuration of `vmd: 1` unless they give one. */
+const context = (given: Record<string, string>): OperationContext => {
+  const files: Record<string, string> = { ".vmd/config.yaml": "vmd: 1\n", ...given };
+  return {
+    store: { files: new Map(Object.entries(files).map(([path, text]) => [path, new TextEncoder().encode(text)])) },
+    comparison: standardComparison,
+    signal: new AbortController().signal,
+  };
+};
 
 const RECORD = '# Title\n\n<a id="room"></a>Room.\n\n## Notes\n\nOne.\n\n## Notes\n\nTwo.\n';
 
@@ -64,6 +68,34 @@ describe("the resolve operation", () => {
     expect(equal("selector", [a, b], [a, a])).toBe(false);
     expect(equal("singular", [a, b], [b, a])).toBe(false);
     expect(equal("singular", [a], [a])).toBe(true);
+  });
+});
+
+describe("the resolve and meta operations, over the case's configuration", () => {
+  const config = 'vmd: 1\ncollections:\n  docs: {match: ["docs/*.md"], schema: missing.json}\nignore: ["drafts/**"]\n';
+  const files = { ".vmd/config.yaml": config, "docs/a.md": RECORD, "drafts/b.md": RECORD, "c.md": RECORD };
+  const codes = (outcome: Awaited<ReturnType<typeof resolveOperation.run>>) =>
+    "issues" in outcome ? outcome.issues.map((issue) => issue.code) : outcome;
+
+  test("refuse a record whose collection's schema cannot be used, and find none at an ignored path", async () => {
+    expect(codes(await resolveOperation.run({ store: "s", address: "docs/a.md#room", as: "singular" }, context(files)))).toEqual([
+      "schema-invalid",
+    ]);
+    expect(codes(await metaOperation.run({ store: "s", record: "docs/a.md" }, context(files)))).toEqual(["schema-invalid"]);
+    expect(codes(await resolveOperation.run({ store: "s", address: "drafts/b.md", as: "singular" }, context(files)))).toEqual([
+      "address-not-found",
+    ]);
+    expect(await resolveOperation.run({ store: "s", address: "c.md#room", as: "singular" }, context(files))).toMatchObject({
+      ok: true,
+    });
+  });
+
+  test("fail with the configuration's issues when it cannot be read", async () => {
+    const broken = context({ ".vmd/config.yaml": "vmd: 1\nlater: true\n", "c.md": RECORD });
+    expect(codes(await resolveOperation.run({ store: "s", address: "c.md", as: "singular" }, broken))).toEqual([
+      "feature-unsupported",
+    ]);
+    expect(codes(await metaOperation.run({ store: "s", record: "c.md" }, broken))).toEqual(["feature-unsupported"]);
   });
 });
 

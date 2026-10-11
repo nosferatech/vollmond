@@ -12,8 +12,6 @@ export interface OpenedStore {
   readonly location: StoreLocation;
   /** What vmd reads of the configuration. */
   readonly configuration: StoreConfiguration;
-  /** The configuration file's bytes, as read. */
-  readonly configurationContent: Uint8Array;
   /** The store's files, over the filesystem below its root. */
   readonly storage: StorageReader;
   /** The store's records and assets over `storage`, each record read and parsed once for the run. */

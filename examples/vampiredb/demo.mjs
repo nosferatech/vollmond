@@ -57,6 +57,7 @@ if (!fs.existsSync(vmdMain)) {
 const core = await import(pathToFileURL(path.join(js, "packages/core/dist/index.js")).href);
 const { runCli } = await import(pathToFileURL(path.join(js, "packages/cli/dist/cli.js")).href);
 const { createFilesystemStorage } = await import(pathToFileURL(path.join(js, "packages/cli/dist/backend/filesystem.js")).href);
+const { configurationFileSource } = await import(pathToFileURL(path.join(js, "packages/cli/dist/configuration-file.js")).href);
 
 /**
  * The failures, each with a class: `docs` for an anchor whose name the record gives to more than one target, which is a
@@ -211,7 +212,8 @@ for (const { path: recordPath } of records) {
 console.log(`outline: ${records.length} records, ${outlineMs.toFixed(0)} ms in all, each in a fresh process`);
 
 // 4. The gets.
-const opened = fast ? await core.openStore(createFilesystemStorage(store), { config: fs.readFileSync(config) }) : null;
+const configuration = configurationFileSource(config, "examples/vampiredb/config.yaml", fs.readFileSync(config));
+const opened = fast ? await core.openStore(createFilesystemStorage(store), { configuration }) : null;
 if (opened !== null && !opened.ok) throw new Error(JSON.stringify(opened.issues));
 const seen = new Map();
 const getStarted = performance.now();

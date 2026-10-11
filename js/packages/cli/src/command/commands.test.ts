@@ -629,13 +629,13 @@ describe("get", () => {
     expect(exitCode).toBe(0);
     expect(outcome.value).toEqual({
       value: { status: "open", range: { start: 1, end: 2 } },
-      meta: { "@collection": null, "@refs": null, "@path": "data.json" },
+      meta: { "@refs": null, "@path": "data.json" },
     });
     expect(outcome.issues).toEqual([
       expect.objectContaining({
         code: "field-not-computed",
         severity: "warning",
-        message: expect.stringMatching(/@refs and @collection/),
+        message: expect.stringMatching(/^@refs is not computed yet/),
       }),
     ]);
     const quiet = await runCli(["--json", "--quiet", "get", "data.json", "--meta", "refs"], env());
@@ -648,19 +648,7 @@ describe("get", () => {
   test("gives every computed field but @nodes for --meta all, and @nodes when it is named too", async () => {
     const all = await vmdJson("get", "docs/guide.md#install", "--meta", "all");
     const fields = Object.keys((all.outcome.value as { meta: object }).meta);
-    expect(fields).toEqual([
-      "@path",
-      "@at",
-      "@address",
-      "@key",
-      "@anchors",
-      "@version",
-      "@source",
-      "@issues",
-      "@refs",
-      "@collection",
-      "@depth",
-    ]);
+    expect(fields).toEqual(["@path", "@at", "@address", "@key", "@anchors", "@version", "@source", "@issues", "@refs", "@depth"]);
     const withNodes = await vmdJson("get", "docs/guide.md#install", "--meta", "all,@nodes");
     expect(Object.keys((withNodes.outcome.value as { meta: object }).meta)).toEqual([...fields, "@nodes"]);
   });
