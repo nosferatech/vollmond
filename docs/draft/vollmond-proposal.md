@@ -501,8 +501,9 @@ file, or one holding only whitespace and comments, is the empty record `{}`, as 
 holding only `---` is not empty: it is a document whose root is an empty node, which is null (YAML 1.2.2, section 7.2), so it is
 `root-not-object`. An empty JSON file is a syntax error, since it is not JSON.
 
-**Nesting.** Arrays and objects nest at most 256 levels deep in every format, the root counting as the first level. A value nested
-deeper is a `syntax-error`, so that a reader's stack is bounded, whatever its parser.
+**Nesting.** Arrays and objects nest at most 256 levels deep within each parse unit (a JSON or YAML file, front matter, a data
+block), its top value counting as the first level. A value nested deeper is a `syntax-error`, so that a reader's stack is
+bounded, whatever its parser. The limit is counted per unit because a data block's value sits deep in its record's value view.
 
 **Block scalars at the end of input.** A YAML block scalar that ends the input without a final line break gets no line feed added:
 `a: |` followed by `  text` and the end of the file is `"text"` (YAML 1.2.2, section 8.1.1.2, production `b-chomped-last`). The
@@ -1346,12 +1347,15 @@ count of the paths that remain; `grep` returns an estimate of the matches that r
 (§10.5). A file that `list` or `grep` cannot read is left out with an issue of severity `error`, and the operation still succeeds
 (§12.3).
 
-**Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1) and VQL's `@path` (§10.3). A glob
-matches a whole store path. `*` matches any characters within one segment, including a leading `.`, so dotfiles are not
-special; `**` as a whole segment matches any number of segments, none included; and every other character matches itself.
+**Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1), the configuration's `ignore`
+(§3.3) and VQL's `@path` (§10.3). A glob matches a whole store path. `*` matches any run of characters within one segment, none
+included, and a leading `.` too, so dotfiles are not special; `**` as a whole segment matches any number of whole segments, none
+included; and every other character matches itself. A `/` that follows `**` is kept, so `docs/**` matches every path below
+`docs/` but not the path `docs` itself, as the filesystem backend's `compileGlob` does.
 
 **`grep` matches line by line.** Each line of a file is matched on its own, without its line break, so `^` and `$` are the line's
-start and end, and `.` matches any character of the line.
+start and end, and `.` matches any character of the line. A line ends at a line feed, a CR LF pair or a carriage return alone,
+as the value view reads line breaks (§5.1).
 
 ### 11.3 Version tokens
 
@@ -1382,19 +1386,32 @@ The current text, like the file version, is the bytes the backend returns, which
 
 `grep` in `regex` mode uses the **portable regex** subset that RE2, Python `re` and ECMAScript all accept: literals and escapes,
 classes, `.`, anchors, groups, alternation, and greedy and lazy quantifiers, with the flag `i`; there is no `m`, since `grep`
-matches line by line (§11.2). Backreferences and lookaround are excluded.
+matches line by line (§11.2). Backreferences and lookaround are excluded. That makes matching linear in time on RE2, but not on
+JavaScript's or Python's engines, which backtrack: `(a+)+$` uses neither feature and takes exponential time on a long run of `a`
+followed by another character. The service backend, which runs other people's patterns, will use an RE2 engine, such as
+`re2js`, a JavaScript port of RE2 (not yet reviewed for licence, maintenance or speed). The local CLI runs the user's own
+patterns on the runtime's engine.
 
-The classes `\d`, `\w` and `\s` and the boundary `\b` mean ASCII, as RE2 reads them: `\d` is `[0-9]`, `\w` is `[0-9A-Za-z_]`,
-`\s` is `[\t\n\f\r ]`, and `\b` is a boundary between `\w` and anything else (RE2's syntax,
-[github.com/google/re2/wiki/Syntax](https://github.com/google/re2/wiki/Syntax), read on 2026-10-10). The flag `i` is Unicode simple
-case folding. Each engine translates the pattern where it reads it otherwise. JavaScript reads `\s` as Unicode white space, `\v`
-included, so it is written out; and with the flags `u` and `i`, which its Unicode case folding needs, its `\w` and `\b` also match
-`ſ` (U+017F) and `K` (U+212A, the Kelvin sign) (measured in Node 24 on 2026-10-10), so they are written out under `i` too. Python
-reads all four as Unicode in a `str` pattern, so each is wrapped in a scoped `(?a:…)`; a global `(?a)` would make `i` ASCII-only
-as well. That makes matching linear in time on RE2, but not on JavaScript's or Python's engines, which backtrack:
-`(a+)+$` uses neither feature and takes exponential time on a long run of `a` followed by another character. The service
-backend, which runs other people's patterns, will use an RE2 engine, such as `re2js`, a JavaScript port of RE2 (not yet
-reviewed for licence, maintenance or speed). The local CLI runs the user's own patterns on the runtime's engine.
+**Classes and case.** A pattern means what RE2 reads it as. The classes `\d`, `\w` and `\s` and their negations `\D`, `\W` and
+`\S` are ASCII, and so are the boundaries `\b` and `\B`: `\d` is `[0-9]`, `\w` is `[0-9A-Za-z_]`, `\s` is `[\t\n\f\r ]`, and `\b`
+is a boundary between `\w` and anything else (RE2's syntax, [github.com/google/re2/wiki/Syntax](https://github.com/google/re2/wiki/Syntax),
+read on 2026-10-10). The flag `i` is Unicode simple case folding, and under it RE2 folds `\w` and `\W` too, so `(?i)\w` also
+matches `ſ` (U+017F) and `K` (U+212A, the Kelvin sign), which fold to `s` and `k`, while `\b` and `\B` stay ASCII boundaries
+whatever the flags (`AddFoldedRange` in RE2's `parse.cc`; read from source, not verified by running RE2). `.` matches any
+character of a line. Each engine translates a pattern where it reads it otherwise, measured in Node 24.21 and Python 3.9.6 on
+2026-10-10:
+
+| | RE2 | JavaScript (flags `u` and `s`, and `i` when asked) | Python `re` (`str` pattern, `re.I` when asked) |
+|---|---|---|---|
+| `\d` `\D` | ASCII | as is: ASCII | `(?a:\d)` `(?a:\D)`; inside a bracket, `0-9` |
+| `\w` `\W` | ASCII; under `i`, also `ſ` and `K` | as is: ASCII, and under `i` it folds as RE2 does | without `i`, `(?a:\w)` `(?a:\W)`; under `i`, `[0-9A-Za-z_\u017F\u212A]` and its negation, since `(?a:\w)` does not fold; inside a bracket, written out |
+| `\s` `\S` | `[\t\n\f\r ]` | written out as `[\t\n\f\r ]` and `[^\t\n\f\r ]`, since JavaScript's `\s` is Unicode white space, `\v` included | written out the same way, since `(?a:\s)` still matches `\v` |
+| `\b` `\B` | ASCII boundary | as is without `i`; under `i`, rewritten with the word class as `(?-i:[0-9A-Za-z_])`, since JavaScript's `\b` under `ui` counts `ſ` and `K` as word characters | `(?a:\b)` `(?a:\B)` |
+| `i` | simple case folding | the `u` flag makes `i` simple case folding | not simple case folding: `re.I` matches `İ` (U+0130) with `i` and `ı` (U+0131) with `I`, and not `ᲀ` (U+1C80) with `в` (U+0432); a known deviation of a Python implementation (§20, open question 7) |
+| `.` | any character but `\n` | the `s` flag, so that `.` matches U+2028 and U+2029 within a line | as is |
+
+A scoped `(?a:…)` cannot stand inside a bracket, so a Python translation writes a class out there, and a global `(?a)` is no
+option, since it would make `i` ASCII-only as well.
 
 ### 11.5 Atomicity
 
@@ -1885,6 +1902,10 @@ A backend conforms to the storage contract (§11) separately, and states whether
    Markdown link stays a plain link (§6.3). Whether a Markdown link can carry an attribute that a reader does not see and that
    says the same is open.
 
+7. **Simple case folding in Python.** Python's `re.I` is not Unicode simple case folding (§11.4), so a Python implementation's
+   `grep` would match some patterns differently. Whether it uses another engine, translates each cased letter of a pattern into
+   a class of its simple case folding orbit, or accepts and documents the deviation is open.
+
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
 ([#47](https://github.com/nosferatech/vollmond/issues/47), §6.4), and renames, aliases and concurrent changes
@@ -2181,9 +2202,9 @@ The columns:
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|
-| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a value nested more than 256 levels deep, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
+| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a value nested more than 256 levels deep within its parse unit, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
 | `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first, whose value is not looked into |
-| `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member |
+| `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member, and that member's value is not looked into |
 | `number-not-representable` | error | structural | §4.2 | an integer by form (§4.2) whose double differs from it, a number too large for a double, or a non-zero number a double rounds to zero; the number |
 | `yaml-non-finite` | error | structural | §4.1 | `.inf`, `-.inf` or `.nan`; the number |
 | `yaml-non-string-key` | error | structural | §4.1 | a mapping key that is not a string; the mapping |

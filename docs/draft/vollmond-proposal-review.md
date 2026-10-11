@@ -801,16 +801,25 @@ the draft's minor version rises (C27), and the suite moves to `0.8.0-dev`.
 Recorded 2026-10-10, and applied to Draft v0.9. The review of the storage contract and filesystem backend (#68) raised six points,
 and the project owner accepted every recommendation on card M.
 
-- **M1. The portable regex's classes.** `\d`, `\w`, `\s` and `\b` mean ASCII, as RE2 reads them, and the flag `i` is Unicode
-  simple case folding; each engine translates where it reads a pattern otherwise (§11.4). The card named JavaScript's `\s` as
-  its only difference. Measured in Node 24, JavaScript under the flags `u` and `i`, which its Unicode case folding needs, also
-  lets `\w` and `\b` match `ſ` (U+017F) and the Kelvin sign (U+212A), so §11.4 has those written out under `i` too. Python's
-  translation is a scoped `(?a:…)` around each class, since a global `(?a)` would also make `i` ASCII-only (measured with Python
-  3.9).
-- **M2. `grep` matches line by line**, so the `m` flag is gone, and `.` matches any character of a line (§11.2, §11.4). The card
+- **M1. The portable regex's classes.** `\d`, `\w`, `\s` and `\b` and their negations mean what RE2 reads them as: ASCII, with
+  the flag `i` as Unicode simple case folding; each engine translates where it reads a pattern otherwise (§11.4, with a table for
+  RE2, JavaScript and Python). Under `i`, RE2 folds `\w` and `\W` too, so `(?i)\w` matches `ſ` (U+017F) and the Kelvin sign
+  (U+212A), while `\b` and `\B` stay ASCII boundaries; that is read from RE2's source (`AddFoldedRange` in `parse.cc`) and not
+  verified by running RE2. JavaScript with the flags `u` and `i` folds `\w` as RE2 does, so it needs nothing there; it needs `\s`
+  and `\S` written out, `\b` and `\B` under `i` rewritten with the word class as `(?-i:[0-9A-Za-z_])`, and the flag `s` so that `.`
+  matches U+2028 and U+2029 within a line (measured in Node 24.21). The first version of this round said that JavaScript's `\w`
+  and `\b` were written out under `i`, which was wrong for `\w` and changed nothing. Python needs `\s` and `\S` written out,
+  since `(?a:\s)` still matches `\v`; a scoped `(?a:…)` for the other classes, which cannot stand inside a bracket, where the
+  classes are written out; and under `re.I` a written-out `\w` with `ſ` and `K`, since `(?a:\w)` does not fold. Python's `re.I`
+  is not simple case folding (U+0130, U+0131 and U+1C80, measured in Python 3.9.6): a known deviation of a Python
+  implementation, and §20's open question 7.
+- **M2. `grep` matches line by line**, so the `m` flag is gone, and `.` matches any character of a line (§11.2, §11.4). A line
+  ends at LF, CRLF or a lone CR, as the filesystem backend's `grep` does. The card
   placed the flag in §11.2; it was in §11.4's description of the portable regex.
-- **M3. One glob syntax** for a collection's `match` and `exclude` (§9.1), VQL's `@path` (§10.3) and `list` and `grep` (§11.2): `*`
-  within one segment, dotfiles included, `**` any depth, and every other character matches itself. It is defined once, in §11.2.
+- **M3. One glob syntax** for a collection's `match` and `exclude` (§9.1), the configuration's `ignore` (§3.3), VQL's `@path`
+  (§10.3) and `list` and `grep` (§11.2): `*` within one segment, dotfiles included, `**` any depth, and every other character
+  matches itself. It is defined once, in §11.2. Whether `docs/**` matches `docs` itself was left open by the card; the draft
+  follows the filesystem backend's `compileGlob`, which requires `docs/`.
 - **M4. A successful operation may carry an error**, such as an unreadable file that `list` or `grep` leaves out, and the command
   then exits with 4 (§12.3, Appendix D's preamble, §11.2).
 - **M5. Counts.** `list` gives an exact count of what remains, and `grep` an estimate marked as one, as query totals are (§11.2,
@@ -822,17 +831,17 @@ and the project owner accepted every recommendation on card M.
 Recorded 2026-10-10, and applied to Draft v0.9. The reviews of the JSON and YAML parsers (#69, #72) raised seven points, and the
 project owner accepted every recommendation on card N.
 
-- **N1. Nesting** is limited to 256 levels in every format, the root counting as the first, and a deeper value is a
-  `syntax-error` (§5.4, Appendix D), with cases at 256 and 257 levels in JSON and in YAML. That the root counts as the first
-  level is the agent's reading of "256 levels".
+- **N1. Nesting** is limited to 256 levels within each parse unit (a JSON or YAML file, front matter, a data block), its top
+  value counting as the first level, and a deeper value is a `syntax-error` (§5.4, Appendix D), with cases at 256 and 257 levels
+  in JSON and in YAML. It is counted per unit because a data block's value sits deep in its record's value view.
 - **N2. A root that is not an object** is `root-not-object`, and its contents are still checked and reported (§4.1, §5.4,
   Appendix D), as C2 and L3 ask, with a case.
 - **N3. A repeated member's value** is not looked into (§4.1, Appendix D), with a case.
 - **N4. A YAML file holding only `---`** is a document whose root is null (YAML 1.2.2, section 7.2), so it is `root-not-object`,
   while an empty file stays the empty record (C8) (§5.4), with a case.
 - **N5. Raw U+FFFE and U+FFFF inside YAML quotes** stay a `syntax-error`. This departs from YAML, whose quoted scalars accept any
-  `nb-json` character, as vmd departs for the byte order mark (§4.1). The `yaml` package (2.9.1) accepts a raw U+FFFE in double
-  quotes.
+  `nb-json` character, as vmd departs for the byte order mark (§5.1); the rule is in §4.1. The `yaml` package (2.9.1) accepts a
+  raw U+FFFE in double quotes.
 - **N6. An undeclared YAML tag handle**, such as `!e!x`, is a `syntax-error`, not `yaml-tag` (§4.1, YAML 1.2.2, section 6.8.2.1).
 - **N7. A member whose name holds an unpaired surrogate**: its value is not looked into (§4.1), with a case.
 
