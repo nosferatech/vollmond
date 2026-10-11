@@ -19,6 +19,24 @@ export {
 } from "./record/node-index.js";
 export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
+export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
+export { compileLineTest, type LineTest } from "./storage/grep.js";
+export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";
+export { checkStoragePath, compareUtf8 } from "./storage/path.js";
+export { checkPortableRegex } from "./storage/portable-regex.js";
+export type {
+  ContentRange,
+  FileChange,
+  FileContent,
+  FileInfo,
+  GrepMatch,
+  GrepQuery,
+  ListQuery,
+  LogEntry,
+  Page,
+  StorageHistory,
+  StorageReader,
+} from "./storage/storage.js";
 export { type ByteRange, decodeSource, type Position, type SourceText, type SourceTextIssueCode } from "./text/source-text.js";
 export { gitBlobId, nodeVersion } from "./value/digest.js";
 export { jcs } from "./value/jcs.js";
