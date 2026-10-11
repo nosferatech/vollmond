@@ -5,6 +5,7 @@ import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { applySeverities } from "../issue/severity.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ReferenceResolver } from "../reference/resolve.js";
+import type { CollectionSchema } from "../schema/collection-schema.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { FileInfo, StorageReader } from "../storage/storage.js";
 import { filenameMismatch, type ListedPath, pathRuleIssues } from "../store/path-rules.js";
@@ -40,6 +41,8 @@ export interface CheckedStore {
    * `listing` is the store's files but the ignored ones, which the check has listed.
    */
   referenceResolver(listing: readonly string[]): Promise<Outcome<ReferenceResolver>>;
+  /** A collection's schema, the same each time; null for a collection without one, a failure for one that cannot be used. */
+  schema(collection: Collection): Promise<Outcome<CollectionSchema> | null>;
 }
 
 /** How many paths a page of the listing that a check reads holds. */
@@ -51,6 +54,7 @@ const LIST_PAGE = 1000;
  *
  * - each record's structural errors, or the validation issues parsing found; a file the backend could not read is
  *   `storage-failed`;
+ * - for a record that parses, of a collection whose schema can be used, the schema's violations (`schema-violation`);
  * - the path rules over every listed path (`path-invalid`, `path-case-conflict`), records and assets alike;
  * - `collection-conflict` for a record that several collections claim, which is then checked as a record of none;
  *   `filename-mismatch` for a record whose name does not match its collection's pattern;
@@ -63,7 +67,6 @@ const LIST_PAGE = 1000;
  * Fails as the backend's `list` does, with nothing checked, and with the issue of an alias file that cannot be read as one,
  * since without its aliases references would be reported dangling that are not.
  */
-// TODO(#22): schemas are not compiled yet, so a record of a collection whose schema file can be read is checked without it.
 export async function checkStore(store: CheckedStore, options: CheckOptions = {}): Promise<Outcome<CheckSummary>> {
   const listed = await listAll(store);
   if (!listed.ok) return listed;
@@ -109,6 +112,8 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     const parsed = await store.parse(record.path);
     if (parsed.ok) {
       issues.push(...parsed.value.issues);
+      const schema = collection === undefined ? null : await store.schema(collection);
+      if (schema?.ok === true) issues.push(...schema.value.validate(parsed.value));
     } else {
       unreadable += 1;
       issues.push(...parsed.issues);

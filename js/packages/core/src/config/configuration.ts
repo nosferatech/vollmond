@@ -59,10 +59,11 @@ export const SUPPORTED_FORMAT_VERSION = 1;
 export const MAX_CONFIGURATION_BYTES = 1024 * 1024;
 
 /**
- * Codes that the YAML reader raises for the shape of a record, which a configuration does not have: its members are not
- * sections or fields, so a `$` member is refused here as an unknown member rather than as a section's.
+ * Codes that the YAML and JSON readers raise for the shape of a record, which a configuration and a schema file do not have:
+ * their members are not sections or fields, so a configuration refuses a `$` member as an unknown member rather than as a
+ * section's, and a schema's `$ref`, `$defs` and `$anchor` are JSON Schema's.
  */
-const RECORD_SHAPE_CODES: ReadonlySet<IssueCode> = new Set([
+export const RECORD_SHAPE_CODES: ReadonlySet<IssueCode> = new Set([
   "dollar-member",
   "feature-unsupported",
   "reserved-member-type",

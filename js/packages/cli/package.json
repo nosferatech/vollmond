@@ -22,6 +22,7 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@hyperjump/browser": "1.5.1",
     "@vollmond/core": "0.0.0"
   },
   "devDependencies": {
