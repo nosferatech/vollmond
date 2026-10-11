@@ -856,20 +856,29 @@ Recorded 2026-10-10, and applied to Draft v0.10. The CLI foundation (#74) and th
 the project owner accepted every recommendation on card O.
 
 - **O1. `--config PATH`** is a global option (§12.1), using a file in place of the store's `.vmd/config.yaml`. It records in the
-  draft the flag that the I1 design's question 3 (K3) brought into I1.8.
-- **O2. `--quiet`** leaves out warnings only, the warning about the runtime's Unicode data included; errors and the result are
-  always printed (§12.1).
-- **O3. Issues go to stderr**, except for the commands whose result is the list of issues, `check` and `refs`, which print them on
-  stdout (§12.3).
+  draft the flag that the I1 design's question 3 (K3) brought into I1.8, with the store discovery it implies (§3.3): `--store`
+  names the root, without it the root is the nearest directory at or above the working directory holding `.vmd/config.yaml`,
+  and with `--config` the root need not hold one. As a consequence, `vmd set`'s option for a JSON value, which clashed with the
+  global `--json`, is renamed `--json-value`.
+- **O2. `--quiet`** leaves out warnings only, the warning about the runtime's Unicode data included, on stderr and from the JSON
+  object alike, except for `check`, whose warnings are its result; errors and the result are always printed (§12.1).
+- **O3. Issues go to stderr.** `check`, whose result is its issues, and `refs`, whose result lists references with their status,
+  print those on stdout; configuration issues and the warning about the runtime's Unicode data still go to stderr for them
+  (§12.3).
 - **O4. Under `--json`, every failure is an outcome-shaped JSON object on stdout**, usage errors, a missing store and the runtime's
-  Unicode warning included (§12.2, §12.3). Appendix D gains the operation codes `usage-invalid` and `store-not-found`. The card
+  Unicode warning included (§12.2, §12.3): `{"ok": true, "value", "issues"}` on success and `{"ok": false, "issues"}` on failure,
+  as the CLI's outcome type. Appendix D gains the operation codes `usage-invalid` and `store-not-found`; an unreadable or missing
+  `--config` path is `config-invalid`, an unreadable working directory is `store-not-found`, and an internal error, a bug, is
+  the one failure exempt from the issue codes. The card
   asks for the runtime warning as an issue but names no code for it, and every issue needs one, so the draft adds a third,
   `unicode-runtime-older` (a warning); that code and its name are the agent's, for the owner to confirm.
 - **O5. Step 2 of the slug rule** also removes the code points that are unassigned in the pinned Unicode version, 17.0.0, before
   NFC, so that every runtime at 17 or later derives the same anchor (§6.3), with a case. The card's example was checked against
   the final data of both versions: U+1ADE is unassigned in 17.0.0 and is COMBINING GRAVE-DOT, combining class 230, in 18.0.0,
-  so `a`, U+1ADE, U+0323 normalizes to U+1EA1, U+1ADE on an 18 runtime and stays as written on 17. This changes the slug rule,
-  which §6.3 allows only with a new version of the specification; Draft v0.10 is that version.
+  so `a`, U+1ADE, U+0323 normalizes to U+1EA1, U+1ADE on an 18 runtime and stays as written on 17. Unassigned means `Cn`,
+  noncharacters included, with a second case on U+FDD0. This changes the slug rule, which §6.3 allows only with a new version of
+  the specification; Draft v0.10 is that version. No warning period or migration is needed, since nothing derives anchors yet:
+  the slug is implemented in task I1.5. §6.3 also says when `unicode-runtime-older` is raised.
 
 The storage review (#16, comment 6105633607) gave §11.2's globs their wording, applied without a decision: `**/` matches zero or
 more whole segments with their `/`, and a final `/**` matches one or more. A glob that is empty, starts or ends with `/`, or has

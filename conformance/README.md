@@ -153,8 +153,7 @@ unchanged.
 
 `config` is optional. It names a configuration file in the store's `.vmd/` directory, such as `config-lenient.yaml`, which the
 implementation uses in place of `.vmd/config.yaml`. It exists so that one store serves both uniqueness modes (§5.7), with the
-same records read under `uniqueness: strict` and under `uniqueness: lenient`. It does what `vmd --config PATH` does in the
-plan's I2.1.
+same records read under `uniqueness: strict` and under `uniqueness: lenient`. It does what `vmd --config PATH` does (§12.1).
 
 **Two copies of the store were rejected.** They state each record twice, and the copies drift apart when one is edited.
 
