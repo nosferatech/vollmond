@@ -85,6 +85,22 @@ describe("parseRecord", () => {
     ]);
   });
 
+  test.each([
+    ["a.json", (title: string) => JSON.stringify({ $sections: [{ $title: title }] })],
+    ["a.yaml", (title: string) => `$sections:\n  - $title: ${JSON.stringify(title)}\n`],
+  ])(
+    "a section's $title with emphasis nested 256 levels reads, and 257 levels fail with a syntax-error at the root, in %s",
+    (path, record) => {
+      const nested = (levels: number) => `${"*a ".repeat(levels)}b${" a*".repeat(levels)}`;
+      expect(parseRecord(path, bytes(record(nested(256)))).ok).toBe(true);
+      const outcome = parseRecord(path, bytes(record(nested(257))));
+      expect(outcome.ok).toBe(false);
+      expect(outcome.issues.map(({ code, path: issuePath, at }) => ({ code, path: issuePath, at }))).toEqual([
+        { code: "syntax-error", path, at: "" },
+      ]);
+    },
+  );
+
   test("a $title of 20,000 *a* is refused without resolving its emphasis", () => {
     const started = performance.now();
     const outcome = parseRecord("a.json", bytes(JSON.stringify({ $sections: [{ $title: "*a* ".repeat(20_000) }] })));

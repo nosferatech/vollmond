@@ -78,12 +78,11 @@ const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, runCountExtension(fa
 /** The extension that counts the runs of a data `$title`, all its lines together, made once. */
 const TITLE_RUN_COUNT: MicromarkExtension = runCountExtension(true);
 
-/** The options of a parse that only counts the runs of a title, without emphasis and strikethrough, made once. */
-const RUN_COUNT_ONLY_OPTIONS: Options = optionsOf([
-  ...inlineContentExtensions([]),
-  { disable: { null: ["attention", "strikethrough"] } },
-  TITLE_RUN_COUNT,
-]);
+/** The options of the parse that checks the limits of a title, without link reference definitions, made once. */
+const TITLE_LIMIT_OPTIONS: Options = optionsOf([...inlineContentExtensions([]), TITLE_RUN_COUNT]);
+
+/** The characters that a run of emphasis, strikethrough or a link takes: `*`, `_`, `~` and `[`. */
+const NESTING_CHARACTERS: readonly number[] = [...RUN_CHARACTERS, 0x5b];
 
 /** The syntax tree of a Markdown text, or where it passes a resource limit and why. */
 export type MarkdownTree =
@@ -189,28 +188,38 @@ export function parseInlineContent(text: string, labels: readonly string[]): rea
   return content;
 }
 
+/** A resource limit that a text passes: where, as an index into the text, and which, for people. */
+export interface LimitPassage {
+  readonly at: number;
+  readonly message: string;
+}
+
 /**
- * Finds the first run beyond {@link MAX_EMPHASIS_RUNS} in a text read as a heading's inline content (see
- * {@link parseInlineContent}), all its lines counting together, and returns its index in the text, or null when there is
- * none. It counts with the counter of {@link parseMarkdownTree}, in a parse without emphasis and strikethrough, whose cost
- * does not grow with the square of the runs, so that it needs no link reference definitions and is cheap to ask of every
- * title, before the title is read in full.
+ * Finds a resource limit that a text read as a heading's inline content (see {@link parseInlineContent}) passes: the first
+ * run beyond {@link MAX_EMPHASIS_RUNS}, all its lines counting together, or else the first inline node nested deeper than
+ * {@link MAX_NESTING}. Returns null when it passes none.
+ *
+ * It reads the text with the counter and the nesting walk of {@link parseMarkdownTree}, in one parse that stops at the first
+ * run too many, before the library resolves the emphasis, so that its cost stays linear in the text but for the library's
+ * own. It has no link reference definitions, so a reference link that a definition elsewhere would make counts as text.
  */
-export function inlineRunsBeyondLimit(text: string): number | null {
-  // A run holds a character of `*`, `_` or `~`, so a text with no more of them than the limit has no run beyond it, which
-  // most titles show without the library.
+export function inlineLimitPassedIn(text: string): LimitPassage | null {
+  // A run, and a level of nesting, takes a character of `*`, `_`, `~` or `[`, so a text with no more of them than the nesting
+  // limit passes neither limit, which most titles show without the library.
   let candidates = 0;
-  for (let index = 0; index < text.length && candidates <= MAX_EMPHASIS_RUNS; index++) {
-    if (RUN_CHARACTERS.includes(text.charCodeAt(index))) candidates += 1;
+  for (let index = 0; index < text.length && candidates <= MAX_NESTING; index++) {
+    if (NESTING_CHARACTERS.includes(text.charCodeAt(index))) candidates += 1;
   }
-  if (candidates <= MAX_EMPHASIS_RUNS) return null;
+  if (candidates <= MAX_NESTING) return null;
+  let root: Root;
   try {
-    fromMarkdown(text, RUN_COUNT_ONLY_OPTIONS);
+    root = fromMarkdown(text, TITLE_LIMIT_OPTIONS);
   } catch (error) {
-    if (error instanceof LimitPassed) return error.at;
+    if (error instanceof LimitPassed) return { at: error.at, message: error.message };
     throw error;
   }
-  return null;
+  const tooDeepAt = inlineNestedBeyond(root, MAX_NESTING);
+  return tooDeepAt === null ? null : { at: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` };
 }
 
 /**

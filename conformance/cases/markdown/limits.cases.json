@@ -250,6 +250,49 @@
           "$body": "<!-- c --> text\n\n```yaml data\na: 1\n```"
         }
       }
+    },
+    {
+      "id": "data-title-inline-nesting-256",
+      "spec": [
+        "5.4",
+        "5.5"
+      ],
+      "description": "A JSON section's $title with emphasis nested 256 levels deep is within the limit on inline nesting, and reads (§5.4, decision Y1).",
+      "input": {
+        "record": "title-nesting-256.json"
+      },
+      "expect": {
+        "result": {
+          "$sections": [
+            {
+              "$title": "*a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a b a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a*"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-title-inline-nesting-257",
+      "spec": [
+        "5.4",
+        "5.5",
+        "D"
+      ],
+      "description": "One more level, 257, in a JSON section's $title is a syntax error at the root: a data $title is read as a heading's inline content (§5.5), and inline nesting counts toward the 256-level limit within it (§5.4, decision Y1).",
+      "input": {
+        "record": "title-nesting-257.json"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "title-nesting-257.json",
+            "at": ""
+          }
+        ]
+      }
     }
   ]
 }

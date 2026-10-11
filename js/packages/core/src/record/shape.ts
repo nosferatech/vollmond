@@ -1,5 +1,4 @@
-import { MAX_EMPHASIS_RUNS } from "../format/limits.js";
-import { inlineRunsBeyondLimit } from "../format/markdown/library.js";
+import { inlineLimitPassedIn } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
@@ -32,9 +31,10 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * document order: like `Object.entries`, it lists integer-like names first, in ascending order, then the others in the order
  * they were added.
  *
- * - on a section, a `$title` that holds more than the most runs of emphasis a text may (`syntax-error`, at the root, positioned
- *   at the member), a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or
- *   `$sections` that is not an array of objects (`reserved-member-type`, at the member); an item of `$sections` without a
+ * - on a section, a `$title` that passes a resource limit of inline content, which is more runs of emphasis than a text may
+ *   hold, or inline elements nested deeper than it may (`syntax-error`, at the root, positioned at the member); a `$title`,
+ *   `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array
+ *   of objects (`reserved-member-type`, at the member); an item of `$sections` without a
  *   `$title` (`section-title-missing`, at the item); `$key`, or `$schema` below the root (`dollar-member`); and any other
  *   member whose name begins with `$` (`feature-unsupported`);
  * - at the top of front matter or of a data block, `$key` and the section members (`dollar-member`), `$schema` in a data block
@@ -84,10 +84,10 @@ class ShapeChecker {
         case "$title":
           if (typeof member !== "string") {
             this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
-          } else if (inlineRunsBeyondLimit(member) !== null) {
+          } else {
+            const passed = inlineLimitPassedIn(member);
             // The record is beyond a resource limit, which is a syntax error at the root, positioned at the title.
-            const message = `$title holds more than ${MAX_EMPHASIS_RUNS} runs of *, _ or ~`;
-            this.#raise("syntax-error", "", message, memberAt);
+            if (passed !== null) this.#raise("syntax-error", "", `$title passes a resource limit: ${passed.message}`, memberAt);
           }
           break;
         case "$body":

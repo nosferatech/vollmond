@@ -1,10 +1,10 @@
 /**
  * The deepest nesting that a parse unit may have, in every format: of arrays and objects (sequences and mappings in YAML), the
- * unit's top value counting as level 1; in a Markdown body, of block quotes and list items; and, within each Markdown block, of
- * inline elements that hold inline content (emphasis, strong emphasis, strikethrough and links), counted apart from the
- * containers. A deeper unit is a `syntax-error`, the same on every runtime, whatever its call stack holds. Parsers check it
- * before a library recurses into the unit, and the Markdown parser as its library opens each container, and on the tree it
- * builds for inline elements.
+ * unit's top value counting as level 1; in a Markdown body, of block quotes and list items; and, within each Markdown block or
+ * data `$title`, of inline elements that hold inline content (emphasis, strong emphasis, strikethrough and links), counted
+ * apart from the containers. A deeper unit is a `syntax-error`, the same on every runtime, whatever its call stack holds.
+ * Parsers check it before a library recurses into the unit, and the Markdown parser as its library opens each container, and
+ * on the tree it builds for inline elements.
  */
 export const MAX_NESTING = 256;
 
