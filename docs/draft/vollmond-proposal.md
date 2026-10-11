@@ -1,11 +1,11 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.11 (2026-10-11). Supersedes Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit
-`26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
-`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
-rises with each round of decisions applied to the draft. Each decision is a record in [`docs/decisions/`](../decisions/), with
-its options and reasons, and [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of
-the decisions by round.
+Status: Draft v0.12 (2026-10-11). Supersedes Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit
+`75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit
+`d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit
+`b7c8a52`). The minor version rises with each round of decisions applied to the draft. Each decision is a record in
+[`docs/decisions/`](../decisions/), with its options and reasons, and [vollmond-proposal-review.md](vollmond-proposal-review.md)
+holds the review of v0.1 and the index of the decisions by round.
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -101,7 +101,9 @@ These hold on GitHub, on macOS, Windows and Linux filesystems, and in URLs witho
 
 - Segments match `[A-Za-z0-9][A-Za-z0-9._-]*`, at most 255 bytes each. No spaces.
 - Paths are NFC-normalized and at most 1024 bytes long.
-- Two paths that differ only by case are an error.
+- Two paths that differ only by case are an error, and so are two paths with a directory prefix each that differ only by case,
+  since macOS and Windows merge such directories: every prefix of a path is compared case-insensitively, so `Docs/a.md` and
+  `docs/b.md` conflict as `Docs/a.md` and `docs/a.md` do.
 - Windows reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, with any extension) and segments ending in
   `.` are an error.
 - A collection may narrow these rules with a filename pattern (§9.1).
@@ -432,11 +434,12 @@ of the GFM specification (0.29-gfm, 2019-04-06, checked on 2026-10-10). A Markdo
   object, whose members are the section's fields, and an empty block, or one holding only white space, gives no fields, in `json
   data` as in `yaml data`. A data block whose fence is not closed is a `syntax-error` at its section, as unclosed front matter is:
   CommonMark would let it run to the end of the file (CommonMark 0.31.2, section 4.5), and YAML would read every heading after it
-  as a comment, so whole sections would vanish without an issue. There is at most one. A fenced block anywhere else is prose. The
-  first word of the info string keeps GitHub's syntax highlighting; the second marks the block as data rather than an example. The
-  marker was chosen over two alternatives (the schema naming the sections that carry data, and the first YAML or JSON fence after
-  a heading always being data): both turn ordinary examples into data, and the first makes a file's value depend on its
-  collection.
+  as a comment, so whole sections would vanish without an issue. A misplaced or second data block (below) whose fence is not
+  closed gets that `syntax-error` too, at the root or at the section, beside its `data-block-misplaced`. There is at most one. A
+  fenced block anywhere else is prose. The first word of the info string keeps GitHub's syntax highlighting; the second marks the
+  block as data rather than an example. The marker was chosen over two alternatives (the schema naming the sections that carry
+  data, and the first YAML or JSON fence after a heading always being data): both turn ordinary examples into data, and the first
+  makes a file's value depend on its collection.
 - **Info strings.** The info string of a fence in a data block's place is split into words on spaces and tabs, and its words are
   compared case-sensitively with the source text, before the decoding of entity references and backslash escapes that CommonMark
   applies to info strings (CommonMark 0.31.2, section 4.5). So the marker is what the author typed, and `yaml&#32;data` is one
@@ -444,11 +447,14 @@ of the GFM specification (0.29-gfm, 2019-04-06, checked on 2026-10-10). A Markdo
   is `data` and whose first word is not `yaml`, `json` or `jsonc` (`toml data`, `YAML data`), or one that adds a third word to one
   of those three, is a structural error (`feature-unsupported`), since a newer minor version may define it (§9.1). That holds in
   every place where a data block is read or is misplaced: right after a heading, as the first block of a record without a title
-  heading, and right after a data block, so that a newer kind of data block is always detected.
+  heading (an HTML block of only comments not counting, below), and right after a data block, so that a newer kind of data block
+  is always detected.
 - **Misplaced data blocks.** The root's fields come only from the front matter. These are structural errors
   (`data-block-misplaced`, §9.2): a data block right after the title heading, a data block that is the first block of a record
-  without a title heading (after the front matter, if any), and a second data block right after a section's data block (only
-  blank lines between). Each would otherwise be prose that looks like data, and its fields would vanish silently.
+  without a title heading (after the front matter, if any), and a second data block right after a section's data block (only blank
+  lines between). Each would otherwise be prose that looks like data, and its fields would vanish silently. An HTML block that
+  holds only comments does not count as the first block here either, as for the title heading (above), so `<!-- c -->` followed by
+  a `yaml data` block is `data-block-misplaced`, and followed by a `toml data` block `feature-unsupported`.
 - **`$` members in front matter and data blocks.** A top-level member whose name begins with `$` is a structural error, with the
   split of §5.4: `dollar-member` for a section member (`$title`, `$anchor`, `$tags`, `$body`, `$sections`) and for `$key`, since
   a Markdown section's title, anchor, tags, body and children have their own syntax, and `feature-unsupported` for any other name,
@@ -529,20 +535,27 @@ alone is not detectable: an older reader would take `notes.jsonc` for an asset, 
 predates it refuses it whatever its value. A `jsonc data` block of only comments and white space gives no fields, as an empty
 block does (§5.3). An edit keeps a JSONC file's comments (§13.3).
 
-**Resource limits.** Every format has the same three limits, beyond which a record is a `syntax-error`, so that a reader's time
-and stack are bounded whatever its parser:
+**Resource limits.** Every format has the same three limits, beyond which a record is a `syntax-error`, so that a reader's stack
+is bounded on every machine whatever its parser, and the costliest inputs measured are refused early. Each limit is checked before
+the text beyond it is parsed:
 
 - **Nesting.** Arrays and objects nest at most 256 levels deep within each parse unit (a JSON or YAML file, front matter, a data
   block), its top value counting as the first level. The limit is counted per unit because a data block's value sits deep in its
-  record's value view. In Markdown, container blocks (block quotes and list items) count as levels too, and the nesting is
-  checked before the Markdown is parsed.
-- **Emphasis runs.** A Markdown paragraph or table cell holds at most 4,096 runs of `*`, `_` or `~`.
+  record's value view. In Markdown, container blocks (block quotes and list items) nest at most 256 levels, and so do inline
+  elements that hold inline content (emphasis, strong emphasis, strikethrough and links) within their block or data `$title`,
+  counted apart from the containers, an element at the top counting as the first level.
+- **Emphasis runs.** Each Markdown paragraph, table cell and heading, and each data `$title` (§5.5), holds at most 4,096 runs. A
+  run is a delimiter run of `*` or `_` (CommonMark 0.31.2, section 6.2), or a run of `~`.
 - **Size.** A record is at most 16 MiB.
 
-The Markdown library slows down sharply on some valid input that the nesting limit alone does not bound: 20,000 `*a*` in one
+The limits bound a reader's stack, not its time. The Markdown library slows down sharply on some valid input: 20,000 `*a*` in one
 paragraph (80 KB) took 1.5 s, 10,000 nested emphasis levels 32 s, and 1,000 levels of list indentation 15 s (measured for the
-Markdown parser, #79). The limits sit far above real files: vampiredb's busiest paragraph has 219 runs, and its largest file is
-673 KB.
+Markdown parser, #79), and the limits refuse those inputs. Inputs within the limits can still be slow, since the time goes into
+inline parsing after the limits are checked: 1,000 paragraphs, each with 256 nested emphasis levels (1.5 MB), took 12.7 s, and
+20,000 nested link brackets 20.7 s (measured in the review of #94). A per-record time budget is not a rule, since its outcome
+would depend on the machine and the conformance suite could not test it; the worst case is a performance bug, tracked in
+[#88](https://github.com/nosferatech/vollmond/issues/88). The limits sit far above real files: vampiredb's busiest paragraph has
+219 runs, and its largest file is 673 KB.
 
 **Block scalars at the end of input.** A YAML block scalar that ends the input without a final line break gets no line feed added:
 `a: |` followed by `  text` and the end of the file is `"text"` (YAML 1.2.2, section 8.1.1.2, production `b-chomped-last`). The
@@ -575,9 +588,10 @@ safe. To set a section's key, give it an `$anchor`.
 
 A section's **key** is its `$anchor` if it has one, and otherwise the slug of its `$title`, as steps 1 to 6 of §6.3 compute it,
 without the repeat suffix of step 7. A `$title` is Markdown source in every format, so the `$title` of a JSON or YAML section is
-read as a heading's inline content: with the record's link reference definitions in scope, a line break read as a soft break
-(§6.3 step 1), and no closing sequence stripped. `What *is* confirmed` gives `what-is-confirmed` in YAML as in Markdown, a title
-`one` and `two` on two lines gives `one-two`, and `[Foo][bar] baz` with `[bar]: /x` in the record gives `foo-baz`, so that a
+read as a heading's inline content: with the link reference definitions of the record's `$body` values in scope, and only those, a
+line break read as a soft break (§6.3 step 1), a blank line as two line breaks, and no closing sequence stripped. Its runs count
+toward the limit of §5.4. `What *is* confirmed` gives `what-is-confirmed` in YAML as in Markdown, a title `one` and `two` on two
+lines gives `one-two`, and `[Foo][bar] baz` with `[bar]: /x` in one of the record's `$body` values gives `foo-baz`, so that a
 section keeps its key when its record changes format. A heading whose slug is empty has the empty key. The key is derived and
 never stored, and it is not a member of the value view. It is the computed field `@key` (§5.10), which a read returns on request,
 schemas name in `x-vmd-list` (§9.3) and VQL matches (§10.3).
@@ -723,15 +737,15 @@ query are one concept.
 | `@range` | for a block anchor, the byte range in the `$body` that `@at` names (§6.2) |
 | `@issues` | the issues attached to the node, each with its `code`, `severity`, `at` and `message` (Appendix D) |
 | `@refs` | the references the node contains, each with its raw text and resolved address (§8) |
-| `@collection` | the record's collection (§9.1) |
+| `@collection` | the record's collection (§9.1). A record in no collection, or in a `collection-conflict`, has none, and the field is then absent |
 | `@depth` | a section's depth, 0 for the root |
 | `@nodes` | for a section, on request only: an object from the exact path of each section below it to the same requested fields of that section, so that one read of a record gives every section's key |
 
 A block anchor is a node but not a section, so it has no `@key` and no `@depth`. Its `@source` is its block (§5.9), its
 `@version` hashes the block's text, and its `@issues` are the issues of its `$body` within the block's range.
 
-Until I2 computes `@refs` and `@collection`, a read that requests them gives them as `null`, with a warning that names them
-(`field-not-computed`), rather than leaving them out, so that an absent field and a field not computed yet cannot be confused.
+Until I2 computes `@refs`, a read that requests it gives it as `null`, with a warning that names it (`field-not-computed`), rather
+than leaving it out, so that an absent field and a field not computed yet cannot be confused.
 
 A read that requests computed fields returns the value and the requested fields side by side. `meta: all` requests every field
 except `@nodes`, which is requested by name on top of it. For the second section of the ticket in Appendix A, with
@@ -804,8 +818,9 @@ for selection. The two follow HTML's `id` (unique, `#id` selects one element) an
   serialization frameworks commonly use. A `class` attribute gives as `$tags` its tokens, split on ASCII white space as HTML splits
   a set of space-separated tokens ([HTML Living Standard, section 2.3.7](https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#set-of-space-separated-tokens)),
   in source order. A repeated token is kept once, at its first place, and `vmd check` warns about it (`duplicate-tag`), since a
-  tag labels a node at most once. A tag repeated in a data `$tags` array gets the same warning, but the value is kept as written:
-  `$tags` is stored data there, while a `class` attribute is parsed.
+  tag labels a node at most once; a repeated token that is not a valid tag name likewise gives one `anchor-invalid`. A tag
+  repeated in a data `$tags` array gets the same warning, but the value is kept as written: `$tags` is stored data there, while a
+  `class` attribute is parsed, so an invalid tag repeated there gives one `anchor-invalid` per occurrence.
 - A **block anchor** names a paragraph or list item inside a `$body`. It is not a member of the value view: it resolves to a range
   of the `$body` text, in UTF-8 bytes (§5.9), which `get` returns and which body edits change. The range is the block's CommonMark
   block in the `$body`, without its trailing white space and line breaks: a list item from its marker to the end of its last
@@ -1067,9 +1082,9 @@ declared `cardinality: many` whose selector matches nothing, in a record that ex
 reference into a record that readers refuse cannot be resolved below the root: a record with a structural error, which has no
 value view, or a record of a collection whose schema cannot be used (§9.1). It is not dangling but `unreadable`: `vmd check` warns
 about it (`ref-target-unreadable`), and the record's own structural errors, or the issue its collection's schema got
-(`schema-invalid` or `feature-unsupported`), say what to fix. A reference whose address is the record's root (no fragment, or `#`
-alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address (§7.4) still fails,
-since a resolve returns the node's value, while a reference's status only says whether its target exists.
+(`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A reference whose address is the record's root
+(no fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address
+(§7.4) still fails, since a resolve returns the node's value, while a reference's status only says whether its target exists.
 
 ---
 
@@ -1105,19 +1120,29 @@ A record in no collection is valid and unschematized; its references are still c
 
 - **Collection names** match `[A-Za-z][A-Za-z0-9_-]*`, so that a name never holds `/`, `*` or `:` and stays usable in `targets`
   (§9.3) and in the `collection:key` shorthand (§7.6). A configuration with another name is `config-invalid`.
+- **Globs** in `match`, `exclude` and `ignore` are those of §11.2. A malformed one, or one with a `.` or `..` segment, which no
+  store path has, so that it could never match, is `config-invalid`. Globs only filter listed paths, so `../*.md` reaches nothing
+  outside the store; it is refused because a glob that can never match is a mistake.
 - **A record belongs to at most one collection.** A record that two collections' globs both match gets a validation error,
   `collection-conflict`, and is read unschematized; other records are unaffected, so one new file cannot break the store.
 - **Schemas are files in `schema/` beside the configuration file**: `.vmd/schema/` for a store's own `.vmd/config.yaml`, and for a
   configuration given with `--config` the `schema/` directory beside that file (§12.1), so that a store read with `--config`, such
   as vampiredb's `docs/`, can have schemas without being modified (decision K3). The configuration file and each schema file are
   at most 1 MiB; a larger configuration is `config-invalid`, and a larger schema `schema-invalid`.
-- **A collection whose schema cannot be used** is reported when its schema is loaded: a schema that uses a construct this
-  version does not define, such as an unknown `x-vmd-*` keyword, is `feature-unsupported` (§9.3), and one whose file is missing,
-  or that is not a valid schema, is `schema-invalid`. `vmd check` reports it once, checks the collection's records for
-  everything but their schema, and checks the other collections as usual. Every reader refuses that collection's records,
-  whichever code the schema got, since without its schema a reader would read them wrongly: a single-record read (`get`,
-  `outline`, `resolve`) fails with the schema's code; a multi-record read leaves them out and counts them among the records it
-  could not read, with one issue of that code (§9.5); and a reference into one is `unreadable` (§8.5).
+- **A collection whose schema cannot be used** is reported when its schema is loaded: a schema that uses a construct this version
+  does not define, such as an unknown `x-vmd-*` keyword, is `feature-unsupported` (§9.3); one whose file is missing, or that is
+  not a valid schema, is `schema-invalid`; and one whose file is a file of the store that the backend cannot read, such as one
+  refused by a permission error or a directory with files in it where the file is named, is `storage-failed` (§11.2), so that the
+  code says what failed. What a backend reads as no file follows the storage contract: the filesystem backend reads a symbolic
+  link, a FIFO or an empty directory in a store's `.vmd/schema/` as missing, so such a schema is `schema-invalid`, while beside a
+  `--config` file, which is not read through a backend, a FIFO or a directory is `storage-failed`. `vmd check` reports it once,
+  checks the collection's records for everything but their schema, and checks the other collections as usual. Every reader refuses
+  that collection's records, whichever code the schema got, since without its schema a reader would read them wrongly: a
+  single-record read (`get`, `outline`, `resolve`) fails with the schema's code, in one issue about the collection, with no record
+  path and no node, whose message names the schema file; a multi-record read leaves them out and counts them among the records it
+  could not read, with one issue of that code (§9.5); and a reference into one is `unreadable` (§8.5). Writing is refused alike: a
+  write into one of its records fails with the schema's code, since it could not be validated (§9.4), and `rename` and `mv` refuse
+  to run while such a collection exists (`unreadable-records`, §13.4).
 
 - **Only `vmd` is required.** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness, compatibility
   quoting, every issue at its default severity, no `.jsonc` records, no collections and nothing ignored. A configuration without
@@ -1186,8 +1211,8 @@ Issues come in two classes, and Appendix D gives each code's class:
   (exit code 4, §12.3), and a write through a gate refuses it (§9.4).
 
 One more case makes readers refuse records without being about their content: a collection whose schema cannot be used
-(`schema-invalid`, or `feature-unsupported` for a construct of a newer version, both operation errors, §9.1), whose records every
-reader refuses, while `vmd check` still checks them.
+(`schema-invalid`, `feature-unsupported` for a construct of a newer version, or `storage-failed` for a schema file that cannot be
+read, all operation errors, §9.1), whose records every reader refuses, while `vmd check` still checks them.
 
 Parsing and checking report every error they can find, not only the first, so that one run shows everything to fix. A syntax
 error is reported once per parse unit, a file, its front matter or one data block, since a parser's later errors after a syntax
@@ -1293,6 +1318,9 @@ not the backend, since a client can skip them. What a backend does with invalid 
   keeps its constraints except for the latest commits, which are still being validated. A client that syncs only to commits
   marked as passing (the `vmd/check` status of §16.3) sees a validating backend.
 - A backend that does not validate keeps no constraints, and validation is up to each client.
+
+In every mode, a write into a record of a collection whose schema cannot be used (§9.1) is refused, with the schema's code, since
+the write could not be validated, and `rename` and `mv` refuse to run while such a collection exists (§13.4).
 
 In every mode, **validation does not gate the index.** Invalid records are indexed with their issues attached, so they are
 visible rather than missing (§14).
@@ -1456,7 +1484,7 @@ that does not validate needs no knowledge of Markdown or schemas.
 |---|---|
 | `list(prefix, glob?, limit, cursor)` | paths with size, version and modification time |
 | `stat(path)` | size, version and modification time, without content |
-| `read(path, range?, at?)` | content, optionally a line or byte range, optionally at a past revision, with its version |
+| `read(path, range?, at?, maxBytes?)` | content, optionally a line or byte range, optionally at a past revision, with its version; with `maxBytes`, a file larger than that is refused by its size, before it is read |
 | `grep(pattern, glob?, mode, context, limit, cursor)` | matching lines with paths and line numbers; `mode` is `literal` or `regex` |
 | `write(path, content, if_version \| if_absent)` | replace or create a file; returns its new version |
 | `edit(path, edits[], if_version)` | exact-string replacements (§11.4); returns the file's new version |
@@ -1470,6 +1498,12 @@ that does not validate needs no knowledge of Markdown or schemas.
 A read that the backend cannot complete, such as one refused by a permission error, fails with `storage-failed`, which is not
 `address-not-found`: the file may exist.
 
+**Bounded reads.** `read` takes an optional `maxBytes`. A file larger than it is refused by its size, before its content is read
+or hashed: the result says that the file is oversized and gives its size as far as the backend can tell, with no content and no
+version, since computing the version would read it. A file that grows past the bound while it is read is read no further than
+`maxBytes` and one byte, and refused too. vmd reads with the bounds of its limits, so that a file over one costs no more than the
+bound: 1 MiB for a configuration and each schema (§9.1), and 16 MiB for a record (§5.4).
+
 **Cursors** are opaque: a client passes back what the previous page returned and makes no other use of it. `list` returns an exact
 count of the paths that remain; `grep` returns an estimate of the matches that remain, marked as one, as query totals are
 (§10.5). A file that `list` or `grep` cannot read is left out with an issue of severity `error`, and the operation still succeeds
@@ -1477,12 +1511,14 @@ count of the paths that remain; `grep` returns an estimate of the matches that r
 
 **Globs.** One glob syntax serves `list` and `grep`, a collection's `match` and `exclude` (§9.1), the configuration's `ignore`
 (§3.3) and VQL's `@path` (§10.3). A glob matches a whole store path. `*` matches any run of characters within one segment, none
-included, and a leading `.` too, so dotfiles are not special. `**` is special only as a whole segment: `**/` matches zero or
-more whole segments with their `/`; a final `/**` matches one or more segments, so `docs/**` matches every path below `docs/` but
-not the path `docs` itself, as the filesystem backend's `compileGlob` does; `**` alone matches every path; and consecutive `**`
+included, and a leading `.` too, so dotfiles are not special. `**` is special only as a whole segment: `**/` matches zero or more
+whole segments with their `/`; a final `/**` matches one or more segments, so `docs/**` matches every path below `docs/` but not
+the path `docs` itself, as the filesystem backend's `compileGlob` does; `**` alone matches every path; and consecutive `**`
 segments are one. Every other character matches itself. A glob that is empty, starts or ends with `/`, or has an empty segment
-(`//`) is malformed: `query-invalid` in `list`, `grep` and VQL, and `config-invalid` in the configuration's `ignore`, `match`
-and `exclude`.
+(`//`) is malformed: `query-invalid` in `list`, `grep` and VQL, and `config-invalid` in the configuration's `ignore`, `match` and
+`exclude`. In the configuration, a glob with a `.` or `..` segment is `config-invalid` too, since store paths never have such
+segments (§3.2) and it could never match (§9.1). A segment that only starts with a dot, such as `.cache`, `.*.md` or `..x`, is not
+one.
 
 **`grep` matches line by line.** Each line of a file is matched on its own, without its line break, so `^` and `$` are the line's
 start and end, and `.` matches any character of the line. A line ends at a line feed, a CR LF pair or a carriage return alone,
@@ -1759,8 +1795,9 @@ A retitle can change the derived anchors of other headings too, through the repe
 `## Notes` sections turns the second one's `#notes-1` into `#notes`. `rename` therefore rewrites the references to every node
 whose derived anchor changes, not only to the renamed one.
 
-`rename` and `mv` refuse to run while the store has records with structural errors (`unreadable-records`), since references in
-those records cannot be found or rewritten.
+`rename` and `mv` refuse to run (`unreadable-records`) while the store has records with structural errors, or a collection whose
+schema cannot be used (§9.1), since references in those records cannot be found or rewritten: a typed reference, an `x-vmd-ref`
+string, cannot be found without its schema.
 
 Link text is left alone. A move that changes a record's format (`.md` to `.yaml`) also rewrites references through derived
 anchors into semantic paths, since derived anchors exist only in Markdown (§6.3).
@@ -1816,8 +1853,9 @@ The index is derived. It can be rebuilt from the files at any time, and nothing 
 | `refs` | source path and exact path, offset in `$body` or `$title` if in prose, raw text, target address, resolved exact path, status |
 | `issues` | path, exact path, line and column if known, severity, code (Appendix D), message |
 
-Offsets, lines and columns use the units of §5.9. A record with a structural error is listed in `records` with its issues and has
-no nodes. A reference's `status` is one of those of §8.5, `unreadable` included.
+Offsets, lines and columns use the units of §5.9. A record with a structural error, or of a collection whose schema cannot be
+used (§9.1), is listed in `records` with its issues and has no nodes. A reference's `status` is one of those of §8.5,
+`unreadable` included.
 
 ### 14.3 Local index
 
@@ -1833,11 +1871,11 @@ implementation). `--no-cache` neither reads nor writes it (§12.1). A file's ver
 (§11.3). The storage engine is an implementation choice. The reference implementation uses JSONL files in the portable index's
 format (§14.4), which needs no native modules.
 
-Where the index lives depends on the setup, in the project owner's stated view from the review of the I2 design, which is not
-a decided rule. In a lightweight setup, whose backend is a plain git repository, the index stays local, in this per-user cache,
-since an index committed to the repository would cause merge conflicts. In an advanced setup, with a custom merger, a Lambda
-function or Actions, the index lives in the backend, either in the git repository or in other configured storage; the published
-index of §14.4 and §16 is one such place. How a backend keeps it there is open (§20).
+Where the index lives depends on the setup, as the project owner stated on the review of the I2 design (decisions U4 and W1). In a
+lightweight setup, whose backend is a plain git repository, the index stays local, in this per-user cache, since an index
+committed to the repository would cause merge conflicts. In an advanced setup, with a custom merger, a Lambda function or Actions,
+the index lives in the backend, either in the git repository or in other configured storage; the published index of §14.4 and §16
+is one such place. How a backend keeps it there is open (§20).
 
 ### 14.4 Portable index
 
@@ -2044,8 +2082,9 @@ runner, which reads the fixtures and drives that implementation, lives next to t
 - edit cases with expected bytes,
 - expected issues, by the codes of Appendix D.
 
-Path rules that cannot exist as files on every platform (§3.2), such as two names that differ only by case, are left out of the
-suite for now.
+Path rules that cannot exist as files on every platform (§3.2), such as two names, or two directories, that differ only by case,
+are left out of the suite for now: the suite has no case for them, since a checkout on a filesystem that ignores case cannot hold
+them, and the TypeScript implementation tests them in unit tests.
 
 ### 19.2 Profiles
 
@@ -2086,14 +2125,6 @@ A backend conforms to the storage contract (§11) separately, and states whether
 9. **A comment before the title heading** (§5.3). An HTML block of only comments before the title heading does not count as the
    first block, so the title stays the title. The value view must keep the comment for the round trip of §5.8 to stay lossless,
    but the root's `$body` starts after the title heading. Where it is kept is open.
-10. **Writing and indexing beside a schema that cannot be used** (§9.1, decision U12). U12 makes readers refuse the records of a
-    collection whose schema cannot be used, and leaves three neighbours open. Whether `rename` and `mv` refuse while such a
-    collection exists, as they refuse while records have structural errors (`unreadable-records`, §13.4), since its typed
-    references (`x-vmd-ref` strings) cannot be found without the schema, which is §13.4's own reason. What a write into one of its
-    records does (§9.4). And whether §14.2 lists such records, as it lists structurally broken ones, with their issues and without
-    nodes. Recommended: `rename` and `mv` refuse, with `unreadable-records`; a write into such a record is refused with the
-    schema's code, since it could not be validated; and §14.2 lists such records without nodes, as it does structurally broken
-    ones.
 
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
@@ -2379,11 +2410,12 @@ The columns:
 
 - **Severity** is the default. Where it depends on the uniqueness mode (§5.7), both are given.
 - **Class** says what the issue does (§9.2, §9.5). A **structural** error makes the record unreadable. `parse` fails, and the
-  record has no value view. A schema that cannot be used, `schema-invalid` or, for a construct of a newer version,
-  `feature-unsupported` (operation errors), also makes readers refuse every record of its collection (§9.1). A **validation**
-  issue attaches to a readable record; an error fails `vmd check`. An **operation** issue makes the operation that raised it fail,
-  or warns about it, and is not about one record's content. An operation that succeeds may still carry an issue of severity
-  `error`, such as an unreadable file that `list` or `grep` leaves out; the command then exits with 4 (§12.3).
+  record has no value view. A schema that cannot be used, `schema-invalid`, `feature-unsupported` for a construct of a newer
+  version, or `storage-failed` for a file that cannot be read (operation errors), also makes readers refuse every record of its
+  collection (§9.1). A **validation** issue attaches to a readable record; an error fails `vmd check`. An **operation** issue
+  makes the operation that raised it fail, or warns about it, and is not about one record's content. An operation that succeeds
+  may still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out; the command then
+  exits with 4 (§12.3).
 - **At** is the node the issue is attached to, by exact path (§7.2). A structural error is still attached where it sits, as far as
   the parser can tell. An issue about "the record" is attached to its root, whose exact path is `""`, and "none" means that the
   issue has no node. An issue on a block anchor is attached to the `$body` that holds it (§6.2).
@@ -2395,7 +2427,7 @@ The columns:
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|
-| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a record beyond a resource limit of §5.4 (nesting deeper than 256 levels within its parse unit, Markdown containers included; more than 4,096 runs of `*`, `_` or `~` in a paragraph or table cell; more than 16 MiB), a data block whose fence is not closed, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
+| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a record beyond a resource limit of §5.4 (nesting deeper than 256 levels within its parse unit, of Markdown containers, or of inline elements within a block or a data `$title`; more than 4,096 runs in a paragraph, table cell, heading or data `$title`; more than 16 MiB), a data block whose fence is not closed, a misplaced or second one included, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
 | `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first, whose value is not looked into |
 | `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member, and that member's value is not looked into |
 | `number-not-representable` | error | structural | §4.2 | an integer by form (§4.2) whose double differs from it, a number too large for a double, or a non-zero number a double rounds to zero; the number |
@@ -2407,7 +2439,7 @@ The columns:
 | `yaml-multiple-documents` | error | structural | §4.1 | several YAML documents in one file; the record |
 | `yaml-version-unsupported` | error | structural | §4.4 | a `%YAML` directive for a version other than 1.2, in a YAML file or a data block; the record, or the data block's section |
 | `root-not-object` | error | structural | §5.4 | a JSON or YAML record whose root is not an object, including a YAML file holding only `---`; the root. The root's contents are still checked |
-| `data-block-misplaced` | error | structural | §5.3 | a data block right after the title heading, or as the first block of a record without one; the root. A second data block right after a section's data block; the section |
+| `data-block-misplaced` | error | structural | §5.3 | a data block right after the title heading, or as the first block of a record without one, an HTML block of only comments not counting as a block; the root. A second data block right after a section's data block; the section |
 | `data-block-not-object` | error | structural | §5.3 | a data block, or front matter, that holds something other than an object; its section, the root for front matter |
 | `reserved-member-type` | error | structural | §5.2 | a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects, on a section or, for `$anchor` and `$tags`, on any object; the member |
 | `section-title-missing` | error | structural | §5.2 | an item of `$sections` without a `$title`; the item |
@@ -2420,10 +2452,10 @@ The columns:
 | `duplicate-tag` | warning | validation | §6.2 | a token repeated in the `class` attribute of an anchor element, which `$tags` holds once, or a tag repeated in a data `$tags` array, which keeps it as written; the node |
 | `block-anchor-class` | error | validation | §6.2 | an anchor element with a `class` at the start of a block, which cannot carry tags; the `$body` |
 | `anchor-element-ignored` | warning | validation | §6.2 | an `<a id>` element in a `$body` that is not at the start of a list item or a paragraph outside block quotes, and so is plain HTML; the `$body` |
-| `anchor-invalid` | error | validation | §6.2 | an anchor or tag name that does not match `[A-Za-z][A-Za-z0-9_-]*`, once per occurrence, so a tag repeated in a `$tags` array gives one issue per repeat; the node |
+| `anchor-invalid` | error | validation | §6.2 | an anchor or tag name that does not match `[A-Za-z][A-Za-z0-9_-]*`, once per occurrence, so a tag repeated in a `$tags` array gives one issue per repeat, while a token repeated in a `class` attribute, which `$tags` holds once, gives one; the node |
 | `schema-violation` | error | validation | §9.2 | a value the collection's schema rejects, logical types included; the value |
 | `path-invalid` | error; warning for an asset outside collections | validation | §3.2 | a path that breaks a rule of §3.2 other than case; the record (`at` is null for an asset) |
-| `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case; each path after the first in byte order |
+| `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case, or whose directory prefixes do, every prefix compared case-insensitively; each path after the first in byte order |
 | `collection-conflict` | error | validation | §9.1 | a record that the globs of two or more collections match; it is read unschematized; the record |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
 | `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
@@ -2440,8 +2472,8 @@ The columns:
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
-| `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
-| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, is more than 1 MiB, or is not a valid schema; it has `$id`, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` off the spine; `x-vmd-ref` on a string without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; an `x-vmd-summary` that is not a boolean. An unknown `x-vmd-*` keyword is `feature-unsupported` instead. Reported once; every reader refuses the collection's records, whichever of the two codes the schema got, and a single-record read fails with that code; `check` checks them for everything but their schema; none |
+| `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
+| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, or is not a valid schema; it has `$id`, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` off the spine; `x-vmd-ref` on a string without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; an `x-vmd-summary` that is not a boolean. An unknown `x-vmd-*` keyword is `feature-unsupported` instead, and a file that cannot be read `storage-failed`. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
 | `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
 | `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
 | `format-version-older` | warning | operation | §9.1 | a client newer than the store reads a major version it does not support, with no change in between that alters meaning; none |
@@ -2454,13 +2486,15 @@ The columns:
 | `store-not-found` | error | operation | §3.3, §12.3 | no store: `--store` names a directory that does not exist, or, without `--config`, one that holds no `.vmd/config.yaml`; or, without `--store`, no directory at or above the working directory holds one, or the working directory cannot be read; none |
 | `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than 17.0.0, the version that derived anchors follow, so derived anchors may differ; once per command that reads a store; none |
 | `field-not-computed` | warning | operation | §5.10 | a requested computed field that the implementation does not compute yet, given as `null`; none |
-| `unreadable-records` | error | operation | §13.4 | a `rename` or `mv` while the store has records with structural errors; none |
-| `storage-failed` | error | operation | §11.2 | a read that the backend cannot complete, such as one refused by a permission error; none |
+| `unreadable-records` | error | operation | §9.1, §13.4 | a `rename` or `mv` while the store has records with structural errors, or a collection whose schema cannot be used; none |
+| `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a collection's schema file that cannot be read, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
 
-For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A
-reference that §8.2 places outside the store raises none of these. An `address-*` issue has no node, but it is about the record the
-address names, even one that does not exist, so its record path is that record's.
+For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A reference
+that §8.2 places outside the store raises none of these. An `address-*` issue has no node, but it is about the record the address
+names, even one that does not exist, so its record path is that record's. A read refused because the record's collection has a
+schema that cannot be used is not about the record: its one issue is about the collection, reported once per command, with `path`
+and `at` null (§9.1).
 
 **Configuring severities.** The `issues` member of the configuration (§9.1) sets a code's severity within these limits:
 

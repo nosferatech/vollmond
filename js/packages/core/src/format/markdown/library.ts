@@ -61,7 +61,7 @@ const CONTAINERS: ReadonlyMap<number, Construct> = (() => {
 const RUN_CHARACTERS: readonly number[] = [0x2a, 0x5f, 0x7e];
 
 /**
- * The inline node types that hold other inline nodes. Their nesting is bounded too, which the specification does not ask
+ * The inline node types that hold other inline nodes, whose nesting the specification's nesting limit bounds within each block
  * (see {@link parseMarkdownTree}).
  */
 const INLINE_NESTING_TYPES: ReadonlySet<Nodes["type"]> = new Set(["emphasis", "strong", "delete", "link", "linkReference"]);
@@ -95,9 +95,8 @@ class LimitPassed extends Error {
   }
 }
 
-// Deviation from the specification, recorded in issue #13: besides the limits of the specification, inline nodes that hold
-// inline nodes nest at most MAX_NESTING deep, since a single run of 10,000 `*` nests 5,000 levels of emphasis, which the
-// specification's limits allow and the autolink transform's recursion does not.
+// The specification's nesting limit covers inline nodes that hold inline nodes, since a single run of 10,000 `*` nests 5,000
+// levels of emphasis, which the run limit allows and the autolink transform's recursion does not.
 /**
  * Parses a Markdown text into its syntax tree, whose positions are UTF-16 indexes into `text`, with tabs counted as one
  * character, a CRLF as two, and one exception: a U+FEFF at index 0 is skipped, and the indexes count from the character after
