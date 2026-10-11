@@ -32,6 +32,12 @@ describe("exitCodeOf", () => {
     expect(exitCodeOf(fail([issue("syntax-error"), issue("heading-html")]))).toBe(1);
   });
 
+  test("counts the issues found alongside the outcome as its own", () => {
+    expect(exitCodeOf(succeed(1), [issue("config-invalid")])).toBe(4);
+    expect(exitCodeOf(succeed(1), [issue("unicode-runtime-older")])).toBe(0);
+    expect(exitCodeOf(fail([issue("address-not-found")]), [issue("usage-invalid")])).toBe(2);
+  });
+
   test("is 2 for a failure with a usage-invalid among its issues", () => {
     expect(exitCodeOf(fail([issue("usage-invalid")]))).toBe(2);
     expect(exitCodeOf(fail([issue("unicode-runtime-older"), issue("usage-invalid")]))).toBe(2);

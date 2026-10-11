@@ -558,6 +558,21 @@ describe("--json, for every failure", () => {
     expect(exitCode).toBe(2);
   });
 
+  test("takes a --json after -- for an argument, not for the option, and writes the usage error as text", async () => {
+    const result = await runText(["nope", "--", "--json"], environment(store(), [giving(succeed(1))]));
+    expect(result).toEqual({
+      stdout: "",
+      stderr: 'error usage-invalid: unknown command "nope"\n  hint try vmd --help\n',
+      exitCode: 2,
+    });
+  });
+
+  test("takes --json= with a value, itself a usage error, as asking for JSON", async () => {
+    const { printed, exitCode } = await runJson(["--json=no", "give"], environment(store(), [giving(succeed(1))]));
+    expect(codes(printed.issues)).toEqual(["usage-invalid"]);
+    expect(exitCode).toBe(2);
+  });
+
   test("prints a usage error the command finds as usage-invalid", async () => {
     const { printed, exitCode } = await runJson(["list", "-n", "0", "--json"], environment(store(), [list]));
     expect(codes(printed.issues)).toEqual(["usage-invalid"]);
@@ -660,6 +675,28 @@ describe("without --json, failures as issues on stderr", () => {
   test("writes the Unicode warning as unicode-runtime-older", async () => {
     const result = await runText(["give"], environment(store(), [giving(succeed(1))], OLDER));
     expect(result.stderr).toMatch(/^warning unicode-runtime-older: /);
+  });
+});
+
+describe("the cap on printed issues", () => {
+  /** `count` issues of `code`, each at its own member. */
+  const many = (code: IssueCode, count: number) => Array.from({ length: count }, (_, i) => issue(code, `/m${i}`));
+
+  test("applies once across the Unicode warning and the command's issues, with one count line", async () => {
+    const result = await runText(["give"], environment(store(), [giving(succeed(1, many("ref-dangling", 25)))], OLDER));
+    const firstLines = result.stderr.split("\n").filter((line) => line !== "" && !line.startsWith(" "));
+    expect(firstLines).toHaveLength(21);
+    expect(firstLines[0]).toMatch(/^warning unicode-runtime-older: /);
+    expect(firstLines[20]).toBe("26 issues, 6 not shown: 25 ref-dangling, 1 unicode-runtime-older");
+  });
+
+  test("with --quiet, counts the warnings it leaves out, as every issue found is counted", async () => {
+    const outcome = succeed(1, [...many("heading-html", 5), ...many("ref-dangling", 25)]);
+    const result = await runText(["give", "--quiet"], environment(store(), [giving(outcome)], OLDER));
+    expect(result.stderr).not.toContain("warning");
+    expect(result.stderr.endsWith("31 issues, 11 not shown: 25 ref-dangling, 5 heading-html, 1 unicode-runtime-older\n")).toBe(
+      true,
+    );
   });
 });
 

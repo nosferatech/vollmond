@@ -98,11 +98,30 @@ describe("from the working directory", () => {
     const locked = makeDirectories(outer, "locked/inside");
     chmodSync(join(outer, "locked"), 0o000);
     try {
-      expect((await notFound({ cwd: locked })).message).toContain("EACCES");
+      const error = await notFound({ cwd: locked });
+      expect(error.message).toContain("EACCES");
+      expect(error.code).toBe("store-not-found");
+      expect((await notFound({ cwd: outer, store: "locked/inside" })).code).toBe("store-not-found");
     } finally {
       chmodSync(join(outer, "locked"), 0o755);
     }
   });
+
+  test.skipIf(!canChmod)(
+    "fails with config-invalid, upwards and with --store, for a .vmd/config.yaml that cannot be read",
+    async () => {
+      const root = writeFiles(temporaryDirectory(), STORE_CONFIG);
+      const cwd = makeDirectories(root, "a");
+      chmodSync(join(root, ".vmd"), 0o000);
+      try {
+        const upwards = await notFound({ cwd });
+        expect(upwards).toMatchObject({ code: "config-invalid", message: expect.stringContaining("EACCES") });
+        expect((await notFound({ cwd, store: root })).code).toBe("config-invalid");
+      } finally {
+        chmodSync(join(root, ".vmd"), 0o755);
+      }
+    },
+  );
 });
 
 describe("with --store", () => {

@@ -153,10 +153,14 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
   return render({ ...report, ...(storeDetails === undefined ? {} : { storeDetails }) }, globals);
 }
 
-/** Whether `--json` stands among the arguments before a `--`, for a command line that cannot be read. */
+/**
+ * Whether JSON was asked for, for a command line that cannot be read and so has no options to look at: whether an argument
+ * before a `--` is `--json`, or `--json=` followed by anything, which is itself a usage error. An argument is not known to be an
+ * option's value until the command line is read, so `--store --json`, which names the store `--json`, also selects JSON here.
+ */
 function jsonAsked(args: readonly string[]): boolean {
   const end = args.indexOf("--");
-  return (end === -1 ? args : args.slice(0, end)).includes("--json");
+  return (end === -1 ? args : args.slice(0, end)).some((arg) => arg === "--json" || arg.startsWith("--json="));
 }
 
 /** Throws an `Error` when a command's option has the name, or the short form, of a global option, or two commands one name. */
@@ -265,20 +269,29 @@ async function openCommandStore(
  */
 function render(report: Report, globals: GlobalOptions): CliResult {
   const { outcome } = report;
-  const all = [...report.storeIssues, ...outcome.issues];
-  const exitCode = exitCodeOf(outcome.ok ? { ...outcome, issues: all } : { ok: false, issues: all });
-  const keepWarnings = !globals.quiet;
-  const storeIssues = keepWarnings ? report.storeIssues : report.storeIssues.filter(isError);
-  const ownIssues = keepWarnings || report.issueOutput === "result" ? outcome.issues : outcome.issues.filter(isError);
+  const exitCode = exitCodeOf(outcome, report.storeIssues);
+  const quiet = globals.quiet;
+  const ownWarningsDropped = quiet && report.issueOutput !== "result";
   if (globals.json) {
-    const issues = [...storeIssues, ...ownIssues];
+    const issues = [
+      ...(quiet ? report.storeIssues.filter(isError) : report.storeIssues),
+      ...(ownWarningsDropped ? outcome.issues.filter(isError) : outcome.issues),
+    ];
     const printed = outcome.ok ? { ok: true, value: outcome.value, issues } : { ok: false, issues };
     return { stdout: `${JSON.stringify(printed, jsonReplacer)}\n`, stderr: "", exitCode };
   }
-  const storeText = formatIssues(storeIssues, withDetails(report.storeDetails));
-  const ownText = formatIssues(ownIssues, withDetails(report.details));
   const value = outcome.ok ? report.text(outcome.value) : "";
-  if (report.issueOutput === "diagnostics") return { stdout: value, stderr: storeText + ownText, exitCode };
+  if (report.issueOutput === "diagnostics") {
+    // One list on stderr, so that the cap and the line that counts every issue found, dropped warnings included, apply once.
+    const storeIssues = new Set(report.storeIssues);
+    const details: IssueDetailsSource = (issue) =>
+      storeIssues.has(issue) ? report.storeDetails?.(issue) : report.details?.(issue);
+    const stderr = formatIssues([...report.storeIssues, ...outcome.issues], { errorsOnly: quiet, details });
+    return { stdout: value, stderr, exitCode };
+  }
+  // The store's issues go to stderr and the command's to stdout, each stream with its own cap and count.
+  const storeText = formatIssues(report.storeIssues, { errorsOnly: quiet, ...withDetails(report.storeDetails) });
+  const ownText = formatIssues(outcome.issues, { errorsOnly: ownWarningsDropped, ...withDetails(report.details) });
   return { stdout: concatenate(value, ownText), stderr: storeText, exitCode };
 }
 

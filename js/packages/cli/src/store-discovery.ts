@@ -73,13 +73,7 @@ export async function discoverStore(
     }
     if (request.config === undefined) {
       const configuration = await fileKind(join(root, ".vmd", "config.yaml"));
-      if (configuration.kind === "failed") {
-        return notFound(
-          `cannot read ${join(request.store, CONFIGURATION_PATH)}: ${configuration.reason}`,
-          "check its permissions",
-          "config-invalid",
-        );
-      }
+      if (configuration.kind === "failed") return uncheckable(root, request.store, configuration.reason);
       if (configuration.kind === "directory" || configuration.kind === "other") {
         return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT, "config-invalid");
       }
@@ -121,6 +115,27 @@ function notFound(
   return { ok: false, error: { code, message, hint } };
 }
 
+/**
+ * The failure for a `.vmd/config.yaml` below `directory` that cannot be checked, `reason` saying why: `config-invalid` when
+ * `.vmd` is there, so that the configuration exists but cannot be read, and `store-not-found` when `directory` itself cannot be
+ * read, so that no store can be told to be there. `shown` is `directory` as messages write it.
+ */
+async function uncheckable(
+  directory: string,
+  shown: string,
+  reason: string,
+): Promise<{ readonly ok: false; readonly error: StoreNotFound }> {
+  const vmd = await fileKind(join(directory, ".vmd"));
+  if (vmd.kind === "failed") {
+    return notFound(`cannot read ${shown}: ${vmd.reason}`, "check its permissions, or name the store with --store");
+  }
+  return notFound(
+    `cannot read ${join(shown, CONFIGURATION_PATH)}: ${reason}`,
+    "check the permissions of .vmd/",
+    "config-invalid",
+  );
+}
+
 /** Looks for `.vmd/config.yaml` in `start` and each directory above it, and returns the first that holds it, or null. */
 async function findRootUpwards(
   start: string,
@@ -130,8 +145,7 @@ async function findRootUpwards(
     const candidate = join(directory, ".vmd", "config.yaml");
     const kind = await fileKind(candidate);
     if (kind.kind === "file") return { ok: true, root: directory };
-    if (kind.kind === "failed")
-      return notFound(`cannot read ${candidate}: ${kind.reason}`, "check its permissions, or name the store with --store");
+    if (kind.kind === "failed") return uncheckable(directory, directory, kind.reason);
     if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT, "config-invalid");
     const parent = dirname(directory);
     if (parent === directory) return { ok: true, root: null };
