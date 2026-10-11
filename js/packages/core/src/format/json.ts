@@ -18,14 +18,7 @@ import { checkShape, nodeLocator } from "../record/shape.js";
 import type { ByteRange, Position, SourceText } from "../text/source-text.js";
 import { readNumberLiteral } from "../value/number.js";
 import { createValueObject, type Value, type ValueObject } from "../value/value.js";
-
-// Deviation from the I1 design, recorded in issue #11: neither the proposal nor the design limits nesting, but jsonc-parser
-// parses recursively and overflows the call stack at a few thousand levels, which would make a hostile file crash the reader.
-/**
- * The deepest nesting of arrays and objects a JSON unit may have, the root counting as level 1. A deeper unit is a
- * `syntax-error`, the same on every runtime, whatever its call stack holds.
- */
-export const JSON_NESTING_LIMIT = 1000;
+import { MAX_NESTING } from "./limits.js";
 
 /** One JSON parse unit: a slice of a decoded file, and where its value goes. */
 export interface JsonUnit {
@@ -61,13 +54,14 @@ export interface JsonUnitResult {
  * a member, its member range, in UTF-8 bytes of the file, and reports:
  *
  * - `syntax-error` once for the unit, however many errors it holds, at `unit.at`, positioned at the first; its message names
- *   the first ten and counts the others, so its length is bounded. A unit nested deeper than {@link JSON_NESTING_LIMIT}, or
+ *   the first ten and counts the others, so its length is bounded. A unit nested deeper than {@link MAX_NESTING}, or
  *   with a bracket that closes another kind, is one, and only the text before that bracket is parsed, for earlier errors.
  *   Nothing else is reported for such a unit, and it has no value;
  * - `unit.notObjectCode` for a unit that holds no object, which then has no value and adds no node;
  * - `duplicate-member` at each member after the first of a name, compared after escapes are read, positioned at its key. The
  *   value keeps the first, and the repeat has no node and is not looked into;
- * - `unpaired-surrogate` once per string that holds one, at the string, or at the object for a member name;
+ * - `unpaired-surrogate` once per string that holds one, at the string, or at the object for a member name, whose member
+ *   then has no node and is not looked into;
  * - `number-not-representable` for a number a double cannot hold, which reads as 0.
  *
  * A number means its nearest double, read from its source text, and `-0` reads as `0`. Objects have a null prototype.
@@ -75,7 +69,7 @@ export interface JsonUnitResult {
 export function parseJsonUnit(unit: JsonUnit): JsonUnitResult {
   const text = unit.source.text.slice(unit.start, unit.end);
   const walk = new JsonWalk(unit, text);
-  const nesting = checkNesting(text, JSON_NESTING_LIMIT);
+  const nesting = checkNesting(text, MAX_NESTING);
   if (nesting !== null) {
     // The text before the refused bracket nests within the limit, with its brackets paired, so it is safe to parse for the
     // errors that come before the bracket.
@@ -193,12 +187,15 @@ class JsonWalk {
     });
     const repeats = new Set(repeatedNodes(properties));
     for (const { name, node: member } of properties) {
-      if (!name.isWellFormed()) this.#unpairedSurrogate(at, member.key.offset);
       const memberAt = childPath(at, name);
+      const wellFormed = name.isWellFormed();
+      if (!wellFormed) this.#unpairedSurrogate(at, member.key.offset);
       if (repeats.has(member)) {
         this.raise("duplicate-member", memberAt, member.key.offset, `the member ${JSON.stringify(name)} is repeated`);
-        continue;
       }
+      // A repeat has no node, and neither has a member whose name is not well formed, whose nodes' exact paths would not be
+      // well formed either; their values are not looked into.
+      if (!wellFormed || repeats.has(member)) continue;
       if (indexed) {
         const memberEnd = member.value.offset + member.value.length;
         this.#unit.nodes.add(at, name, {

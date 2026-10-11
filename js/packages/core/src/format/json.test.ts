@@ -4,7 +4,8 @@ import type { Issue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import type { ParsedRecord } from "../record/record.js";
 import { decodeSource } from "../text/source-text.js";
-import { JSON_NESTING_LIMIT, parseJsonRecord } from "./json.js";
+import { parseJsonRecord } from "./json.js";
+import { MAX_NESTING } from "./limits.js";
 
 const encoder = new TextEncoder();
 const PATH = "r.json";
@@ -171,21 +172,28 @@ describe("syntax errors", () => {
 });
 
 describe("nesting", () => {
-  test(`nesting deeper than ${JSON_NESTING_LIMIT} levels is a syntax-error, not a stack overflow`, () => {
-    for (const depth of [JSON_NESTING_LIMIT + 1, 100_000]) {
+  test(`nesting deeper than ${MAX_NESTING} levels is a syntax-error, not a stack overflow`, () => {
+    for (const depth of [MAX_NESTING + 1, 100_000]) {
       expect(failure(`{"a": ${"[".repeat(depth - 1)}${"]".repeat(depth - 1)}}`)).toEqual([["syntax-error", ""]]);
       expect(failure(`${'{"a": '.repeat(depth)}1${"}".repeat(depth)}`)).toEqual([["syntax-error", ""]]);
     }
   });
 
-  test(`nesting of ${JSON_NESTING_LIMIT} levels reads`, () => {
-    const depth = JSON_NESTING_LIMIT;
+  test("the limit is 256 levels for every format: 256 read, and 257 are a syntax-error", () => {
+    expect(MAX_NESTING).toBe(256);
+    // The root object and 255 arrays are 256 levels; one more array is 257.
+    expect(parse(`{"a": ${"[".repeat(255)}${"]".repeat(255)}}`).ok).toBe(true);
+    expect(failure(`{"a": ${"[".repeat(256)}${"]".repeat(256)}}`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test(`nesting of ${MAX_NESTING} levels reads`, () => {
+    const depth = MAX_NESTING;
     expect(parse(`{"a": ${"[".repeat(depth - 1)}${"]".repeat(depth - 1)}}`).ok).toBe(true);
     expect(parse(`${'{"a": '.repeat(depth)}1${"}".repeat(depth)}`).ok).toBe(true);
   });
 
   test("brackets inside strings do not count as nesting", () => {
-    const deep = "[".repeat(JSON_NESTING_LIMIT * 2);
+    const deep = "[".repeat(MAX_NESTING * 2);
     expect(record(`{"${deep}": "${deep}\\"${deep}"}`).value).toEqual({ [deep]: `${deep}"${deep}` });
   });
 
@@ -207,8 +215,8 @@ describe("nesting", () => {
   });
 
   test("brackets inside comments do not count", () => {
-    expect(failure(`{"a": 1 /* ${"[".repeat(JSON_NESTING_LIMIT * 2)} */}`)).toEqual([["syntax-error", ""]]);
-    expect(onlyIssue(`{"a": 1 /* ${"[".repeat(JSON_NESTING_LIMIT * 2)} */}`).message).toContain("InvalidCommentToken");
+    expect(failure(`{"a": 1 /* ${"[".repeat(MAX_NESTING * 2)} */}`)).toEqual([["syntax-error", ""]]);
+    expect(onlyIssue(`{"a": 1 /* ${"[".repeat(MAX_NESTING * 2)} */}`).message).toContain("InvalidCommentToken");
   });
 
   test("a closing bracket of the wrong kind is a syntax error, positioned at it", () => {
@@ -269,6 +277,11 @@ describe("duplicate members", () => {
     ]);
   });
 
+  test("a repeat's value is not looked into, so the errors inside it are not reported", () => {
+    expect(failure('{"a": 1, "a": 1e400}')).toEqual([["duplicate-member", "/a"]]);
+    expect(failure('{"a": 1, "a": {"b": "\\ud800", "c": 1, "c": 2}}')).toEqual([["duplicate-member", "/a"]]);
+  });
+
   test("the same name in two objects is no duplicate", () => {
     expect(parse('{"x": {"k": 1}, "y": {"k": 1}, "k": 1}').ok).toBe(true);
   });
@@ -296,6 +309,22 @@ describe("unpaired surrogates", () => {
       b: "﷐",
       c: "\u{1fffe}",
     });
+  });
+
+  test("the value of a member whose name has an unpaired surrogate is not looked into", () => {
+    expect(failure('{"\\ud800": 1e400}')).toEqual([["unpaired-surrogate", ""]]);
+    expect(failure('{"m": {"\\ud800": {"x": "\\udc00", "y": 1, "y": 2}}, "ok": 1e400}')).toEqual([
+      ["number-not-representable", "/ok"],
+      ["unpaired-surrogate", "/m"],
+    ]);
+  });
+
+  test("a repeated name with an unpaired surrogate is reported both ways", () => {
+    expect(failure('{"\\ud800": 1, "\\ud800": 2}')).toEqual([
+      ["duplicate-member", "/\ud800"],
+      ["unpaired-surrogate", ""],
+      ["unpaired-surrogate", ""],
+    ]);
   });
 
   test("every error is reported: a surrogate and a duplicate together", () => {
