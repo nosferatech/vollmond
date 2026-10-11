@@ -39,9 +39,14 @@ const cases = [
 
 // --- __proto__ and constructor as members ---
 {
-  const ajv = new Ajv2020({ allErrors: true, strict: false });
-  const v = ajv.compile(protoSchema);
-  for (const [label, value, expected] of cases) line(`ajv ${label} (expected ${expected ? "valid" : "invalid"})`, v(value) ? "valid" : "invalid");
+  // Without ownProperties, Ajv reads inherited members, so `{"__proto__": 5}` from JSON.parse fails on the inherited
+  // `constructor`, not on `__proto__`; ajv-own-properties.mjs separates the two.
+  for (const ownProperties of [false, true]) {
+    const v = new Ajv2020({ allErrors: true, strict: false, ownProperties }).compile(protoSchema);
+    for (const [label, value, expected] of cases) {
+      line(`ajv${ownProperties ? " ownProperties" : ""} ${label} (expected ${expected ? "valid" : "invalid"})`, v(value) ? "valid" : "invalid");
+    }
+  }
   const node = jsl.compileSchema(protoSchema);
   for (const [label, value, expected] of cases) line(`jsl ${label} (expected ${expected ? "valid" : "invalid"})`, node.validate(value).valid ? "valid" : "invalid");
   hj.registerSchema({ $schema: "https://json-schema.org/draft/2020-12/schema", ...protoSchema, properties: JSON.parse('{"__proto__":{"type":"string"},"constructor":{"type":"string"}}') }, "https://vmd.invalid/proto");
@@ -66,6 +71,9 @@ const cases = [
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const rv = ajv.compile(required);
   const pv = ajv.compile(properties);
+  const own = new Ajv2020({ allErrors: true, strict: false, ownProperties: true });
+  const rvo = own.compile(required);
+  const pvo = own.compile(properties);
   const rn = jsl.compileSchema(required);
   const pn = jsl.compileSchema(properties);
   hj.registerSchema({ $schema: "https://json-schema.org/draft/2020-12/schema", ...required }, "https://vmd.invalid/required");
@@ -73,6 +81,8 @@ const cases = [
   for (const [label, value] of empty) {
     line(`ajv required [toString, constructor] vs ${label} (expected invalid)`, rv(value) ? "valid" : "invalid");
     line(`ajv properties.toString: string vs ${label} (expected valid)`, pv(value) ? "valid" : "invalid");
+    line(`ajv ownProperties required [toString, constructor] vs ${label} (expected invalid)`, rvo(value) ? "valid" : "invalid");
+    line(`ajv ownProperties properties.toString: string vs ${label} (expected valid)`, pvo(value) ? "valid" : "invalid");
     line(`jsl required [toString, constructor] vs ${label} (expected invalid)`, rn.validate(value).valid ? "valid" : "invalid");
     line(`jsl properties.toString: string vs ${label} (expected valid)`, pn.validate(value).valid ? "valid" : "invalid");
     const hr = await hj.validate("https://vmd.invalid/required", value);

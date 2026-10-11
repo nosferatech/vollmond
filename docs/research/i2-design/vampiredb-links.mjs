@@ -130,6 +130,10 @@ const note = (k, r) => {
 const resolveStart = performance.now();
 for (const r of refs) {
   const url = r.url;
+  if (r.raw === null) {
+    note("autolink or autolink literal: not a reference (the design's section 5.1)", r);
+    continue;
+  }
   if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(url)) {
     note("absolute URI: leaves the store", r);
     continue;
@@ -186,6 +190,7 @@ for (const r of refs.filter((x) => !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(x.url) && x
   if (records.has(target)) await core.resolveStoreAddress(lookup, `${target}#${f}`, "singular");
 }
 console.log(`resolving them again, the resolvers' maps built: ${(performance.now() - again).toFixed(0)} ms`);
+console.log(`\nlinks and definitions: ${refs.length}; without the autolinks, which are not references: ${refs.filter((r) => r.raw !== null).length}`);
 console.log("\nreferences by kind:");
 for (const [k, v] of Object.entries(counts)) console.log(`  ${k}: ${v}`);
 console.log("\nreferences by target:");

@@ -3,6 +3,11 @@ ajv null-prototype {__proto__: 5} (expected invalid)                   valid
 ajv null-prototype {__proto__: 'x'} (expected valid)                   valid
 ajv null-prototype {constructor: 5} (expected invalid)                 invalid
 ajv null-prototype {}  (expected valid)                                valid
+ajv ownProperties JSON.parse {__proto__: 5} (expected invalid)         valid
+ajv ownProperties null-prototype {__proto__: 5} (expected invalid)     valid
+ajv ownProperties null-prototype {__proto__: 'x'} (expected valid)     valid
+ajv ownProperties null-prototype {constructor: 5} (expected invalid)   invalid
+ajv ownProperties null-prototype {}  (expected valid)                  valid
 jsl JSON.parse {__proto__: 5} (expected invalid)                       invalid
 jsl null-prototype {__proto__: 5} (expected invalid)                   invalid
 jsl null-prototype {__proto__: 'x'} (expected valid)                   valid
@@ -15,12 +20,16 @@ hyperjump null-prototype {constructor: 5} (expected invalid)           invalid
 hyperjump null-prototype {}  (expected valid)                          valid
 ajv required [toString, constructor] vs JSON.parse {} (expected invalid) valid
 ajv properties.toString: string vs JSON.parse {} (expected valid)      invalid
+ajv ownProperties required [toString, constructor] vs JSON.parse {} (expected invalid) invalid
+ajv ownProperties properties.toString: string vs JSON.parse {} (expected valid) valid
 jsl required [toString, constructor] vs JSON.parse {} (expected invalid) invalid
 jsl properties.toString: string vs JSON.parse {} (expected valid)      valid
 hyperjump required [toString, constructor] vs JSON.parse {} (expected invalid) invalid
 hyperjump properties.toString: string vs JSON.parse {} (expected valid) valid
 ajv required [toString, constructor] vs null-prototype {} (expected invalid) invalid
 ajv properties.toString: string vs null-prototype {} (expected valid)  valid
+ajv ownProperties required [toString, constructor] vs null-prototype {} (expected invalid) invalid
+ajv ownProperties properties.toString: string vs null-prototype {} (expected valid) valid
 jsl required [toString, constructor] vs null-prototype {} (expected invalid) invalid
 jsl properties.toString: string vs null-prototype {} (expected valid)  valid
 hyperjump required [toString, constructor] vs null-prototype {} (expected invalid) invalid
@@ -41,10 +50,10 @@ jsl oneOf errors                                                       ["#/v one
 hyperjump oneOf errors (BASIC)                                         ["#/v oneOf","#/v maxLength","#/v type"]
 jsl relative $ref to another file: {parent: 'x'}                       ["#/parent pattern-error"]
 jsl $ref to a missing file (throwOnInvalidRef false): validate {a: 1}  ["ref-error"]
-ajv compile, then 1000 validations of a 200-member record (ms)         39.8, 10.0
-jsl compile, then 1000 validations of a 200-member record (ms)         2.4, 63.6
-hyperjump validate(uri, instance): first, then 1000 more (ms)          6.2, 869.4
-hyperjump validate(uri) once, then 1000 sync calls, FLAG and BASIC (ms) 2.7, 53.8, 82.9
+ajv compile, then 1000 validations of a 200-member record (ms)         41.7, 16.3
+jsl compile, then 1000 validations of a 200-member record (ms)         2.3, 79.8
+hyperjump validate(uri, instance): first, then 1000 more (ms)          6.3, 841.1
+hyperjump validate(uri) once, then 1000 sync calls, FLAG and BASIC (ms) 1.1, 56.7, 88.8
 hyperjump $ref to an unregistered file, schemes removed                throws RetrievalError: Unable to load resource 'https://vmd.invalid/schema/missing.schema.yaml'. Referenced from 
 json-schema-formats isUri("https://example.com/a"), §4.3 or the suite says true true
 json-schema-formats isUri("../a.md"), §4.3 or the suite says false     false

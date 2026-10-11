@@ -1,11 +1,17 @@
-// A stand-in for `npm install` on a machine where npm's TLS fails and curl's works: resolves the dependencies of
-// package.json from the registry with curl, and unpacks each tarball into node_modules, nested where versions conflict.
-// Integrity is checked against the registry's sha512. `npm install` does the same where it works.
+// A stand-in for `npm ci` on a machine where npm's TLS fails and curl's works: installs into node_modules exactly the
+// packages fetched-deps.txt lists, each at its version and place, with curl.
 //
-//   node fetch-deps.mjs
+//   node fetch-deps.mjs              install the lock list; fail if the registry's integrity for a version differs from it
+//   node fetch-deps.mjs --update     resolve package.json's ranges as the registry has them now, install, rewrite the list
 //
-// The measurements of docs/design/i2-validate.md ran with the validators this fetched (fetched-deps.txt lists them with
-// their integrity), and the Markdown probes with the packages js/ installs, which are the same versions as core's.
+// What the integrity check proves: the tarball matches the sha512 the registry publishes for that version, and that sha512 is
+// the one recorded in the lock list. Both come from the registry, so the check guards against a changed or corrupted download
+// and a changed registry entry, not against a package the registry served wrongly from the start; nothing here verifies a
+// signature or provenance.
+//
+// The validator measurements of docs/design/i2-validate.md ran with 23 of the listed packages (the validators and their
+// dependencies), installed at the versions the list gives. The Markdown probes ran with the packages js/ installs, which are
+// core's; the list's Markdown packages have the same top-level versions, and their own dependencies may be newer.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -69,25 +75,46 @@ function unpack(meta, directory) {
   mkdirSync(directory, { recursive: true });
   execFileSync("tar", ["-xzf", "-", "-C", directory, "--strip-components=1"], { input: tgz });
 }
-const top = JSON.parse(readFileSync(join(here, "package.json"), "utf8")).dependencies;
-const installed = new Map(); // hoisted name -> version
-const lock = [];
-function install(name, range, parentDir) {
-  const meta = pick(name, range);
-  const hoisted = installed.get(name);
-  let directory;
-  if (hoisted === undefined) {
-    installed.set(name, meta.version);
-    directory = join(here, "node_modules", name);
-  } else if (hoisted === meta.version) {
-    return;
-  } else {
-    directory = join(parentDir, "node_modules", name);
+const lockPath = join(here, "fetched-deps.txt");
+
+if (process.argv.includes("--update")) {
+  // Resolves package.json's ranges as the registry has them today, installs, and rewrites the lock list.
+  const top = JSON.parse(readFileSync(join(here, "package.json"), "utf8")).dependencies;
+  const installed = new Map(); // hoisted name -> version
+  const lock = [];
+  function install(name, range, parentDir) {
+    const meta = pick(name, range);
+    const hoisted = installed.get(name);
+    let directory;
+    if (hoisted === undefined) {
+      installed.set(name, meta.version);
+      directory = join(here, "node_modules", name);
+    } else if (hoisted === meta.version) {
+      return;
+    } else {
+      directory = join(parentDir, "node_modules", name);
+    }
+    unpack(meta, directory);
+    lock.push(`${name}@${meta.version} ${meta.dist.integrity} ${directory.slice(here.length)}`);
+    for (const [dep, r] of Object.entries(meta.dependencies ?? {})) install(dep, r, directory);
   }
-  unpack(meta, directory);
-  lock.push(`${name}@${meta.version} ${meta.dist.integrity} ${directory.slice(here.length)}`);
-  for (const [dep, r] of Object.entries(meta.dependencies ?? {})) install(dep, r, directory);
+  for (const [name, version] of Object.entries(top)) install(name, version, here);
+  writeFileSync(lockPath, `${lock.sort().join("\n")}\n`);
+  console.log(`${lock.length} packages; ${lockPath} rewritten`);
+} else {
+  // Installs exactly the lock list: each package at its locked version, where the lock places it, and fails when the
+  // registry's integrity for that version differs from the locked one, or the tarball from it.
+  let count = 0;
+  for (const line of readFileSync(lockPath, "utf8").split("\n").filter(Boolean)) {
+    const [spec, integrity, place] = line.split(" ");
+    const at = spec.lastIndexOf("@");
+    const name = spec.slice(0, at);
+    const version = spec.slice(at + 1);
+    const meta = packument(name).versions[version];
+    if (meta === undefined) throw new Error(`${spec} is not on the registry`);
+    if (meta.dist.integrity !== integrity) throw new Error(`${spec}: the registry's integrity differs from the lock's`);
+    unpack(meta, join(here, place));
+    count++;
+  }
+  console.log(`${count} packages, as ${lockPath} lists them`);
 }
-for (const [name, version] of Object.entries(top)) install(name, version, here);
-writeFileSync(join(here, "fetched-deps.txt"), `${lock.sort().join("\n")}\n`);
-console.log(`${lock.length} packages`);

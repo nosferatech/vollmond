@@ -9,6 +9,18 @@ js-schemasafe                    1.3.0    tests 1301 wrong 1 errored 41 skipped 
 ts-json-schema-library           11.6.2   tests 1301 wrong 0 errored 0 skipped 0
 ts-vscode-json-languageservice   5.7.2    tests 1301 wrong 103 errored 0 skipped 0
 
+js-ajv: tests not passed, by theme of the case
+  $dynamicRef and $dynamicAnchor: errored: 14
+  $dynamicRef and $dynamicAnchor: wrong: 15
+  contains, minContains, maxContains: errored: 10
+  format (strict mode: unknown formats): errored: 133
+  if, then, else: errored: 12
+  names an object's prototype has: wrong: 5
+  other: errored: 42
+  other: wrong: 1
+  unevaluatedItems and unevaluatedProperties: errored: 16
+  unevaluatedItems and unevaluatedProperties: wrong: 6
+
 js-ajv: cases with a wrong verdict or an error
   - Location-independent identifier (errored)
   - Location-independent identifier with absolute URI (errored)

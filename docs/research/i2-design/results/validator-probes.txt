@@ -1,5 +1,5 @@
 node 24.21.0
-ajv: import of ajv/dist/2020.js (ms, in this process)      20.4
+ajv: import of ajv/dist/2020.js (ms, in this process)      21.7
 ajv strict: unknown format hostname                        throws: strict mode: required property "owner" is not defined at "#" (strictRequired)
 ajv strict: unknown keyword x-vmd-summary                  throws: strict mode: unknown keyword: "x-vmd-summary"
 ajv error required                                         {"instancePath":"","schemaPath":"#/required","params":{"missingProperty":"owner"},"message":"must have required property 'owner'"}
@@ -17,16 +17,16 @@ ajv relative $ref to another schema file: {parent: 'x'}    ["/parent pattern com
 ajv getSchema by JSON Pointer into a document              valid
 strict mode: missing type "object" for keyword "properties" at "https://vmd.invalid/schema/broken.schema.yaml#" (strictTypes)
 ajv $ref to a missing file                                 throws: can't resolve reference missing.schema.yaml from id https://vmd.invalid/schema/b
-ajv compile of a 200-property schema (ms)                  14.3
-ajv 1000 validations of a 200-member record (ms)           6.4
-hyperjump: import (ms, in this process)                    38.8
+ajv compile of a 200-property schema (ms)                  14.7
+ajv 1000 validations of a 200-member record (ms)           8.3
+hyperjump: import (ms, in this process)                    36.2
 hyperjump: exports                                         ["FLAG","InvalidSchemaError","addSchema","getAllRegisteredSchemaUris","getMetaSchemaOutputFormat","getShouldValidateFormat","getShouldValidateSchema","hasSchema","registerSchema","restoreValidator","setMetaSchemaOutputFormat","setShouldValidateFormat","setShouldValidateSchema","unregisterSchema","validate"]
 hyperjump BASIC output valid                               false
 hyperjump error                                            {"keyword":"https://json-schema.org/keyword/required","instanceLocation":"#","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/required"}
 hyperjump error                                            {"keyword":"https://json-schema.org/keyword/enum","instanceLocation":"#/status","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/properties/status/enum"}
 hyperjump error                                            {"keyword":"https://json-schema.org/keyword/type","instanceLocation":"#/tags/1","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/properties/tags/items/type"}
 hyperjump error                                            {"keyword":"https://json-schema.org/evaluation/validate","instanceLocation":"#/extra","absoluteKeywordLocation":"https://vmd.invalid/schema/base.schema.json#/additionalProperties"}
-json-schema-library: import (ms, in this process)          4.1
+json-schema-library: import (ms, in this process)          4.6
 json-schema-library: exports (first 30)                    ["addKeywords","compileSchema","draft04","draft06","draft07","draft2019","draft2020","draftEditor","extendDraft","getSchemaType","getTypeOf","isAnnotation","isBooleanSchema","isJsonAnnotation","isJsonError","isJsonSchema","isReduceable","isSchemaNode","mergeNode","mergeSchema","oneOfFuzzyKeyword","oneOfKeyword","propertyDependenciesKeyword","render","sanitizeErrors","settings"]
 json-schema-library valid                                  false
 json-schema-library error enum-error                       {"pointer":"#/status","message":"Expected given value `Bad` in `#/status` to be one of `[\"Open\",\"Closed\"]`"}
@@ -34,7 +34,7 @@ json-schema-library error format-date-error                {"pointer":"#/due","m
 json-schema-library error type-error                       {"pointer":"#/tags/1","message":"Expected `1` (number) in `#/tags/1` to be of type `string`"}
 json-schema-library error required-property-error          {"pointer":"#","message":"The required property `owner` is missing at `#`"}
 json-schema-library error no-additional-properties-error   {"pointer":"#/extra","message":"Additional property `extra` in `#/extra` is not allowed"}
-cfworker: import (ms, in this process)                     2.4
+cfworker: import (ms, in this process)                     2.3
 cfworker: exports                                          ["OutputFormat","Validator","deepCompareStrict","dereference","encodePointer","escapePointer","format","ignoredKeyword","initialBaseURI","schemaArrayKeyword","schemaKeyword","schemaMapKeyword","ucs2length","validate"]
 cfworker valid                                             false
 cfworker error required                                    {"instanceLocation":"#","keywordLocation":"#/required","error":"Instance does not have required property \"owner\"."}

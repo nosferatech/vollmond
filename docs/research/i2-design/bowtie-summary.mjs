@@ -48,6 +48,33 @@ for (const [k, s] of stats) {
   const version = String(head.implementations[k].version);
   console.log(`${k.padEnd(32)} ${version.padEnd(8)} tests ${s.tests} wrong ${s.failed} errored ${s.errored} skipped ${s.skipped}`);
 }
+// Ajv's wrong and errored tests by theme, from the case descriptions.
+const themes = [
+  ["$dynamicRef and $dynamicAnchor", /dynamic/i],
+  ["unevaluatedItems and unevaluatedProperties", /unevaluated/i],
+  ["names an object's prototype has", /Javascript object property names/i],
+  ["format (strict mode: unknown formats)", /format/i],
+  ["if, then, else", /\b(if|then|else)\b/],
+  ["contains, minContains, maxContains", /contains/i],
+];
+for (const k of ["js-ajv"]) {
+  const counts = new Map();
+  for (const line of lines.slice(1)) {
+    const o = JSON.parse(line);
+    if (o.implementation !== k) continue;
+    const c = cases.get(o.seq);
+    const n = c?.tests.length ?? 0;
+    const whole = o.errored || o.caught !== undefined;
+    const errored = whole ? n : o.results.filter((r) => r.errored).length;
+    const wrong = whole ? 0 : o.results.filter((r, i) => !r.errored && !r.skipped && r.valid !== o.expected[i]).length;
+    const theme = themes.find(([, re]) => re.test(c?.description ?? ""))?.[0] ?? "other";
+    for (const [kind, bad] of [["wrong", wrong], ["errored", errored]]) {
+      if (bad > 0) counts.set(`${theme}: ${kind}`, (counts.get(`${theme}: ${kind}`) ?? 0) + bad);
+    }
+  }
+  console.log(`\n${k}: tests not passed, by theme of the case`);
+  for (const [key, n] of [...counts].sort()) console.log(`  ${key}: ${n}`);
+}
 for (const k of ["js-ajv", "js-hyperjump", "js-json-schema", "js-schemasafe"]) {
   const s = stats.get(k);
   if (s === undefined) continue;

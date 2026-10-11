@@ -64,7 +64,7 @@ line("ajv: import of ajv/dist/2020.js (ms, in this process)", (tAjv - t0).toFixe
   } catch (e) {
     line("ajv strict: unknown keyword x-vmd-summary", `throws: ${e.message.slice(0, 80)}`);
   }
-  const lax = new Ajv2020({ allErrors: true, strictSchema: false, validateFormats: true, formats: { hostname: true } });
+  const lax = new Ajv2020({ allErrors: true, strictSchema: false, ownProperties: true, validateFormats: true, formats: { hostname: true } });
   lax.addFormat("date", { type: "string", validate: (s) => DATE.test(s) });
   const v = lax.compile(base);
   v(instance);
@@ -74,7 +74,7 @@ line("ajv: import of ajv/dist/2020.js (ms, in this process)", (tAjv - t0).toFixe
   const protoSchema = nullProto({ type: "object", required: ["__proto__"], properties: {} });
   protoSchema.properties = withProto({}, { type: "string" });
   try {
-    const pv = new Ajv2020({ allErrors: true }).compile(protoSchema);
+    const pv = new Ajv2020({ allErrors: true, ownProperties: true }).compile(protoSchema);
     line("ajv __proto__: {__proto__: 5} (should be invalid)", pv(withProto({}, 5)) ? "valid" : pv.errors.map((e) => e.message));
     line("ajv __proto__: {__proto__: 'x'} (should be valid)", pv(withProto({}, "x")) ? "valid" : pv.errors.map((e) => e.message));
     line("ajv __proto__: {} (should be invalid: required)", pv(nullProto({})) ? "valid" : pv.errors.map((e) => e.message));
