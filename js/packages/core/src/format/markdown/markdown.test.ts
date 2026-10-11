@@ -203,6 +203,32 @@ describe("nesting", () => {
     expect(issuesOf(`${"*a ".repeat(MAX_NESTING)}b${" c*".repeat(MAX_NESTING)}\n`)).toEqual([]);
   });
 
+  // Emphasis around an inline node that holds emphasis: each counts one level, so the input nests one level past the limit
+  // only when the node in the middle counts.
+  test.each([
+    ["strong", "**x *y* z**"],
+    ["strikethrough", "~~x *y* z~~"],
+    ["a link", "[x *y* z](u)"],
+    ["a link reference", "[x *y* z][r]"],
+    ["emphasis", "*x *y* z*"],
+  ])("%s nests one level", (_, inner) => {
+    const nested = (outer: number) => `${"*a ".repeat(outer)}${inner}${" c*".repeat(outer)}\n\n[r]: u\n`;
+    expect(issuesOf(nested(MAX_NESTING - 2))).toEqual([]);
+    expect(issuesOf(nested(MAX_NESTING - 1))).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a block quote and a list item nest one level each, and a list adds none", () => {
+    const mixed = (pairs: number) => `${"> - ".repeat(pairs)}x\n`;
+    expect(issuesOf(mixed(MAX_NESTING / 2))).toEqual([]);
+    expect(issuesOf(`>${mixed(MAX_NESTING / 2)}`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("the syntax error points at the first node nested too deep", () => {
+    const text = `Text.\n\n${quotes(MAX_NESTING + 1)}\nText.\n\n${quotes(MAX_NESTING + 5)}`;
+    const issue = parse(text).issues[0];
+    expect(issue?.position).toEqual({ offset: bytesOf(text, ">").start + MAX_NESTING, line: 3, col: MAX_NESTING + 1 });
+  });
+
   test("ten thousand nested block quotes are a syntax error, not a stack overflow", () => {
     expect(issuesOf(quotes(10_000))).toEqual([["syntax-error", ""]]);
   });
@@ -329,9 +355,14 @@ describe("anchor elements in headings", () => {
     ["a repeated attribute", '## Done<a id="a" id="b"></a>\n'],
     ["no closing tag", '## Done<a id="done">\n'],
     ["a self-closing tag", '## Done<a id="done"/></a>\n'],
+    ["a self-closing tag alone", '## Done<a id="done"/>\n'],
     ["a second element", '## Done<a id="a"></a><a class="b"></a>\n'],
   ])("an anchor element with %s is anchor-element-invalid at the section", (_, heading) => {
     expect(issuesOf(`# R\n\n${heading}`)).toEqual([["anchor-element-invalid", "/$sections/0"]]);
+  });
+
+  test("a self-closing anchor element is refused as one, though no closing tag follows it", () => {
+    expect(parse('## Done<a id="d"/>\n').issues[0]?.message).toMatch(/self-closing/);
   });
 
   test("near miss: an <a> without id or class is other HTML, heading-html", () => {
@@ -454,6 +485,14 @@ describe("data blocks", () => {
     expect(valueView("## A\n```yaml data\na: 1\n## B\n")).toEqual({ $sections: [{ $title: "A", a: 1 }] });
     // Its last line is content, though it would close a shorter fence.
     expect(valueView("## A\n````yaml data\na: |\n  x\n  ```")).toEqual({ $sections: [{ $title: "A", a: "x\n```" }] });
+  });
+
+  test("an indented fence's lines lose columns: a tab partly removed leaves spaces, as CommonMark reads it", () => {
+    const text = "## A\n  ```yaml data\n\ta: 1\n \tb:\n\t  - x\n  ```\n";
+    const parsed = record(text);
+    expect(parsed.value).toEqual({ $sections: [{ $title: "A", a: 1, b: ["x"] }] });
+    expect(parsed.nodes.node("/$sections/0/a")?.memberRange).toEqual(bytesOf(text, "a: 1"));
+    expect(rangeAt(parsed, "/$sections/0/b/0")).toEqual(bytesOf(text, "x"));
   });
 
   test("an indented fence's lines lose its indentation, and the ranges stay the file's", () => {

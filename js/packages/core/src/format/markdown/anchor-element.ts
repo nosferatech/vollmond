@@ -65,14 +65,14 @@ export function anchorElementAt(text: string, pieces: readonly InlineHtml[], ind
   const id = ids[0] as HtmlAttribute | undefined;
   const others = tag.attributes.filter((attribute) => attribute.name !== "id" && attribute.name !== "class");
   let problem: string | null = null;
-  if (!closed) {
+  if (tag.selfClosing) {
+    problem = "an anchor element is written <a ...></a>, not as a self-closing tag";
+  } else if (!closed) {
     problem = "an anchor element has no content: </a> must follow its open tag directly";
   } else if (others.length > 0) {
     problem = `an anchor element has no attributes besides id and class, and this one has ${others[0]?.name}`;
   } else if (ids.length > 1 || classes.length > 1) {
     problem = "an anchor element has one id attribute and one class attribute at most";
-  } else if (tag.selfClosing) {
-    problem = "an anchor element is written <a ...></a>, not as a self-closing tag";
   }
   return {
     start: piece.start,

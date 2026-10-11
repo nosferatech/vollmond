@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { describe, expect, test } from "vitest";
 import { readLineBreaksAsLf, sliceIndentedUnitText, sliceUnitText, type UnitText } from "./unit-text.js";
 
@@ -131,11 +132,20 @@ describe("sliceIndentedUnitText", () => {
     expect([0, 2, 6, 8].map((index) => unit.fileEnd(index))).toEqual([2, 4, 10, 13]);
   });
 
-  test("a tab stops the removal, and so does the end of the slice", () => {
-    const unit = sliceIndentedUnitText("x\n\t a\n  ", 2, 8, 3);
-    expect(unit.text).toBe("\t a\n");
-    expect(unit.fileIndex(unit.text.length)).toBe(8);
-    expect(unit.fileEnd(unit.text.length)).toBe(6);
+  test("removes columns: a tab reaches the next multiple of 4, and one consumed partly leaves spaces for its tab", () => {
+    // Under a fence indented 2: a tab of 4 columns leaves 2, a space and a tab of 3 leave 2, two spaces leave a tab whole.
+    const file = "\ta: 1\n \tb: 2\n  \tc";
+    const unit = sliceIndentedUnitText(file, 0, file.length, 2);
+    expect(unit.text).toBe("  a: 1\n  b: 2\n\tc");
+    expect(fileIndexes(unit)).toEqual([0, 0, 1, 2, 3, 4, 5, 7, 7, 8, 9, 10, 11, 12, 15, 16, 17]);
+    expect([7, 8, 14].map((index) => unit.fileEnd(index))).toEqual([6, 7, 13]);
+  });
+
+  test("a character other than a space or a tab stops the removal, and so does the end of the slice", () => {
+    const unit = sliceIndentedUnitText("x\n a\n  ", 2, 7, 3);
+    expect(unit.text).toBe("a\n");
+    expect(unit.fileIndex(unit.text.length)).toBe(7);
+    expect(unit.fileEnd(unit.text.length)).toBe(5);
   });
 
   test("an indentation of 0 is a plain slice, and an empty slice has the one index of its place", () => {
@@ -143,20 +153,25 @@ describe("sliceIndentedUnitText", () => {
     expect(fileIndexes(sliceIndentedUnitText("abc", 2, 2, 2))).toEqual([2]);
   });
 
-  test("agrees with removing the spaces line by line, on random texts", () => {
-    const piece = fc.constantFrom("a", " ", "\t", "\r", "\n", "\r\n", "\u{E9}");
+  test("agrees with the content micromark reads from a fence indented as much, on random lines", () => {
+    const piece = fc.constantFrom("a", " ", "\t", "\u{E9}");
+    const contentLine = fc.array(piece, { maxLength: 8 }).map((pieces) => `${pieces.join("")}\n`);
+    const fence = "`".repeat(3);
     fc.assert(
-      fc.property(fc.array(piece, { maxLength: 30 }), fc.nat(4), (pieces, indent) => {
-        const file = pieces.join("");
-        const unit = sliceIndentedUnitText(file, 0, file.length, indent);
-        // The oracle: every unit index maps to a file index whose character is the unit's.
+      fc.property(fc.array(contentLine, { maxLength: 5 }), fc.integer({ min: 0, max: 3 }), (lines, indent) => {
+        const opening = `${" ".repeat(indent)}${fence}\n`;
+        const content = lines.join("");
+        const file = `${opening}${content}${fence}\n`;
+        const unit = sliceIndentedUnitText(file, opening.length, opening.length + content.length, indent);
+        const code = fromMarkdown(file).children[0];
+        const value = code?.type === "code" ? code.value : "";
+        expect(unit.text).toBe(lines.length === 0 ? "" : `${value}\n`);
+        // Every unit index maps to its character in the file, or to the tab that a virtual space stands for.
         for (let index = 0; index < unit.text.length; index++) {
-          expect(file[unit.fileIndex(index)]).toBe(unit.text[index]);
+          const character = file[unit.fileIndex(index)];
+          expect(character === unit.text[index] || (unit.text[index] === " " && character === "\t")).toBe(true);
           expect(unit.fileEnd(index)).toBeLessThanOrEqual(unit.fileIndex(index));
         }
-        const lines = file.split(/(?<=\r\n|\r(?!\n)|\n)/);
-        const expected = lines.map((line) => line.replace(new RegExp(`^ {0,${indent}}`), "")).join("");
-        expect(unit.text).toBe(file === "" ? "" : expected);
       }),
       { numRuns: 1000 },
     );

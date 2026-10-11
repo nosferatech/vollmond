@@ -76,7 +76,10 @@ export function parseMarkdownTree(text: string): MarkdownTree {
   return { ok: true, root };
 }
 
-/** Finds the first node nested deeper than `limit`, without recursion, and returns its start, or null when there is none. */
+/**
+ * Finds the first node in document order nested deeper than `limit`, without recursion, and returns its start, or null when
+ * there is none.
+ */
 function nestedBeyond(root: Root, limit: number): number | null {
   const pending: [Nodes, number][] = [[root, 0]];
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
@@ -84,7 +87,8 @@ function nestedBeyond(root: Root, limit: number): number | null {
     const level = NESTING_TYPES.has(node.type) ? depth + 1 : depth;
     if (level > limit) return node.position?.start.offset ?? 0;
     if ("children" in node) {
-      for (const child of node.children) pending.push([child, level]);
+      // The last child first, so that the walk visits the nodes in document order.
+      for (let i = node.children.length - 1; i >= 0; i--) pending.push([node.children[i] as Nodes, level]);
     }
   }
   return null;
