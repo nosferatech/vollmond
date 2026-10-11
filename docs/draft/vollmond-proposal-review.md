@@ -748,7 +748,8 @@ measured on 2026-10-10, not as a decision.
 ## Answers from the phase I1 design (K)
 
 Recorded 2026-10-10, and applied to Draft v0.7. The design of phase I1 ([docs/design/i1-read.md](../design/i1-read.md), #59)
-ended with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation. The
+ended with fourteen open questions (its §9), as K1 to K14 in that order. The project owner accepted every recommendation but
+K3's, which the design records. The
 answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that the design records, and
 K14 is decision J2.
 
@@ -768,8 +769,8 @@ K14 is decision J2.
   one (§7.3), with cases for both kinds of path.
 - **K8. The slug of a JSON or YAML section's `$title`** is computed as if the title were the content of an ATX heading, `## `
   followed by the title, so a section keeps its key across formats (§5.5). A title that would not read back that way, ending in a
-  closing sequence such as ` #`, with white space at either end, or holding an anchor element, is not representable as Markdown
-  (§5.8).
+  closing sequence such as ` #`, made only of `#` characters (which the review of this round added, since `## #` reads as an
+  empty heading), with white space at either end, or holding an anchor element, is not representable as Markdown (§5.8).
 - **K12. `storage-failed`**, a new operation code, for a read that the backend cannot complete, such as one refused by a
   permission error, which is not `address-not-found` (§11.2, Appendix D).
 - **K13. The portable regex** (§11.4). The claim that excluding backreferences and lookaround makes matching linear everywhere is

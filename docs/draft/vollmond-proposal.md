@@ -562,7 +562,8 @@ index records every reference's resolved exact path, so `vmd check` reports a re
   with an error naming the path:
   - every item of `$sections` is an object with a non-empty `$title`, and every `$title`, the root's included, is a single line
     that reads back as itself from an ATX heading, `## ` followed by the title: it does not end in a space followed by `#`
-    characters, which would be a closing sequence, has no white space at either end, and holds no anchor element (§6.2);
+    characters, which would be a closing sequence, is not made only of `#` characters, which `## ` would read as an empty
+    heading with a closing sequence, has no white space at either end, and holds no anchor element (§6.2);
   - a `$body` is not empty, has no leading blank lines, no trailing whitespace (spaces, tabs and line breaks, §5.3), no line that
     would parse as a heading outside a container block, and does not begin with a `yaml data` or `json data` fence. An empty
     `$body` is refused because Markdown cannot tell it from an absent one, which is how a section without text reads (§5.3);
@@ -888,9 +889,8 @@ ambiguous.
    is `#status` whatever the title heading carries.
 3. The node's derived anchor (§6.3), such as `#notes-1`. It is reached when the path of form 2 is not singular (§7.4: a level that
    allows repeats by `multimap`, a duplicate that evaluation meets in `lenient` mode, a first step that also matches another
-   node's anchor, or data that breaks a
-   uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level, or an anchor that names more than
-   one node). It identifies the node today, but a reference written with it gets
+   node's anchor, or data that breaks a uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level,
+   or an anchor that names more than one node). It identifies the node today, but a reference written with it gets
    `ref-derived-repeat` or `ref-derived-anchor` (§6.3).
 4. The exact path (§7.2), such as `#/$sections/2`. It is also the canonical address of a node that no step can name, such as a
    member whose name is empty or a section whose key is empty (§5.5).

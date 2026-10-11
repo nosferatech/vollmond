@@ -54,7 +54,7 @@ The topics to start with, each a directory under `cases/`:
 |---|---|---|
 | `values` | §4 | the I-JSON subset, constructs outside the data model, numbers, logical types |
 | `markdown` | §5.3 | front matter, the title heading, sections, data blocks, `$body`, container blocks |
-| `data` | §5.2, §5.4 | JSON and YAML records, the section shape, `$` members |
+| `data` | §5.2, §5.4, §5.5, §9.2 | JSON and YAML records, the section shape, `$` members, section keys of data titles, parse units |
 | `uniqueness` | §5.7 | strict and lenient modes |
 | `anchors` | §6 | explicit, derived and block anchors, and tags |
 | `addresses` | §7 | exact and semantic paths, cardinality, canonical addresses |
@@ -333,15 +333,17 @@ error (§9.2), and its issues are that record's structural errors:
 **Which issues an operation reports.** `check` reports every issue for the store, or for the records listed in `records`, at
 every severity. Every other operation reports only the issues that make it fail, so when it succeeds its issues are empty, and
 warnings and validation errors are tested through `check`. A `parse` case about one construct then does not have to list every
-warning its record also raises. Both `parse` and `check` report every error they can find, not only the first (decision C2).
+warning its record also raises. Both `parse` and `check` report every error they can find, not only the first (decision C2),
+with a syntax error once per parse unit (decision K2).
 
 **Failing is not crashing.** An operation fails when the implementation reports failure through its normal error channel with
 issues, as an error result or as the error type its API documents. Anything else is a crash, such as an unexpected exception,
 a panic, or a hang that the runner stops after a time of its choosing. A crash is a `fail` verdict even when the case expects
 `fails`.
 
-`outline` and `get`, which the Read profile also requires (§19.2), have no operation yet. §19.1 does not list them, and the
-source form of `get` depends on the spans that the Markdown parser task fixes (I1.4, #13; decision C11).
+`outline` and `get`, which the Read profile also requires (§19.2), have no operation yet, since §19.1 does not list them. The
+source form of `get` returns a node's range, which §5.9 now fixes (decisions C11 and K1), so a `get` operation could be added
+in a later revision of the case format.
 
 ### parse
 
@@ -371,8 +373,8 @@ The result is two computed fields (§5.10) of each section of the record, in a f
 the exact paths of the record's sections, the root's being `""`, and whose values are `{"@key": ..., "@address": ...}`. `@key` is
 the section key (§5.5), and `null` for the root, and `@address` is the canonical address, as in a target. The `null` is this
 operation's fixed shape; in a read that requests `@key`, the root has no `@key` at all. The other computed fields are left out.
-Anchors have their own operation, source locations wait for the spans of I1.4, node versions belong to the cases of the Write
-profile, and issues are tested through `check`.
+Anchors have their own operation, source locations are tested through `source_map`, whose ranges §5.9 fixes (decision K1),
+node versions belong to the cases of the Write profile, and issues are tested through `check`.
 
 ### anchors
 
@@ -779,7 +781,7 @@ below. The answered ones, with the decisions that answered them:
 | 2. When `parse` fails | C2, F1 |
 | 3. When `check` fails, and complete reporting | C2, F1 |
 | 4. Numbers outside the exact range | C4, C5, C6, F2 |
-| 5. Source map spans | C11 |
+| 5. Source map spans | C11, K1 |
 | 6. Offsets and positions | C10 |
 | 7. Line endings in the value view | C9 |
 | 8. Singular addresses that fail at evaluation | C18 |
