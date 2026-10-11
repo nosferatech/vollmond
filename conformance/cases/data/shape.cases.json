@@ -1,0 +1,110 @@
+{
+  "defaults": {"spec": ["5.2", "5.4"], "profiles": ["read"], "operation": "parse", "input": {"store": "shape"}},
+  "cases": [
+    {
+      "id": "root-not-object-json",
+      "spec": ["5.4", "D"],
+      "description": "A JSON record whose root is an array is root-not-object, at the root (§5.4).",
+      "input": {"record": "root-array.json"},
+      "expect": {"fails": true, "issues": [{"code": "root-not-object", "severity": "error", "path": "root-array.json", "at": ""}]}
+    },
+    {
+      "id": "root-not-object-yaml",
+      "spec": ["5.4", "D"],
+      "description": "A YAML record whose root is a sequence is root-not-object, at the root (§5.4).",
+      "input": {"record": "root-sequence.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "root-not-object", "severity": "error", "path": "root-sequence.yaml", "at": ""}]}
+    },
+    {
+      "id": "section-title-missing-json",
+      "spec": ["5.2", "D"],
+      "description": "An item of $sections without a $title is section-title-missing, at the item (§5.2).",
+      "input": {"record": "title-missing.json"},
+      "expect": {"fails": true, "issues": [{"code": "section-title-missing", "severity": "error", "path": "title-missing.json", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "section-title-missing-yaml",
+      "spec": ["5.2", "D"],
+      "description": "The same in YAML (§5.2).",
+      "input": {"record": "title-missing.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "section-title-missing", "severity": "error", "path": "title-missing.yaml", "at": "/$sections/0"}]}
+    },
+    {
+      "id": "ref-malformed-json",
+      "spec": ["8.1", "D"],
+      "description": "A $ref object with another member, and one whose $ref is not a string, are each ref-malformed, at the object (§8.1).",
+      "input": {"record": "ref-malformed.json"},
+      "expect": {"fails": true, "issues": [{"code": "ref-malformed", "severity": "error", "path": "ref-malformed.json", "at": "/parent"}, {"code": "ref-malformed", "severity": "error", "path": "ref-malformed.json", "at": "/child"}]}
+    },
+    {
+      "id": "ref-malformed-yaml",
+      "spec": ["8.1", "D"],
+      "description": "The same in YAML (§8.1).",
+      "input": {"record": "ref-malformed.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "ref-malformed", "severity": "error", "path": "ref-malformed.yaml", "at": "/parent"}, {"code": "ref-malformed", "severity": "error", "path": "ref-malformed.yaml", "at": "/child"}]}
+    },
+    {
+      "id": "ref-malformed-front-matter",
+      "spec": ["5.3", "8.1", "D"],
+      "description": "The same in a Markdown record's front matter, whose members are the root's fields (§5.3, §8.1).",
+      "input": {"record": "ref-malformed-front-matter.md"},
+      "expect": {"fails": true, "issues": [{"code": "ref-malformed", "severity": "error", "path": "ref-malformed-front-matter.md", "at": "/parent"}]}
+    },
+    {
+      "id": "dollar-key-json",
+      "spec": ["5.4", "D"],
+      "description": "A $key member on a section (here the root) is dollar-member, at the member (§5.4).",
+      "input": {"record": "dollar-key.json"},
+      "expect": {"fails": true, "issues": [{"code": "dollar-member", "severity": "error", "path": "dollar-key.json", "at": "/$key"}]}
+    },
+    {
+      "id": "dollar-key-yaml",
+      "spec": ["5.4", "D"],
+      "description": "A $key member on an item of $sections is dollar-member (§5.4).",
+      "input": {"record": "dollar-key.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "dollar-member", "severity": "error", "path": "dollar-key.yaml", "at": "/$sections/0/$key"}]}
+    },
+    {
+      "id": "schema-below-root-json",
+      "spec": ["5.4", "D"],
+      "description": "$schema is allowed on the root only; on an item of $sections it is a section member out of its place, dollar-member (§5.4).",
+      "input": {"record": "schema-below-root.json"},
+      "expect": {"fails": true, "issues": [{"code": "dollar-member", "severity": "error", "path": "schema-below-root.json", "at": "/$sections/0/$schema"}]}
+    },
+    {
+      "id": "schema-below-root-yaml",
+      "spec": ["5.4", "D"],
+      "description": "The same in YAML (§5.4).",
+      "input": {"record": "schema-below-root.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "dollar-member", "severity": "error", "path": "schema-below-root.yaml", "at": "/$sections/0/$schema"}]}
+    },
+    {
+      "id": "dollar-unknown-json",
+      "spec": ["5.4", "9.1", "D"],
+      "description": "Another $ member on a section may come from a newer minor version, so it is feature-unsupported, at the member (§5.4, §9.1).",
+      "input": {"record": "dollar-unknown.json"},
+      "expect": {"fails": true, "issues": [{"code": "feature-unsupported", "severity": "error", "path": "dollar-unknown.json", "at": "/$foo"}]}
+    },
+    {
+      "id": "dollar-unknown-yaml",
+      "spec": ["5.4", "9.1", "D"],
+      "description": "The same on an item of $sections (§5.4, §9.1).",
+      "input": {"record": "dollar-unknown.yaml"},
+      "expect": {"fails": true, "issues": [{"code": "feature-unsupported", "severity": "error", "path": "dollar-unknown.yaml", "at": "/$sections/0/$foo"}]}
+    },
+    {
+      "id": "near-misses-json",
+      "spec": ["5.4"],
+      "description": "Inside a field's value, $key, $schema, $foo and section member names are ordinary members, so the record reads with them as data (§5.4).",
+      "input": {"record": "near-misses.json"},
+      "expect": {"result": {"data": {"$key": 1, "$schema": 2, "$foo": 3, "$title": 4}, "list": [{"$sections": 5, "$body": 6}]}}
+    },
+    {
+      "id": "near-misses-yaml",
+      "spec": ["5.4"],
+      "description": "The same in YAML (§5.4).",
+      "input": {"record": "near-misses.yaml"},
+      "expect": {"result": {"data": {"$key": 1, "$schema": 2, "$foo": 3, "$title": 4}, "list": [{"$sections": 5, "$body": 6}]}}
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "defaults": {"spec": ["9.2", "D"], "profiles": ["read"], "operation": "parse", "input": {"store": "parse-units"}},
+  "cases": [
+    {
+      "id": "one-syntax-error-per-file",
+      "description": "A JSON file with two syntax errors, 01 and +1, is one parse unit and gives one syntax-error at the root (§9.2, decision K2).",
+      "input": {"record": "two-errors.json"},
+      "expect": {"fails": true, "issues": [{"code": "syntax-error", "severity": "error", "path": "two-errors.json", "at": ""}]}
+    }
+  ]
+}

@@ -1,7 +1,12 @@
 {
   "bom.json": "e889ece586de7bec0ab65795a22924aa8189bebd",
   "bom.yaml": "4a62fb7beb7820b6f1ff61bb99ea35d72f4e96af",
-  "second-bom.json": "3e3ce56642e52c2d87bdfb652564b36d75bb6719",
+  "feff-after-comment.yaml": "4e5634e80d7d76b6ab565b88f63a3e6b53031bcd",
+  "feff-in-block-scalar.yaml": "ceecac9bf37c765ab79a99158b37b0ce2795031b",
+  "feff-in-comment.yaml": "631ebc1fec41d524861a167975f37ab6e9ac035c",
+  "feff-in-plain-scalar.yaml": "1b63c3d552b8ff4461eede038b0bac03b2411948",
+  "feff-in-quoted-yaml.yaml": "1330303cb90b80c1d62c98f3deff0c0b8bbdf794",
   "feff-in-string.json": "e311d3b2a1676a01fd2e6f9d788260da6dbd6dda",
-  "feff-in-quoted-yaml.yaml": "1330303cb90b80c1d62c98f3deff0c0b8bbdf794"
+  "second-bom.json": "3e3ce56642e52c2d87bdfb652564b36d75bb6719",
+  "second-bom.yaml": "482095e8922a9e2da57af141bd8d490a3ef961ec"
 }

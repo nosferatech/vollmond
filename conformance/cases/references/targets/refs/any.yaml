@@ -1,2 +1,4 @@
 record: ../other/thing.md
 field: ../data/ok.json#a
+asset: ../assets/notes.txt
+directory: ../docs/

@@ -1,0 +1,1 @@
+{"parent": {"$ref": "other.json", "note": "x"}, "child": {"$ref": 1}}

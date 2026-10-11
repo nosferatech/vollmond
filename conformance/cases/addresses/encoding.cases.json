@@ -70,6 +70,27 @@
       "description": "An exact path is percent-decoded before it is split, so #/a%2Fb is the pointer /a/b, member b of a member a that the record does not have; the member a/b is reached as #/a~1b (§7.1).",
       "input": {"address": "data.json#/a%2Fb", "as": "singular"},
       "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "data.json", "at": null}]}
+    },
+    {
+      "id": "index-step",
+      "spec": ["7.3", "7.5"],
+      "description": "An index step without leading zeros selects the item (§7.3).",
+      "input": {"address": "list.json#links/1", "as": "singular"},
+      "expect": {"result": [{"path": "list.json", "at": "/links/1", "address": "#links/1"}]}
+    },
+    {
+      "id": "index-step-leading-zero",
+      "spec": ["7.3", "7.4", "RFC 6901 4"],
+      "description": "An index step with a leading zero matches nothing in a semantic path, as RFC 6901 requires of an exact path (§7.3, decision K7).",
+      "input": {"address": "list.json#links/01", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "list.json", "at": null}]}
+    },
+    {
+      "id": "exact-index-leading-zero",
+      "spec": ["7.2", "7.4", "RFC 6901 4"],
+      "description": "An exact path with a leading zero in an array index matches nothing (RFC 6901, section 4; decision K7).",
+      "input": {"address": "list.json#/links/01", "as": "singular"},
+      "expect": {"fails": true, "issues": [{"code": "address-not-found", "severity": "error", "path": "list.json", "at": null}]}
     }
   ]
 }

@@ -1,9 +1,10 @@
 # Design: phase I1 (read)
 
-Status: proposal for the project owner's review, 2026-10-10, revised after an independent review. It designs tasks I1.1 to I1.11
-of [the implementation plan](../plan/implementation-plan.md) (issues #10 to #20). **It targets Draft v0.6** of [the
-proposal](../draft/vollmond-proposal.md), from pull request #58 (branch `i0.8-v0.6`), which should merge before this design. No
-code is written until it is approved. Sections of the proposal are cited as §n, and decisions by their cards in the [decision
+Status: approved by the project owner, 2026-10-10 (#59), with the owner's answers to its questions on card K applied (section 9).
+It designs tasks I1.1 to I1.11 of [the implementation plan](../plan/implementation-plan.md) (issues #10 to #20) against Draft v0.6
+of [the proposal](../draft/vollmond-proposal.md). Draft v0.7 (#61, commit `c3032a6` on `main`) applies the answers of card K that
+change the specification, with the decision-log section "Answers from the phase I1 design (K)", and card J's J2, which answers one
+more of its questions. Sections of the proposal are cited as §n, and decisions by their cards in the [decision
 log](../draft/vollmond-proposal-review.md). Card I1's decision ids collide with the plan's task ids, so here "I1.4" alone is a
 task, and "decision I1.4" is a decision.
 
@@ -33,7 +34,7 @@ In brief:
 
 | Module (`src/`) | Responsibility |
 |---|---|
-| `value/` | `Value`; equality as §5.8 defines it; number literals by form (§4.2, G1); RFC 8785 canonical JSON; SHA-1 and SHA-256 (question 9); node versions and git blob ids (§11.3) |
+| `value/` | `Value`; equality as §5.8 defines it; number literals by form (§4.2, G1); RFC 8785 canonical JSON; SHA-1 and SHA-256 over `crypto.subtle` (decision K9); node versions and git blob ids (§11.3) |
 | `text/` | `SourceText`: bytes, decoded text, UTF-16 index to UTF-8 offset, line and column (C10); line breaks read as `\n`, with a map back to the source (C9) |
 | `issue/` | Appendix D as data (code, default severity, class); `Issue`; `Outcome<T>` |
 | `format/json.ts`, `format/yaml.ts` | one parse unit each: value, node ranges, issues. The YAML module also serves front matter and `yaml data` blocks |
@@ -43,7 +44,7 @@ In brief:
 | `address/` | the §7.1 grammar, reading and writing; exact and semantic resolution; canonical addresses (§7.5) |
 | `meta/` | the computed fields of §5.10 |
 | `storage/` | the read side of the storage contract (§11.2); the portable regex checker (§11.4); an in-memory backend |
-| `store/` | `openStore`: parse, get, outline, resolve and list over a backend; the store's format version (`vmd`, question 3) |
+| `store/` | `openStore`: parse, get, outline, resolve and list over a backend; the store's format version (`vmd`, decision K3) |
 
 Runtime dependencies are `jsonc-parser`, `yaml`, `mdast-util-from-markdown` with `micromark`, and the four GFM 0.29 extensions
 with their mdast counterparts, all pure JavaScript (licences to be confirmed at adoption, Appendix C). No type declaration in them
@@ -69,7 +70,7 @@ and history. `core`'s memory backend lets its own tests run without Node APIs.
 ### 1.3 `js/packages/conformance` (private)
 
 The runner of I1.10 (section 6). It reads the suite with Node APIs, so it cannot be in `core`, and it should not ship in the `vmd`
-package (question 11).
+package (decision K11).
 
 ---
 
@@ -231,11 +232,12 @@ export interface StorageReader {
 
 - **A backend knows files, not records.** The store layer sorts them into records, assets and ignored paths (§3.3), so a backend
   needs no vmd configuration (§11.1). Cursors encode the last path, in UTF-8 byte order (C25).
-- **File versions are hashed from the bytes the backend returns** (§11.3), in a git working copy too. The plan's
-  `git ls-files -s` gives the blob id of what git stored, which reflects git's clean filters (line-ending conversion, for one) and
-  so can differ from the bytes read; the suite computes its ids with `git hash-object --no-filters` for the same reason. Git stays
-  for `head()` and history.
-- **`grep`** checks the pattern against the portable subset (§11.4), then runs it with the JavaScript engine (question 13).
+- **File versions are hashed from the bytes the backend returns** (§11.3), in a git working copy too. The plan first named `git
+  ls-files -s`, which gives the blob id of what git stored: that reflects git's clean filters (line-ending conversion, for one)
+  and so can differ from the bytes read; the suite computes its ids with `git hash-object --no-filters` for the same reason. Git
+  stays for `head()` and history.
+- **`grep`** checks the pattern against the portable subset (§11.4), then runs it with the JavaScript engine. Linear time is not
+  promised there (decision K13).
 - The write side of I4 extends this interface.
 
 ---
@@ -244,7 +246,8 @@ export interface StorageReader {
 
 ### 3.1 Common to the three formats
 
-1. **Decode** with `TextDecoder("utf-8", { fatal: true, ignoreBOM: true })`. Invalid UTF-8 is question 5.
+1. **Decode** with `TextDecoder("utf-8", { fatal: true, ignoreBOM: true })`. Invalid UTF-8 is `syntax-error` at `""` (decision
+   K5).
 2. **Slice each unit and parse it.** A unit is parsed as `text.slice(start, end)`, where a JSON or YAML file starts after the
    BOM, front matter after its opening delimiter line, and a Markdown body after the BOM and the front matter. Every offset the
    library reports is shifted by `start` and then converted by `SourceText`. One mechanism serves the three formats, and no
@@ -255,7 +258,7 @@ export interface StorageReader {
 
 **Parse units and syntax errors.** A JSON or YAML file is one unit; a Markdown file has its front matter, each data block and the
 Markdown itself. A unit with a syntax error gets one `syntax-error` and no value checks, since a recovering parser's tree past an
-error is a guess. The other units are still parsed, so one run shows every broken unit (C2; question 2).
+error is a guess. The other units are still parsed, so one run shows every broken unit (C2, decision K2).
 
 **Numbers by form** (§4.2, G1), for every format, from the literal's source text:
 
@@ -319,7 +322,7 @@ of §4.4 are I2's: they come with `check` (I2.6).
 
 `mdast-util-from-markdown` 2.1.0 over `micromark` 4.0.3, both current, with exactly GFM 0.29's extensions (§5.3): tables,
 strikethrough, task list items and autolink literals, as the separate `micromark-extension-gfm-*` and `mdast-util-gfm-*` packages.
-Plan §1.2 names "the GFM and front-matter extensions". Neither package is used:
+Plan §1.2 first named "the GFM and front-matter extensions". Neither package is used:
 
 - `micromark-extension-gfm` adds GitHub's footnotes, which GFM 0.29 does not have. They change block structure: `[^1]: target.md`
   is a link reference definition, and so a reference (§8.1), under GFM 0.29, and a footnote definition with the bundle (M). The
@@ -354,7 +357,8 @@ The steps:
 7. **Block anchors** (§6.2, decisions I1.6 and I1.7). An anchor element at the start of any list item, at any depth, or at the
    start of a paragraph at the top level of the `$body`, is a block anchor, with the range of section 3.6. Two anchor elements at
    the start of one block are `anchor-element-invalid` at the `$body`. Any other `<a id>` in a body, such as at the start of a
-   list item's second paragraph, raises `anchor-element-ignored` (H4.5). A list item inside a block quote is question 14.
+   list item's second paragraph, raises `anchor-element-ignored` (H4.5). A list item inside a block quote is prose and carries no
+   block anchor (decision J2, Draft v0.7).
 
 ### 3.5 Structural and validation issues apart (F1)
 
@@ -364,11 +368,12 @@ The steps:
 `parse` results. Operation issues, such as `address-*`, come only from operations. A unit test checks the class of every code each
 parser raises against Appendix D.
 
-### 3.6 Spans, for approval with this design
+### 3.6 Spans (decision K1)
 
-C11 leaves spans to the Markdown parser task, and decision I1.1 does the same for block anchor ranges. They are proposed here, so
-that they are decided before the Markdown pull request rather than inside it (question 1). The rule of §5.9 holds: a node's range
-is exactly what `get` returns for it in source form. The two edits of I4 need different ranges for members and for sections:
+C11 left spans to the Markdown parser task, and decision I1.1 did the same for block anchor ranges. The owner approved these
+before the Markdown pull request (decision K1), and Draft v0.7 (#61) writes them into §5.9 and §6.2. The rule of §5.9 holds: a
+node's range is exactly what `get` returns for it in source form. The two edits of I4 need different ranges for members and for
+sections:
 
 | Node | `range` (what `get` returns; `set` replaces it) | What `delete` removes |
 |---|---|---|
@@ -377,7 +382,7 @@ is exactly what `get` returns for it in source form. The two edits of I4 need di
 | an object member (front matter, a data block, JSON, YAML) | its value | `memberRange`, from the key's start to the value's end; the separators around it (a comma, a line break) are I4's to handle per format |
 | an array item | the item | the item, with the same caveat |
 | `$title`, `$body` | their source spans; where the value differs from those bytes (a removed anchor element, CRLF), `get` in source form prints the span | |
-| a block anchor | its CommonMark block in the `$body`, without the block's trailing line break, as the suite's pending cases expect | |
+| a block anchor | its CommonMark block in the `$body`, without the block's trailing line break, as the suite's block-anchor cases expect | |
 
 A section's range covers its trailing blank lines so that removing a section leaves none behind. A member's range is its value
 because an exact path names the value, which `set` replaces, while `delete` must also remove the key.
@@ -402,36 +407,43 @@ escapes (U: not checked in V8's source). It gives the rule's answers, with two t
 later Node majors move to Unicode 18, and browsers have their own data (I7). A character unassigned in one version is removed by
 step 5 there and kept in another, so one heading gets two anchors.
 
-**The proposal** (question 6): tables generated from UCD 17.0.0 for the properties and the lower-case mapping, and NFC from the
+**The decision** (K6): tables generated from UCD 17.0.0 for the properties and the lower-case mapping, and NFC from the
 runtime.
 
 - `js/packages/core/scripts/generate-unicode.mjs` downloads `DerivedCoreProperties.txt`, `PropList.txt`,
-  `DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from `https://www.unicode.org/Public/17.0.0/ucd/`,
-  checks SHA-256 hashes written in the script, and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is
-  run by hand, never in CI. Size: some tens of kilobytes (U: an estimate).
-- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The normalization stability
-  policy keeps the normal form of text in assigned characters unchanged in later versions (D: UAX #15, "Versioning and Stability";
-  U: the wording is to be quoted when the generator lands), so a runtime at 17.0 or later normalizes every 17.0 character as 17.0
-  does. A runtime older than 17.0 may normalize characters added since its version differently.
+  `extracted/DerivedGeneralCategory.txt`, `UnicodeData.txt` and `SpecialCasing.txt` from
+  `https://www.unicode.org/Public/17.0.0/ucd/` (or reads a local copy with `--ucd`), checks SHA-256 hashes written in the script,
+  and writes range tables to `src/anchor/unicode/unicode-17.0.0.generated.ts`. It is run by hand, never in CI. Size: 10,236 bytes
+  of source (M): 10 ranges of White_Space, 17 of Default_Ignorable_Code_Point, 796 of L, M, Nd and Pc together, and 185 runs of
+  lower-case mappings plus one expansion (U+0130).
+- **NFC from the runtime is stable only for the characters the runtime's Unicode version knows.** The Unicode Character Encoding
+  Stability Policy says, under "Normalization Stability", that for "any string S which only contains characters assigned according
+  to both V and U", the NFC of S under version V equals that under U (D: https://www.unicode.org/policies/stability_policy.html).
+  So a runtime at 17.0 or later normalizes every 17.0 character as 17.0 does. An older runtime may differ on strings that contain
+  characters assigned after its version.
 
 **Tests that catch other Unicode data.** CI's `setup-node` takes `node-version: 24`, which floats to the newest 24.x. So CI pins
 the exact version with `node-version-file: js/.node-version` (24.21.0), and a person raises it deliberately. The comparison of the
 tables with the runtime for every code point runs when `process.versions.unicode` equals the tables' version, and is skipped with
 a message otherwise, so a contributor on another Node still passes. In CI a further assertion requires that the comparison ran, so
-a pin raised to a Node with other Unicode data fails loudly. `core` also exports `unicodeRuntimeProbe()`, which checks facts of
-17.0 such as U+16EA0 being a letter that lower-cases to U+16EBB (M), and the CLI warns when it fails, since NFC may then differ
-for the newest characters. The suite's `anchors/derived/15-lowercase-unicode-versions` and `55-case-mapping-singletons` use
-characters up to Unicode 17.0.
+a pin raised to a Node with other Unicode data fails loudly. `core` will also export `unicodeRuntimeProbe()`, which checks facts
+of 17.0 such as U+16EA0 being a letter that lower-cases to U+16EBB (M), and the CLI warns when it fails, since NFC may then differ
+for the newest characters. The probe is deferred from PR U to I1.8, the CLI foundation
+([#17](https://github.com/nosferatech/vollmond/issues/17)), whose warning is its first caller. The suite's
+`anchors/derived/15-lowercase-unicode-versions` and `55-case-mapping-singletons` use characters up to Unicode 17.0.
 
 **The anchor table.** Step 7 runs over the section headings and the title heading in document order. A map from each slug to the
 last `n` it tried makes the search for an unused candidate resume there, so many repeats of one slug stay linear. Explicit anchors
 take no part, and a collision is `duplicate-anchor` (C16), once per node after the first (H1.3). Section keys (§5.5) are `$anchor`
-or the slug of `$title`; a JSON or YAML title needs a Markdown parse for that (question 8).
+or the slug of `$title`; a JSON or YAML title is parsed for that as the content of an ATX heading, `## ` and the title, so a
+section keeps its key across formats (decision K8).
 
 ### 4.2 Resolution and cardinality
 
 - **Exact paths** are RFC 6901 over the value view. A block anchor is not a value node, so only a semantic first step reaches one.
-- **Semantic steps** follow §7.3 and C17. `$sections` is the only keyed list in I1, and schema-declared lists come with I2.3.
+- **Semantic steps** follow §7.3 and C17. `$sections` is the only keyed list in I1, and schema-declared lists come with I2.3. An
+  index step is a decimal without leading zeros, as RFC 6901 requires of an exact path, so `#links/01` matches nothing (decision
+  K7).
 - **The first step** may also match an anchor of any kind. It is ambiguous when it matches a root member and another node's anchor
   (C18). A key and a derived anchor of one node are one match, as the suite's Appendix A sample requires.
 - **Duplicates.** A step that matches several nodes makes a singular address `address-ambiguous`, with each candidate's exact path
@@ -447,8 +459,8 @@ The root's is `""`. For another node, four candidates are tried in order: its ex
 ancestor with an explicit anchor (the root does not count), or from the root; its derived anchor; its exact path. A candidate wins
 when it resolves, as a singular address, to exactly that node. That is §7.5's definition used literally, so canonical addresses
 cannot drift from resolution. An empty key cannot be a step and falls through (H4.4). The candidate is written with §7.1's
-encoding. Each attempt is a few map lookups per level. Whether lenient mode alone makes the second form non-singular is question
-4.
+encoding. Each attempt is a few map lookups per level. Lenient mode makes the second form non-singular only where evaluation meets
+a duplicate, not by itself (decision K4), so it changes no canonical address in I1.
 
 ---
 
@@ -471,14 +483,17 @@ export interface Store {
 ```
 
 - **Expected failures are values**: a structural error, a missing record (`address-not-found`, H1.2), a malformed or ambiguous
-  address, a backend that cannot read. A success can carry warnings. A thrown exception is a bug: the CLI catches it at the top
-  and exits with 1, and the runner counts it as a crash (conformance README, "Failing is not crashing").
+  address, a backend that cannot complete a read (`storage-failed`, an operation code, decision K12). A success can carry
+  warnings. A thrown exception is a bug: the CLI catches it at the top and exits with 1, and the runner counts it as a crash
+  (conformance README, "Failing is not crashing").
 - **A record with a structural error** makes a single-record read fail with those errors. A multi-record read leaves it out and
-  counts it (§9.5).
+  counts it (§9.5). `ls` counts only among the records on the page it prints, and says so, since a count over the whole store
+  needs a parse of every record (decision K10); from I2.5 the index gives the full count.
 - **The strict read mode** (§9.5, G7) is deferred to I3. In I1 nothing consumes it: the codes it adds to the structural ones come
   from schemas (I2.2), and its first multi-record reader is `query`.
 - **The configuration.** `openStore` reads only `vmd` in I1, and refuses a major version it does not support
-  (`format-version-unsupported`, §9.1). The rest of the configuration is I2.1's.
+  (`format-version-unsupported`, §9.1). The rest of the configuration is I2.1's. `--config PATH` comes into I1.8, so a store can
+  be read with a configuration kept outside it (decision K3).
 - **One parse per operation.** The store caches records by path and file version within one operation. The index of I2.5 caches
   across operations.
 
@@ -497,7 +512,7 @@ export interface Store {
 | `resolve` | `store.resolve(address, as)` | the targets |
 | `compare` | the runner's own comparison | a boolean |
 | `check`, `refs`, `query`, `round_trip` | none in I1 | their cases need `validate`, `query` or `write`, so the profile skips them |
-| `source_map` | after question 1 | no cases yet |
+| `source_map` | once the suite has cases for the spans of section 3.6 | no cases yet |
 
 - **Stores** are read byte for byte into `core`'s memory backend, so conformance tests `core` alone. A `config` input names the
   file in `.vmd/` that `openStore` receives in place of `config.yaml`.
@@ -507,10 +522,11 @@ export interface Store {
   then cannot hide itself. The runner exits with 2 on an `input` member that an operation does not take (Draft v0.6's suite
   README).
 - **Profiles.** The declaration claims `["read"]`, and states that I1 produces source maps once their cases exist (§19.2).
-- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; the two block-anchor cases are pending now.
-  PR A implements only `compare`, and skips every other operation by an `operation` entry. When a pull request brings an
-  operation, it replaces that entry by `id` entries for the cases still out of reach (PR C turns `parse` into entries for the YAML
-  and Markdown cases, which D and E remove). `unused_skips` shows leftovers, and a flag `--ids-failing` prints the failing ids.
+- **Pending and skips.** A `pending` case is a `skip` with `pending: ` and its reason; none is pending since Draft v0.7
+  (`c3032a6`). PR A implements only `compare`, and skips every other operation by an `operation` entry. When a pull request brings
+  an operation, it replaces that entry by `id` entries for the cases still out of reach (PR C turns `parse` into entries for the
+  YAML and Markdown cases, which D and E remove). `unused_skips` shows leftovers, and a flag `--ids-failing` prints the failing
+  ids.
 - **CI.** The `js` job runs `npm run conformance` after `npm test`, and any `fail` or `error` fails it. The report is uploaded
   with `actions/upload-artifact`, pinned by commit hash like the workflow's other actions.
 
@@ -518,7 +534,8 @@ export interface Store {
 
 ## 7. Performance budget (I1.11)
 
-The target is `vmd outline docs/design/Minimal_Log.md` in well under a second. Measured on vampiredb's file, 672,894 bytes (M):
+The target is `vmd outline design/Minimal_Log.md`, in the store whose root is `~/vampiredb/docs` (decision K3), in well under a
+second. Measured on that file, 672,894 bytes (M):
 
 | Step | Time |
 |---|---|
@@ -582,11 +599,9 @@ accepting its near miss:
 | `dollar-member` | C, D | `$key` on a JSON section; `$schema` on a `$sections` item | `$schema` on the root; `$key` inside a field's value |
 | `feature-unsupported` | C, D | `$foo` on a JSON or YAML section | `$foo` inside a field's value, which is data (§5.4) |
 
-The same inputs are proposed as suite cases, so that other implementations are held to them too: `values/shape/root-not-object`
-(JSON, YAML), `values/shape/section-title-missing` (JSON, YAML), `values/shape/ref-malformed` (JSON, YAML, front matter),
-`values/shape/dollar-members` (JSON, YAML sections, with the near misses), and, for the lone CR of section 3.3,
-`markdown/crlf/lone-cr-front-matter` (a Markdown record with CR line endings whose front matter holds a block scalar and a
-multi-line plain scalar) and `values/line-breaks/lone-cr` (the same YAML as a file).
+Draft v0.7's suite (#61) adds the same inputs as cases, so that other implementations are held to them too: `data/shape`
+(the codes above, with their near misses), and, for the lone CR of section 3.3, `markdown/crlf/lone-cr-front-matter` and
+`values/line-breaks/lone-cr`. The unit tests stay, since they run without the runner.
 
 **The owner's rules:**
 
@@ -606,59 +621,28 @@ multi-line plain scalar) and `values/line-breaks/lone-cr` (the same YAML as a fi
 
 ---
 
-## 9. Open questions
+## 9. Decisions
 
-For the project owner, each with options and a recommendation. Where the spec is ambiguous for implementation, the design does not
-decide.
+The project owner answered the design's questions on card K, 2026-10-10, accepting every recommendation and changing the third.
+Question 14 was answered on card J (J2). The answers that change the specification are marked *spec*; Draft v0.7 (#61) applies
+them, with their decision-log entries.
 
-1. **Spans.** Approve the ranges of section 3.6 with this design, or (b) leave them to the Markdown pull request, as C11 and
-   decision I1.1 do. *Recommendation.* Approve them now, so the Markdown work starts from a rule. A small pull request then writes
-   them into §5.9, §6.2 and the decision log before PR E.
-2. **One syntax error per unit.** C2 asks for every error, but a recovering parser's later errors are often cascades, and the
-   suite expects one issue for a syntax error. (a) One `syntax-error` per parse unit, other units still parsed; (b) one issue per
-   library error. *Recommendation.* (a).
-3. **`--config` in I1.** I1 reads only `vmd` from the configuration (section 5). vampiredb has no `.vmd/config.yaml`, and I1.11
-   runs on its checkout, which is never modified. (a) Bring `--config PATH`, planned for I2.1, into I1.8; (b) run the
-   demonstration on a copy with a configuration added. *Recommendation.* (a): the flag is small, and the demonstration then runs
-   on the real checkout.
-4. **Lenient mode in §7.5.** Form 3 is reached "when the path of form 2 is not singular (§7.4: a level that allows repeats by
-   `multimap` or `lenient`, …)". (a) Lenient mode makes form 2 non-singular only where evaluation meets a duplicate, as §7.4 lists
-   lenient mode among the cases that fail at evaluation; (b) lenient mode alone makes form 2 non-singular at every level no schema
-   declares, so a lenient store's canonical addresses fall to derived anchors. *Recommendation.* (a), which agrees with §7.4 and
-   with the suite's twin cases, and a wording fix to §7.5.
-5. **Invalid UTF-8.** The spec says nothing on a record that is not UTF-8. (a) `syntax-error` at `""`; (b) a code of its own.
-   *Recommendation.* (a), with a fixture in each format.
-6. **Unicode data.** (a) The runtime only, with the probe; (b) generated tables for all of §6.3, NFC included; (c) tables for the
-   properties and the lower-case mapping, NFC from the runtime. *Recommendation.* (c), which removes the runtime from the rule
-   where versions differ most, at a small size; (b) if a runtime's NFC is ever found to differ.
-7. **Leading zeros in index steps.** §7.3 says "the item at that decimal index", and RFC 6901 forbids leading zeros in an exact
-   path's array index. (a) `#links/01` matches nothing, as in an exact path; (b) it matches item 1. *Recommendation.* (a), with
-   fixtures for both kinds of path.
-8. **The slug of a JSON or YAML section's title.** §6.3 starts from a heading's visible text, and a data title is a string. (a)
-   Parse it as the content of an ATX heading, `## ` and the title; (b) as a paragraph's inline content. *Recommendation.* (a), so
-   a section keeps its key across formats. It shows a gap in §5.8: a title that does not read back from `## ` and itself (one
-   ending in ` #`, one with outer spaces, one holding an anchor element) should be not representable.
-9. **Hashing.** (a) `crypto.subtle`, which is asynchronous and, in browsers, limited to secure contexts (D: MDN, `SubtleCrypto`);
-   (b) a small synchronous implementation. *Recommendation.* (a), since every read is asynchronous anyway.
-10. **`ls` and unreadable records.** §12.2 asks `ls` to say how many records it could not read, which needs a parse of every
-    record; parsing all of vampiredb took about 1.5 s warm (measured by the review). (a) Count over the whole listing; (b) count
-    only the records on the printed page, and say so; (c) count from the index from I2.5. *Recommendation.* (b) in I1, so `ls`
-    stays fast, and (c) once the index exists.
-11. **A third package for the runner.** (a) A private `js/packages/conformance`; (b) a hidden `vmd` subcommand; (c) a Vitest suite
-    in `cli`. *Recommendation.* (a), which keeps it out of the published command and lets it import `core` alone.
-12. **Storage failures.** Appendix D has no code for a read the backend cannot complete, such as a permission error. (a) A new
-    operation code, `storage-failed`; (b) `address-not-found` for every failed read. *Recommendation.* (a), added in the I1.7 pull
-    request with its decision-log entry, since a permission error is not a missing record.
-13. **The portable regex and linear time.** §11.4 says that excluding backreferences and lookaround makes matching linear
-    everywhere. That holds for RE2, but JavaScript's and Python's engines backtrack, and `(a+)+$` needs neither feature to take
-    exponential time. (a) `re2js`, a pure JavaScript port of RE2 (npm 2.8.6; U: licence, maintenance and speed not reviewed); (b)
-    a time limit per file; (c) correct §11.4's wording now. *Recommendation.* (c) now, and (a) with the service backend, which
-    runs others' patterns. A regex running on the main thread in `core` cannot be interrupted, so (b) is no option there, and on
-    the local backend the patterns are the user's own.
-14. **A list item inside a block quote.** Decision I1.7 puts block anchors on "any list item at any depth" and leaves open whether
-    that includes a list item inside a block quote. (a) Yes, by the words "any depth"; (b) no, since everything inside a block
-    quote is prose, as a paragraph there already is. *Recommendation.* (b), so that a block quote means the same for headings,
-    paragraphs and list items.
+| Card | Decision | Effect here |
+|---|---|---|
+| K1 *spec* | the spans of section 3.6, approved now | section 3.6; the Markdown pull request starts from them |
+| K2 *spec* | one `syntax-error` per parse unit, with every library error's position in its message, and the other units still parsed | section 3.1 |
+| K3 | the demonstration store is `~/vampiredb/docs`, not the whole checkout, read with `--config PATH`, which comes into I1.8 so that vampiredb is not modified. eternal-circle becomes a vmd store with its own `.vmd/config.yaml`, committed in that repository and made compliant through the importer of I3.7; it gets no trial configuration in this repository | sections 5 and 7; PRs H and K; the plan's §1.4, I1.8, I1.11, I2.7 and I3.7 |
+| K4 *spec* | lenient mode makes §7.5's form 2 non-singular only where evaluation meets a duplicate; §7.5's wording is corrected | section 4.3 |
+| K5 *spec* | invalid UTF-8 is `syntax-error` at `""`, with a fixture in each format | section 3.1 |
+| K6 | Unicode properties and lower-case mappings from tables generated from UCD 17.0.0, NFC from the runtime | section 4.1 |
+| K7 *spec* | an index step has no leading zeros; `#links/01` matches nothing | section 4.2 |
+| K8 *spec* | a JSON or YAML section's title is slugged as the content of an ATX heading; §5.8 lists a title that does not read back from `## ` and itself (one ending in ` #`, one with outer spaces, one holding an anchor element) as not representable | section 4.1 |
+| K9 | hashing with `crypto.subtle`; `nodeVersion` and `gitBlobId` are asynchronous | section 2.1 |
+| K10 | `ls` counts unreadable records only on the page it prints, and says so; the index of I2.5 gives the full count | section 5 |
+| K11 | the runner is the private package `js/packages/conformance` | sections 1.3 and 6; the plan's §1.1 |
+| K12 *spec* | a new operation code, `storage-failed`, for a read the backend cannot complete | sections 2.6 and 5 |
+| K13 *spec* | §11.4 is corrected: linear time needs an automaton engine such as RE2; `re2js` comes with the service backend | section 2.6 |
+| J2 | a list item inside a block quote carries no block anchor (Draft v0.7) | section 3.4 |
 
 ---
 
@@ -670,22 +654,21 @@ Each task is its own pull request (plan §1.3).
 |---|---|---|---|
 | A | I1.10 runner (#19) | (none) | CI runs it; `compare` is implemented and the other operations are skipped by `operation`; `selftest` passes, and fails when the comparison is broken on purpose; the versions check fires on an edited fixture |
 | B | I1.1 values (#10), with `SourceText`, issues, `Outcome` and `record/` | (none) | unit tests, property tests 1 and 5; RFC 8785's examples (U: its appendix of number samples); `gitBlobId` matches every entry of the suite's versions manifests; the Appendix D test |
-| U | Unicode tables and probe (from I1.5) | (none) | tables committed; the Node pin in CI; the comparison over every code point passes and is shown to have run |
-| C | I1.2 JSON (#11) | B | the JSON cases of `values/` pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
-| D | I1.3 YAML (#12) | B | the YAML cases of `values/` pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
+| U | Unicode tables and their comparison with the runtime (from I1.5) | (none) | tables committed; the Node pin in CI; the comparison over every code point passes and is shown to have run |
+| C | I1.2 JSON (#11) | B | the JSON cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 2; the shape table's JSON rows; Stryker's survivors listed |
+| D | I1.3 YAML (#12) | B | the YAML cases of `values/` and `data/` (shape, section keys, parse units) pass; property test 3; the shape table's YAML rows; Stryker's survivors listed |
 | G | I1.7 storage and filesystem backend (#16) | B | one contract test suite passes on both backends; versions equal `git hash-object --no-filters` in a temporary repository, also for a file that a clean filter changes; the regex checker's cases |
-| E | I1.4 Markdown (#13) | C, D, question 1 | `markdown/` and the Markdown cases of `values/` pass; property test 4 |
-| F | I1.5 keys and anchors (#14) | E, U | `anchors/` passes, pending cases aside; property test 6 |
-| H | I1.8 CLI foundation (#17) | G | store discovery, global options, `--config` (question 3); tests of line output, `~tok`, limits, cursors, the §12.3 format and exit codes |
+| E | I1.4 Markdown (#13) | C, D; #61 for the spans | `markdown/` and the Markdown cases of `values/` pass; property test 4 |
+| F | I1.5 keys and anchors (#14) | E, U | `anchors/` passes; property test 6 |
+| H | I1.8 CLI foundation (#17) | G | store discovery, global options, `--config` (decision K3); tests of line output, `~tok`, limits, cursors, the §12.3 format and exit codes |
 | I | I1.6 addresses and computed fields (#15) | F | `addresses/` and `meta` pass with the Read profile |
 | J | I1.9 read commands (#18) | H, I | command tests over a fixture store for `ls`, `cat --lines`, `grep`, `outline --depth` and `get` with each option |
-| K | I1.11 demonstration (#20) | all | `outline` and `get` over every vampiredb doc; every heading and block anchor resolves; `Minimal_Log.md` timed in #20; the CI guard |
+| K | I1.11 demonstration (#20) | all | `outline` and `get` over the store `~/vampiredb/docs`, with `--config` and a configuration in `examples/vampiredb/`; every heading and block anchor resolves; `Minimal_Log.md` timed in #20; the CI guard |
 
 A, B and U start at once. After B, C, D and G run in parallel, and H follows G. **The critical path is B, D, E, F, I, J, K**: YAML
 gates the Markdown parser through front matter, and every later step needs the one before it.
 
-**Documents to update if this design is approved**, each in the pull request that applies it: plan §1.1 (the runner's package,
-question 11); plan §1.2 (the four GFM 0.29 extensions, no front-matter extension); plan §3 (`--config` in I1, question 3; I1.7's
-git versions, section 2.6; the strict read mode in I3, section 5); the proposal and the decision log (the spans of question 1, and
-the answers to questions 2, 4, 5, 7, 8, 12, 13 and 14); the conformance README (the runner's location) and the suite (the cases of
-section 8).
+**Documents updated for these decisions.** The implementation plan, in the pull request that applies card K to this design:
+§1.1 (the runner's package), §1.2 (the four GFM 0.29 extensions), §1.4 (the demonstration stores), and the tasks I1.7, I1.8,
+I1.10, I1.11, I2.1, I2.7, I2.8, I3.4, I3.7 and I3.8. The proposal and the decision log, in Draft v0.7 (#61): the decisions marked
+*spec* in section 9. The conformance README's note on the runner's location is PR A's.

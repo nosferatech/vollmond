@@ -1,5 +1,7 @@
 {
-  "double-bom-heading.md": "857483b84fd8d9fcddfa34c07d4ac444ac53c96e",
   "double-bom-front-matter.md": "b30462ec21f10a8e7ba609bc8b836ae9c70fa9f2",
+  "double-bom-heading.md": "857483b84fd8d9fcddfa34c07d4ac444ac53c96e",
+  "feff-data-block.md": "e57cd2c3fc75a970683f6126dde0f8b5c03d831e",
+  "feff-front-matter.md": "cad905ee700597e5a33f59a9cf7879087bda5bca",
   "feff-in-heading.md": "91f5b3900da4d249417a79c9193d5d0d1f11960e"
 }

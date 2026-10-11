@@ -1,0 +1,17 @@
+{
+  "defaults": {"spec": ["5.5", "6.3"], "profiles": ["read"], "operation": "meta", "input": {"store": "section-keys"}},
+  "cases": [
+    {
+      "id": "data-title-slug-yaml",
+      "description": "The $title of a YAML section is slugged as the content of an ATX heading, ## and the title, so emphasis delimiters, a link's URL and a character reference give the same key as in Markdown (§5.5, decision K8).",
+      "input": {"record": "sections.yaml"},
+      "expect": {"result": {"": {"@key": null, "@address": ""}, "/$sections/0": {"@key": "what-is-confirmed", "@address": "#what-is-confirmed"}, "/$sections/1": {"@key": "a-link--more", "@address": "#a-link--more"}}}
+    },
+    {
+      "id": "data-title-slug-json",
+      "description": "The $title of a JSON section is slugged as the content of an ATX heading, ## and the title, so emphasis delimiters, a link's URL and a character reference give the same key as in Markdown (§5.5, decision K8).",
+      "input": {"record": "sections.json"},
+      "expect": {"result": {"": {"@key": null, "@address": ""}, "/$sections/0": {"@key": "what-is-confirmed", "@address": "#what-is-confirmed"}, "/$sections/1": {"@key": "a-link--more", "@address": "#a-link--more"}}}
+    }
+  ]
+}

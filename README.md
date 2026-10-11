@@ -29,8 +29,15 @@ npm run conformance # run the conformance suite after a build; writes conformanc
 the cases that fail. The cases it skips, with the reasons, are in `js/packages/conformance/declaration.json`.
 
 CI runs build, type check, lint, tests, a smoke run of the built command and the conformance suite on every pull request and on
-pushes to `main`, and keeps the conformance report as an artifact of the run.
-Dependencies are pinned to exact versions (`js/.npmrc`); commit `js/package-lock.json` with any change to them.
+pushes to `main`, and keeps the conformance report as an artifact of the run. Dependencies are pinned to exact versions
+(`js/.npmrc`); commit `js/package-lock.json` with any change to them. CI runs the Node release in `js/.node-version`, raised by
+hand.
+
+Derived anchors use Unicode tables generated from the Unicode Character Database 17.0.0, committed as
+`js/packages/core/src/anchor/unicode/unicode-17.0.0.generated.ts`. `node packages/core/scripts/generate-unicode.mjs` (in `js/`)
+regenerates them; it downloads the UCD files and checks their SHA-256 hashes, which it records. A test compares the tables with
+the runtime's Unicode data over every code point, when `process.versions.unicode` is the tables' version (17.0, as in Node
+24.21.0), and is skipped otherwise. CI sets `VMD_REQUIRE_UNICODE_COMPARISON=1`, which makes that skip a failure.
 
 To run the command from a checkout, build first and then, in `js/`, use `node packages/cli/dist/main.js --version`, or
 `npm exec --workspace @vollmond/cli vmd -- --version`. Do not use `npx vmd`: the registry has an unrelated package named `vmd`, and
