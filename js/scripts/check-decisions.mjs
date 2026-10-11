@@ -1,18 +1,22 @@
 // Checks the decision records in docs/decisions, a vmd store, with vmd's reader: every record reads with no issue at all, its
 // id is its file name, its supersedes and superseded_by name existing records and pair up both ways, its status agrees with
 // superseded_by, every link between records points at one, and no timestamp is cited as both the owner's message and the
-// session's. The collection's schema is left to scripts/validate-decisions.mjs, until `vmd check` validates collections.
+// session's. It also checks the decision log's index: every record has one line there, and every line names a record. The
+// collection's schema is left to scripts/validate-decisions.mjs, until `vmd check` validates collections.
 //
 // Run it in js/ after a build:
 //
-//   node scripts/check-decisions.mjs [STORE]
+//   node scripts/check-decisions.mjs [STORE [INDEX]]
 //
-// STORE defaults to ../docs/decisions. Exits with 1 and lists every problem, or prints the number of records checked.
-import { resolve } from "node:path";
+// STORE defaults to ../docs/decisions, and INDEX to the decision log beside it, ../draft/vollmond-proposal-review.md from STORE.
+// Exits with 1 and lists every problem, or prints the number of records checked.
+import { readFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 import { createFilesystemStorage } from "../packages/cli/dist/backend/filesystem.js";
 import { openStore } from "../packages/core/dist/index.js";
 
 const root = resolve(process.argv[2] ?? new URL("../../docs/decisions", import.meta.url).pathname);
+const indexPath = resolve(process.argv[3] ?? join(root, "../draft/vollmond-proposal-review.md"));
 const problems = [];
 /** Records one problem, under the file it is in. */
 const problem = (path, message) => problems.push(`${path}: ${message}`);
@@ -85,12 +89,14 @@ for (const [path, value] of records) {
   }
 }
 
+await checkIndex();
+
 if (problems.length > 0) {
   console.error(`${problems.length} problem${problems.length === 1 ? "" : "s"} in ${root}:`);
   for (const line of problems) console.error(`  ${line}`);
   process.exit(1);
 }
-console.log(`${records.size} decision records read, with no issue, and their supersessions pair up.`);
+console.log(`${records.size} decision records read, with no issue; their supersessions pair up, and the index lists each once.`);
 
 /**
  * The records that a record's sections link to: the targets of inline links and of link reference definitions that are a
@@ -110,6 +116,28 @@ function links(value) {
     }
   }
   return targets;
+}
+
+/**
+ * Checks the index: each line of it that is a list item linking a record, `- [G3](../decisions/G3.md) ...`, names a readable
+ * record by its id, no record has two lines, and every record has one.
+ */
+async function checkIndex() {
+  const name = relative(root, indexPath);
+  const text = await readFile(indexPath, "utf8").catch(() => undefined);
+  if (text === undefined) return void problem(name, "the index cannot be read");
+  const listed = new Map();
+  for (const [number, line] of text.split("\n").entries()) {
+    const match = /^- \[([^\]]+)\]\(\.\.\/decisions\/([^)#]+)\)/.exec(line);
+    if (match === null) continue;
+    const [, label, target] = match;
+    const at = `${name}:${number + 1}`;
+    if (!records.has(target)) problem(at, `names ${target}, which is not a readable record`);
+    else if (label !== target.slice(0, -".md".length)) problem(at, `labels ${target} as ${label}`);
+    if (listed.has(target)) problem(at, `lists ${target} again, after line ${listed.get(target)}`);
+    else listed.set(target, number + 1);
+  }
+  for (const path of records.keys()) if (!listed.has(path)) problem(path, `has no line in the index, ${name}`);
 }
 
 /** Prints the issues that keep the store from opening or listing, and exits with 1. */

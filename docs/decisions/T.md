@@ -5,11 +5,13 @@ round: "T"
 date: "2026-10-11"
 status: accepted
 supersedes: [I1.7.md]
-sections: ["§6.2"]
+sections: ["§6.2", "Appendix D"]
 decided_by: owner
 sources:
   card: "T"
-  prs: [85]
+  log: "Decisions from cards P to V (Draft v0.11) / T. Block anchors in a list item's later paragraphs"
+  prs: [85, 87]
+  commits: ["169c597"]
 ---
 
 ## Question
@@ -42,4 +44,5 @@ consequence for (b) was a change to vampiredb, in its own process.
 
 ## Applied in
 
-Pending: Draft v0.11.
+Draft v0.11 (#87, `169c597`): §6.2, Appendix D `anchor-element-ignored`, the plan (I1.7's description), the suite case
+`anchors/blocks-and-tags/list-placement`.

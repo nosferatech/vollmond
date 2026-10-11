@@ -115,175 +115,83 @@ remote contract and publishing. Defer staged transactions, the merge driver and 
 
 ---
 
+The decision log indexes the project's decisions, one line per decision, grouped by the round that took it. Each decision is a
+record in [`docs/decisions/`](../decisions/), a vmd store: the question, the options with their consequences, the decision, why
+it won and why the others lost, the project owner's words, and where it was applied. `AGENTS.md` gives the rule: a decision gets
+its record and its line here in the same change that applies it. A line names the later decisions that changed a decision. The
+corrections each round made without a decision stay here, as they were written.
+
 ## Owner's responses and decisions
 
 Recorded 2026-10-09.
 
-**Greenfield.** Existing conventions (vampiredb's header tables, Belfry's prototype) are not constraints. Migration may change them,
-as long as the change is mostly mechanical and docs and guides are updated with it. Belfry is a prototype and not in use; the real
-tickets are still in `~/vampiredb/tickets`.
-
-**Idiomatic syntax.** Record IDs, references and section IDs must fit both GitHub and the filesystem. Each should be idiomatic in
-the format it is embedded in, and standard renderers should do a reasonable job. `<a id>` anchors are an acceptable compromise.
-Relative paths must be supported, which needs care for purely programmatic access. Where a format has no idiom, adopt a convention
-with precedent (such as `$id` / `$ref` in JSON and YAML).
-
-**Metadata carriers.** Front matter, and YAML or JSON blocks inside the body, are all acceptable.
-
-**Data and Markdown on equal footing.** For addressing and querying, data fields and Markdown sections at the same level should be
-equivalent: `name: "stuff stuff"` is analogous to a section `# name` containing `stuff stuff`. To settle: whether an address that
-resolves to a section returns its contents or the whole section, and whether a JSON/YAML representation of Markdown can round-trip.
-
-**Inconsistencies.** v0.1 is illustrative; the revision should make the format internally consistent.
-
-**Query language.** It should be platform-independent: a backend without git or SQLite should be able to implement at least the core,
-and interpreters should be feasible in several programming languages. A simple `key:value` language with and/or may suffice; SQL is
-acceptable if libraries exist or an interpreter is feasible.
-
-**Write path.** Standard tools are preferred. Defining a core set of text-editing operations that a non-shell system must support
-(a "core of sed") may be useful.
-
-**CLI and MCP.** CLI first. MCP only where its benefit outweighs its cost.
-
-**Git and CI.** Merge drivers are deferred. When a store is in git and publishes its index, the index should be published whatever
-made the commit and whoever made it.
-
-**Publishing.** Incremental index updates are wanted. Eventual consistency is fine, but propagation should take a low number of
-seconds, not minutes. The website is mainly read-only; creating tickets from it would be nice.
-
-**Writes to GitHub.** A repository used purely as a database need not have strong branch protection and can accept direct pushes.
-Write-protected repositories (docs next to code) go through PRs and the merge queue, and the update process must comply. GitHub as a
-backend assumes a low commit rate; high write throughput needs a specialized service. Server-side validation is ideal, but simple
-setups where only clients validate must stay possible.
-
-**Tickets leave the code repository**, not git: they should not go through the code's check-in gates or pollute its history. A
-separate tickets repository with lighter commit rules is viable. Docs stay with the code.
-
-**Git is a model, not a protocol.** A service offering a compatible minimal set of operations is enough. With a defined CLI and
-programmatic API, backends and protocols can vary without ties to git.
-
-**Prior art.** Adoptable if permissively licensed (MIT or similar), weighed against how far it would limit a format whose
-requirements will grow.
-
-**Phasing.** Both a rollout plan and an implementation plan are needed.
-
-**Language.** Python and/or JavaScript. Rust has no need to interface with vmd. The customers are agents, humans, CI jobs, and
-reporting and management websites and services.
-
-**Belfry** would become a customer of vmd. Perf results (today JSON plus a set of files) might be offered through a vmd-compatible
-query or bundle interface, for uniformity.
-
----
+- [v0.1-1](../decisions/v0.1-1.md) Greenfield: existing conventions are not constraints
+- [v0.1-2](../decisions/v0.1-2.md) Idiomatic syntax for ids, references and anchors
+- [v0.1-3](../decisions/v0.1-3.md) Metadata carriers: front matter and YAML or JSON blocks
+- [v0.1-4](../decisions/v0.1-4.md) Data and Markdown on equal footing (superseded by v0.2-6)
+- [v0.1-5](../decisions/v0.1-5.md) Draft v0.1 is illustrative, and the revision is made consistent
+- [v0.1-6](../decisions/v0.1-6.md) A platform-independent query language
+- [v0.1-7](../decisions/v0.1-7.md) The write path uses standard tools
+- [v0.1-8](../decisions/v0.1-8.md) CLI first, MCP only where it pays
+- [v0.1-9](../decisions/v0.1-9.md) Merge drivers deferred, and the index published whoever commits
+- [v0.1-10](../decisions/v0.1-10.md) Publishing: an incremental index, within seconds
+- [v0.1-11](../decisions/v0.1-11.md) Writes to GitHub, and where validation runs
+- [v0.1-12](../decisions/v0.1-12.md) Tickets leave the code repository, not git
+- [v0.1-13](../decisions/v0.1-13.md) Git is a model, not a protocol
+- [v0.1-14](../decisions/v0.1-14.md) Prior art is adoptable if permissively licensed
+- [v0.1-15](../decisions/v0.1-15.md) A rollout plan and an implementation plan
+- [v0.1-16](../decisions/v0.1-16.md) Implementation language: Python and/or JavaScript (superseded by plan-1)
+- [v0.1-17](../decisions/v0.1-17.md) Belfry becomes a customer of vmd
 
 ## Decisions from discussing Draft v0.2
 
 Recorded 2026-10-09, to be folded into Draft v0.3.
 
-**Extensibility is a goal.** Custom backends, and custom query languages over the data model (for example GraphQL). The data
-model is specified independently of the CLI and VQL. Query engines plug in and read freely; writes from any engine go through
-`apply`, so version tokens and validation hold.
-
-**Container blocks are prose.** Headings and fences inside list items, block quotes and HTML blocks are body text. A section's data
-block must be fenced (```` ```yaml data ````): `---` inside a body is a thematic break or a setext heading, and renders as one.
-
-**Spans leave the data model.** A node's identity is its path. Source locations are an optional source map produced by file-based
-parsers, used for span-preserving edits, error locations, and the `--source` view. A reference inside prose is located by
-(node path, offset within `$body`). Byte and line ranges remain in the storage contract.
-
-**Error messages** give `line:col` where a source file exists, plus the semantic path, the exact path, candidates and a hint.
-
-**Tables** become addressable later, through a read-only views extension.
-
-**A record is a section.** Every record and section has the shape
-`{ $title?, $anchor?, $tags?, ...fields, $body?, $sections?: [section, ...] }`. Front matter is the root's data block. The single
-leading H1 is the root's `$title`; otherwise H1s are ordinary sections. Sections are an ordered array, which keeps order and
-duplicates. A plain string is never a section; every value that is not a section item is a field in the data block. Markdown to
-JSON is total and lossless; JSON to Markdown is total.
-
-**Section data block.** Exactly one, immediately after the heading. This is both the canonical and the strict form. Data blocks
-elsewhere in a section are not supported, and probably never will be: they would break round-trips and the continuity of `$body`.
-
-**Exact and semantic paths.**
-- `#/...` is an RFC 6901 JSON Pointer, unchanged.
-- `#a/b` is a semantic path. Each step matches a member name, a child section's `$key`, or an item of a keyed list. The first step
-  also tries record-wide anchors, including GitHub's derived slugs.
-- A section's `$key` is its `$anchor`, or the GitHub slug of its `$title`.
-
-**Keyed lists.** A schema extension modeled on Kubernetes' `x-kubernetes-list-type` / `x-kubernetes-list-map-keys`:
-`x-vmd-list: {type: map | multimap, keys, required, items (per-key schemas), additional}`. It applies to any array, sections
-included, and compiles to standard JSON Schema 2020-12, except uniqueness over undeclared keys, which needs a custom keyword.
-Keys in data arrays may be declared by the schema (option (b)): resolution depending on the schema is accepted, since queries and
-validation rely on schemas anyway. `$anchor` works without a schema.
-
-**Uniqueness.**
-- Field names and keyed-list keys share one namespace per level, so a front matter `status` and a `## Status` section are
-  duplicates, as two `## Notes` sections are.
-- Uniqueness is declared per list in the schema (`map` or `multimap`), with a store default for undeclared levels: `strict` by
-  default (duplicates are validation errors), `lenient` as a relaxation (warnings; `ambiguous` only where a singular address
-  is used).
-- A singular address must cross only unique levels, which the checker verifies before evaluation. A reference that may resolve to
-  several nodes says so: `x-vmd-ref: {cardinality: many}`.
-- "First occurrence wins" is not a policy. GitHub's derived slugs (`#notes`, `#notes-1`) are unique by construction and still
-  apply. Escape hatches for ingesting messy data that cannot be cleaned up may be added later; they are not normal operation.
-
-**Tags.** `$anchor` is unique per record. Non-unique labels are `$tags` (not `$class` or `$type`, which serialization frameworks
-commonly use). Tags select sets of nodes, through VQL (`@tags:example`) or references declared `cardinality: many`. In Markdown
-they are written with the HTML idiom, `<a class="example"></a>` in a heading, and map to `$tags`.
+- [v0.2-1](../decisions/v0.2-1.md) Extensibility is a goal
+- [v0.2-2](../decisions/v0.2-2.md) Container blocks are prose, and a section's data block is fenced
+- [v0.2-3](../decisions/v0.2-3.md) Spans leave the data model
+- [v0.2-4](../decisions/v0.2-4.md) Error messages give line and column, the paths, candidates and a hint
+- [v0.2-5](../decisions/v0.2-5.md) Tables become addressable later, through views
+- [v0.2-6](../decisions/v0.2-6.md) A record is a section, and sections are an ordered array
+- [v0.2-7](../decisions/v0.2-7.md) Exactly one data block per section, right after the heading
+- [v0.2-8](../decisions/v0.2-8.md) Exact and semantic paths (reversed in part by C12, F9)
+- [v0.2-9](../decisions/v0.2-9.md) Keyed lists, with keys declared by the schema (reversed in part by U8)
+- [v0.2-10](../decisions/v0.2-10.md) Uniqueness: one namespace per level, strict by default, no "first wins"
+- [v0.2-11](../decisions/v0.2-11.md) Non-unique labels are $tags
 
 ## Decisions from discussing Draft v0.3
 
 Recorded 2026-10-09, and applied to Draft v0.3.
 
-- **The root address.** An address with no fragment, or with an empty one, is the record's root.
-- **Value types** are specified: the I-JSON subset of JSON, rules for numbers, and standard logical types declared with `format`
-  (date, time, date-time, duration, int64, bigint, decimal, and more). Which number forms common parsers support needs a survey.
-- **Key allocation** (the next ticket number) is the client's job for now. A write language with computed values may take it over
-  later.
-- **Links that leave the store** are ordinary, untracked links. Reference tracking and rewriting need every collection in one
-  store, preferably on one backend, since there are no transactions across backends.
-- **Label templates** would be useful; the syntax is open, and they are deferred.
-- **Data blocks** are marked ```` ```yaml data ```` (or `json data`). Front matter is `---` at the start of a file only; sections
-  use fences.
-- **Queries match nodes.** Results print each node's canonical address (its anchor, else a semantic path from the nearest anchored
-  ancestor or the root), its title, size, what matched and an excerpt, grouped by record, with a per-record cap, a page size and a
-  cursor. More of each match is shown on request (`--show`, `--fields`, with `@match` and `@record`), capped in size unless `--all`
-  is given.
-- **Object member order is not significant.** A backend that stores original bytes keeps their order, but no backend or query may
-  be required to: covering indexes and relational stores have no original order to return. Order that matters uses arrays.
-- **Validation on GitHub without Actions runners.** A GitHub App driven by webhooks validates in Lambda: pattern A (check after
-  commit, posting a commit status), B (a required check on pull requests and merge groups), or C (a gatekeeper branch that only
-  the app may update). Pre-receive hooks are not available on github.com. The tickets store uses pattern A.
+- [v0.3-1](../decisions/v0.3-1.md) The root address
+- [v0.3-2](../decisions/v0.3-2.md) Value types: the I-JSON subset, number rules and standard logical types
+- [v0.3-3](../decisions/v0.3-3.md) Key allocation is the client's job
+- [v0.3-4](../decisions/v0.3-4.md) Links that leave the store are ordinary, untracked links
+- [v0.3-5](../decisions/v0.3-5.md) Label templates are deferred
+- [v0.3-6](../decisions/v0.3-6.md) Data blocks are marked yaml data or json data
+- [v0.3-7](../decisions/v0.3-7.md) Queries match nodes, and print canonical addresses (superseded by H4.1)
+- [v0.3-8](../decisions/v0.3-8.md) Object member order is not significant
+- [v0.3-9](../decisions/v0.3-9.md) Validation on GitHub without Actions runners: pattern A for tickets
 
 ## Decisions from planning the implementation
 
 Recorded 2026-10-09.
 
-- **TypeScript** for the core library, the CLI, the Lambda functions and the browser (open question 2 of v0.3, now closed).
-- **int64**: a number within ±(2^53−1), a decimal string beyond it; readers accept both (open question 4 of v0.3, now closed).
-- **vollmond's own work is tracked in GitHub issues**, not as vmd records: outside contributors and bug reporters already have
-  access there, and a ticket store of its own would need access control. vampiredb and Belfry dogfood vmd for their tickets.
-- **The implementation plan** (`docs/plan/implementation-plan.md`) details phases I0 to I3; I4 to I8 are planned when I3 is nearly
-  done.
+- [plan-1](../decisions/plan-1.md) TypeScript for the core library, the CLI, Lambda and the browser
+- [plan-2](../decisions/plan-2.md) int64: a number within the safe range, a decimal string beyond it
+- [plan-3](../decisions/plan-3.md) vollmond's own work is tracked in GitHub issues (superseded by plan-3a)
+- [plan-3a](../decisions/plan-3a.md) GitHub issues by default, eternal-circle for internal tickets
+- [plan-4](../decisions/plan-4.md) The implementation plan details phases I0 to I3
 
 ## Decisions during phase I0
 
 Recorded 2026-10-09.
 
-- **Package and command names.** The npm packages are named `vollmond`: `@vollmond/core` and `@vollmond/cli` (both free, as is the
-  unscoped `vollmond`). The command is `vmd`, although the unrelated npm package `vmd`, a Markdown previewer unmaintained for eight
-  years, installs a command of the same name.
-- **What `@vollmond/core` may assume.** Only the APIs every target runtime provides (Node, Lambda, browsers, Deno): the browser
-  library is removed from its type check, and the small set of cross-runtime globals it may use (`console`, `URL`, `TextEncoder`,
-  `crypto.subtle` and the like, after WinterTC's minimum common web API) is declared explicitly. Using `document` in `core` then fails
-  the type check. Consequence for I1.1: hashing (§11.3) is either asynchronous (`crypto.subtle`) or a small pure-TypeScript
-  implementation.
-- **Native development tools are allowed** (TypeScript 7, Biome, Vitest's bundler ship platform binaries), provided the runtime
-  dependencies of the shipped packages stay pure JavaScript.
-- **TypeScript 7, Vitest 5 and the extra strict compiler flags** (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
-  `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`) are approved.
-- **Repository settings.** `main` accepts only pull requests (no required approvals, since the project owner cannot approve their
-  own; squash merges only) that pass the CI check, with no deletion, no force push and linear history. Merged branches are deleted,
-  the wiki is off, Dependabot security updates are on, and `SECURITY.md` and `CONTRIBUTING.md` describe reporting and contributing.
+- [i0-1](../decisions/i0-1.md) Package names use vollmond, and the command is vmd
+- [i0-2](../decisions/i0-2.md) What @vollmond/core may assume: the APIs every runtime has
+- [i0-3](../decisions/i0-3.md) Native development tools are allowed
+- [i0-4](../decisions/i0-4.md) TypeScript 7, Vitest 5 and the extra strict compiler flags
+- [i0-5](../decisions/i0-5.md) Repository settings for the public repository
 
 ## Decisions of phase I0
 
@@ -291,137 +199,77 @@ Recorded 2026-10-10, from the project owner's answers to the I0 decision cards (
 applied to Draft v0.4. Where a follow-up refined a card, the follow-up's answer is the decision. The cards took up the open
 questions of the conformance suite's README and the proposals of the parser survey. Section numbers here refer to Draft v0.4.
 
-**Stance.** In the owner's words, "Some of the problems are nasty. We can see how far we can go with the proposed answers; if we
-get into trouble we may need to revisit them." These decisions may therefore be revisited when the implementation runs into
-trouble. An adversarial audit after I3 (#45) tries to break vmd by combining them.
+- [i0-6](../decisions/i0-6.md) The phase I0 answers may be revisited, and an audit tries to break them
 
 ### Errors, parsing and validation
 
-- **Issue codes (C1).** A normative appendix of issue codes and severities (Appendix D), grown by the fixture tasks and adopted
-  into the spec in I0.8 and later rounds. The severities are `error` and `warning`.
-- **Which errors make a record unreadable (C2, F1).** Structural errors fail parse. They are syntax errors, values outside the data
-  model, misplaced data blocks, `$` members where none are allowed, malformed `$ref` objects, and numbers a double cannot hold.
-  Validation errors (schema violations, dangling references, escalated warnings) attach to a readable record, fail `check` with
-  exit code 4 and are refused by gate-mode writes. `vmd query` and `ls` report how many records they could not read, so none
-  vanish silently. Parse and check report every error they find, not only the first, "so that less roundtrips to fix them are
-  needed". The owner first chose that any error fails parse (C2). F1 narrowed it to structural errors, so that a well-formed but
-  wrong record stays visible and can be found and fixed with vmd itself. *Reversed in part by U12 (Draft v0.11): readers also
-  refuse a record of a collection whose schema cannot be used, although it has no structural error.*
-- **Roles (F1, the owner's elaboration, written into §9.5).** A reader opened on data that is not validated reads it as long as
-  its syntax is proper (*narrowed by U12, Draft v0.11: and as long as its collection's schema can be used*). A validator reports
-  all errors and fails according to the configured strictness. A backend rejects any update that does not validate. Queries
-  default to best effort and assume the backend is correct, and a strict read mode, configurable per client or connection, makes
-  records that fail validation errors rather than results, for cases where correctness matters more than availability. A reader
-  using an incompatible format version must fail loudly. The owner calls this "quite important" and expects it to need "a good
-  systematic solution", which belongs to the versioning design (#46).
-- **Minimal configuration (C3).** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness and no
-  collections.
-- **Empty files (C8).** An empty YAML file is the empty record, and an empty JSON file is an error.
+- [C1](../decisions/C1.md) Issue codes and severities: a spec appendix, grown by the fixtures
+- [C2](../decisions/C2.md) When parse fails, and whether check reports every issue (reversed in part by F1, U12; superseded by
+  K2)
+- [C3](../decisions/C3.md) The smallest valid store configuration is `vmd: 1`
+- [C8](../decisions/C8.md) An empty YAML file is the empty record; an empty JSON file is an error
+- [F1](../decisions/F1.md) Structural errors make a record unreadable; validation errors leave it readable (reversed in part by
+  U12; superseded by K2)
+- [F1a](../decisions/F1a.md) The roles of readers, validators, backends and queries (reversed in part by G7, U12; superseded by
+  G2)
 
 ### Numbers
 
-- **A number means its nearest double (C4, C5, C6, F2).** Values in the value view are plain doubles (survey option D). A number
-  is a structural error when its value is an integer and the double differs from it (`9007199254740993`), when it overflows
-  (`1e400`), or when a non-zero value underflows to zero (`1e-400`). A fractional number with more digits than a double holds is
-  accepted and means its nearest double, so `0.10000000000000001` equals `0.1` with no issue. `-0` is `0`. Integers stay exact up
-  to ±(2^53−1), and vmd writes larger int64 and bigint values as strings, as decided earlier. A fractional decimal has no true
-  value to protect, while integers do. On underflow, the owner holds that an error is justified because no reasonable serializer
-  writes a non-zero double as a literal that underflows to zero. (The smallest positive double is about 4.9e-324, and
-  shortest-form serializers print it as `5e-324`.)
-- **No rewriting.** Under every option, an edit never rewrites a number it did not change. Edits splice only the changed bytes,
-  because the `yaml` library's writer rewrites numbers, and §13.3 gets that qualifier.
+- [C4](../decisions/C4.md) Numbers a double cannot hold are reported, not kept exactly (reversed in part by F2)
+- [C5](../decisions/C5.md) Which numbers count as safe to hold as a double (superseded by F2)
+- [C6](../decisions/C6.md) `-0` is 0, and `1e400` is an error (superseded by F2)
+- [F2](../decisions/F2.md) A number means its nearest double (reversed in part by G1)
 
 ### YAML
 
-- **Compatibility quoting (C7, F3).** On by default. The serializer quotes every string a common YAML 1.1 reader takes for
-  something else (the survey's full list), and `vmd check` warns about unquoted ones. C7 was first read as being about older
-  versions of vmd, and F3 clarified that it concerns other YAML tools (PyYAML, Jekyll's Psych, old js-yaml). It is a setting. A
-  user who controls their tools may turn it off explicitly, and that also turns the warning off.
-- **Severities by issue code (the owner's note on C7).** A user can disable or change warnings by type. This generalizes, so the
-  configuration can set the severity of an issue code (off, warning, error) within limits that the issue-code appendix defines.
-- **Format and protocol versioning (F4).** A design issue (#46), discussed before I4. The interim rule is that a store declares its
-  format version (`vmd: 1`), that a client refuses to write to a store whose version it does not support and warns when it reads
-  one, and that the spec reserves room for client-declared versions, in the repository's settings or in a connection string. The
-  owner's model for the design is that a client declares its version, its payload is validated against that version and
-  transcoded to the store's, and reads are transcoded back.
+- [C7](../decisions/C7.md) Which YAML strings the serializer quotes for older readers (superseded by F3)
+- [F3](../decisions/F3.md) Compatibility quoting for YAML 1.1 tools, on by default (reversed in part by H2.8; superseded by G8)
+- [F3a](../decisions/F3a.md) Severities by issue code
+- [F4](../decisions/F4.md) Format and protocol versioning is a design topic of its own, with an interim rule (reversed in part
+  by G3)
 
 ### Line endings, offsets and source maps
 
-- **Line endings (C9).** The value view reads CRLF as `\n`. Edits keep the file's own line endings where the backend keeps the
-  file, and a backend is not required to preserve `\r\n`, since some may not and some could even convert `\n` to `\r\n`.
-- **Units (C10).** Offsets are UTF-8 bytes, lines count from 1, and columns count code points. Clients that need other units
-  convert.
-- **Source maps (C11).** Spans are decided by the Markdown parser task (I1.4), and source maps are optional for the Read profile.
-  A node's span covers exactly the UTF-8 bytes that `get` returns for it.
+- [C9](../decisions/C9.md) The value view reads CRLF as LF
+- [C10](../decisions/C10.md) Offsets are UTF-8 bytes; lines count from 1, and columns count code points
+- [C11](../decisions/C11.md) Source map spans are decided by the Markdown parser task, and optional for Read (superseded by K1)
 
 ### Anchors and headings
 
-- **Derived anchors use vmd's own rule (C12, F5).** Agreement with GitHub is a bonus, not a goal. vmd does not follow later GitHub
-  changes, and changing vmd's rule requires a spec version, warnings first and a migration. The rule (§6.3) takes the text a
-  reader sees, normalizes it to NFC, removes default-ignorable code points, lower-cases per code point, trims, keeps letters,
-  marks, decimal digits, connector punctuation and `-`, turns white space into `-`, and numbers repeats by skipping used
-  candidates, among vmd sections only. Measured against the 673 GitHub anchors captured in #37, it agrees on 528 (78 percent),
-  and on 602 (89 percent) under the rule as it stood before C13 and C14. (A correction of fact, made by the derived-anchor fixtures
-  of #8: this entry first gave 89 percent for the rule as decided.) The owner first chose a simpler rule of vmd's own (C12). F5
-  kept the captured handling of rendered text and of Unicode, so that most links copied from GitHub still work, and made the
-  rule vmd's own and versioned.
-- **The `<a id>` element (C13).** It is not part of the heading's title and is stripped before trimming, so
-  `## What was done <a id="done"></a>` gives `what-was-done` with or without the space, never a trailing hyphen. The serializer
-  writes the element without a space. GitHub's behavior, which keeps the hyphen, is ignored.
-- **Empty slugs (C14).** A heading whose slug is empty has no derived anchor, but its candidate still counts as used.
-- **HTML in headings (C15).** A heading may contain the anchor element plus a short list of inline elements (`span`, `b`, `i`,
-  `em`, `strong`, `code`, `kbd`, `sup`, `sub`). Other tags are undefined behavior. They are a warning, or an error in the strictest
-  configuration, which under F1 is a validation error, so the record stays readable, and they may be stripped from the derived
-  anchor.
-- **One anchor namespace (C16).** Explicit and derived anchors share one namespace, and a collision is a duplicate anchor. The
-  owner added that an escape hatch making a link match explicit anchors only would be good practice.
-- **Explicit-only references (F6).** No store setting and no normalization command. In YAML and JSON, a reference's schema can
-  require an explicit anchor as its target (`x-vmd-ref` with `anchors: explicit`), which the owner calls best practice for stores
-  used as databases. In Markdown a link stays plain, and `vmd check` warns about references through derived anchors, as a lint
-  only ("if user want to pass linter, they can fix their data themselves"). Whether a Markdown link can carry an invisible
-  attribute that says the same is open question 6 of Draft v0.4.
+- [C12](../decisions/C12.md) Derived anchors follow a rule of vmd's own, not GitHub's (reversed in part by F5)
+- [C13](../decisions/C13.md) The `<a id>` element at the end of a heading, and the trailing hyphen (reversed in part by F5)
+- [C14](../decisions/C14.md) A heading whose slug is empty has no derived anchor, but its candidate still counts
+- [C15](../decisions/C15.md) A heading may contain the anchor element and a short list of inline HTML elements
+- [C16](../decisions/C16.md) Explicit and derived anchors share one namespace
+- [F5](../decisions/F5.md) Derived anchors use a slug rule of vmd's own, chosen on its merits (reversed in part by H5.2)
+- [F6](../decisions/F6.md) Explicit-only references: a schema constraint in data, a lint in Markdown (superseded by G4)
 
 ### Addresses and selectors
 
-- **Section members as steps (C17).** Address steps may name the members of the section shape, `$title`, `$body`, `$sections`,
-  `$anchor` and `$tags`. Read-only computed fields would be acceptable in principle, with writes to them refused. Under F9 no such
-  member remains, since `$key` is no longer one.
-- **`$key` leaves the value view (F9, superseding C23).** Readers return the stored data as the value, and what vmd derives (the
-  key, the canonical address, anchors, the node version, the source location) in a metadata envelope next to it (§5.10). A `$key`
-  in a write is an error, which is safe because reads never contain one. Schemas key sections with `x-vmd-list`
-  `keys: ["@key"]`, which the validator computes internally, and VQL gains an `@key` pseudo-field. Node versions hash stored data
-  only. The owner's escaped-identifier idea, as SQL tells `rowid` from a quoted `` `rowid` ``, is recorded for VQL (#29), so that a
-  quoted field name reaches a member literally named like a reserved word or a pseudo-field.
-- **Ambiguity at evaluation (C18).** A singular address may still fail as ambiguous when evaluated, in exactly two cases, lenient
-  mode duplicates and a first step that matches both a root member and another node's anchor. §7.4 says so.
-- **Empty selectors (C19).** A selector that matches nothing returns an empty result, not a failure.
-- **Tag selection is deferred (C20, F7)** to a selector-language design issue (#47), to run before I4. It covers and, or and not,
-  filtering versus projection with descent, and a final projection, and starts from CSS selectors, JSONPath (RFC 9535), XPath and
-  jq. Until then addresses do not select by tag, VQL's `@tags` does, and a many-reference lists its targets.
+- [C17](../decisions/C17.md) Address steps may name the members of the section shape (reversed in part by F9)
+- [C18](../decisions/C18.md) A singular address may still fail as ambiguous at evaluation, in two cases (superseded by H4.2)
+- [C19](../decisions/C19.md) A selector that matches nothing returns an empty result
+- [C20](../decisions/C20.md) How an address selects nodes by tag (superseded by F7)
+- [C23](../decisions/C23.md) What the serializer does with a `$key` it is given (reversed in part by F9)
+- [F7](../decisions/F7.md) Tag selection is deferred to a selector-language design
+- [F9](../decisions/F9.md) `$key` leaves the value view, and derived facts go into a metadata envelope (reversed in part by G9)
 
 ### References and aliases
 
-- **Links in titles and in YAML or JSON prose (C21)** are tracked references.
-- **Reading the alias file (C22)** moves to the Validate profile, and writing aliases stays in Refactor.
-- **Aliases on every move (F8).** `mv` and `rename` record an alias on every move, and `vmd alias prune` removes those no open
-  branch can still need. The owner's caveat is to be resolved in the design (#48). A reference to `old-anchor` committed before
-  the rename is meant for the renamed node, but one committed after the rename may mean a new anchor that reuses the name, and a
-  client synced before the rename that pushes after it is indistinguishable from one that intends the new meaning.
+- [C21](../decisions/C21.md) Links in titles and in YAML or JSON prose are tracked references
+- [C22](../decisions/C22.md) Reading the alias file moves to the Validate profile
+- [F8](../decisions/F8.md) Aliases are recorded on every move, and pruned later
 
 ### Round trips, queries, the suite and process
 
-- **Round trips (C24).** Each implementation has its own round-trip property tests, and the suite holds example cases under the
-  Write profile.
-- **Sort ties and letter case (C25, F10).** Sort ties are ordered by store path, compared as exact UTF-8 bytes, then by document
-  order within a record, never across records. Case-insensitive matching uses Unicode simple case folding.
-- **Paths that cannot be files (C26)** are left out of the suite for now.
-- **Spec versions (C27).** The spec's minor version rises with each decision round. This round gives Draft v0.4.
-- **Local index (C28).** The local index uses JSONL, as the implementation plan chose, and §14.3 no longer names SQLite as the
-  reference.
-- **Conformance runners (C29).** Each language's conformance runner lives next to that language's implementation, and the
-  conformance data stays language-neutral and shared.
-- **Repository layout (L1).** One top-level directory per language. The TypeScript workspace moves to `js/` (a separate pull
-  request), and Python later goes to `python/`. `docs/` and `conformance/` stay shared at the root.
+- [C24](../decisions/C24.md) Round trips: each implementation's own property tests, and suite examples under Write
+- [C25](../decisions/C25.md) Sort ties are ordered by store path, as exact UTF-8 bytes, then by document order
+- [C26](../decisions/C26.md) Path rules that cannot exist as files are left out of the suite for now
+- [C27](../decisions/C27.md) The spec's minor version rises with each round of decisions
+- [C28](../decisions/C28.md) The local index uses JSONL
+- [C29](../decisions/C29.md) Each language's conformance runner lives next to its implementation
+- [F10](../decisions/F10.md) Case-insensitive matching uses Unicode simple case folding
+- [L1-layout](../decisions/L1-layout.md) One top-level directory per language
 
 ### Corrections from reviewing the draft
 
@@ -444,198 +292,84 @@ corrected in the same round, without new decisions:
 
 Recorded 2026-10-10. The review raised nine questions that needed the owner; the answers refine the decisions above.
 
-- **G1. Integers by form.** A number is an integer for the check of §4.2 when it is written as one, with no fraction and no
-  exponent, so `1e23` means its nearest double. vmd's writer emits integer-valued doubles beyond ±(2^53−1) in exponent form, so
-  its own output always parses back. The round-trip property tests include such values, and the suite has example cases for 2^60.
-  This is an application of G1, not a new decision. An integer by form is any integer literal of its format, so a YAML
-  `+9007199254740993` or `0x20000000000001` that a double cannot hold is an error as a JSON one is, since precision lost while
-  parsing must be flagged (C4). The canonical writer uses exponent form exactly when |x| ≥ 2^53 or 0 < |x| < 10^-6 (§4.2).
-- **G2. What a backend is.** In the owner's definition, the backend is everything that runs regardless of the client: storage,
-  server-side scripts, commit protocols, merge queues, CI runners, Lambda calls. Client-side hooks and scripts are not the backend.
-  A backend that validates before accepting a write (gate mode) is a validating backend. GitHub plus a Lambda function that
-  validates after the commit (pattern A) is a weakly validating backend, whose constraints hold except for the latest commits
-  still being validated, and a client that syncs only to commits marked green sees a validating backend. The role of queries,
-  which assume the backend is correct, rests on this (§9.4, §9.5, §11.1).
-- **G3. Version differences, as the owner refined them.** The owner first answered that a client supporting the store's major
-  version works at that compatibility level, that it otherwise refuses a newer store and warns on an older one, and that a minor
-  difference gives no warning. The refinement replaces that with a model of three versions, those of the data, the reader and the
-  writer. A store can move to 2.2, and a 2.1 reader reads its data without any warning as long as the data uses no 2.2 feature.
-  A 2.1 reader that meets a 2.2 feature fails with an error. If a 2.1 reader cannot read data that a 2.2 writer wrote at 2.1
-  compatibility, or reads it wrongly, the change should not have been a minor version. So minor versions only add and never
-  change the meaning of existing syntax. Every addition must be detectable by an older reader (a new `$` section member, a new
-  `data` info string, a new `x-vmd-*` keyword), which vmd's strictness supplies. *Replaced by U21 (Draft v0.11): an addition is
-  any relaxation of a refusal that no reader reads past, which these three forms no longer limit.* A reader decides from the
-  features the data uses, not from the declared number (`feature-unsupported`), and a client refuses a major version it does not
-  support (§9.1).
-  Left to #46, as proposals with their precedents (§20), are a store setting for the writers' compatibility level, feature
-  classes after ext4's compat, ro_compat and incompat flags, ZFS feature flags and git's `extensions.*`, and how a store writes a
-  minor version. The owner then confirmed that a client refuses an older major version as well as a newer one, rather than
-  reading it with a warning, unless the client can be configured to work at that version's compatibility level.
-  On second thought, the owner then accepted the session's proposal for a client newer than the store. A validating backend
-  rejects newer features, and a reader is generally expected to read older versions, so a warning is enough, except where a
-  change in between alters the meaning of existing syntax (YAML's `no` against `"no"`, a new slug rule), where data valid under
-  both rules reads differently and validation cannot catch it. So a newer client reads an older store with a warning
-  (`format-version-older`) when no change in between alters meaning, and refuses it otherwise; each major version lists its
-  changes in meaning, and writes from a newer client stay at the store's level (§9.1). The safeguards proposed in #46 keep that
-  list true for vmd's own specification and implementations; vmd does not certify third-party serializers, and a user who
-  upgrades is responsible for their own data. The owner's caveat: if versioning becomes too heavy a burden, raise it and revisit
-  these choices.
-- **G4. `anchors: explicit`** means that no step of the address resolves through a title-derived key (§9.3).
-- **G5. An empty many-reference is valid** (§8.5).
-- **G6. Validation errors cannot be lowered.** On the concern that this blocks adoption, the owner's answer: fix the data, relax
-  the schema so that it permits the offending data, or comment out the offending links. Adoption goes step by step, by relaxing the
-  schema first and tightening it later (Appendix D, R1 in §22).
-- **G7. Strict read** refuses records with structural errors or schema violations only (§9.5).
-- **G8. YAML numbers.** The writer uses exponent forms that a YAML 1.1 reader also reads as numbers, with a dot in the mantissa
-  and a sign on the exponent (`1.0e+20`), and `vmd check` warns about other number forms that YAML 1.1 readers misread (§4.2,
-  §4.4). As an extension of F3, `yaml_quoting: minimal` turns off this warning, `yaml-ambiguous-number`, as it turns off the
-  string warning.
-- **G9. Computed fields.** In the owner's framing, metadata are computed fields, not part of the data. Like `rowid` in some SQL
-  databases, they are not in `SELECT *` and cannot be written, but they can be selected explicitly. A plain read returns the
-  stored data only, so a read and write round trip is exact. A caller that needs computed fields, such as a validating reader or a
-  writer that needs the version token, requests them explicitly, with the read or later by address, and then gets them as drafted,
-  with `@issues` added and `@nodes` only on request. The computed fields have the names of VQL's pseudo-fields, so requesting
-  them and selecting `@key` in a query are one concept. Writes return the new version token, so editing needs no extra round trip
-  (§5.10, §10.3, §13.2).
+- [G1](../decisions/G1.md) A number is an integer by its form, not its value
+- [G2](../decisions/G2.md) What a backend is, and which backends validate
+- [G3](../decisions/G3.md) A client on a different format version than the store (reversed in part by G3c; superseded by G3a)
+- [G3a](../decisions/G3a.md) Three versions: the data's, the reader's and the writer's (superseded by U21)
+- [G3b](../decisions/G3b.md) The version safeguards cover vmd's own specification and implementations
+- [G3c](../decisions/G3c.md) A client refuses an older major version it does not support (reversed in part by G3d)
+- [G3d](../decisions/G3d.md) A newer client reads an older store with a warning, unless a change in between alters meaning
+- [G4](../decisions/G4.md) Under anchors: explicit, no step resolves through a title-derived key (superseded by G10)
+- [G5](../decisions/G5.md) An empty many-reference is valid (superseded by I1.8)
+- [G6](../decisions/G6.md) Validation errors cannot be lowered
+- [G7](../decisions/G7.md) Strict read refuses structural errors and schema violations only
+- [G8](../decisions/G8.md) Compatibility quoting covers numbers
+- [G9](../decisions/G9.md) Metadata are computed fields, requested explicitly
 
 ## Decisions from the fixtures (H1 to H5, G10)
 
 Recorded 2026-10-10, and applied to Draft v0.5. The four fixture tasks, I0.4 values (#52), I0.6 anchors and addresses (#53), I0.5
 Markdown (#54) and I0.7 derived anchors (#55), left out every case that depended on a question the draft did not answer, and
 asked the questions in their pull requests. The project owner accepted every recommendation on cards H1 to H5, and card G10.
-Each bullet cites the pull request and its question, as "#52 Q1". Section numbers refer to Draft v0.5.
+Each record cites the pull request and its question, as "#52 Q1". Section numbers refer to Draft v0.5.
 
 ### H1. Where issues are reported
 
-- **H1.1. An issue about the whole record is at the root (#52 Q1, #54 Q12).** Its `at` is `""`, not null, also for a syntax
-  error that leaves no value view. `null` is only for an issue with no node. The suite's README said null and is fixed
-  (Appendix D, conformance README).
-- **H1.2. Address errors (#53 Q1).** For `address-malformed`, `address-not-singular`, `address-not-found` and `address-ambiguous`,
-  `path` is the record the address names, and `at` is null. An address whose record does not exist is `address-not-found`, as a
-  singular address and as a selector (§7.4, Appendix D).
-- **H1.3. One issue per occurrence after the first (#52 Q4, #53 Q13).** A name given three times gives two `duplicate-member`,
-  and three nodes with one anchor give two `duplicate-anchor`, one per node, so a heading whose explicit and derived anchors both
-  collide with an earlier block anchor gets one. `unpaired-surrogate` is reported once per string, at the string, and for a
-  surrogate in a member name at the object that holds the member. Appendix D now states the counting rule once, in its
-  introduction, and applies it also to `duplicate-key` and `path-case-conflict`, whose "the second" had the same gap; that
-  extension is the agent's reading of H1.3's general wording. *Refined by Q2 (Draft v0.11): "after the first" means after the
-  first in document order, the pre-order of the value view, not file position.*
+- [H1.1](../decisions/H1.1.md) An issue about the whole record is at the root
+- [H1.2](../decisions/H1.2.md) Address errors name the addressed record, with no node
+- [H1.3](../decisions/H1.3.md) One issue per occurrence after the first (superseded by Q2)
 
 ### H2. Values and YAML
 
-- **H2.1. Noncharacters are valid (#52 Q2).** §4.1 records the departure from I-JSON (RFC 7493, section 2.1), citing Unicode
-  Corrigendum #9.
-- **H2.2. A YAML surrogate-pair escape is one character (#52 Q3)**, as in JSON, so a reader whose YAML library does not combine
-  the two `\u` escapes must combine them itself (§4.1).
-- **H2.3. Every explicit YAML tag is an error (#52 Q5)**, core schema tags such as `!!str` and the non-specific tag `!` included
-  (`yaml-tag`). **This changes the rule.** Draft v0.4 rejected "custom tags", which read literally left `!!str 12` and `! 12`
-  valid as the strings the `yaml` package makes of them. Quoting already forces a string, and the value view cannot keep a tag
-  (§4.1, Appendix D).
-- **H2.4. Merge keys (#52 Q6).** A plain `<<` key is always a merge key, whatever its value, and so `yaml-merge-key`. A quoted
-  `"<<"` is an ordinary member (§4.1).
-- **H2.5. An alias to an undefined anchor (#52 Q7)** is `yaml-alias` at the alias's location (Appendix D).
-- **H2.6. `%YAML` directives (#52 Q8).** `%YAML 1.2` is allowed, and any other version is a structural error with a new code,
-  `yaml-version-unsupported`. Reading a `%YAML 1.1` record as 1.2 would silently change what `yes` or `017` mean to its author.
-  §4.4 notes that this departs from YAML 1.2.2, section 6.8.1, twice: a 1.2 processor must accept a 1.1 document, and should
-  process a higher minor version such as `%YAML 1.3` with a warning.
-- **H2.7. Logical types accept their full lexical space (#52 Q9).** A `format` assertion accepts every form of the standard the
-  type refers to, not only the canonical form, and the writer emits the canonical form. §4.3 gives each type's lexical space,
-  spells out those of int64, bigint, decimal and local-date-time, and pins duration to RFC 3339 Appendix A. One consequence is
-  the agent's: local date-times now compare chronologically rather than as strings, since `T`, `t` and a space give the same
-  value. Two follow-up questions from the review of this round went to the owner, who answered them:
-  - **Decimal.** The first version of Draft v0.5 claimed that decimal had no external standard and gave it vmd's own lexical
-    space. The owner chose XML Schema 1.1 Part 2's `decimal` (section 3.3.3.1, regular expression
-    `(\+|-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)`), so `.5`, `+1`, `1.`, `01` and `1.50` are accepted. vmd's
-    `-?(0|[1-9][0-9]*)(\.[0-9]+)?` stays as the canonical form the writer emits. Two points are the agent's reading: that vmd
-    applies no whitespace collapsing before the lexical space, as XML does; and the mapping §4.3 gives from an accepted form to
-    the written one (drop `+`, drop leading zeros, add `0` before a leading point, drop a bare trailing point, keep trailing
-    zeros since they can carry precision, write `-0` as `0`).
-  - **A space between date and time.** A NOTE in RFC 3339, section 5.6, lets applications separate the date and the time with a
-    space, which is why it was asked. The owner confirmed that `date-time` follows the RFC's `date-time` production, which JSON
-    Schema validators check, so the space is rejected there, while local-date-time keeps accepting it, as TOML 1.0.0 does.
-- **H2.8. YAML 1.1 casings (#52 Q10, first point).** The boolean and null entries of §4.4's list cover exactly the casings YAML 1.1
-  reads (`yes`, `Yes`, `YES` and the like, from the regular expression of its bool type), so `tRuE` gets no warning. "In any
-  case" is gone. The list also drives compatibility quoting, which therefore no longer quotes `tRuE`; no reader misreads it.
-  The null entry gains `Null` and `NULL`, which is the agent's reading and not on the card: YAML 1.2's core schema and YAML 1.1
-  both read them as null, so Draft v0.4's list missed strings that the serializer must quote.
-- **H2.9. A key's ambiguity warning goes on its mapping (#52 Q10, second point)** (§4.4, Appendix D).
-- **H2.10. int64 is the signed 64-bit range (#52 Q9)**, [−2^63, 2^63−1], per the OpenAPI format registry (§4.3).
+- [H2.1](../decisions/H2.1.md) Unicode noncharacters are valid
+- [H2.2](../decisions/H2.2.md) A YAML surrogate-pair escape is one character
+- [H2.3](../decisions/H2.3.md) Every explicit YAML tag is an error (superseded by N6)
+- [H2.4](../decisions/H2.4.md) A plain << key is always a merge key
+- [H2.5](../decisions/H2.5.md) An alias to an undefined anchor is yaml-alias
+- [H2.6](../decisions/H2.6.md) Only %YAML 1.2 is allowed (reversed in part by I1.10)
+- [H2.7](../decisions/H2.7.md) Logical types accept their full lexical space
+- [H2.7a](../decisions/H2.7a.md) Decimal accepts XML Schema's decimal
+- [H2.7b](../decisions/H2.7b.md) A date-time rejects a space between date and time
+- [H2.8](../decisions/H2.8.md) The YAML 1.1 boolean and null casings are exactly YAML 1.1's
+- [H2.9](../decisions/H2.9.md) A key's ambiguity warning goes on its mapping
+- [H2.10](../decisions/H2.10.md) int64 is the signed 64-bit range
 
 ### H3. Markdown
 
-- **H3.1. An empty `$body` is absent (#54 Q1)**, never `""`. §5.8 now refuses `$body: ""`, which Markdown cannot write apart from
-  an absent body, as the recommendation proposed.
-- **H3.2. Trailing whitespace is spaces, tabs and line breaks only (#54 Q2)**, so a trailing no-break space is content (§5.3,
-  §5.8).
-- **H3.3. A multi-line setext heading (#54 Q3)** has as `$title` its lines without their indentation, joined by `\n`, and
-  `vmd check` warns `not-representable`. For the warning to hold at the root too, §5.8's single-line rule now covers every
-  `$title`, the root's included, where it named only the items of `$sections`.
-- **H3.4. Front matter delimiters (#54 Q4).** A delimiter is exactly `---` at the start of a line, optionally followed by spaces
-  or tabs. Unclosed front matter is a structural error; the answer named no code, so the draft uses `syntax-error` at the root,
-  the first of the two the recommendation offered. The claim that front matter works "as Jekyll uses it" was checked: Jekyll's
-  `YAML_FRONT_MATTER_REGEXP` also accepts `...` as the closing line, so §5.3 now says that vmd's form is narrower, and cites
-  Jekyll's source and GitHub's announcement of front matter tables.
-- **H3.5. Empty and non-object front matter (#54 Q5).** Empty front matter, or an empty data block, gives no fields. Front matter
-  that is not an object is `data-block-not-object` at `""`; `root-not-object` stays for JSON and YAML files (§5.3, Appendix D).
-- **H3.6. A root whose `$body` starts with `---` (#54 Q4 and Q5)** is written with empty front matter first (§5.8).
-- **H3.7. `$` keys in front matter and data blocks (#54 Q6, #53 Q11).** Section members (`$title`, `$anchor`, `$tags`, `$body`,
-  `$sections`) and `$key` are `dollar-member`; `$schema` is allowed in front matter only, as the root's; any other `$` name is
-  `feature-unsupported`. §5.3 now agrees with Appendix D. Card H3.7 merged #54 Q6 and #53 Q11; its recommendation allows
-  `$schema` in front matter, unlike #54 Q6's.
-- **H3.8. A second data block (#54 Q7)** right after the first is `data-block-misplaced` at its section.
-- **H3.9. A data fence as the first block of a record without a title heading (#54 Q8)** is `data-block-misplaced` at the root.
-- **H3.10. Info strings (#54 Q9)** are split on spaces and tabs and compared case-sensitively on the source text, before
-  CommonMark's decoding (CommonMark 0.31.2, section 4.5). A third word is `feature-unsupported`.
-- **H3.11. `json data` is parsed as JSON (#54 Q10)**, and `yaml data` as YAML (§5.3).
-- **H3.12. Level-1 headings inside container blocks (#54 Q11)** count neither for the title rule nor for `multiple-h1`.
-- **H3.13. A leading UTF-8 byte order mark is skipped (#54 Q13)** before front matter is detected. The answer is about Markdown,
-  and §5.3 applies it there only; JSON and YAML records are not covered.
-- **H3.14. Versions (#54 Q14).** §5.3 pins CommonMark 0.31.2 and GFM 0.29, the GFM specification's latest version (0.29-gfm,
-  2019-04-06, checked on 2026-10-10).
-- **H3.15. The root's `$body` without a title heading (#54 Q15)** is the text after the front matter, or from the start of the
-  file, up to the first heading.
-- **H3.16. `$tags` from `<a class>` (#54 Q16)** are the class tokens in source order. A repeated token is dropped, with a warning
-  under a new code, `duplicate-tag` (§6.2).
+- [H3.1](../decisions/H3.1.md) An empty `$body` is absent
+- [H3.2](../decisions/H3.2.md) Trailing whitespace is spaces, tabs and line breaks only
+- [H3.3](../decisions/H3.3.md) The `$title` of a multi-line setext heading
+- [H3.4](../decisions/H3.4.md) Front matter delimiters, and unclosed front matter
+- [H3.5](../decisions/H3.5.md) Empty and non-object front matter and data blocks
+- [H3.6](../decisions/H3.6.md) A root whose `$body` starts with `---` is written after empty front matter
+- [H3.7](../decisions/H3.7.md) `$` keys in front matter and data blocks
+- [H3.8](../decisions/H3.8.md) A second data block is misplaced
+- [H3.9](../decisions/H3.9.md) A data fence first in a record without a title heading is misplaced
+- [H3.10](../decisions/H3.10.md) How a data block's info string is read
+- [H3.11](../decisions/H3.11.md) A `json data` block is parsed as JSON
+- [H3.12](../decisions/H3.12.md) Level-1 headings inside container blocks do not count
+- [H3.13](../decisions/H3.13.md) A leading byte order mark is skipped before front matter (superseded by I1.4)
+- [H3.14](../decisions/H3.14.md) The CommonMark and GFM versions
+- [H3.15](../decisions/H3.15.md) The root's `$body` without a title heading
+- [H3.16](../decisions/H3.16.md) `$tags` from a `class` attribute
 
 ### H4. Addresses and anchors
 
-- **H4.1. Canonical addresses are tried in order (#53 Q3, Q4, Q6, Q7).** The first form that gives a singular address for the
-  node wins, not the shortest. The root's canonical address is always `""`, even when its title heading has an anchor, so a root
-  field is `#status`. On the owner's question, "We will prefer the strictest most precise first, right?", §7.5 makes the order
-  explicit and gives the reason: the most stable form comes first (an explicit anchor), and the exact path, the most precise
-  form but the one an insertion breaks, is the last resort. Trying forms in order also settles the three recommendations of
-  #53: an anchor longer than the root path wins (Q4), a derived anchor whose address is ambiguous falls through to the exact
-  path (Q6), and so does a duplicated explicit anchor (Q7). §7.5 now lists four forms (explicit anchor, path from the nearest
-  anchored ancestor or the root, derived anchor, exact path) where Draft v0.4 had three rules, with the derived anchor and the
-  exact path in one. The conformance README's open question 1 is closed. Asked again after the review of this round, the owner
-  confirmed the order: most stable first, an explicit anchor, then the semantic path, with the exact path as the last resort,
-  since an insertion breaks it.
-- **H4.2. Duplicates in strict mode (#53 Q5).** An unschematized record in strict mode whose sibling keys repeat still reads, with
-  a `duplicate-key` validation error, and a singular address through the duplicate is `address-ambiguous`, a third case in §7.4.
-  The draft states the case for any data that breaks the uniqueness the proof relies on, so also for a level declared
-  `type: map`, which is the same mechanism; that extension is the agent's. §5.7's "unique by construction" is corrected with it.
-- **H4.3. Selectors over an ambiguous name return every match (#53 Q8)** (§7.4).
-- **H4.4. A node that no step can name (#53 Q9, second part)**, such as a member with the empty name or a section with the empty
-  key, has its exact path as its canonical address (§7.5). The first part of Q9, how a canonical address percent-encodes
-  characters outside `step`, is not answered by H4.
-- **H4.5. `<a id>` elsewhere in a body (#53 Q14).** An anchor element that is not at the start of a paragraph or list item outside
-  container blocks is plain HTML and anchors nothing, with a warning under a new code, `anchor-element-ignored` (§6.2).
-- **H4.6. Two anchor elements in one heading (#55 Q6)** are a structural error, `anchor-element-invalid` (§6.2).
+- [H4.1](../decisions/H4.1.md) Canonical addresses are tried in order, the most stable form first
+- [H4.2](../decisions/H4.2.md) A singular address through a duplicate in strict mode is ambiguous
+- [H4.3](../decisions/H4.3.md) A selector over an ambiguous name returns every match
+- [H4.4](../decisions/H4.4.md) A node that no step can name has its exact path as canonical address
+- [H4.5](../decisions/H4.5.md) An `<a id>` elsewhere in a body is plain HTML, with a warning (superseded by I1.7)
+- [H4.6](../decisions/H4.6.md) Two anchor elements in one heading are a structural error
 
 ### H5. The slug rule
 
-- **H5.1. Line breaks in a heading (#55 Q1).** A soft or hard line break counts as white space, so it becomes a hyphen. `<br>`
-  gives nothing, as §5.3 already said (§6.3 step 1).
-- **H5.2. Step 2 removes Default_Ignorable characters first, then normalizes to NFC (#55 Q7).** **This changes the rule** that
-  Draft v0.4 stated and the I0.7 fixtures pin: `e`, U+FE0F, U+0301 now gives `é` (U+00E9), so that an invisible character cannot
-  keep two headings that look the same apart. The fixture case (`edges.cases.json` of #55) is updated after #55 merges.
+- [H5.1](../decisions/H5.1.md) A line break in a heading counts as white space in its slug
+- [H5.2](../decisions/H5.2.md) The slug rule removes invisible characters before normalizing to NFC (superseded by O5)
 
 ### G10. Positional steps under `anchors: explicit`
 
-- **G10.** Under `anchors: explicit` (§9.3), a reference may not use positional steps, section or list indexes, in a semantic
-  path or an exact path. Explicit anchors, field names and keyed-list keys are allowed. In the owner's words: "When using a strict
-  reference we should prohibit index paths. But regular anchors can use them at their own risk." Draft v0.4 allowed every exact
-  path under `anchors: explicit`; G10 narrows that (§9.3, Appendix D `ref-target-not-allowed`).
+- [G10](../decisions/G10.md) No positional steps under anchors: explicit
 
 ### Corrections from reviewing the fixtures
 
@@ -683,72 +417,32 @@ round"). The project owner accepted every recommendation on card I1, which cover
 list. Section numbers refer to Draft v0.6. The decision ids I1.1 to I1.13 collide with the plan's task ids, so the plan's
 tasks are written "task I1.4" here.
 
-- **I1.1. Block anchor ranges** are specified with the Markdown parser (task I1.4), as C11 left source-map spans to it. The two
-  block-anchor cases stay `pending`, so #7 stays open. An issue on a block anchor is attached to the `$body` that holds it (§6.2,
-  Appendix D).
-- **I1.2. Percent-encoding.** A canonical address percent-encodes, as UTF-8 with upper-case hex, exactly the characters RFC 3986
-  does not allow in a fragment, plus `/` and `%` (§7.1). For every such address to match the grammar, `step` now accepts every
-  fragment character except `/`, where Draft v0.5 allowed only letters, digits, `-`, `_`, `.`, `$` and escapes; that widening is
-  the agent's, so that the rule and the grammar agree.
-- **I1.3. An input member that the operation does not take** is an error in the case file, and the runner exits with 2 (suite
-  README). Other unknown members still make the case an `error`, so the suite has two treatments; the owner's answer names the
-  exit code, and it is applied as given.
-- **I1.4. Byte order marks.** A BOM in a JSON or YAML record is skipped, as in Markdown, and offsets count from the file's first
-  byte, the BOM included (C10). In the owner's words, "there should only be one at the beginning of the file, and it should
-  apply to the entire file". So only a BOM at byte 0 is one, in every format; a U+FEFF elsewhere is an ordinary character,
-  Default_Ignorable and so dropped from slugs, and in Markdown it does not restart front matter detection (§5.1, §5.3, §5.9).
-- **I1.5. A tag repeated in a data `$tags` array** gives `duplicate-tag`, and the value is kept as written. `class` tokens are still
-  dropped (H3.16), since they are parsed rather than stored (§6.2, Appendix D).
-- **I1.6. Two `<a id>` at the start of one block** are a structural `anchor-element-invalid`, as H4.6 is for headings (§6.2).
-- **I1.7. Where a block anchor goes.** At the start of any list item, at any depth, and of a paragraph only at the top level. An
-  `<a id>` starting a list item's second paragraph gives `anchor-element-ignored` (§6.2, Appendix D). Whether a list item inside
-  a block quote can carry a block anchor is not settled by "any list item at any depth": open, to the owner. *Widened by T
-  (Draft v0.11): a block anchor may start any paragraph outside block quotes, a list item's later paragraphs included.*
-- **I1.8. A many-reference to a record that does not exist** is `ref-dangling`, since the record part of a reference is always
-  singular. G5's empty result stays for a record that exists with nothing matching (§8.2, §8.5, Appendix D).
-- **I1.9. A reference into a record with a structural error** gives a new warning, `ref-target-unreadable`, not `ref-dangling`
-  (§8.5, Appendix D, suite README). Its status in `refs` results and the index, beside `ok`, `dangling`, `ambiguous` and
-  `aliased`, is not given: open, to the owner (§20, open question 7). Meanwhile `check` reports it.
-- **I1.10. A `%YAML` line in front matter** is a `syntax-error`, and §4.4 drops its front-matter case (§4.4, Appendix D).
-- **I1.11. An `x-vmd-ref` without `targets`** allows any node in the store (§9.3).
-- **I1.12. int64** accepts the string `"-0"`, written without the sign, and the number `1.0`, as JSON Schema's `integer` accepts
-  it (§4.3). The card said that `"-0"` is written as `"0"`. The canonical int64 form writes a value within ±(2^53−1) as a number,
-  so the writer writes the number `0`; the string on the card was a slip of the session that drafted it.
-- **I1.13. Leap seconds.** A date-time accepts `:60` anywhere, with no leap-second table (§4.3). The card's reason, "as JSON Schema
-  validators commonly do", was checked and does not hold: Ajv's `ajv-formats` accepts `:60` only at 23:59 UTC, and Python's
-  `jsonschema` checks `date-time` only when `rfc3339-validator` is installed, which rejects `:60`. `ajv-formats` also accepts a
-  space separator and the offsets `+02` and `+0200`, which §4.3 rejects. §4.3 states the measured behavior, and vmd needs its
-  own date and time checks (Appendix C, task I2.2). The decision stands as the owner's; its reason is corrected.
+- [I1.1](../decisions/I1.1.md) Block anchor ranges are left to the Markdown parser task (superseded by K1)
+- [I1.2](../decisions/I1.2.md) Percent-encoding in canonical addresses
+- [I1.3](../decisions/I1.3.md) A case-file input member the operation does not take is an error
+- [I1.4](../decisions/I1.4.md) A byte order mark is skipped in every format, at byte 0 only (reversed in part by J4; superseded
+  by J5)
+- [I1.5](../decisions/I1.5.md) A tag repeated in a data `$tags` array is kept, with a warning
+- [I1.6](../decisions/I1.6.md) Two `<a id>` elements at the start of one block are a structural error
+- [I1.7](../decisions/I1.7.md) Where a block anchor goes (superseded by J2, T)
+- [I1.8](../decisions/I1.8.md) A many-reference to a record that does not exist is dangling
+- [I1.9](../decisions/I1.9.md) A reference into a record with a structural error is a warning, not dangling (superseded by J3)
+- [I1.10](../decisions/I1.10.md) A `%YAML` line in front matter is a syntax error
+- [I1.11](../decisions/I1.11.md) An `x-vmd-ref` without `targets` allows any node (superseded by J6)
+- [I1.12](../decisions/I1.12.md) int64 accepts the string `"-0"` and the number `1.0`
+- [I1.13](../decisions/I1.13.md) Leap seconds: `:60` anywhere in a date-time (reversed in part by J1)
 
 ## Follow-ups of Draft v0.6 (J)
 
 Recorded 2026-10-10, and applied to Draft v0.7. The review of Draft v0.6 sent its open readings and follow-ups to the project
 owner, who accepted every recommendation on card J. Section numbers refer to Draft v0.7.
 
-- **J1. Leap seconds, replacing I1.13.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as
-  Ajv's `ajv-formats` does, with no table of leap seconds. For ordering, `23:59:60` falls between `23:59:59` and the next
-  midnight (§4.3). I1.13 accepted `:60` anywhere for the reason that JSON Schema validators commonly do; that reason, given by the
-  session that drafted the card, was wrong, since `ajv-formats` restricts it to 23:59 UTC and `rfc3339-validator` rejects it.
-  That a local date-time, which has no offset, is taken as UTC for this check, as `ajv-formats` takes a time without an offset,
-  is the agent's reading.
-- **J2. A list item inside a block quote carries no block anchor.** Block quotes stay prose (H3.11), and "at any depth" in I1.7
-  means list nesting. This closes the open I1.7 reading (§6.2).
-- **J3. `refs` gets the status `unreadable`** for a reference with a fragment into a record that has a structural error, which
-  `check` still reports as `ref-target-unreadable`. A reference with no fragment to such a record is `ok`. This closes §20's
-  open question 7 and the I1.9 reading (§8.5, §14.2, §20, Appendix D, suite README). "No fragment" covers `#` alone, which §7.1
-  makes the root too. Three points are the agent's reading: the `ok` reference's target is the record's root,
-  `{"path": ..., "at": "", "address": ""}`, as for any record; it raises no warning; and `resolve` of the same root address still
-  fails, which is intended, since a reference's status says only that its target exists, while a resolve returns its value.
-  *Extended by U12 (Draft v0.11): `unreadable` also covers a record of a collection whose schema cannot be used.*
-- **J4. U+FEFF in YAML** is a `syntax-error` wherever YAML does not allow the character, including the start of front matter or
-  of a `yaml data` block (§5.1). YAML itself would read a U+FEFF at the start of a document as a byte order mark (YAML 1.2.2,
-  section 5.2); vmd allows one only at byte 0 of the file. §5.1 notes the trap of the `yaml` package, which strips a leading
-  U+FEFF from any text it is given and accepts one in a plain scalar (measured with 2.9.1).
-- **J5. A byte order mark is not a column**, so line 1's first character is column 1, while offsets count its bytes (§5.1,
-  §5.9). A write keeps a file's byte order mark, and files vmd creates have none (§13.3). The rule covers every file vmd reads,
-  `.vmd/config.yaml` and schemas included (§5.1).
-- **J6. An `x-vmd-ref` without `targets`** allows any target: nodes, records, assets and directories (§9.3). This widens I1.11,
-  which allowed any node.
+- [J1](../decisions/J1.md) Leap seconds: `:60` only at 23:59 UTC
+- [J2](../decisions/J2.md) A list item inside a block quote carries no block anchor
+- [J3](../decisions/J3.md) `refs` gives the status `unreadable` for a reference into an unreadable record (superseded by U12)
+- [J4](../decisions/J4.md) A U+FEFF in YAML away from byte 0 is a syntax error
+- [J5](../decisions/J5.md) A byte order mark is not a column, writes keep it, and the rule covers every file
+- [J6](../decisions/J6.md) An `x-vmd-ref` without `targets` allows any target
 
 Applying J4 also found that the `yaml` package (2.9.1) does not treat a lone CR as a line break, which YAML 1.2.2 (section 5.4)
 does, and fails on a mapping with CR line endings. §5.1 notes it next to the U+FEFF trap; the agent added the note as a fact
@@ -762,31 +456,19 @@ K3's, which the design records. The
 answers that change the specification are these; K3, K6, K9, K10 and K11 are implementation choices that the design records, and
 K14 is decision J2.
 
-- **K1. Spans** (the design's section 3.6) go into §5.9 and §6.2. A section's range, from its heading line to the next heading or
-  the end of the file with its trailing blank lines, serves `get`, `set` and `delete`, so sections tile the file. An object member
-  has a `range`, its value, which `set` replaces, and a `memberRange`, from its key to its value, which `delete` removes (§5.10's
-  `@source`). A block anchor's range is its CommonMark block in the `$body` without the trailing line break. This settles the
-  block-anchor ranges that C11 and I1.1 had left to task I1.4: the two suite cases that waited on them lose `pending`, and #7
-  closes.
-- **K2. One `syntax-error` per parse unit**, a file, its front matter or one data block, while the other units are still parsed
-  (§9.2, Appendix D). This refines C2's "every error": a recovering parser's later errors after a syntax error are mostly
-  cascades, and the suite expects one issue for one. The suite README's rule for case authors now speaks of parse units.
-- **K4. Lenient mode in §7.5.** Lenient mode makes form 2 non-singular only where evaluation meets a duplicate, as §7.4 lists it
-  among the cases that fail at evaluation; §7.5's wording is fixed.
-- **K5. Invalid UTF-8** is a `syntax-error` at `""`, in every format (§5.1), with a case in each.
-- **K7. Leading zeros in an index step**, as in `#links/01`, match nothing, in a semantic path as RFC 6901 requires of an exact
-  one (§7.3), with cases for both kinds of path.
-- **K8. The slug of a JSON or YAML section's `$title`** is computed as if the title were the content of an ATX heading, `## `
-  followed by the title, so a section keeps its key across formats (§5.5). A title that would not read back that way, ending in a
-  closing sequence such as ` #`, made only of `#` characters (which the review of this round added, since `## #` reads as an
-  empty heading), with white space at either end, or holding an anchor element, is not representable as Markdown (§5.8).
-  *Refined by Q1 (Draft v0.11): a data title is read as a heading's inline content, with the record's link reference
-  definitions, soft line breaks and no closing sequence stripped; §5.8's rule on what the serializer can write is unchanged.*
-- **K12. `storage-failed`**, a new operation code, for a read that the backend cannot complete, such as one refused by a
-  permission error, which is not `address-not-found` (§11.2, Appendix D).
-- **K13. The portable regex** (§11.4). The claim that excluding backreferences and lookaround makes matching linear everywhere is
-  corrected: it holds for RE2, while JavaScript's and Python's engines backtrack, and `(a+)+$` needs neither feature. The service
-  backend will use an RE2 engine (`re2js`, unreviewed); the local CLI runs the user's own patterns.
+- [K1](../decisions/K1.md) Spans: section, member and block-anchor ranges
+- [K2](../decisions/K2.md) One syntax error per parse unit
+- [K3](../decisions/K3.md) `--config` comes into phase I1, and the demonstration store is vampiredb's docs only
+- [K4](../decisions/K4.md) Lenient mode in the canonical-address rule
+- [K5](../decisions/K5.md) Invalid UTF-8 is a syntax error at the root
+- [K6](../decisions/K6.md) Unicode data: generated tables for properties and lower-casing, NFC from the runtime
+- [K7](../decisions/K7.md) Leading zeros in an index step match nothing
+- [K8](../decisions/K8.md) The slug of a JSON or YAML section's title (superseded by Q1)
+- [K9](../decisions/K9.md) Hashing with `crypto.subtle`
+- [K10](../decisions/K10.md) `ls` counts unreadable records on the printed page only, until the index
+- [K11](../decisions/K11.md) The conformance runner is a private third package
+- [K12](../decisions/K12.md) A new operation code, `storage-failed`
+- [K13](../decisions/K13.md) The portable regex: linear time needs an automaton engine
 
 ## Decisions from the runner and the value model (L)
 
@@ -794,67 +476,36 @@ Recorded 2026-10-10, and applied to Draft v0.8. The conformance runner (#65) and
 and the suite left open, and the project owner accepted every recommendation on card L. Since the round changes normative rules,
 the draft's minor version rises (C27), and the suite moves to `0.8.0-dev`.
 
-- **L1. The ten runner defaults** of the suite README's section on the points the first runner settled (formerly "Defaults where
-  this README is silent", #65) are confirmed. Their marks "(runner default, to be confirmed by the project owner)" are gone, and
-  they are rules for every runner.
-- **L2. Array length in the self-test.** A `compare` case in each direction asserts that `[1]` does not equal `[1, 2]`, so every
-  runner is held to comparing array lengths.
-- **L3. A `$ref` object with other members** is `ref-malformed` at the object, and its other members are still checked and their
-  issues reported, as C2 asks (§8.1, Appendix D), with a case.
-- **L4. Record extensions are compared exactly** (`.md`, `.json`, `.yaml`, `.yml`), like the rest of a path, so `a.MD` is an
-  asset, not a record (§3.1), with a case in a new suite topic, `paths`.
-- **L5. Spans.** A Markdown `$sections` array's range runs from the start of its first section to the end of its parent's range,
-  so ranges still tile the file, and an `$anchor` or `$tags` that comes from an `<a>` element has the element's own range
-  (§5.9's table). The `source_map` cases still wait for the nodes that task I1.4 lists, so no case is added.
+- [L1](../decisions/L1.md) The ten runner defaults of the suite README are rules for every runner
+- [L2](../decisions/L2.md) A self-test case for array length
+- [L3](../decisions/L3.md) A `$ref` object with other members: `ref-malformed`, and its other members still checked
+- [L4](../decisions/L4.md) Record extensions are compared exactly
+- [L5](../decisions/L5.md) The span of a Markdown `$sections` array, and of an anchor element's `$anchor` and `$tags`
 
 ## Storage rules (M)
 
 Recorded 2026-10-10, and applied to Draft v0.9. The review of the storage contract and filesystem backend (#68) raised six points,
 and the project owner accepted every recommendation on card M.
 
-- **M1. The portable regex's classes.** `\d`, `\w`, `\s` and `\b` and their negations mean what RE2 reads them as: ASCII, with
-  the flag `i` as Unicode simple case folding; each engine translates where it reads a pattern otherwise (§11.4, with a table for
-  RE2, JavaScript and Python). Under `i`, RE2 folds `\w` and `\W` too, so `(?i)\w` matches `ſ` (U+017F) and the Kelvin sign
-  (U+212A), while `\b` and `\B` stay ASCII boundaries; that is read from RE2's source (`AddFoldedRange` in `parse.cc`) and not
-  verified by running RE2. JavaScript with the flags `u` and `i` folds `\w` as RE2 does, so it needs nothing there; it needs `\s`
-  and `\S` written out, `\b` and `\B` under `i` rewritten with the word class as `(?-i:[0-9A-Za-z_])`, and the flag `s` so that `.`
-  matches U+2028 and U+2029 within a line (measured in Node 24.21). The first version of this round said that JavaScript's `\w`
-  and `\b` were written out under `i`, which was wrong for `\w` and changed nothing. Python needs `\s` and `\S` written out,
-  since `(?a:\s)` still matches `\v`; a scoped `(?a:…)` for the other classes, which cannot stand inside a bracket, where the
-  classes are written out; and under `re.I` a written-out `\w` with `ſ` and `K`, since `(?a:\w)` does not fold. Python's `re.I`
-  is not simple case folding (U+0130, U+0131 and U+1C80, measured in Python 3.9.6): a known deviation of a Python
-  implementation, and §20's open question 7.
-- **M2. `grep` matches line by line**, so the `m` flag is gone, and `.` matches any character of a line (§11.2, §11.4). A line
-  ends at LF, CRLF or a lone CR, as the filesystem backend's `grep` does. The card
-  placed the flag in §11.2; it was in §11.4's description of the portable regex.
-- **M3. One glob syntax** for a collection's `match` and `exclude` (§9.1), the configuration's `ignore` (§3.3), VQL's `@path`
-  (§10.3) and `list` and `grep` (§11.2): `*` within one segment, dotfiles included, `**` any depth, and every other character
-  matches itself. It is defined once, in §11.2. Whether `docs/**` matches `docs` itself was left open by the card; the draft
-  follows the filesystem backend's `compileGlob`, which requires `docs/`.
-- **M4. A successful operation may carry an error**, such as an unreadable file that `list` or `grep` leaves out, and the command
-  then exits with 4 (§12.3, Appendix D's preamble, §11.2).
-- **M5. Counts.** `list` gives an exact count of what remains, and `grep` an estimate marked as one, as query totals are (§11.2,
-  §12.2). The card cited §10.2 for query totals; they are in §10.5.
-- **M6. Cursors.** §11.2's table gives `grep` a `cursor`, as `list` already had, and cursors are opaque.
+- [M1](../decisions/M1.md) The portable regex's classes mean what RE2 reads them as
+- [M2](../decisions/M2.md) `grep` matches line by line
+- [M3](../decisions/M3.md) One glob syntax
+- [M4](../decisions/M4.md) A successful operation may carry an error
+- [M5](../decisions/M5.md) Counts: exact for `list`, an estimate for `grep`
+- [M6](../decisions/M6.md) `list` and `grep` have opaque cursors
 
 ## Parser rules (N)
 
 Recorded 2026-10-10, and applied to Draft v0.9. The reviews of the JSON and YAML parsers (#69, #72) raised seven points, and the
 project owner accepted every recommendation on card N.
 
-- **N1. Nesting** is limited to 256 levels within each parse unit (a JSON or YAML file, front matter, a data block), its top
-  value counting as the first level, and a deeper value is a `syntax-error` (§5.4, Appendix D), with cases at 256 and 257 levels
-  in JSON and in YAML. It is counted per unit because a data block's value sits deep in its record's value view.
-- **N2. A root that is not an object** is `root-not-object`, and its contents are still checked and reported (§4.1, §5.4,
-  Appendix D), as C2 and L3 ask, with a case.
-- **N3. A repeated member's value** is not looked into (§4.1, Appendix D), with a case.
-- **N4. A YAML file holding only `---`** is a document whose root is null (YAML 1.2.2, section 7.2), so it is `root-not-object`,
-  while an empty file stays the empty record (C8) (§5.4), with a case.
-- **N5. Raw U+FFFE and U+FFFF inside YAML quotes** stay a `syntax-error`. This departs from YAML, whose quoted scalars accept any
-  `nb-json` character, as vmd departs for the byte order mark (§5.1); the rule is in §4.1. The `yaml` package (2.9.1) accepts a
-  raw U+FFFE in double quotes.
-- **N6. An undeclared YAML tag handle**, such as `!e!x`, is a `syntax-error`, not `yaml-tag` (§4.1, YAML 1.2.2, section 6.8.2.1).
-- **N7. A member whose name holds an unpaired surrogate**: its value is not looked into (§4.1), with a case.
+- [N1](../decisions/N1.md) Nesting is limited to 256 levels within each parse unit (superseded by P1)
+- [N2](../decisions/N2.md) A root that is not an object is still looked into
+- [N3](../decisions/N3.md) A repeated member's value is not looked into
+- [N4](../decisions/N4.md) A YAML file holding only `---` is `root-not-object`
+- [N5](../decisions/N5.md) Raw U+FFFE and U+FFFF inside YAML quotes stay a `syntax-error`
+- [N6](../decisions/N6.md) An undeclared YAML tag handle is a `syntax-error`
+- [N7](../decisions/N7.md) The value of a member whose name holds an unpaired surrogate is not looked into
 
 The YAML review's wording points are applied without decisions: a block scalar that ends the input without a final line break
 gets no line feed added (§5.4, YAML 1.2.2, section 8.1.1.2), which the `yaml` package does add, with a case; and two `%TAG`
@@ -866,30 +517,11 @@ Appendix D). The `yaml` package (2.9.1) accepts a repeated `%TAG` handle.
 Recorded 2026-10-10, and applied to Draft v0.10. The CLI foundation (#74) and the storage follow-up (#75) raised five points, and
 the project owner accepted every recommendation on card O.
 
-- **O1. `--config PATH`** is a global option (§12.1), using a file in place of the store's `.vmd/config.yaml`. It records in the
-  draft the flag that the I1 design's question 3 (K3) brought into I1.8, with the store discovery it implies (§3.3): `--store`
-  names the root, without it the root is the nearest directory at or above the working directory holding `.vmd/config.yaml`,
-  and with `--config` the root need not hold one. As a consequence, `vmd set`'s option for a JSON value, which clashed with the
-  global `--json`, is renamed `--json-value`.
-- **O2. `--quiet`** leaves out warnings only, the warning about the runtime's Unicode data included, on stderr and from the JSON
-  object alike, except for `check`, whose warnings are its result; errors and the result are always printed (§12.1).
-- **O3. Issues go to stderr.** `check`, whose result is its issues, and `refs`, whose result lists references with their status,
-  print those on stdout; configuration issues and the warning about the runtime's Unicode data still go to stderr for them
-  (§12.3).
-- **O4. Under `--json`, every failure is an outcome-shaped JSON object on stdout**, usage errors, a missing store and the runtime's
-  Unicode warning included (§12.2, §12.3): `{"ok": true, "value", "issues"}` on success and `{"ok": false, "issues"}` on failure,
-  as the CLI's outcome type. Appendix D gains the operation codes `usage-invalid` and `store-not-found`; an unreadable or missing
-  `--config` path is `config-invalid`, an unreadable working directory is `store-not-found`, and an internal error, a bug, is
-  the one failure exempt from the issue codes. The card
-  asks for the runtime warning as an issue but names no code for it, and every issue needs one, so the draft adds a third,
-  `unicode-runtime-older` (a warning); that code and its name are the agent's, for the owner to confirm.
-- **O5. Step 2 of the slug rule** also removes the code points that are unassigned in the pinned Unicode version, 17.0.0, before
-  NFC, so that every runtime at 17 or later derives the same anchor (§6.3), with a case. The card's example was checked against
-  the final data of both versions: U+1ADE is unassigned in 17.0.0 and is COMBINING GRAVE-DOT, combining class 230, in 18.0.0,
-  so `a`, U+1ADE, U+0323 normalizes to U+1EA1, U+1ADE on an 18 runtime and stays as written on 17. Unassigned means `Cn`,
-  noncharacters included, with a second case on U+FDD0. This changes the slug rule, which §6.3 allows only with a new version of
-  the specification; Draft v0.10 is that version. No warning period or migration is needed, since nothing derives anchors yet:
-  the slug is implemented in task I1.5. §6.3 also says when `unicode-runtime-older` is raised.
+- [O1](../decisions/O1.md) `--config PATH` is a global option
+- [O2](../decisions/O2.md) `--quiet` leaves out warnings only
+- [O3](../decisions/O3.md) Issues go to stderr, except where they are the result
+- [O4](../decisions/O4.md) Under `--json`, every failure is an outcome-shaped JSON object on stdout
+- [O5](../decisions/O5.md) Step 2 of the slug rule also removes code points unassigned in Unicode 17.0.0
 
 The storage review (#16, comment 6105633607) gave §11.2's globs their wording, applied without a decision: `**/` matches zero or
 more whole segments with their `/`, and a final `/**` matches one or more. A glob that is empty, starts or ends with `/`, or has
@@ -902,1056 +534,105 @@ Recorded 2026-10-11, and applied to Draft v0.11. Cards P to T came from the revi
 of the design of phase I2 (`docs/design/i2-validate.md`, its section 12, #86). Card V1 came from the owner's note on card P. The
 project owner accepted the recommended option on every card. Cards P, Q, R and S each offered three options: (a) accepting every
 recommendation, (b) accepting with exceptions named in a note, or (c) discussing first. The owner chose (a) on each, so their
-entries below record each item's recommendation. Section numbers refer to Draft v0.11.
-
-From this round on, each decision has a heading of its own and labelled parts, so that the log can be split into one record per
-decision. The parts are the **question**; the **source**; the **options**; the **decision**; **why**; the **owner's note**,
-verbatim, where there is one; the **agent's reading**, where there is one; and where the decision was **applied**. The source
-names where the options and reasons come from: the desk card and its item, the design document the card cites, or the draft text
-the decision changed. An option or a reason appears only if it is in one of those. Where a card gave only its recommendation, the
-entry says "Alternatives not recorded". Where an item's card stated the reading before the decision ("Today …"), that reading is
-option (b). Why gives only the reasons the source gave. A rejected option's case against it is its consequence, as recorded under
-the options, unless the source said more. Readings of the agent's own, such as a code name a card did not give, are under their
-own label, for the project owner to confirm. Rejected options are kept for future bugs and feature requests.
-
-### P1. Resource limits for Markdown
-
-**Question.** The Markdown library slows down sharply on some valid input, and the 256-level nesting limit (N1) does not bound all
-of it. Measured: 20,000 `*a*` in one paragraph (80 KB) take 1.5 s, 10,000 nested emphasis levels 32 s, and 1,000 levels of list
-indentation 15 s. What bounds a Markdown record?
-
-**Source.** Desk card P, item 1, from the Markdown parser (#79) and its review. Option (b) is the draft's rule before this
-decision (N1), with the card's finding about it.
-
-**Options.**
-
-- (a) a resource-limit clause in §5.4 that applies to every format: nesting stays at 256 levels, Markdown containers included,
-  checked before parsing; at most 4,096 runs of `*`, `_` or `~` in one paragraph or table cell; a record is at most 16 MiB; beyond
-  those, a record is a `syntax-error`
-- (b) the reading before this decision, which the code took until then, nesting limited to 256 levels (N1): it "doesn't bound all
-  of it", as measured above
-
-**Decision.** (a).
-
-**Why.** The card's note: "The limits bound hostile input far above any real file". The card's data: vampiredb's busiest paragraph
-has 219 runs, and its largest file is 673 KB.
-
-**Applied.** §5.4 ("Resource limits"), Appendix D `syntax-error`.
-
-### P2. An unclosed `yaml data` fence
-
-**Question.** What is an unclosed `yaml data` fence?
-
-**Source.** Desk card P, item 2. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) a `syntax-error`: as unclosed front matter already is (H3.4)
-- (b) the reading before this decision, which the code took until then: "CommonMark lets it run to the end of the file, and YAML
-  then reads every following `## heading` as a comment, so whole sections vanish without an issue"
-
-**Decision.** (a).
-
-**Why.** The card's note for items 2 to 10: "the rest picks the reading that loses no data silently".
-
-**Agent's reading, for the owner to confirm.** The card names `yaml data` fences; the draft states the rule for `json data` fences
-too, since one that runs to the end of the file holds the following headings and fails as JSON in any case.
-
-**Applied.** §5.3 (data blocks), citing CommonMark 0.31.2, section 4.5, for CommonMark's rule; Appendix D `syntax-error`.
-
-### P3. HTML comments before the title
-
-**Question.** A file that starts with `<!-- markdownlint-disable -->` and then `# Title` loses its title: the comment is the first
-block, so the H1 becomes a section. That is common in real files. Does such a comment count as the first block for the title rule?
-
-**Source.** Desk card P, item 3, and its reply's note. Option (b) is the reading before this decision, which the code took until
-then, as the card describes it.
-
-**Options.**
-
-- (a) HTML blocks that hold only comments don't count as the first block for the title rule: the record keeps its title
-- (b) the reading before this decision, which the code took until then: the comment is the first block, so the H1 becomes a
-  section
-
-**Decision.** (a).
-
-**Why.** The card's note for items 2 to 10: "the rest picks the reading that loses no data silently".
-
-**Owner's note.** Verbatim:
-
-> re 3: a kinda related question: what do we do with comments in json blocks or files? Would be nice if we permitted them.
-
-It became card V1 (below).
-
-**Applied.** §5.3 (the title heading). Where the value view keeps such a comment the card did not say; it is open question 9 of
-§20.
-
-### P4. An `<a>` element inside emphasis or a link in a heading
-
-**Question.** In `## *A <a id="d"></a>*`, removing the element breaks the markup, leaving the `$title` `*A *`. Where is an anchor
-element recognized in a heading?
-
-**Source.** Desk card P, item 4. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) only among the heading's direct children: elsewhere it's `anchor-element-invalid`
-- (b) the reading before this decision, which the code took until then: the element is removed, which "breaks the markup"
-
-**Decision.** (a).
-
-**Why.** The card's note for items 2 to 10: "the rest picks the reading that loses no data silently".
-
-**Applied.** §6.2, Appendix D `anchor-element-invalid`.
-
-### P5. A `class` on a block anchor
-
-**Question.** Blocks can't carry `$tags`. What is a `class` on a block anchor?
-
-**Source.** Desk card P, item 5. Option (b) is the reading before this decision, which the code took until then (the card: "Today
-it's a structural error").
-
-**Options.**
-
-- (a) a validation error: so the record stays readable, as for other unsupported HTML in C15
-- (b) the reading before this decision, which the code took until then, a structural error.
-
-**Decision.** (a).
-
-**Why.** The card: "so the record stays readable, as for other unsupported HTML in C15".
-
-**Agent's reading, for the owner to confirm.** The card named no code. The draft adds `block-anchor-class`, an error of class
-validation, and keeps the element's `id` as the block's anchor, so that links to it still resolve. Both are the agent's.
-
-**Applied.** §6.2, Appendix D (`block-anchor-class`), core's table of codes.
-
-### P6. An unknown `<word> data` fence as the first block, or right after a data block
-
-**Question.** What is an unknown `<word> data` fence as the first block, or right after a data block?
-
-**Source.** Desk card P, item 6. Option (b) is the reading before this decision, which the code took until then (the card: "Today
-it's prose there, and `feature-unsupported` only right after a heading").
-
-**Options.**
-
-- (a) `feature-unsupported` wherever it appears.
-- (b) the reading before this decision, which the code took until then: prose there, and `feature-unsupported` only right after a
-  heading
-
-**Decision.** (a).
-
-**Why.** The card: "so a newer kind of data block is always detected (G3's rule that every addition is detectable)".
-
-**Applied.** §5.3 (info strings), Appendix D `feature-unsupported`.
-
-### P7. A `json data` block of only white space
-
-**Question.** What does a `json data` block of only white space give?
-
-**Source.** Desk card P, item 7.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended no fields, as an empty block gives
-(H3.5).
-
-**Decision.** No fields, as an empty block gives (H3.5).
-
-**Why.** The card gave none beyond "as an empty block does", and the card's note for items 2 to 10: "the rest picks the reading
-that loses no data silently".
-
-**Applied.** §5.3 (data blocks).
-
-### P8. Character references in `<a>` attribute values
-
-**Question.** Are character references in an `<a>` element's attribute values (`id="a&amp;b"`) decoded? HTML would decode them.
-
-**Source.** Desk card P, item 8.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended that they are not decoded, and noted
-that HTML would decode them.
-
-**Decision.** Not decoded.
-
-**Why.** The card: "Anchor names can't contain `&` anyway, so the value is `anchor-invalid` either way, and nothing has to know
-HTML's entity table."
-
-**Applied.** §6.2.
-
-### P9. The range of each `$tags` item from `<a class>`
-
-**Question.** What is the range of each `$tags` item taken from `<a class="…">`?
-
-**Source.** Desk card P, item 9.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended the item's token in the attribute
-value, as a row in §5.9's span table.
-
-**Decision.** Its token in the attribute value, as a row in §5.9's span table.
-
-**Why.** The card gave none for this item beyond the card's note for items 2 to 10: "the rest picks the reading that loses no data
-silently".
-
-**Applied.** §5.9.
-
-### P10. Trailing white space in block-anchor ranges
-
-**Question.** A paragraph's block-anchor range is trimmed of trailing white space, but a list item's isn't. Should they agree?
-
-**Source.** Desk card P, item 10. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) trim both.
-- (b) the reading before this decision, which the code took until then: a paragraph's range is trimmed and a list item's is not
-
-**Decision.** (a).
-
-**Why.** The card gave none for this item beyond the card's note for items 2 to 10: "the rest picks the reading that loses no data
-silently".
-
-**Applied.** §5.9, §6.2.
-
-### Q1. How a JSON or YAML `$title` becomes a key (K8, refined)
-
-**Question.** K8 reads the title as if it followed `## `. The review found three cases where the same section then gets a
-different key in Markdown than in JSON or YAML, which breaks §5.5's promise that a section keeps its key when its record changes
-format: a title with a line break (Markdown `one-two`, K8 `one`); a title ending in ` #` from a setext heading (Markdown `foo-`,
-K8 `foo`); and a title using a reference link, `[Foo][bar] baz` with `[bar]: /x` in the record (Markdown `foo-baz`, K8
-`foobar-baz`). How is a data `$title` read?
-
-**Source.** Desk card Q, item 1, from the anchor table (#82) and its review. Option (b) is K8 as the draft stated it before this
-decision.
-
-**Options.**
-
-- (a) as a heading's inline content: with the record's link reference definitions in scope, line breaks as soft breaks (H5.1), and
-  no closing-sequence stripping; "the same key as Markdown for every record that came from Markdown, and equals K8 for every
-  simple title"
-- (b) K8 as written: the three cases above give a different key per format
-
-**Decision.** (a).
-
-**Why.** The card's note: "Each keeps one key and one issue location per section across all three formats."
-
-**Applied.** §5.5.
-
-### Q2. Which duplicate is "after the first"
-
-**Question.** "Each node after the first" (H1.3) follows file position, so for the same record the issue lands on a different node
-in Markdown (at the root, since its title comes after front matter) than in JSON (at `/meta`). What order decides?
-
-**Source.** Desk card Q, item 2. Option (b) is H1.3 as the draft applied it before this decision.
-
-**Options.**
-
-- (a) document order means pre-order: a node before its descendants and siblings in file order, "so all formats agree"
-- (b) file position, as before: the issue lands on a different node per format
-
-**Decision.** (a).
-
-**Why.** The card's note: "Each keeps one key and one issue location per section across all three formats."
-
-**Applied.** Appendix D ("Document order", `duplicate-anchor`), §10.5.
-
-### Q3. A repeated invalid tag in a data `$tags` array
-
-**Question.** For `["bad tag", "bad tag"]`, one `anchor-invalid` or two?
-
-**Source.** Desk card Q, item 3, whose question names both options.
-
-**Options.**
-
-- (a) two, one per occurrence: as Appendix D's "once per occurrence" reads literally
-- (b) one.
-
-**Decision.** (a).
-
-**Why.** The card:
-
-> as Appendix D's "once per occurrence" reads literally
-
-The card's note: "Each keeps one key and one issue location per section across all three formats."
-
-**Applied.** Appendix D `anchor-invalid`.
-
-### R1. The candidates of an ambiguous address
-
-**Question.** For `#same/$body` where `same` names two sections, should `address-ambiguous` list the two sections (the step that
-matched several) or the two `$body` nodes?
-
-**Source.** Desk card R, item 1, from the addresses (#83) and their review; its question names both options.
-
-**Options.**
-
-- (a) the matches of the step that matched several: with a message naming that step; evaluation stops there
-- (b) the two `$body` nodes.
-
-**Decision.** (a).
-
-**Why.** The card: "Evaluation stops there, and choosing one of those nodes is what the user must do." The card's note: "Each
-matches what the code already does and keeps results the same across implementations."
-
-**Applied.** §7.4.
-
-### R2. The canonical address of a block anchor whose name is not unique
-
-**Question.** What is the canonical address of a block anchor whose name isn't unique?
-
-**Source.** Desk card R, item 2. Option (b) is §7.5 as the draft stated it before this decision, as the card describes it.
-
-**Options.**
-
-- (a) the `$body`'s canonical address plus the block's range: as the code does now, and §7.5 says so
-- (b) §7.5 as written: "§7.5's forms cover nodes only, so two duplicated block anchors in one `$body` would both get the `$body`'s
-  address"
-
-**Decision.** (a).
-
-**Why.** The card: "A duplicated anchor is already an error, so this only matters while it's being fixed." The card's note: "Each
-matches what the code already does and keeps results the same across implementations."
-
-**Applied.** §7.5.
-
-### R3. A block anchor's computed fields
-
-**Question.** Which computed fields does a block anchor have? It has no `@key` or `@depth`, since it is not a section, and its
-`@source` is its block (§5.9).
-
-**Source.** Desk card R, item 3.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended that `@version` hashes the block's
-text and `@issues` are the `$body`'s issues within the block's range.
-
-**Decision.** As recommended.
-
-**Why.** The card: "Both are the PR's readings, and they matter for edits in I4." The card's note: "Each matches what the code
-already does and keeps results the same across implementations."
-
-**Applied.** §5.10.
-
-### R4. A percent-escape that is not UTF-8
-
-**Question.** `#%E9` matches the grammar, so by Appendix D's wording it isn't `address-malformed`. What is it?
-
-**Source.** Desk card R, item 4. Option (b) is Appendix D as the draft worded it before this decision, as the card describes it;
-what code it gave instead the card did not say.
-
-**Options.**
-
-- (a) `address-malformed` anyway: §7.1 and Appendix D are amended to say an escape must decode to UTF-8
-- (b) Appendix D as worded: it is not `address-malformed`
-
-**Decision.** (a).
-
-**Why.** The card: "since it can't name any key". The card's note: "Each matches what the code already does and keeps results the
-same across implementations."
-
-**Applied.** §7.1, Appendix D `address-malformed`.
-
-### R5. Selector order
-
-**Question.** A selector returns every match. In what order?
-
-**Source.** Desk card R, item 5.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended document order.
-
-**Decision.** Document order.
-
-**Why.** The card: "so results are stable across implementations". The card's note: "Each matches what the code already does and
-keeps results the same across implementations." Correction: for R5 the note does not hold. Core does not yet return a selector's
-matches in document order in every case: under the suite's ordered comparison,
-`addresses/cardinality/lenient-anchor-and-derived-selector` gets an explicit anchor's match before an earlier derived one (#89).
-The case is skipped until the address code follows R5.
-
-**Applied.** §7.4, §10.5 (document order is the pre-order of Q2), the conformance README (a selector's matches and a reference's
-`targets` are compared in order), the runner's comparison of `resolve` results.
-
-### S1. Record content in the terminal
-
-**Question.** `vmd get` prints a node's Markdown as is, so a record holding terminal escape sequences or bidi controls can retitle
-the terminal or reorder what's shown. What does `get` print to a terminal?
-
-**Source.** Desk card S, item 1, from the read commands (#84) and their review. Option (b) is the reading before this decision,
-which the code took until then, as the card describes it.
-
-**Options.**
-
-- (a) escape in text output to a terminal: `get` escapes control and bidi characters except line feed and tab; piped output and
-  `--json` are unchanged, and `cat` always prints raw bytes; "That's what the PR now does as an interim"
-- (b) the reading before this decision, which the code took until then, printed as is: a record can retitle the terminal or
-  reorder what is shown
-
-**Decision.** (a).
-
-**Why.** The card: "It matters more once stores can be remote." The card's note: "Each keeps the output safe for a terminal, cheap
-in tokens, and exact for programs."
-
-**Applied.** §12.2.
-
-### S2. `grep`'s line format
-
-**Question.** `grep` follows GNU grep: `path:line:text`, with context lines as `path-line-text`. A path holding `:12:` makes that
-ambiguous to parse. Does the format stay?
-
-**Source.** Desk card S, item 2.
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended keeping GNU's format, with `--json`
-for exact parsing (already there), and grouping by path only in `query`.
-
-**Decision.** As recommended.
-
-**Why.** The card: "since agents and people already read it". The card's note: "Each keeps the output safe for a terminal, cheap
-in tokens, and exact for programs."
-
-**Applied.** §12.2, which cites GNU grep's manual for the two separators.
-
-### S3. What `outline` lists
-
-**Question.** What does `outline` list?
-
-**Source.** Desk card S, item 3. Option (b) is the reading before this decision, which the code took until then (the card: "Today:
-…").
-
-**Options.**
-
-- (a) add block anchors indented under their section, and list a data record's top-level members.
-- (b) the reading before this decision, which the code took until then: each section's canonical address, title and token
-  estimate; no block anchors; one line for a JSON or YAML record
-
-**Decision.** (a).
-
-**Why.** The card: "so `outline` is useful for every format". The card's note: "Each keeps the output safe for a terminal, cheap
-in tokens, and exact for programs."
-
-**Applied.** §12.2.
-
-### S4. `get` under `--json`
-
-**Question.** Under `--json`, `get` returns the value (§5.10, §12.2), so the source form can't be reached, and `--max-chars`
-doesn't cut. What changes?
-
-**Source.** Desk card S, item 4. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) add `--source` to get the source text under `--json`, and keep `--max-chars` text-only.
-- (b) the reading before this decision, which the code took until then: the source form can't be reached under `--json`, and
-  `--max-chars` doesn't cut
-
-**Decision.** (a).
-
-**Why.** The card: "an agent asking for JSON wants all of it". The card's note: "Each keeps the output safe for a terminal, cheap
-in tokens, and exact for programs."
-
-**Applied.** §12.1, §12.2.
-
-### S5. Fields not computed yet
-
-**Question.** `get --meta all` silently drops `@refs` and `@collection` under `--json`, so absent and not computed look the same.
-What does a read give for them?
-
-**Source.** Desk card S, item 5. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) until I2 computes them, list them with `null` and a warning issue naming them.
-- (b) the reading before this decision, which the code took until then: they are dropped, and absent and not computed look the
-  same
-
-**Decision.** (a), until I2 computes them.
-
-**Why.** The card's note: "Each keeps the output safe for a terminal, cheap in tokens, and exact for programs."
-
-**Agent's reading, for the owner to confirm.** The card named no code for the warning. The draft adds `field-not-computed`, a
-warning of class operation. Both the code and its name are the agent's. §5.10 states the rule as an interim one, for `@refs` and
-`@collection` until I2.
-
-**Applied.** §5.10, Appendix D (`field-not-computed`), core's table of codes.
-
-### S6. `.vmd/` and dotfiles
-
-**Question.** §2 and §3.3 word the treatment of `.vmd/` and dotfiles differently. What are they?
-
-**Source.** Desk card S, item 6. The draft before this decision: §3.3 said they "are not records", and §2 defined an asset as "any
-other file in the store".
-
-**Options.** Alternatives not recorded: the card gave only the recommendation. It recommended that they are ignored, neither
-records nor assets: `ls` and `grep` leave them out, and `cat` still reads them when named, so configs can be inspected.
-
-**Decision.** As recommended.
-
-**Why.** The card's note: "Each keeps the output safe for a terminal, cheap in tokens, and exact for programs."
-
-**Applied.** §2 (Asset), §3.3.
-
-### S7. `--body` on a node that is not a section
-
-**Question.** `--body` on a node that isn't a section is `address-not-found` today, which reads oddly. What should it be?
-
-**Source.** Desk card S, item 7. Option (b) is the reading before this decision, which the code took until then, as the card
-describes it.
-
-**Options.**
-
-- (a) `usage-invalid` with a hint.
-- (b) the reading before this decision, which the code took until then, `address-not-found`: "which reads oddly"
-
-**Decision.** (a).
-
-**Why.** The card: "since the address is fine and the option doesn't apply". The card's note: "Each keeps the output safe for a
-terminal, cheap in tokens, and exact for programs."
-
-**Applied.** §12.1, Appendix D `usage-invalid`.
-
-### T. Block anchors in a list item's later paragraphs
-
-**Question.** vampiredb's `design/Minimal_Log.md` has 17 `<a id>` elements at the start of a list item's second or later
-paragraph. Under I1.7, an anchor may start a list item or a top-level paragraph, but not a later paragraph inside a list item, so
-these 17 get a warning and resolve to nothing. 12 of them are the targets of 40 links in vampiredb's docs, which `vmd check`
-(I2.8) would report as broken. The card: "This is a plausible way to write documents, not a mistake in vampiredb."
-
-**Source.** Desk card T, from the vampiredb demonstration (#85); both options are the card's.
-
-**Options.**
-
-- (a) widen §6.2: any paragraph outside block quotes: an anchor may start any paragraph, at the top level or inside a list item at
-  any depth, but not inside a block quote (J2); the 17 become block anchors and the 40 links resolve
-- (b) keep I1.7; vampiredb moves its anchors: the rule stays narrow; vampiredb's 17 elements move to the start of their list item,
-  or get a heading, before I2.8; "That's a change to vampiredb, in its own process."
-
-**Decision.** (a). It widens I1.7, which allowed a block anchor at the start of a list item, or of a paragraph only at the top
-level. It answers #20's open item 1.
-
-**Why.** The card's note: "The data says the narrow rule breaks a real, readable style of writing; the wider rule has the same
-clear boundary (no block quotes) and loses nothing."
-
-**Applied.** §6.2, Appendix D `anchor-element-ignored`, the plan (I1.7's description), the suite case
-`anchors/blocks-and-tags/list-placement`.
-
-### I2 design. Approving the design of phase I2
-
-**Question.** Under the owner's design-before-code rule, no I2 code starts until the design of phase I2, validate and references
-(`docs/design/i2-validate.md`, #86), is approved. It went through three rounds of independent review. Approve it?
-
-**Source.** Desk card "I2 design"; the options are the card's.
-
-**Options.**
-
-- (approve) approve; answer the U cards: PR #86 is merged as the approved design, the U answers (and P to T) go into Draft v0.11,
-  and PR A starts once its six questions are answered
-- (changes) approve with changes: the changes named in the note are made and reviewed, then merged
-- (rework) not yet: what is wrong is named in the note; no I2 code starts
-
-**Decision.** Approve.
-
-**Why.** The card: "Three review rounds; the remaining choices are yours, as cards."
-
-**Owner's note.** Verbatim:
-
-> This review brought a question on where the index lives? And I think answer is "depends". In case of lightweight setup, where
-> the backend is pure simple git repo, the index should live locally, as otherwise it would cause merge conflicts. However, for
-> more advanced git setup (a custom merger, lambda, actions etc) the index should live somewhere in the backend, either git repo,
-> or some other configured storage.
-
-**Applied.** The design (#86). §14.3 records the note as the owner's stated view, not a decided rule, and §20's open question 8
-asks how an advanced backend keeps the index (see U4).
-
-### U1. The JSON Schema validator
-
-**Question.** Which validator does core use for JSON Schema 2020-12? Ajv 8.20.0 with `ownProperties: true` gets
-`required`/`properties` with names like `toString` right, but still drops a `properties` entry named `__proto__`; on the JSON
-Schema suite's `unevaluated*` cases it gives 13 wrong verdicts of 199 tests here, and Bowtie's published data shows wrong verdicts
-on `$dynamicRef`. `@hyperjump/json-schema` 1.18.0 gave no wrong verdict in the probes or in Bowtie's data, and its error locations
-are exact; its costs are APIs marked experimental (pinned exactly) and process-wide state (handled by digest-keyed URIs and a
-bounded memo).
-
-**Source.** Desk card U1 (design question 1). Options (a) to (c) are the card's; (d) is the design's
-(`docs/design/i2-validate.md`, section 12, question 1), described in the card's detail.
-
-**Options.**
-
-- (a) `@hyperjump/json-schema` 1.18.0: no known wrong verdicts; Appendix C and the plan name it in place of Ajv and `ajv-formats`
-- (b) Ajv 8.20.0 with workarounds: `ownProperties: true`, core checks `__proto__` itself, `$dynamicRef` refused, the
-  `unevaluated*` failures listed as known deviations
-- (c) json-schema-library 11.6.5: its unescaped error locations need a workaround
-- (d) `ata-validator`, not probed: a clean Bowtie record, but its first release was 2026-03-21; "it's the fallback"
-
-**Decision.** (a).
-
-**Why.** The card: "Narrowly: it is the one without wrong verdicts. Ajv's are in features vmd can't patch around. Against it:
-experimental APIs and global state, both contained."
-
-**Applied.** Appendix C, the plan (§1.2 and I2.2).
-
-### U2. Where `x-vmd-list` and `x-vmd-ref` may stand
-
-**Question.** The design reads the two keywords along a static "spine" of the schema: `properties`, `patternProperties`, `items`,
-`prefixItems`, `$ref`, `allOf`. That lets vmd prove an address singular (§7.4, #15) before evaluating anything. Where may the
-keywords stand?
-
-**Source.** Desk card U2 (design question 2); the options are the card's.
-
-**Options.**
-
-- (a) on the spine only: reached only through `oneOf`, `anyOf`, `if`/`then` and the like, a declaration is `schema-invalid`;
-  unreferenced `$defs` are fine; when two `patternProperties` patterns bring unequal declarations to one member, that member gets
-  a `schema-violation`; a reference's meaning never depends on which `oneOf` branch its record satisfies, and the proof stays
-  static
-- (b) anywhere, as annotations: the proof can't be static for those levels, and a Python implementation would need annotation
-  collection (unverified that `jsonschema` can)
-- (c) anywhere, wherever met: failing branches included, as an Ajv custom keyword does: meaning depends on branches
-
-**Decision.** (a).
-
-**Why.** The card: "It keeps references' meaning static and the singularity proof possible; relaxing it later is an addition under
-U21."
-
-**Applied.** §9.3 ("The spine"), Appendix D `schema-invalid`.
-
-### U3. A reference through a `multimap` level
-
-**Question.** §7.4 says such a path can't be singular, but §8.5 gives no reference status for it. The rule covers every form:
-Markdown links, `$ref` objects and typed strings.
-
-**Source.** Desk card U3 (design question 3); the options are the card's.
-
-**Options.**
-
-- (a) status `ambiguous`, issue `ref-ambiguous`: the message says it can't be proved singular; §8.5 and Appendix D name the case
-- (b) a new code `ref-not-singular`, status `ambiguous`.
-- (c) evaluate it, and accept it when one node matches: contradicts §7.4
-
-**Decision.** (a).
-
-**Why.** The card: "Keeps one code per status, and the declaration already says several nodes may match."
-
-**Applied.** §8.5, Appendix D `ref-ambiguous`.
-
-### U4. Where the cache lives
-
-**Question.** §14.3 put the cache in `.vmd/cache/`, never committed. The review showed that reading anything in a checkout as a
-cache lets a pull request commit a forged one and make CI's `vmd check` pass a broken store. A signature (MAC) on entries didn't
-hold up: a CI restore of the cache brings its key along.
-
-**Source.** Desk card U4 (design question 4); the options are the card's.
-
-**Options.**
-
-- (a) always in the per-user cache directory: `~/Library/Caches/vmd/` or `$XDG_CACHE_HOME/vmd/`; entries content-addressed and
-  shared by every store and worktree, one snapshot per store, eviction under 512 MB, and a global `--no-cache`; nothing in a
-  checkout is read as cache, and reading vampiredb's `docs/` writes nothing there (K3)
-- (b) `.vmd/cache/` in the store, per-user only for `--config`: reads the checkout as cache, which needs a defense that doesn't
-  hold
-- (c) no persistent cache unless `--cache DIR`.
-
-**Decision.** (a).
-
-**Why.** The card: "Removes the attack instead of defending against it, with no extra mechanism."
-
-**Owner's note.** The owner's note on the I2 design card, about where the index lives, verbatim:
-
-> This review brought a question on where the index lives? And I think answer is "depends". In case of lightweight setup, where
-> the backend is pure simple git repo, the index should live locally, as otherwise it would cause merge conflicts. However, for
-> more advanced git setup (a custom merger, lambda, actions etc) the index should live somewhere in the backend, either git repo,
-> or some other configured storage.
-
-**Agent's reading, for the owner to confirm.** The lightweight setup's local index is this per-user cache, and the published index
-of §14.4 and §16 is one place an advanced backend may keep it. §14.3 records the note as the owner's stated view, not a decided
-rule; how an advanced backend keeps the index, in the git repository or in other configured storage, is §20's open question 8.
-
-**Applied.** §14.3 (citing the XDG Base Directory Specification for the cache path; the macOS path is marked as not checked
-against Apple's documentation), §12.1 (`--no-cache`), §17, §20 (open question 8), the plan (I2.5, I2.6).
-
-### U5. A record that two collections match
-
-**Question.** Two collections' globs can both match one file, and §9.1 doesn't say what happens.
-
-**Source.** Desk card U5 (design question 5); the options are the card's.
-
-**Options.**
-
-- (a) a new validation error, `collection-conflict`: the record gets the error and is read unschematized; other records are
-  unaffected; Appendix D gains the code
-- (b) `config-invalid`: every command fails once such a file exists: one new file breaks the whole store
-- (c) the first collection by name wins: silent, and the outcome depends on how collections are named
-
-**Decision.** (a).
-
-**Why.** The card: "Reports the mistake where it is, without breaking the store or picking silently."
-
-**Owner's note.** Verbatim:
-
-> Do we have a utility to check if two globs intersect?
-
-**Applied.** §9.1, Appendix D (`collection-conflict`), core's table of codes.
-
-### U6. `issues` entries for codes whose severity depends on context
-
-**Question.** Appendix D already says structural and operation codes can't be configured, and a validation error stays an error.
-What does an `issues` entry do to `duplicate-key`, `duplicate-anchor`, `path-invalid`, `path-case-conflict` and
-`not-representable`, which are errors in some contexts and warnings in others?
-
-**Source.** Desk card U6 (design question 6); the options are the card's.
-
-**Options.**
-
-- (a) the entry applies to the warnings only: it can silence or raise the warning occurrences; the error occurrences stay errors
-  (as G6 keeps them)
-- (b) the entry sets every occurrence: an entry could lower an error that G6 keeps as an error
-
-**Decision.** (a).
-
-**Why.** The card: "Keeps G6's rule that configuration never lowers an error."
-
-**Applied.** Appendix D ("Configuring severities").
-
-### U7. Images as references
-
-**Question.** §8.1 names inline links and link reference definitions, not images. vampiredb's docs have none; tickets with
-screenshots will.
-
-**Source.** Desk card U7 (design question 7); the options are the card's.
-
-**Options.**
-
-- (a) images are references: a missing image is `ref-dangling`; §8.1's table gains a row
-- (b) images are not references.
-
-**Decision.** (a).
-
-**Why.** The card: "A broken image is the broken link a reader sees first."
-
-**Applied.** §8.1, the plan (I2.4).
-
-### U8. Keyed-list keys
-
-**Question.** §9.3 says a path step matches a single key member, but doesn't say whether a list can have several.
-
-**Source.** Desk card U8 (design question 8); the options are the card's.
-
-**Options.**
-
-- (a) one string key member per list: several are `schema-invalid`; an item without a key, or with a non-string key, is a
-  `schema-violation`, reachable only by its `$anchor` or exact path
-- (b) composite keys now: needs a rule for which member a step matches
-
-**Decision.** (a).
-
-**Why.** The card: "No case needs composite keys; allowing them later is an addition under U21."
-
-**Owner's note.** Verbatim:
-
-> How would even a composite key look like?
-
-**Applied.** §5.6, §9.3, Appendix D `schema-invalid`.
-
-### U9. `targets` entries
-
-**Question.** §9.3's example mixes `tickets` (a collection) and `docs/**` (a glob).
-
-**Source.** Desk card U9 (design question 9); the options are the card's.
-
-**Options.**
-
-- (a) a collection name if one exists, else a glob: with U10's names, a collection never looks like a glob
-- (b) an explicit prefix (`collection:tickets`): changes Appendix A's schema
-
-**Decision.** (a).
-
-**Why.** The card: "Simple, and unambiguous given U10."
-
-**Applied.** §9.3.
-
-### U10. Collection names
-
-**Question.** §9.1 allows any string as a collection name. Names are used in `targets` (U9) and in §7.6's `collection:key`
-shorthand, so `/`, `*` or `:` in a name would be ambiguous.
-
-**Source.** Desk card U10 (design question 10); the options are the card's.
-
-**Options.**
-
-- (a) names match `[A-Za-z][A-Za-z0-9_-]*`: another name is `config-invalid`; §9.1 states the pattern
-- (b) any string, with escaping: `targets` and the shorthand need an escaping rule
-
-**Decision.** (a).
-
-**Why.** The card: "No real name needs more, and it removes the ambiguity at the source."
-
-**Owner's note.** Verbatim:
-
-> At least for now.
-
-**Applied.** §9.1, Appendix D `config-invalid`.
-
-### U11. The strict read mode and `--strict` in I2
-
-**Question.** The plan puts the strict read mode in I3.4, with `query`. All its inputs exist in I2.
-
-**Source.** Desk card U11 (design question 11); the options are the card's.
-
-**Options.**
-
-- (a) in I2: core's mode in I2.3; `--strict` for `get`, `outline`, `ls` and `refs` in I2.6; §12.1 gains `--strict`, and I3.4 loses
-  it
-- (b) as planned, in I3.4.
-
-**Decision.** (a).
-
-**Why.** The card: "An agent reading a store that doesn't validate can use it before queries exist."
-
-**Applied.** §12.1 (`--strict`), the plan (I2.3, I2.6, I3.4).
-
-### U12. A collection whose schema is invalid
-
-**Question.** If a collection's schema can't be used, either because it is broken or because it uses a construct from a newer
-minor version (an unknown `x-vmd-*` keyword), what do reads do?
-
-**Source.** Desk card U12 (design question 12); the options are the card's.
-
-**Options.**
-
-- (a) report it; readers refuse its records: `check` reports `schema-invalid` once and checks everything else; `get`, `outline`
-  and `resolve` on one of its records fail with `schema-invalid`; a query leaves them out and returns the other collections'
-  matches with one issue counting what it left out, and fails as a whole only in the strict read mode; `ls` counts them
-  unreadable; a reference into one is `unreadable`; this reverses C2/F1 and the Draft v0.4 correction
-- (b) report it; reads go on without the schema: an older reader would read a newer store's collection unschematized: typed
-  references and dates silently become plain strings, "a misread, not a refusal"
-- (c) every command fails: one broken schema hides the whole store
-
-**Decision.** (a). **This reverses recorded decisions**: C2 as F1 narrowed it, that only structural errors make a record
-unreadable, and the correction of Draft v0.4, "whether a record is readable never depends on its schema". Both entries now point
-forward to this one.
-
-**Why.** The card: "The reason is F1's own, read the other way: a reader must not return a value it would read wrongly, and
-without its schema it would." And: "It is what makes your versioning rule hold (an older reader refuses rather than misreads); (b)
-misreads silently, and (c) hides the whole store over one schema. I'm recommending a reversal of your earlier decision knowingly;
-if you'd rather keep C2/F1, (b) is the alternative and U21 must then be (b) too."
-
-**Agent's reading, for the owner to confirm.** The card gives `schema-invalid` for every unusable schema, while §9.3 already makes
-an unknown `x-vmd-*` keyword `feature-unsupported`. The draft keeps §9.3's code for that case, and applies the refusal to every
-schema that cannot be used: a read fails with the code its schema got, `schema-invalid` or `feature-unsupported`. `cat` and `grep`
-read a file's bytes and never load schemas (the design, section 3.2), so the draft does not count them as readers here. What
-`rename`, `mv`, writes (§9.4) and the index (§14.2) do beside such a collection is §20's open question 10, with a recommendation.
-
-**Applied.** §2 (Issue), §5.4, §8.5 (with J3's rule on `unreadable`), §9.1, §9.2, §9.5 (items 1 and 4), §12.2 (the unreadable
-counts), §20 (open question 10), Appendix D (the Class column, `ref-target-unreadable`, `schema-invalid`, `feature-unsupported`),
-the conformance README (`refs`, `parse`, and the operations on a structural error).
-
-### U13. Where a configuration's schemas are
-
-**Question.** §9.1 says `.vmd/schema/`. vampiredb's `docs/` is read with `--config examples/vampiredb/config.yaml` (K3) and has no
-`.vmd/`, so under §9.1 it could have no schemas without modifying vampiredb.
-
-**Source.** Desk card U13 (design question 13); the options are the card's.
-
-**Options.**
-
-- (a) in `schema/` beside the configuration file: the same as before for a store's own configuration (`.vmd/schema/`), and
-  `examples/vampiredb/schema/` for the trial; §9.1 and §12.1 say so
-- (b) always the store's `.vmd/schema/`: vampiredb's trial can't have schemas without changing vampiredb
-- (c) a `schemas` member names the directory: more flexible, one more configuration member
-
-**Decision.** (a).
-
-**Why.** The card: "No change for normal stores, and it lets the I2.7 trial leave vampiredb unmodified."
-
-**Applied.** §9.1, §12.1 (`--config`), the plan (I2.2).
-
-### U14. `$id` in a schema file
-
-**Question.** `$id` is valid JSON Schema 2020-12, and §9.2 says schemas are 2020-12 documents. But a file's own base URI changes
-what its relative `$ref`s mean, and no schema in the suite or Appendix A needs it.
-
-**Source.** Desk card U14 (design question 14); the options are the card's.
-
-**Options.**
-
-- (a) refused in I2 (`schema-invalid`): §9.2 says vmd's schemas are 2020-12 without `$id`; allowing it later is an addition
-- (b) allowed: every file stays reachable by its name as well as its `$id`
-
-**Decision.** (a).
-
-**Why.** The card: "Simpler resolution now, and reversible by a minor version."
-
-**Applied.** §9.2, Appendix D `schema-invalid`.
-
-### U15. YAML anchors, aliases and tags in schema files
-
-**Question.** They are valid YAML, and some authors share schema definitions with them. vmd's YAML rules (H2, J5) refuse them in
-records.
-
-**Source.** Desk card U15 (design question 15); the options are the card's.
-
-**Options.**
-
-- (a) schema files follow vmd's YAML rules: anchors, aliases and tags are `schema-invalid`; `$defs` with `$ref` does the same job
-- (b) plain YAML 1.2 for schema files: a second YAML reading for one kind of file
-
-**Decision.** (a).
-
-**Why.** The card: "One YAML reader, one set of rules, for every file vmd reads."
-
-**Applied.** §9.2, Appendix D `schema-invalid`.
-
-### U16. `unevaluatedItems` beside `x-vmd-list`
-
-**Question.** The validator doesn't know that `x-vmd-list` evaluates the items, so `unevaluatedItems: false` beside it would fail
-valid data.
-
-**Source.** Desk card U16 (design question 16); the options are the card's.
-
-**Options.**
-
-- (a) `schema-invalid`: §9.3 says so
-- (b) compile the per-key schemas into the schema the validator sees: brings back the compilation the design avoids
-
-**Decision.** (a).
-
-**Why.** The card: "Simple, and catches the trap at load."
-
-**Applied.** §9.3, Appendix D `schema-invalid`.
-
-### U17. `$sections` keyed by `@key` only
-
-**Question.** §9.3 allows `@key` only on `$sections`, but doesn't forbid other keys there.
-
-**Source.** Desk card U17 (design question 17); the options are the card's.
-
-**Options.**
-
-- (a) `$sections` is keyed by `["@key"]` only: sections are keyed by their section key by definition (§5.6)
-- (b) other keys allowed: sections could be keyed by a field
-
-**Decision.** (a).
-
-**Why.** The card: "Matches §5.6's definition."
-
-**Applied.** §9.3, Appendix D `schema-invalid`.
-
-### U18. `x-vmd-ref` on a string without `format: uri-reference`
-
-**Question.** §8.1 makes a typed reference a string whose schema has both, and doesn't say what `x-vmd-ref` alone means.
-
-**Source.** Desk card U18 (design question 18); the options are the card's.
-
-**Options.**
-
-- (a) `schema-invalid`: a declaration that does nothing is reported
-- (b) no reference, silently.
-
-**Decision.** (a).
-
-**Why.** The card: "A declaration that does nothing is a mistake."
-
-**Applied.** §9.3, Appendix D `schema-invalid`.
-
-### U19. The value of `x-vmd-summary`
-
-**Question.** §9.3 gives no value type.
-
-**Source.** Desk card U19 (design question 19); the options are the card's, and the reason the design's (section 12, question 19),
-since the card gave none.
-
-**Options.**
-
-- (a) a boolean; anything else `schema-invalid`: `x-vmd-summary: false` means what it says
-- (b) any value counts as true.
-
-**Decision.** (a).
-
-**Why.** The design: "so that `x-vmd-summary: false` means what it says".
-
-**Applied.** §9.3, Appendix D `schema-invalid`.
-
-### U20. A size bound on schema files
-
-**Question.** The configuration file has a 1 MiB bound (I1.8, a deviation recorded in #17); schema files have none.
-
-**Source.** Desk card U20 (design question 20); the options are the card's.
-
-**Options.**
-
-- (a) at most 1 MiB: §9.1 states both bounds
-- (b) no bound.
-
-**Decision.** (a).
-
-**Why.** The card: "A larger schema is a mistake or an attack on a validating service."
-
-**Applied.** §9.1, Appendix D (`config-invalid`, `schema-invalid`).
-
-### U21. What counts as a minor-version addition, and unknown configuration members
-
-**Question.** §9.1 allows a minor version to add only a new `$` member, a new `data` info string or a new `x-vmd-*` keyword (G3).
-That leaves out new configuration members, and relaxing a refusal later (U2, U8, U14). The first version of the proposal counted
-any relaxed error as an addition; the review showed that loses detectability, since a best-effort reader reads past validation
-errors (§9.5): if 1.1 accepted a space in `date-time`, a 1.0 reader's `check` would report it, but its `query` would return the
-record and compare the value wrongly.
-
-**Source.** Desk card U21 (design question 21); the options are the card's.
-
-**Options.**
-
-- (a) additions are relaxations of refusals no reader reads past: §9.1's list becomes "any construct the previous minor version
-  refuses so that no reader returns data that holds it": a structural error, an operation error that fails the operation (an
-  invalid configuration), or an invalid schema under U12's (a); relaxing a validation error needs a major version; an unknown
-  configuration member is `feature-unsupported`, naming the store's version
-- (b) keep the three forms: an unknown configuration member is `config-invalid`; a new member or any relaxation needs a major
-  version or a new keyword
-- (c) ignore unknown configuration members: an older reader would misread a newer store silently
-
-**Decision.** (a). It replaces G3's three forms of addition.
-
-**Why.** The card: "It keeps §9.1's reason (an older reader fails rather than misreads) while letting configuration grow by minor
-versions. It depends on U12's (a). It is the kind of versioning burden you asked me to surface; this is my best attempt to keep it
-small."
-
-**Applied.** §9.1 ("Every addition is detectable", and unknown configuration members), Appendix D `feature-unsupported`.
-
-### V1. Comments in JSON records and `json data` blocks
-
-**Question.** A `.json` record and a `json data` block are strict JSON (RFC 8259): a comment is a `syntax-error`. Allowing
-comments has three costs, in the card's words. Other tools: `JSON.parse`, `jq`, Python's `json` and most editors' JSON mode reject
-a `.json` file with comments, and §1's goal 2 says every construct vmd reads "is already idiomatic in its format"; comments are
-not idiomatic JSON. Versioning: under U21, relaxing a structural error is a valid minor addition, but a new file extension such as
-`.jsonc` is not detectable by itself, since an older reader would take `notes.jsonc` for an asset, so a new extension needs a
-configuration member that turns it on, which an older reader refuses (`feature-unsupported`). Writes (I4): `vmd set` must keep
-comments when it edits a value. "None of the options changes values, canonical forms or addresses: comments are not data."
-
-**Source.** Desk card V1, from the owner's note on card P (P3 above); the options are the card's.
-
-**Options.**
-
-- (a) opt-in JSONC: `jsonc data` blocks and `.jsonc` files: `.json` and `json data` stay strict, so other tools never meet
-  comments there; a `jsonc data` info string (an allowed addition form) and `.jsonc` record files, the latter enabled by a
-  configuration member, accept `//` and `/* */` comments (no trailing commas); spec in a later draft, code after I2, with I4's
-  comment-preserving edits
-- (b) comments allowed in every `.json` and `json data`: simplest for authors, and a valid minor addition, but a vmd store's
-  `.json` files then stop being JSON for every other tool, without a visible sign
-- (c) no comments: keep strict JSON, and use YAML, which has comments, where comments matter
-
-**Decision.** (a).
-
-**Why.** The card: "It gives comments to those who want them, keeps `.json` honest for other tools, and stays detectable for older
-readers."
-
-**Owner's note.** Verbatim:
-
-> I agree. I personally believe that json format not providing comments from the start was a mistake, as when machines talk json
-> they wont write comments, so it costs them nothing. But when humans or agents want to work with json files (like config files)
-> being able to document a reason for settings is very valueable. A json vs jsonc is a good compromise here.
-
-**Agent's reading, for the owner to confirm.** The card left the configuration member unnamed. The draft names it `jsonc`, a
-boolean that defaults to `false` and is left out unless it is `true`, since a reader that predates it refuses it whatever its
-value. The draft also says that comments may stand wherever JSON allows white space, and that a `jsonc data` block of only
-comments and white space gives no fields, as an empty block does (H3.5, P7). These are the agent's. Applied in Draft v0.11 at the
-engineering manager's request, earlier than the card's "later draft"; flagged for the owner.
-
-**Applied.** §3.1 (`.jsonc`), §5.3 (`jsonc data`), §5.4 ("JSONC"), §5.8, §9.1 (the `jsonc` member), §13.3 (an edit keeps a JSONC
-file's comments), Appendix D `feature-unsupported`.
+records give each item's recommendation. Section numbers refer to Draft v0.11.
+
+The records of this round were first written as headed entries here, with the same parts a record has; they are now the records,
+and the entries are gone.
+
+- [P1](../decisions/P1.md) Resource limits for Markdown
+- [P2](../decisions/P2.md) An unclosed data fence is a syntax error
+- [P3](../decisions/P3.md) HTML comments before the title heading
+- [P4](../decisions/P4.md) An anchor element inside emphasis or a link in a heading
+- [P5](../decisions/P5.md) A class on a block anchor is a validation error
+- [P6](../decisions/P6.md) An unknown data marker is detected wherever a data block can stand
+- [P7](../decisions/P7.md) A json data block of only white space
+- [P8](../decisions/P8.md) Character references in anchor attribute values are not decoded
+- [P9](../decisions/P9.md) The range of each $tags item from an anchor element's class
+- [P10](../decisions/P10.md) Block-anchor ranges are trimmed of trailing white space
+- [Q1](../decisions/Q1.md) A JSON or YAML $title is read as a heading's inline content
+- [Q2](../decisions/Q2.md) Document order means pre-order
+- [Q3](../decisions/Q3.md) A repeated invalid tag gives one issue per occurrence
+- [R1](../decisions/R1.md) The candidates of an ambiguous address
+- [R2](../decisions/R2.md) The canonical address of a block anchor whose name is not unique
+- [R3](../decisions/R3.md) A block anchor's computed fields
+- [R4](../decisions/R4.md) A percent-escape that is not UTF-8 is a malformed address
+- [R5](../decisions/R5.md) Selectors return their matches in document order
+- [S1](../decisions/S1.md) Record content printed to a terminal is escaped
+- [S2](../decisions/S2.md) grep keeps GNU grep's line format
+- [S3](../decisions/S3.md) outline lists block anchors and a data record's members
+- [S4](../decisions/S4.md) get --source under --json, and --max-chars for text only
+- [S5](../decisions/S5.md) Computed fields not computed yet are null, with a warning
+- [S6](../decisions/S6.md) .vmd/ and dotfiles are neither records nor assets
+- [S7](../decisions/S7.md) --body on a node that is not a section is a usage error
+- [T](../decisions/T.md) Block anchors in a list item's later paragraphs
+- [I2-design](../decisions/I2-design.md) Approving the design of phase I2
+- [U1](../decisions/U1.md) The JSON Schema validator: @hyperjump/json-schema
+- [U2](../decisions/U2.md) x-vmd-list and x-vmd-ref stand on the schema's spine only
+- [U3](../decisions/U3.md) A reference through a multimap level is ambiguous
+- [U4](../decisions/U4.md) The cache lives in the per-user cache directory, never in the store
+- [U5](../decisions/U5.md) A record that two collections match gets collection-conflict
+- [U6](../decisions/U6.md) An issues entry for a code whose severity depends on context sets its warnings only
+- [U7](../decisions/U7.md) Images are references
+- [U8](../decisions/U8.md) A keyed list has one string key member
+- [U9](../decisions/U9.md) A targets entry is a collection name if one exists, else a glob
+- [U10](../decisions/U10.md) Collection names match [A-Za-z][A-Za-z0-9_-]*
+- [U11](../decisions/U11.md) The strict read mode and --strict come in phase I2
+- [U12](../decisions/U12.md) Readers refuse the records of a collection whose schema is invalid
+- [U13](../decisions/U13.md) A configuration's schemas are in schema/ beside the configuration file
+- [U14](../decisions/U14.md) $id in a schema file is refused in I2
+- [U15](../decisions/U15.md) Schema files follow vmd's YAML rules: no anchors, aliases or tags
+- [U16](../decisions/U16.md) unevaluatedItems beside x-vmd-list is schema-invalid
+- [U17](../decisions/U17.md) $sections is keyed by @key only
+- [U18](../decisions/U18.md) x-vmd-ref on a string without format: uri-reference is schema-invalid
+- [U19](../decisions/U19.md) The value of x-vmd-summary is a boolean
+- [U20](../decisions/U20.md) A schema file is at most 1 MiB
+- [U21](../decisions/U21.md) A minor version adds by relaxing a refusal no reader reads past
+- [V1](../decisions/V1.md) Comments in JSON: opt-in JSONC, with .json staying strict
+
+## Decisions from cards W and X (Draft v0.12)
+
+Recorded 2026-10-11, and not yet applied to the draft. Card W1 confirms the agent's readings that the Draft v0.11 round marked
+for the owner, card W2 closes a gap that U12 opened, and card X brings four rules from the review of I2's configuration pull
+request (#91).
+
+- [W1](../decisions/W1.md) The agent's readings in Draft v0.11 are confirmed
+- [W2](../decisions/W2.md) Renames and writes beside an unusable schema are refused, like unreadable records
+- [X1](../decisions/X1.md) A schema file that cannot be read is `storage-failed`
+- [X2](../decisions/X2.md) A refused read's issue has a null path
+- [X3](../decisions/X3.md) Directories that differ only in case conflict
+- [X4](../decisions/X4.md) A glob with a `.` or `..` segment is `config-invalid`
+
+## Decisions given in conversation
+
+Decisions the project owner gave in conversation with the session that no round above records. The planning round's plan-3a is
+one too, listed there.
+
+- [chat-1](../decisions/chat-1.md) Agent instructions in AGENTS.md, with project facts only
+- [chat-2](../decisions/chat-2.md) A decision goes into the decision log in the same change that applies it (superseded by
+  chat-6)
+- [chat-3](../decisions/chat-3.md) A private demonstration store first: eternal-circle
+- [chat-4](../decisions/chat-4.md) The session works as engineering manager, with independent reviewers
+- [chat-5](../decisions/chat-5.md) Pull requests of phases I0 to I2 land after a clean independent review
+- [chat-6](../decisions/chat-6.md) Decisions are stored as one record per decision, in a vmd store
+
+## Decisions from reviews
+
+Decisions the project owner gave in a note on a pull request's review card.
+
+- [review-1](../decisions/review-1.md) Reading performance, structure parsing above all, is a consideration in design decisions,
+  after correctness
+
+## Decisions recorded in the design documents
+
+Choices that an approved design document records with the alternatives it rejected, and that were not put to the owner:
+`docs/design/i1-read.md` (#59) and `docs/design/i2-validate.md` (#86).
+
+- [i1-read-1](../decisions/i1-read-1.md) JSON is parsed with `jsonc-parser`, not a parser of vmd's own
+- [i1-read-2](../decisions/i1-read-2.md) Markdown uses GFM 0.29's four extensions, not the GFM bundle with footnotes
+- [i1-read-3](../decisions/i1-read-3.md) vmd reads front matter itself, without the front-matter extension
+- [i1-read-4](../decisions/i1-read-4.md) The conformance runner reads case files independently of the code under test
+- [i2-validate-1](../decisions/i2-validate-1.md) Keyed lists are evaluated natively, with the standard compilation as a test
+  oracle
+- [i2-validate-2](../decisions/i2-validate-2.md) The logical types are vmd's own checks
+- [i2-validate-3](../decisions/i2-validate-3.md) References are collected during the Markdown parse that already runs
+- [i2-validate-4](../decisions/i2-validate-4.md) An incremental check re-resolves every reference

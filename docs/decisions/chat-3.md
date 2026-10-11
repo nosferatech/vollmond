@@ -44,6 +44,6 @@ repository would need made-up data, which exercises little.
 
 ## Applied in
 
-The implementation plan: `5b0819b` recorded both repositories, and `1cc6071` named `nosferatech/eternal-circle` as the ticket store
-(§1.4). #60 pointed the plan at eternal-circle once the tickets had moved there with project-prefixed ids. K3 later made
+The implementation plan: `5b0819b` recorded both repositories, and `1cc6071` named `nosferatech/eternal-circle` as the ticket
+store (§1.4). #60 pointed the plan at eternal-circle once the tickets had moved there with project-prefixed ids. K3 later made
 eternal-circle a vmd store with its own configuration.

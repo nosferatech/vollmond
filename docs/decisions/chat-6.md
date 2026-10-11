@@ -9,6 +9,7 @@ decided_by: owner
 sources:
   chat: ["2026-10-11T15:12:16Z", "2026-10-11T15:22:20Z"]
   session: ["2026-10-11T15:15:33Z"]
+  prs: [90]
 ---
 
 ## Question
@@ -60,5 +61,5 @@ to query. Why (e) and (f) lost: Not recorded.
 
 ## Applied in
 
-Pending: the pull request "Decisions as a vmd store (docs/decisions)", which adds this store, turns the log into an index and
-changes `AGENTS.md`'s rule, replacing [chat-2](chat-2.md).
+#90, "Decisions as a vmd store (docs/decisions)", which adds this store, turns the log into an index and changes `AGENTS.md`'s
+rule, replacing [chat-2](chat-2.md).
