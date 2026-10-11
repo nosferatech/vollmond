@@ -540,7 +540,7 @@ and the entries are gone.
 
 - [P1](../decisions/P1.md) Resource limits for Markdown (superseded by Y1, Y2)
 - [P2](../decisions/P2.md) An unclosed data fence is a syntax error
-- [P3](../decisions/P3.md) HTML comments before the title heading
+- [P3](../decisions/P3.md) HTML comments before the title heading (superseded by Y3)
 - [P4](../decisions/P4.md) An anchor element inside emphasis or a link in a heading
 - [P5](../decisions/P5.md) A class on a block anchor is a validation error
 - [P6](../decisions/P6.md) An unknown data marker is detected wherever a data block can stand
@@ -610,11 +610,18 @@ agent's reading, for the owner to confirm. Section numbers refer to Draft v0.12.
 Card Y's wording fixes are applied without decisions: a run is a delimiter run of `*` or `_` (CommonMark 0.31.2, section 6.2), or
 a run of `~` (§5.4); "checked before parsing" becomes "before the text beyond the limit is parsed" (§5.4); a blank line in a data
 `$title` counts as two line breaks, and only the link reference definitions in `$body` values are in scope (§5.5, Q1's edges);
-and a repeated invalid `class` token gives one `anchor-invalid` (§6.2, Appendix D). So are the alignments that the reviews of
-#91 and #94 noted: §11.2 states the storage contract's optional `maxBytes` on `read`, with vmd's bounds of 1 MiB for the
-configuration and schemas and 16 MiB for records; §5.10's `@collection` is absent for a record in no collection or in a
-`collection-conflict`; and §5.3 gives a misplaced or second data block whose fence is not closed a `syntax-error` too, as
-Appendix D does. The last two are agent's readings, recorded in [S5](../decisions/S5.md) and [P2](../decisions/P2.md).
+and a repeated invalid `class` token gives one `anchor-invalid` (§6.2, Appendix D).
+
+Three alignments that the reviews of #91 and #94 noted are applied too, and each is an agent's reading, for the owner to confirm:
+
+- §11.2's "Bounded reads", a rule from the implementation (#91, recorded on #21), not an owner decision: `read` takes an optional
+  `maxBytes`, a file larger than it is refused by its size before it is read or hashed, a file that grows past the bound while it
+  is read is read no further than `maxBytes` and one byte and refused too, and vmd reads with the bounds of 1 MiB for the
+  configuration and schemas and 16 MiB for records;
+- §5.10's `@collection` is absent for a record in no collection or in a `collection-conflict`, recorded in
+  [S5](../decisions/S5.md);
+- §5.3 gives a misplaced or second data block whose fence is not closed a `syntax-error` too, as Appendix D does, recorded in
+  [P2](../decisions/P2.md).
 
 ## Decisions given in conversation
 

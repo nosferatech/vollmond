@@ -1082,9 +1082,9 @@ declared `cardinality: many` whose selector matches nothing, in a record that ex
 reference into a record that readers refuse cannot be resolved below the root: a record with a structural error, which has no
 value view, or a record of a collection whose schema cannot be used (§9.1). It is not dangling but `unreadable`: `vmd check` warns
 about it (`ref-target-unreadable`), and the record's own structural errors, or the issue its collection's schema got
-(`schema-invalid` or `feature-unsupported`), say what to fix. A reference whose address is the record's root (no fragment, or `#`
-alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address (§7.4) still fails,
-since a resolve returns the node's value, while a reference's status only says whether its target exists.
+(`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A reference whose address is the record's root
+(no fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address
+(§7.4) still fails, since a resolve returns the node's value, while a reference's status only says whether its target exists.
 
 ---
 
@@ -2083,8 +2083,8 @@ runner, which reads the fixtures and drives that implementation, lives next to t
 - expected issues, by the codes of Appendix D.
 
 Path rules that cannot exist as files on every platform (§3.2), such as two names, or two directories, that differ only by case,
-are left out of the suite for now, since a checkout on a filesystem that ignores case cannot hold them; each implementation tests
-them in its own unit tests.
+are left out of the suite for now: the suite has no case for them, since a checkout on a filesystem that ignores case cannot hold
+them, and the TypeScript implementation tests them in unit tests.
 
 ### 19.2 Profiles
 

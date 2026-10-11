@@ -64,3 +64,4 @@ additions is part of the decision. (a) would make nearly every change a major ve
 
 Draft v0.4 (#50, `1043a6c`), §9.1 and §9.5; the proposals went to #46. [G3b](G3b.md) scoped the safeguards that keep the rule
 true, and [G3c](G3c.md) settled an older major version. [U21](U21.md) widened what counts as an addition beyond the three forms.
+[Y3](Y3.md) restores detection of an unknown data marker that follows an HTML block of only comments (Draft v0.12, #96).
