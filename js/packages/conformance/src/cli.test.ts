@@ -3,7 +3,7 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { runConformance, suiteCommit } from "./cli.js";
-import { caseFile, compareCase, makeSuite } from "./testing/temp-suite.js";
+import { caseFile, compareCase, countSelfTestCases, makeSuite } from "./testing/temp-suite.js";
 
 /** Writes a suite with one passing and one failing self-test case, and returns its path. */
 async function suiteWithFailure(): Promise<string> {
@@ -16,8 +16,9 @@ describe("runConformance", () => {
   test("runs the real suite with the defaults, writes the report and exits with 0", async () => {
     const directory = await makeSuite({});
     const result = await runConformance([], directory);
+    const selfTests = await countSelfTestCases();
     expect(result).toEqual({
-      stdout: expect.stringMatching(/^conformance: 14 pass, 0 fail, 0 error, \d+ skip; report in /),
+      stdout: expect.stringMatching(new RegExp(`^conformance: ${selfTests} pass, 0 fail, 0 error, \\d+ skip; report in `)),
       stderr: "",
       exitCode: 0,
     });

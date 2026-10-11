@@ -1,0 +1,10 @@
+{
+  "defaults": {"spec": ["3.1"], "profiles": ["validate"], "operation": "check", "input": {"store": "extensions"}},
+  "cases": [
+    {
+      "id": "extensions-compared-exactly",
+      "description": "Record extensions are compared exactly, so notes.MD and data.Json are assets, not records: their contents, which would be syntax errors in a record, are not parsed, and check reports nothing (§3.1, decision L4).",
+      "expect": {}
+    }
+  ]
+}

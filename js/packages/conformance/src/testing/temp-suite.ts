@@ -1,6 +1,26 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/** The suite of this repository, `conformance/` at its root. */
+export const REAL_SUITE = fileURLToPath(new URL("../../../../../conformance/", import.meta.url));
+
+/**
+ * Returns how many cases the self-test files of the suite at `suiteDirectory` hold, read from `cases/selftest/`, so that a test
+ * of the real suite does not break whenever a self-test case is added.
+ */
+export async function countSelfTestCases(suiteDirectory: string = REAL_SUITE): Promise<number> {
+  const directory = join(suiteDirectory, "cases", "selftest");
+  let count = 0;
+  for (const name of await readdir(directory)) {
+    if (name.endsWith(".cases.json")) {
+      const file: { cases: readonly unknown[] } = JSON.parse(await readFile(join(directory, name), "utf8"));
+      count += file.cases.length;
+    }
+  }
+  return count;
+}
 
 /** The `suite.json` of a temporary suite unless a test gives another. */
 export const SUITE_JSON = '{ "version": "0.6.0-dev", "case_format": 1 }';

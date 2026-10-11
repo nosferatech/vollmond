@@ -1,9 +1,9 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.7 (2026-10-10). Supersedes Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
-`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
-rises with each round of decisions applied to the draft. The review of v0.1 and every round of decisions since are in
-[vollmond-proposal-review.md](vollmond-proposal-review.md).
+Status: Draft v0.8 (2026-10-10). Supersedes Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit
+`d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit
+`b7c8a52`). The minor version rises with each round of decisions applied to the draft. The review of v0.1 and every round of
+decisions since are in [vollmond-proposal-review.md](vollmond-proposal-review.md).
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -89,7 +89,8 @@ A record's ID is its path relative to the store root, `/`-separated, **including
 `tickets/0171-clean-root-in-scattered-record.md`. Links use file paths with extensions, so record IDs match what links already say.
 Changing a record's format is a move.
 
-Record extensions: `.md`, `.yaml`, `.yml`, `.json`.
+Record extensions: `.md`, `.yaml`, `.yml`, `.json`. They are compared exactly, byte for byte, like the rest of a path, so
+`notes.MD` and `data.Json` are not records but assets.
 
 ### 3.2 Path rules
 
@@ -593,6 +594,8 @@ file-based parsers produce, giving each node its byte range and line and column.
 |---|---|---|
 | a section | from the start of its heading line to the start of the heading that ends it, or the end of the file, trailing blank lines included, so that sections tile the file | the same range |
 | the root | the whole file | (a record is deleted, not its root) |
+| a Markdown `$sections` array | from the start of its first section to the end of its parent's range, so that ranges still tile the file | the same range |
+| a section's `$anchor` or `$tags` taken from an `<a>` element | the element's own range in the heading line | |
 | an object member (in front matter, a data block, JSON or YAML) | its value | its `memberRange`, from the start of its key to the end of its value; the separators around it (a comma, a line break) are the writer's to handle per format |
 | an array item | the item | the item, with the same caveat |
 | `$title`, `$body` | their source spans; where the value differs from those bytes (a removed anchor element, CRLF), `get` in source form prints the span | |
@@ -923,9 +926,10 @@ Shorthands are never written into records.
 | JSON / YAML | an object whose only member is `$ref` (JSON Reference) | `{"$ref": "../persons/ada.yaml#contact"}` |
 | JSON / YAML, typed | a string whose schema has `format: uri-reference` and `x-vmd-ref` (§9.3) | `parent: 0158-implement-the-v3-log.md` |
 
-A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`), so references are
-detectable without a schema. Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is not a
-reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link brackets
+A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`) at the object, so
+references are detectable without a schema. The object's other members are still checked, and their own issues reported, so that
+one run shows everything to fix (C2). Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is
+not a reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link brackets
 ([CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore removes
 it from validation.
 
@@ -2152,7 +2156,7 @@ The columns:
 | `anchor-element-invalid` | error | structural | §6.2 | an `<a>` element with an `id` or `class` that also has content or another attribute, or a second anchor element in one heading or at the start of one block; the section, or the `$body` for a block |
 | `dollar-member` | error | structural | §5.3, §5.4 | `$key` on a section, in front matter or in a data block; a section member (`$title`, `$anchor`, `$tags`, `$body`, `$sections`) at the top of front matter or of a data block; or a section member out of its place (`$schema` below the root, and in a data block). Inside a field's value such a member is data; the member |
 | `feature-unsupported` | error | structural in a record; operation in a schema | §5.3, §5.4, §9.1, §9.3 | a construct of the reserved forms that this version does not define, which may come from a newer minor version: another `$` member on a section, in front matter or in a data block, a `data` info string other than `yaml data` and `json data` after a heading, including either with a third word, or an unknown `x-vmd-*` keyword in a schema. The message names the store's declared version when there is one; the member, the section, or none |
-| `ref-malformed` | error | structural | §8.1 | a `$ref` object with other members, or whose `$ref` is not a string; the object |
+| `ref-malformed` | error | structural | §8.1 | a `$ref` object with other members, or whose `$ref` is not a string; the object. The other members are still checked, and their issues reported |
 | `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; each node after the first |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names more than one node; each node after the first in document order, once per node even when two of its anchors collide |
 | `duplicate-tag` | warning | validation | §6.2 | a token repeated in the `class` attribute of an anchor element, which `$tags` holds once, or a tag repeated in a data `$tags` array, which keeps it as written; the node |
