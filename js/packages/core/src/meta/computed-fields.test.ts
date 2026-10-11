@@ -61,7 +61,6 @@ describe("computed fields", () => {
       "@source": { range: { start, end: TICKET.length }, line: 14, col: 1 },
       "@issues": [],
       "@refs": null,
-      "@collection": null,
       "@depth": 1,
     });
     expect(Object.keys(fields)).toEqual([
@@ -74,7 +73,6 @@ describe("computed fields", () => {
       "@source",
       "@issues",
       "@refs",
-      "@collection",
       "@depth",
     ]);
   });
@@ -107,13 +105,39 @@ describe("computed fields", () => {
     expect(Object.keys(fields)).toEqual(["@key", "@path"]);
   });
 
-  test("give @refs and @collection, which are not computed yet, as null, so that absent and not computed differ", async () => {
+  test("give @refs, which is not computed yet, as null, and leave @collection out for a record in no collection", async () => {
     expect(await computeFields(ticket, "/status", ["@refs", "@collection", "@path"])).toEqual({
       "@refs": null,
-      "@collection": null,
       "@path": "tickets/0171.md",
     });
-    expect(NOT_COMPUTED_FIELDS).toEqual(["@refs", "@collection"]);
+    expect(NOT_COMPUTED_FIELDS).toEqual(["@refs"]);
+  });
+
+  test("give @collection from the context, for every node and every section below a section", async () => {
+    const context = { collection: "tickets" };
+    expect(await computeFields(ticket, "/status", ["@collection"], context)).toEqual({ "@collection": "tickets" });
+    const fields = await computeFields(ticket, "", ["@collection", "@nodes"], context);
+    expect(fields["@collection"]).toBe("tickets");
+    expect(Object.values(fields["@nodes"] ?? {}).map((inner) => inner["@collection"])).toEqual(["tickets", "tickets"]);
+  });
+
+  test("give @issues with the severities of the context's configuration, leaving out those that are off", async () => {
+    const parsed = record("d.md", '# T\n\n## A <a id="x"></a>\n\n## B <a id="x"></a>\n\n<b>bold</b>\n');
+    const lenient = { severities: { uniqueness: "lenient", yamlQuoting: "compatible", issues: new Map() } } as const;
+    const severities = async (context?: Parameters<typeof computeFields>[3]) =>
+      ((await computeFields(parsed, "/$sections/1", ["@issues"], context))["@issues"] ?? []).map(
+        (issue) => `${issue.code} ${issue.severity}`,
+      );
+    expect(await severities()).toEqual(["duplicate-anchor error", "duplicate-key error"]);
+    expect(await severities(lenient)).toEqual(["duplicate-anchor warning", "duplicate-key warning"]);
+    const off = {
+      severities: { ...lenient.severities, issues: new Map([["duplicate-key", "off"]] as const) },
+    };
+    expect(await severities(off)).toEqual(["duplicate-anchor warning"]);
+    const nested = await computeFields(parsed, "", ["@nodes"], { severities: lenient.severities });
+    expect(Object.values(nested["@nodes"] ?? {})).toEqual([{}, {}]);
+    const nestedIssues = await computeFields(parsed, "", ["@issues", "@nodes"], lenient);
+    expect(nestedIssues["@nodes"]?.["/$sections/1"]?.["@issues"]?.map((issue) => issue.severity)).toEqual(["warning", "warning"]);
   });
 
   test("hash the value, not its source text, for @version", async () => {
@@ -159,7 +183,6 @@ describe("computed fields", () => {
       "@range": { start: 0, end: item.length },
       "@issues": [],
       "@refs": null,
-      "@collection": null,
     });
   });
 

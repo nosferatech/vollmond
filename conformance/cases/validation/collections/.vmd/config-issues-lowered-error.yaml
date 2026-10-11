@@ -1,0 +1,3 @@
+vmd: 1
+issues:
+  schema-violation: warning

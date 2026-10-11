@@ -1,0 +1,50 @@
+{
+  "defaults": {"spec": ["3.2", "D"], "profiles": ["validate"], "operation": "check", "input": {"store": "rules"}},
+  "cases": [
+    {
+      "id": "path-invalid-records-and-assets",
+      "description": "A space, a leading _ and a + break the segment rule of §3.2: each record that breaks it gets one path-invalid error at its root, a directory's segment included, and the asset gets a warning with no node, since an asset is never in a collection.",
+      "expect": {
+        "issues": [
+          {"code": "path-invalid", "severity": "error", "path": "_draft.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "my notes.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "notes+old/a.md", "at": ""},
+          {"code": "path-invalid", "severity": "warning", "path": "photo copy.png", "at": null}
+        ]
+      }
+    },
+    {
+      "id": "path-rules-pass",
+      "description": "A record whose path follows §3.2 gets no path issue, beside records whose paths do not.",
+      "input": {"records": ["ok.md"]},
+      "expect": {}
+    },
+    {
+      "id": "issues-entry-silences-the-warnings-only",
+      "spec": ["3.2", "9.1", "D"],
+      "description": "An issues entry for path-invalid, whose severity depends on context, applies to its warnings only: \"off\" silences the asset's warning and leaves the records' errors (decision U6).",
+      "input": {"config": "config-quiet.yaml"},
+      "expect": {
+        "issues": [
+          {"code": "path-invalid", "severity": "error", "path": "_draft.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "my notes.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "notes+old/a.md", "at": ""}
+        ]
+      }
+    },
+    {
+      "id": "issues-entry-raises-the-warnings",
+      "spec": ["3.2", "9.1", "D"],
+      "description": "An issues entry of error for path-invalid raises the asset's warning to an error (decision U6).",
+      "input": {"config": "config-loud.yaml"},
+      "expect": {
+        "issues": [
+          {"code": "path-invalid", "severity": "error", "path": "_draft.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "my notes.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "notes+old/a.md", "at": ""},
+          {"code": "path-invalid", "severity": "error", "path": "photo copy.png", "at": null}
+        ]
+      }
+    }
+  ]
+}

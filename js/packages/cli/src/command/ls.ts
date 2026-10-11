@@ -14,13 +14,13 @@ import { formatCount, formatTokens } from "../output/sizes.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
 import { argumentCountProblem } from "./options.js";
 
-// TODO(#21): the collection column comes with the configuration's collections.
 /**
  * Lists the store's records and assets whose paths the glob matches, every one without a glob, in UTF-8 byte order, at most
- * `-n` of them (100 by default). `.vmd/` and dotfiles are left out. A line gives the path, the size in bytes and in tokens,
- * and says `asset` for an asset and `unreadable` for a record that has a structural error. After the page come the count of
- * its unreadable records and, when more remain, their exact number and the cursor. A glob without `*` that matches nothing
- * but names a directory gets a line that suggests the glob with `/**`.
+ * `-n` of them (100 by default). `.vmd/`, dotfiles and the configuration's ignored paths are left out. A line gives the path,
+ * the size in bytes and in tokens, the record's collection when a record on the page has one, and says `asset` for an asset
+ * and `unreadable` for a record that cannot be read: one with a structural error, or of a collection whose schema cannot be
+ * used. After the page come the count of its unreadable records and, when more remain, their exact number and the cursor. A
+ * glob without `*` that matches nothing but names a directory gets a line that suggests the glob with `/**`.
  */
 export const LS_COMMAND: Command = {
   name: "ls",
@@ -62,12 +62,15 @@ export const LS_COMMAND: Command = {
 
 /**
  * Writes a page of the listing, one line per file, then the unreadable records and what remains; or, for an empty page whose
- * glob names a directory, the line that says to list `below` instead.
+ * glob names a directory, the line that says to list `below` instead. The collection column is there only when a record on
+ * the page is in a collection, so that a store without collections lists as before.
  */
 function formatPage(page: StorePage, below: string | null): string {
+  const withCollections = page.items.some((entry) => entry.collection !== undefined);
   const rows = page.items.map((entry) => {
     const note = entry.kind === "asset" ? "asset" : entry.readable === false ? "unreadable" : "";
-    return { cells: [entry.path, `${formatCount(entry.size)} B`, formatTokens(entry.size), note] };
+    const collection = withCollections ? [entry.collection ?? ""] : [];
+    return { cells: [entry.path, `${formatCount(entry.size)} B`, formatTokens(entry.size), ...collection, note] };
   });
   let text = formatColumns(rows) + formatUnreadableRecords(page.unreadable.count, page.unreadable.scope);
   if (page.cursor !== null)

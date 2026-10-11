@@ -26,7 +26,7 @@ describe("runConformance", () => {
     expect(Number(/^conformance: (\d+) pass/.exec(result.stdout)?.[1])).toBeGreaterThan(selfTests);
     expect(result.stdout).toContain(join(directory, "conformance-report.json"));
     const report = JSON.parse(await readFile(join(directory, "conformance-report.json"), "utf8"));
-    expect(report.implementation).toEqual({ name: "vollmond-ts", version: "0.0.0", profiles: ["read"] });
+    expect(report.implementation).toEqual({ name: "vollmond-ts", version: "0.0.0", profiles: ["read", "validate"] });
     expect(report.selection).toBeNull();
   });
 

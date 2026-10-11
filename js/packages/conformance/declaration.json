@@ -1,15 +1,87 @@
 {
   "name": "vollmond-ts",
   "version": "0.0.0",
-  "profiles": ["read"],
+  "profiles": ["read", "validate"],
   "skip": [
+    {
+      "id": "addresses/cardinality/keyed-list-duplicate-lenient",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/keyed-list-duplicate-strict",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/keyed-list-exact",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/keyed-list-step",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
     {
       "id": "addresses/cardinality/lenient-anchor-and-derived-selector",
       "reason": "Draft v0.11 (R5): core does not yet return a selector's matches in document order (#89)"
     },
     {
+      "id": "addresses/cardinality/multimap-derived-anchor",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-exact",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-meta",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-not-singular",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-selector",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-selector-no-match",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-suffix-not-singular",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-suffixed-derived-anchor",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/cardinality/multimap-unique-level",
+      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
+    },
+    {
+      "id": "addresses/explicit-refs/positional-steps-allowed-by-default",
+      "reason": "I2.4 (#24): typed references follow in a later pull request"
+    },
+    {
+      "id": "addresses/explicit-refs/positional-steps-not-allowed",
+      "reason": "I2.4 (#24): typed references follow in a later pull request"
+    },
+    {
+      "id": "anchors/blocks-and-tags/block-anchor-with-class",
+      "reason": "Draft v0.11 (P5): the Markdown parser follows in a follow-up pull request"
+    },
+    {
       "id": "anchors/blocks-and-tags/block-anchors-in-later-paragraphs",
       "reason": "Draft v0.11 (T, P10): the anchor table follows in a follow-up pull request"
+    },
+    {
+      "id": "anchors/blocks-and-tags/list-placement",
+      "reason": "Draft v0.11 (T): the anchor table follows in a follow-up pull request"
+    },
+    {
+      "id": "anchors/blocks-and-tags/repeated-invalid-tag",
+      "reason": "Draft v0.11 (Q3): one anchor-invalid per occurrence of a tag follows in a follow-up pull request"
     },
     {
       "id": "data/jsonc/jsonc-data-block",
@@ -46,6 +118,250 @@
     {
       "id": "markdown/parser-review/unknown-data-marker-first-block",
       "reason": "Draft v0.11 (P6): the Markdown parser follows in a follow-up pull request"
+    },
+    {
+      "id": "references/targets/many-reference-to-missing-record",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/missing-image",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/no-targets-allows-any-target",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/reference-into-unreadable-record",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/refs-unreadable-record-empty-fragment",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/refs-unreadable-record-without-fragment",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/refs-unreadable-status",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/targets-restrict",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "references/targets/unreadable-record-without-fragment-no-warning",
+      "reason": "I2.4 (#24): references follow in a later pull request"
+    },
+    {
+      "id": "validation/bom-config/config-and-schema-with-bom",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-composite-key",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-off-spine",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-ref-without-format",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-sections-by-field",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-summary-not-boolean",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-unevaluated-items",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-with-id",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "validation/configuration/schema-yaml-anchor",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/bigint-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/bigint-lexical-forms-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/bigint-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-time-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-time-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-time-space-separator-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-time-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/date-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/decimal-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/decimal-lexical-forms-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/decimal-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/decimal-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/duration-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/duration-iso-only-forms-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/duration-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/duration-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/int64-canonical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/int64-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/int64-lexical-forms-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/int64-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/json-schema-formats-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/json-schema-formats-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/leap-seconds-at-2359-utc-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/leap-seconds-elsewhere-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/local-date-time-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/local-date-time-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/local-date-time-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/no-schema-plain-values",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/time-invalid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/time-lexical-forms-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/logical-types/time-valid",
+      "reason": "I2.2 (#22): schemas follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/ambiguous-key-warned-at-its-mapping",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/ambiguous-numbers-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/ambiguous-strings-in-front-matter",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/ambiguous-strings-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/boolean-casings-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/issues-entry-wins-over-minimal-quoting",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/minimal-quoting-turns-warnings-off",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/mixed-casings-not-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/number-warning-raised-to-error",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/quoted-strings-not-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
+    },
+    {
+      "id": "values/yaml-scalars/writer-number-forms-not-warned",
+      "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
     }
   ]
 }

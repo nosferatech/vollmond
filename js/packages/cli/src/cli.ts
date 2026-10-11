@@ -13,7 +13,7 @@ import { GLOBAL_OPTIONS, type GlobalOptions, type OptionSpec, readCommandLine, r
 import { createFilesystemStorage } from "./backend/filesystem.js";
 import type { Command, IssueOutput, OpenedStore } from "./command/command.js";
 import { BUILT_IN_COMMANDS } from "./command/index.js";
-import { readConfigurationFile } from "./configuration-file.js";
+import { configurationFileSource, readConfigurationFile } from "./configuration-file.js";
 import { ExitCode, exitCodeOf } from "./exit-code.js";
 import { formatIssues, type IssueDetailsSource } from "./output/issues.js";
 import { oneLine } from "./output/lines.js";
@@ -254,7 +254,9 @@ async function openCommandStore(
     return { kind: "failed", report: failure("config-invalid", `the configuration ${reading.reason}`, undefined, details) };
   }
   const storage = createFilesystemStorage(location.root);
-  const opened = await openStore(storage, { config: reading.content });
+  const opened = await openStore(storage, {
+    configuration: configurationFileSource(location.configurationFile, name, reading.content),
+  });
   if (!opened.ok) {
     return {
       kind: "failed",
@@ -353,7 +355,7 @@ function generalHelp(commands: readonly Command[]): string {
     "       vmd --version | --help\n\n" +
     `commands:\n${list}\n` +
     "  --store DIR    the store root; by default the nearest directory upwards that holds .vmd/config.yaml\n" +
-    "  --config FILE  a configuration used in place of the store's .vmd/config.yaml\n" +
+    "  --config FILE  a configuration used in place of the store's .vmd/config.yaml, with its schemas in schema/ beside it\n" +
     "  --json         print every outcome, a failure included, as one JSON object\n" +
     "  --quiet        leave out warnings\n"
   );

@@ -1,0 +1,4 @@
+vmd: 1
+collections:
+  tickets:
+    exclude: ["tickets/README.md"]

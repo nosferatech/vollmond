@@ -23,15 +23,27 @@ export {
 } from "./address/resolve.js";
 export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
+export type { CheckOptions, CheckSummary } from "./check/check.js";
+export { collectionOfRecord, type PathClass, PathClassifier } from "./config/classify.js";
+export {
+  type Collection,
+  type CollectionKey,
+  MAX_CONFIGURATION_BYTES,
+  readStoreConfiguration,
+  type StoreConfiguration,
+  SUPPORTED_FORMAT_VERSION,
+} from "./config/configuration.js";
 export { parseMarkdownRecord } from "./format/markdown/markdown.js";
 export { parseRecord } from "./format/parse-record.js";
 export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type YamlUnitPlace } from "./format/yaml.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
 export { hasStructuralError, type Issue, type IssueInit, makeIssue, type NameOccurrence, repeatedNodes } from "./issue/issue.js";
 export { fail, type Outcome, succeed } from "./issue/outcome.js";
+export { applySeverities, type SeverityConfiguration, type SeveritySetting, settingsAllowed } from "./issue/severity.js";
 export {
   COMPUTED_FIELD_NAMES,
   type ComputedAnchor,
+  type ComputedFieldContext,
   type ComputedFieldName,
   type ComputedFields,
   type ComputedIssue,
@@ -76,15 +88,12 @@ export type {
   StorageHistory,
   StorageReader,
 } from "./storage/storage.js";
+export { filenameMismatch, type ListedPath, pathRuleIssues } from "./store/path-rules.js";
 export {
-  MAX_CONFIGURATION_BYTES,
-  readStoreConfiguration,
-  type StoreConfiguration,
-  SUPPORTED_FORMAT_VERSION,
-} from "./store/configuration.js";
-export {
+  type ConfigurationSource,
   type GetOptions,
   type GetResult,
+  MAX_SCHEMA_BYTES,
   type NodeForm,
   type Outline,
   type OutlineEntry,

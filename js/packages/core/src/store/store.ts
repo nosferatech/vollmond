@@ -8,6 +8,9 @@ import {
   type Target,
 } from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
+import { type CheckOptions, type CheckSummary, checkStore } from "../check/check.js";
+import { collectionOfRecord, type PathClass, PathClassifier } from "../config/classify.js";
+import { type Collection, readStoreConfiguration, type StoreConfiguration } from "../config/configuration.js";
 import { parseRecord } from "../format/parse-record.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
@@ -24,17 +27,43 @@ import type { ParsedRecord } from "../record/record.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
-import { readStoreConfiguration, type StoreConfiguration } from "./configuration.js";
-import { IGNORED_PATH_GLOBS, storePathKind } from "./store-path.js";
 
 /** The store's configuration file, relative to its root. */
 const CONFIGURATION_PATH = ".vmd/config.yaml";
 
+/** The directory of the store's own configuration's schemas, relative to its root. */
+const SCHEMA_DIRECTORY = ".vmd/schema";
+
+/** The largest schema file, in bytes, that vmd reads: a mebibyte, as for the configuration. */
+export const MAX_SCHEMA_BYTES = 1024 * 1024;
+
+/**
+ * Where a store's configuration comes from: the configuration file's bytes, and the schema directory beside it, from which
+ * the collections' schemas are read.
+ */
+export interface ConfigurationSource {
+  /** The configuration file's bytes. */
+  readonly content: Uint8Array;
+  /** The configuration file as messages name it: `.vmd/config.yaml`, or the path a caller was given. */
+  readonly name: string;
+  /**
+   * Reads a file of the schema directory by its path relative to that directory, which has no `.` or `..` segment. Fails with
+   * `address-not-found` when there is none, and with another issue when it cannot be read. A source may stop reading after
+   * one byte more than {@link MAX_SCHEMA_BYTES}, since a longer file is refused whatever it holds.
+   */
+  readSchema(path: string): Promise<Outcome<Uint8Array>>;
+}
+
 /** A file a store lists: a record or an asset, with what the backend says of it. */
 export interface StoreEntry extends FileInfo {
   readonly kind: "record" | "asset";
-  /** For a record, whether it could be read: false for one with a structural error, or one the backend could not read. */
+  /**
+   * For a record, whether it could be read: false for one with a structural error, one the backend could not read, and one of
+   * a collection whose schema cannot be used.
+   */
   readonly readable?: boolean;
+  /** For a record of a collection, the collection's name; absent for a record that no collection, or several, claim. */
+  readonly collection?: string;
 }
 
 /** How many records a listing could not read, and what it counted them in. */
@@ -133,10 +162,13 @@ export interface Outline {
 export interface Store {
   readonly backend: StorageReader;
   readonly configuration: StoreConfiguration;
+  /** Gives what a store path is under the configuration: ignored, an asset, or a record with the collections that claim it. */
+  classify(path: string): PathClass;
   /**
    * Reads and parses the record at a store path, once: the record, or its structural errors; a failure with `storage-failed`
-   * when the backend cannot read it; or null when the store holds no record there, for a missing file, an asset or an ignored
-   * path.
+   * when the backend cannot read it; a failure with the issue of its collection's schema when that schema cannot be used,
+   * since without it the record would be read wrongly; or null when the store holds no record there, for a missing file, an
+   * asset or an ignored path.
    */
   record(path: string): Promise<Outcome<ParsedRecord> | null>;
   /** Gives what {@link Store.record} read at a path, without reading: undefined when it was not read. */
@@ -146,9 +178,10 @@ export interface Store {
   /**
    * Reads the node a singular address names, in the requested form, with the requested computed fields. Fails as resolving
    * does, and with `usage-invalid` for the body form of a node that is neither a section, a `$body` nor a block anchor, since
-   * the address is fine and the form does not apply. A section without a `$body` gives the empty string.
-   * Requested fields that are not computed yet ({@link NOT_COMPUTED_FIELDS}) are given as `null`, with one warning
-   * `field-not-computed` that names them.
+   * the address is fine and the form does not apply. A section without a `$body` gives the empty string. `@collection` is the
+   * name of the record's collection, absent for a record that no collection, or several, claim; `@issues` has the severities
+   * the configuration gives. Requested fields that are not computed yet ({@link NOT_COMPUTED_FIELDS}) are given as `null`,
+   * with one warning `field-not-computed` that names them.
    */
   get(address: string, options?: GetOptions): Promise<Outcome<GetResult>>;
   /**
@@ -162,22 +195,33 @@ export interface Store {
   outline(address: string, options?: { readonly depth?: number; readonly reading?: AddressReading }): Promise<Outcome<Outline>>;
   /**
    * Lists the store's records and assets in UTF-8 byte order of their paths, leaving out the paths vmd ignores, which are not
-   * counted either. Each record on the page is read, to count those that cannot be; the records of other pages are not. Fails
-   * as the backend's `list` does.
+   * counted either. Each record on the page is read, to count those that cannot be; the records of other pages are not. A
+   * record refused for its collection's schema is counted, and the schema's issue is reported once. Fails as the backend's
+   * `list` does.
    */
   list(query: StoreListQuery): Promise<Outcome<StorePage>>;
   /** Searches the text of the store's records and assets as the backend's `grep` does, leaving out the paths vmd ignores. */
   grep(query: Omit<GrepQuery, "exclude">): Promise<Outcome<CountedPage<GrepMatch>>>;
+  /**
+   * Checks the store, or some of its records, and gives the issues found as the outcome's issues, with the severities the
+   * configuration gives them (see `checkStore`). A record of a collection whose schema cannot be used is checked for
+   * everything else. Fails as the backend's `list` does.
+   */
+  check(options?: CheckOptions): Promise<Outcome<CheckSummary>>;
 }
 
 /**
- * Opens a store over a backend: reads its configuration, `config` when given and the backend's `.vmd/config.yaml` otherwise,
- * and fails with that reading's issues, with `config-invalid` when the backend has no configuration file, or with the
- * backend's `storage-failed`. The configuration's warnings are the outcome's issues.
+ * Opens a store over a backend: reads its configuration, from `configuration` when given and otherwise from the backend's
+ * `.vmd/config.yaml`, with the schemas in `.vmd/schema/`. Fails with that reading's issues, with `config-invalid` when the
+ * backend has no configuration file, or with the backend's `storage-failed`. The configuration's warnings are the outcome's
+ * issues. Schemas are read when a record of their collection is first read or checked, not here.
  */
-export async function openStore(backend: StorageReader, options: { readonly config?: Uint8Array } = {}): Promise<Outcome<Store>> {
-  let content = options.config;
-  if (content === undefined) {
+export async function openStore(
+  backend: StorageReader,
+  options: { readonly configuration?: ConfigurationSource } = {},
+): Promise<Outcome<Store>> {
+  let source = options.configuration;
+  if (source === undefined) {
     const file = await backend.read(CONFIGURATION_PATH);
     if (!file.ok) {
       if (file.issues.some((issue) => issue.code !== "address-not-found")) return fail(file.issues);
@@ -185,24 +229,48 @@ export async function openStore(backend: StorageReader, options: { readonly conf
         makeIssue({ code: "config-invalid", path: null, at: null, message: `the store has no ${CONFIGURATION_PATH}` }),
       ]);
     }
-    content = file.value.content;
+    source = backendConfigurationSource(backend, file.value.content);
   }
-  const configuration = readStoreConfiguration(content);
+  const configuration = readStoreConfiguration(source.content);
   if (!configuration.ok) return configuration;
-  return succeed(new BackendStore(backend, configuration.value), configuration.issues);
+  return succeed(new BackendStore(backend, configuration.value, source), configuration.issues);
+}
+
+/** The configuration source of a store's own `.vmd/config.yaml`, whose schemas are in the backend's `.vmd/schema/`. */
+function backendConfigurationSource(backend: StorageReader, content: Uint8Array): ConfigurationSource {
+  return {
+    content,
+    name: CONFIGURATION_PATH,
+    readSchema: async (path) => {
+      const file = await backend.read(`${SCHEMA_DIRECTORY}/${path}`);
+      return file.ok ? succeed(file.value.content) : fail(file.issues);
+    },
+  };
 }
 
 class BackendStore implements Store {
   readonly backend: StorageReader;
   readonly configuration: StoreConfiguration;
+  readonly classifier: PathClassifier;
+  readonly #source: ConfigurationSource;
   /** The records read, by path: the read under way, so that two reads of one path at once share it. */
   readonly #reads = new Map<string, Promise<Outcome<ParsedRecord> | null>>();
   /** The records read, by path, once each read has ended. */
   readonly #read = new Map<string, Outcome<ParsedRecord> | null>();
+  /** The parses of records, whatever their collections' schemas, by path. */
+  readonly #parses = new Map<string, Promise<Outcome<ParsedRecord>>>();
+  /** The issue of each collection's schema, null for one that can be used, as it is first looked at. */
+  readonly #schemaIssues = new Map<Collection, Promise<Issue | null>>();
 
-  constructor(backend: StorageReader, configuration: StoreConfiguration) {
+  constructor(backend: StorageReader, configuration: StoreConfiguration, source: ConfigurationSource) {
     this.backend = backend;
     this.configuration = configuration;
+    this.classifier = new PathClassifier(configuration);
+    this.#source = source;
+  }
+
+  classify(path: string): PathClass {
+    return this.classifier.classify(path);
   }
 
   record(path: string): Promise<Outcome<ParsedRecord> | null> {
@@ -221,11 +289,69 @@ class BackendStore implements Store {
     return this.#read.get(path);
   }
 
+  // Deviation from the I2 design, recorded in issue #21: every read of a record of a collection with a schema reads the schema
+  // first, `ls` included, so that a reader refuses the record when its schema cannot be used, as the specification now says.
+  /** Reads a record for a reader: null where the store holds none, the schema's issue for a refused one, or its parse. */
   async #readRecord(path: string): Promise<Outcome<ParsedRecord> | null> {
-    if (storePathKind(path) !== "record") return null;
-    const file = await this.backend.read(path);
-    if (!file.ok) return file.issues.every((issue) => issue.code === "address-not-found") ? null : fail(file.issues);
-    return parseRecord(path, file.value.content);
+    const found = this.classify(path);
+    if (found.kind !== "record") return null;
+    const collection = collectionOfRecord(found);
+    if (collection !== undefined) {
+      const schemaIssue = await this.schemaIssue(collection);
+      if (schemaIssue !== null) {
+        const stat = await this.backend.stat(path);
+        if (!stat.ok && stat.issues.every((issue) => issue.code === "address-not-found")) return null;
+        return fail([schemaIssue]);
+      }
+    }
+    const parsed = await this.parse(path);
+    return !parsed.ok && parsed.issues.every((issue) => issue.code === "address-not-found") ? null : parsed;
+  }
+
+  parse(path: string): Promise<Outcome<ParsedRecord>> {
+    let parsing = this.#parses.get(path);
+    if (parsing === undefined) {
+      parsing = this.backend.read(path).then((file) => (file.ok ? parseRecord(path, file.value.content) : fail(file.issues)));
+      this.#parses.set(path, parsing);
+    }
+    return parsing;
+  }
+
+  schemaIssue(collection: Collection): Promise<Issue | null> {
+    let issue = this.#schemaIssues.get(collection);
+    if (issue === undefined) {
+      issue = this.#readSchemaIssue(collection);
+      this.#schemaIssues.set(collection, issue);
+    }
+    return issue;
+  }
+
+  // TODO(#22): the schema is only read and its size checked; compiling it, and validating the records, come with schemas.
+  /** Reads a collection's schema file, and gives the issue that makes it unusable, or null when it can be used. */
+  async #readSchemaIssue(collection: Collection): Promise<Issue | null> {
+    const path = collection.schema;
+    if (path === undefined) return null;
+    const read = await this.#source.readSchema(path);
+    let problem: string | null = null;
+    if (!read.ok) {
+      problem = read.issues.every((issue) => issue.code === "address-not-found")
+        ? "does not exist"
+        : `cannot be read: ${read.issues.map((issue) => issue.message).join("; ")}`;
+    } else if (read.value.length > MAX_SCHEMA_BYTES) {
+      problem = `is larger than ${MAX_SCHEMA_BYTES} bytes`;
+    }
+    if (problem === null) return null;
+    return makeIssue({
+      code: "schema-invalid",
+      path: null,
+      at: null,
+      message: `the schema ${path} of the collection ${collection.name} ${problem}, so the collection's records cannot be read`,
+      hint: `schemas are in the schema/ directory beside ${this.#source.name}`,
+    });
+  }
+
+  check(options?: CheckOptions): Promise<Outcome<CheckSummary>> {
+    return checkStore(this, options);
   }
 
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>> {
@@ -240,7 +366,11 @@ class BackendStore implements Store {
     const value = formOf(record, target, options.form ?? "value");
     if (!value.ok) return fail(value.issues);
     if (options.meta === undefined) return succeed({ value: value.value });
-    const meta = await computeFields(record, target, options.meta);
+    const collection = collectionOfRecord(this.classify(record.path));
+    const meta = await computeFields(record, target, options.meta, {
+      severities: this.configuration,
+      ...(collection === undefined ? {} : { collection: collection.name }),
+    });
     const requested: readonly ComputedFieldName[] = options.meta === "all" ? COMPUTED_FIELD_NAMES : options.meta;
     const pending = NOT_COMPUTED_FIELDS.filter((name) => requested.includes(name));
     return succeed({ value: value.value, meta }, pending.length === 0 ? [] : [notComputedWarning(pending)]);
@@ -286,7 +416,7 @@ class BackendStore implements Store {
     const listed = await this.backend.list({
       prefix: "",
       ...(query.glob === undefined ? {} : { glob: query.glob }),
-      exclude: IGNORED_PATH_GLOBS,
+      exclude: this.classifier.ignoredGlobs,
       limit: query.limit,
       ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
     });
@@ -294,27 +424,34 @@ class BackendStore implements Store {
     const issues: Issue[] = [...listed.issues];
     // A record the backend could not read is left out of the page, and is still a record this page could not read.
     let unreadable = listed.issues.filter(
-      (issue) => issue.code === "storage-failed" && issue.path !== null && storePathKind(issue.path) === "record",
+      (issue) => issue.code === "storage-failed" && issue.path !== null && this.classify(issue.path).kind === "record",
     ).length;
     const items: StoreEntry[] = [];
     for (const file of listed.value.items) {
-      if (storePathKind(file.path) !== "record") {
+      const found = this.classify(file.path);
+      if (found.kind !== "record") {
         items.push({ ...file, kind: "asset" });
         continue;
       }
       const read = await this.record(file.path);
       const readable = read?.ok === true;
       if (!readable) unreadable += 1;
-      // A structural error is counted, not reported: it is the record's, and `get` reports it. A failed read is the listing's.
-      if (read !== null && !read.ok) issues.push(...read.issues.filter((issue) => issue.code === "storage-failed"));
-      items.push({ ...file, kind: "record", readable });
+      // A structural error is counted, not reported: it is the record's, and `get` reports it. A failed read is the listing's,
+      // and so is a schema that cannot be used, reported once however many of its records the page holds.
+      if (read !== null && !read.ok) {
+        for (const issue of read.issues) {
+          if (issue.code === "storage-failed" || (issue.path === null && !issues.includes(issue))) issues.push(issue);
+        }
+      }
+      const collection = collectionOfRecord(found);
+      items.push({ ...file, kind: "record", readable, ...(collection === undefined ? {} : { collection: collection.name }) });
     }
     const { cursor, remaining } = listed.value;
     return succeed({ items, cursor, remaining, unreadable: { count: unreadable, scope: "page" } }, issues);
   }
 
   grep(query: Omit<GrepQuery, "exclude">): Promise<Outcome<CountedPage<GrepMatch>>> {
-    return this.backend.grep({ ...query, exclude: IGNORED_PATH_GLOBS });
+    return this.backend.grep({ ...query, exclude: this.classifier.ignoredGlobs });
   }
 }
 

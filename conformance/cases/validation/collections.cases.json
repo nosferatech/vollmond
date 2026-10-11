@@ -1,0 +1,565 @@
+{
+  "defaults": {
+    "spec": [
+      "9.1"
+    ],
+    "profiles": [
+      "validate"
+    ],
+    "operation": "check",
+    "input": {
+      "store": "collections"
+    }
+  },
+  "cases": [
+    {
+      "id": "filename-mismatch",
+      "spec": [
+        "3.2",
+        "9.1",
+        "D"
+      ],
+      "description": "A record of a collection whose file name does not match the collection's filename pattern gets filename-mismatch at its root; a record excluded from the collection and a file under an ignored glob are not checked against it, and the ignored file's syntax error is not reported either.",
+      "expect": {
+        "issues": [
+          {
+            "code": "filename-mismatch",
+            "severity": "error",
+            "path": "tickets/12-short.md",
+            "at": ""
+          },
+          {
+            "code": "heading-html",
+            "severity": "warning",
+            "path": "notes/html.md",
+            "at": "/$sections/0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "filename-matches",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A record whose file name matches its collection's filename pattern gets no filename-mismatch.",
+      "input": {
+        "records": [
+          "tickets/0001-first.md"
+        ]
+      },
+      "expect": {}
+    },
+    {
+      "id": "every-member",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A configuration that gives every member, with a newer minor version, reads without a configuration issue, and its issues entry raises heading-html to an error (§9.1, decisions U10, U13 and U21).",
+      "input": {
+        "config": "config-full.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "filename-mismatch",
+            "severity": "error",
+            "path": "tickets/12-short.md",
+            "at": ""
+          },
+          {
+            "code": "heading-html",
+            "severity": "error",
+            "path": "notes/html.md",
+            "at": "/$sections/0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-no-vmd",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A configuration without vmd is config-invalid.",
+      "input": {
+        "config": "config-no-vmd.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-uniqueness",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A uniqueness other than strict or lenient is config-invalid.",
+      "input": {
+        "config": "config-uniqueness.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-yaml-quoting",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A yaml_quoting other than compatible or minimal is config-invalid.",
+      "input": {
+        "config": "config-yaml-quoting.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-not-mapping",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues member that is not a mapping is config-invalid.",
+      "input": {
+        "config": "config-issues-not-mapping.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-unknown-code",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues entry for a code Appendix D does not define is config-invalid.",
+      "input": {
+        "config": "config-issues-unknown-code.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-setting",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues entry whose setting is not off, warning or error is config-invalid.",
+      "input": {
+        "config": "config-issues-setting.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-structural",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues entry for a structural code, which cannot be configured is config-invalid.",
+      "input": {
+        "config": "config-issues-structural.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-operation",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues entry for an operation code, which cannot be configured is config-invalid.",
+      "input": {
+        "config": "config-issues-operation.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-issues-lowered-error",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "An issues entry that lowers a validation error, which stays an error is config-invalid.",
+      "input": {
+        "config": "config-issues-lowered-error.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-collections-not-mapping",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A collections member that is not a mapping is config-invalid.",
+      "input": {
+        "config": "config-collections-not-mapping.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-collection-not-mapping",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A collection that is not a mapping is config-invalid.",
+      "input": {
+        "config": "config-collection-not-mapping.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-match-missing",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A collection without match is config-invalid.",
+      "input": {
+        "config": "config-match-missing.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-match-empty",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A collection whose match lists no glob is config-invalid.",
+      "input": {
+        "config": "config-match-empty.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-match-glob",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A malformed glob in match is config-invalid.",
+      "input": {
+        "config": "config-match-glob.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-exclude-glob",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A malformed glob in exclude is config-invalid.",
+      "input": {
+        "config": "config-exclude-glob.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-schema-path",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A schema path with a .. segment, which would leave the schema directory is config-invalid.",
+      "input": {
+        "config": "config-schema-path.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-filename-pattern",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A filename pattern outside the portable subset is config-invalid.",
+      "input": {
+        "config": "config-filename-pattern.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-key-forms",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A key that gives both filename and field is config-invalid.",
+      "input": {
+        "config": "config-key-forms.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-key-groups",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A key pattern without exactly one capture group is config-invalid.",
+      "input": {
+        "config": "config-key-groups.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-query-target",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A query target other than records or nodes is config-invalid.",
+      "input": {
+        "config": "config-query-target.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "config-invalid-ignore-glob",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A malformed glob in ignore is config-invalid.",
+      "input": {
+        "config": "config-ignore-glob.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "config-invalid",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "unknown-collection-member",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A member of a collection that this version does not define is feature-unsupported, as one at the top is, since a newer minor version may define it (§9.1, decision U21).",
+      "input": {
+        "config": "config-collection-member.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "feature-unsupported",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "unknown-key-member",
+      "spec": [
+        "9.1",
+        "D"
+      ],
+      "description": "A member of a collection's key that this version does not define is feature-unsupported (§9.1, decision U21).",
+      "input": {
+        "config": "config-key-member.yaml"
+      },
+      "expect": {
+        "issues": [
+          {
+            "code": "feature-unsupported",
+            "severity": "error",
+            "path": null,
+            "at": null
+          }
+        ]
+      }
+    }
+  ]
+}
