@@ -124,9 +124,14 @@ describe("resolveReferenceUri", () => {
     expect(resolveReferenceUri("docs/a.md", "caf%C3%A9.md")).toMatchObject({ kind: "store", path: "docs/café.md" });
   });
 
-  test("keeps an encoded dot inside its segment, as RFC 3986 does, and refuses an encoded slash", () => {
-    // The path is decoded after its dot segments are removed, so `%2E%2E` is a segment of that name, which no store path has.
-    expect(resolveReferenceUri("docs/a.md", "%2E%2E/x.md")).toMatchObject({ kind: "store", path: "docs/../x.md" });
+  test("keeps an encoded dot inside its segment, as RFC 3986 does, and refuses it and an encoded slash", () => {
+    // The path is decoded after its dot segments are removed, so `%2E%2E` is a segment of that name, which no store path has;
+    // the message names the encoded segment.
+    const dots = resolveReferenceUri("docs/a.md", "%2E%2E/x.md");
+    expect(dots.kind).toBe("invalid");
+    expect(dots.kind === "invalid" && dots.message).toMatch(/its segment %2E%2E encodes \.\./);
+    // Its near miss: an encoded dot inside a name is a character of it.
+    expect(resolveReferenceUri("docs/a.md", "a%2Eb.md")).toMatchObject({ kind: "store", path: "docs/a.b.md" });
     // A segment that decodes to hold a `/` names no store path, rather than the path its slash would make.
     const slash = resolveReferenceUri("docs/a.md", "a%2Fb.md");
     expect(slash.kind).toBe("invalid");

@@ -30,7 +30,8 @@ const UTF8 = new TextEncoder();
  * - dot segments are removed, and a `..` that would climb above the store root puts the reference outside the store, where
  *   RFC 3986's algorithm would drop it silently;
  * - the path is then percent-decoded as UTF-8, segment by segment: a `%` that does not start two hexadecimal digits, escaped
- *   bytes that are not UTF-8, and a segment that decodes to hold a `/`, make it `invalid`. An encoded dot is not a dot segment;
+ *   bytes that are not UTF-8, a segment that decodes to hold a `/`, and one that decodes to `.` or `..`, make it `invalid`,
+ *   since an encoded dot is not a dot segment and no store path has one;
  * - a query is ignored, and the fragment is kept as written.
  *
  * Characters that a URI does not allow, such as a space or a letter outside ASCII, are taken as themselves, as a Markdown
@@ -68,6 +69,12 @@ export function resolveReferenceUri(citingPath: string, uri: string): UriResolut
     if (text === null) return { kind: "invalid", message: `the path of ${JSON.stringify(uri)} does not decode as UTF-8` };
     if (text.includes("/")) {
       return { kind: "invalid", message: `the path of ${JSON.stringify(uri)} does not decode to a store path: it encodes a /` };
+    }
+    if (text === "." || text === "..") {
+      return {
+        kind: "invalid",
+        message: `the path of ${JSON.stringify(uri)} does not decode to a store path: its segment ${segment} encodes ${text}`,
+      };
     }
     decoded.push(text);
   }

@@ -450,7 +450,7 @@ objects with these members:
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
   `ok` (§8.5). An `ambiguous` reference lists the nodes that its step matched, in document order, as `resolve` gives the
   candidates of an ambiguous address (reading R8 of the I2 design, `docs/design/i2-validate.md` §11), and an asset or a
-  directory is listed by its `path` alone.
+  directory is listed by its `path` alone, a directory's without a trailing `/` and the store root's as `""`.
 
 Links that leave the store are not listed (§8.2).
 

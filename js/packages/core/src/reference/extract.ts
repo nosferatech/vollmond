@@ -1,7 +1,8 @@
 import type { Nodes } from "mdast";
-import { parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
+import { definitionLabelsIn, parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
 import { collectLinks } from "../format/markdown/links.js";
 import { childPath } from "../record/exact-path.js";
+import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
@@ -20,6 +21,13 @@ const UTF8 = new TextEncoder();
  */
 export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurrence[] {
   const inside = (at: string) => under === "" || at === under || at.startsWith(`${under}/`);
+  let labels: readonly string[] | null = null;
+  // Only a link reference has a label to look up, and it holds a `[`.
+  const labelsFor = (title: string): readonly string[] => {
+    if (!title.includes("[")) return [];
+    labels ??= definitionLabelsOf(record);
+    return labels;
+  };
   const found: ReferenceOccurrence[] = (record.links ?? []).filter((link) => inside(link.at));
   const pending: { readonly value: Value; readonly at: string; readonly section: boolean }[] = [
     { value: record.value, at: "", section: true },
@@ -50,7 +58,7 @@ export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurr
         });
       } else if (section && (name === "$body" || name === "$title")) {
         if (record.format !== "md" && typeof member === "string" && inside(memberAt)) {
-          found.push(...proseLinks(member, memberAt, name === "$title"));
+          found.push(...proseLinks(member, memberAt, name === "$title" ? labelsFor(member) : null));
         }
       } else if (!section || !name.startsWith("$")) {
         pending.push({ value: member, at: memberAt, section: false });
@@ -83,14 +91,30 @@ function rawRange(record: ParsedRecord, range: ByteRange, raw: string): ByteRang
 }
 
 /**
- * Parses a JSON or YAML record's `$body` as a Markdown document, or its `$title` as a heading's inline content, and gives its
- * links at their offsets in the string. They have no destination range, since the string's bytes in the file may hold
- * escapes. A title's link references are not references, so the definitions they would need are not looked up.
+ * Gives the labels of the link reference definitions in every section's `$body` of a JSON or YAML record, as written, which
+ * are in scope in each of its titles.
  */
-function proseLinks(text: string, at: string, title: boolean): ReferenceOccurrence[] {
+export function definitionLabelsOf(record: ParsedRecord): string[] {
+  const labels: string[] = [];
+  for (const section of record.nodes.sections()) {
+    const body = (valueAt(record, section.at) as ValueObject).$body;
+    if (typeof body === "string") labels.push(...definitionLabelsIn(body));
+  }
+  return labels;
+}
+
+// Deviation from the specification, recorded in issue #24: a JSON or YAML `$body` beyond the Markdown parser's limits gives no
+// references and no issue, since the specification bounds a data `$title` but not a data `$body`.
+/**
+ * Parses a JSON or YAML record's `$body` as a Markdown document, or its `$title` as a heading's inline content with the
+ * definitions whose labels are `titleLabels` in scope, and gives its links at their offsets in the string. They have no
+ * destination range, since the string's bytes in the file may hold escapes. `titleLabels` is null for a `$body`.
+ */
+function proseLinks(text: string, at: string, titleLabels: readonly string[] | null): ReferenceOccurrence[] {
+  const title = titleLabels !== null;
   let nodes: readonly Nodes[];
-  if (title) {
-    const content = parseInlineContent(text, []);
+  if (titleLabels !== null) {
+    const content = parseInlineContent(text, titleLabels);
     if (content === null) return [];
     nodes = content;
   } else {

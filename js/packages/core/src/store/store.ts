@@ -437,35 +437,59 @@ class BackendStore implements Store {
     return checkStore(this, options);
   }
 
-  referenceResolver(): Promise<Outcome<ReferenceResolver>> {
-    this.#resolver ??= this.#readReferenceResolver();
+  /**
+   * Gives the resolver of the store's references, made once. `listing`, the store's files but the ignored ones as a check
+   * has just listed them, spares a second listing; without it, the resolver lists the store itself.
+   */
+  referenceResolver(listing?: readonly string[]): Promise<Outcome<ReferenceResolver>> {
+    this.#resolver ??= this.#readReferenceResolver(listing);
     return this.#resolver;
   }
 
-  /** Lists every file of the store, ignored ones included, and reads its alias file, for the resolver of its references. */
-  async #readReferenceResolver(): Promise<Outcome<ReferenceResolver>> {
-    const files: string[] = [];
+  /** Lists the store's files but the ignored ones, unless given them, and reads its alias file, for the resolver. */
+  async #readReferenceResolver(listing: readonly string[] | undefined): Promise<Outcome<ReferenceResolver>> {
+    const files: string[] = listing === undefined ? [] : [...listing];
     let cursor: string | null = null;
-    do {
-      const page = await this.backend.list({ prefix: "", limit: REFERENCE_LIST_PAGE, ...(cursor === null ? {} : { cursor }) });
+    while (listing === undefined) {
+      const page = await this.backend.list({
+        prefix: "",
+        exclude: this.classifier.ignoredGlobs,
+        limit: REFERENCE_LIST_PAGE,
+        ...(cursor === null ? {} : { cursor }),
+      });
       if (!page.ok) return fail(page.issues);
       for (const file of page.value.items) files.push(file.path);
       // A file the backend could not read when listing it is still there, for a reference to it.
       for (const issue of page.issues) if (issue.code === "storage-failed" && issue.path !== null) files.push(issue.path);
       cursor = page.value.cursor;
-    } while (cursor !== null);
+      if (cursor === null) break;
+    }
     let aliases = NO_ALIASES;
-    if (files.includes(ALIASES_PATH)) {
-      const file = await this.backend.read(ALIASES_PATH);
-      if (!file.ok) return fail(file.issues);
+    const file = await this.backend.read(ALIASES_PATH);
+    if (file.ok) {
       if ("oversized" in file.value) throw new Error("a read without a size bound gave an oversized file");
       const read = readAliases(file.value.content);
       if (!read.ok) return fail(read.issues);
       aliases = read.value;
+    } else if (!file.issues.every((issue) => issue.code === "address-not-found")) {
+      return fail(file.issues);
     }
-    return succeed(
-      new ReferenceResolver({ classify: (path) => this.classify(path), record: (path) => this.record(path) }, files, aliases),
-    );
+    const store = {
+      classify: (path: string) => this.classify(path),
+      record: (path: string) => this.record(path),
+      exists: (path: string, directory: boolean) => this.#exists(path, directory),
+    };
+    return succeed(new ReferenceResolver(store, files, aliases));
+  }
+
+  /** Whether a file is at `path`, or below it for `directory`, ignored paths included; a file it cannot read is there. */
+  async #exists(path: string, directory: boolean): Promise<boolean> {
+    if (directory) {
+      const below = await this.backend.list({ prefix: `${path}/`, limit: 1 });
+      return below.ok && (below.value.items.length > 0 || below.issues.some((issue) => issue.code === "storage-failed"));
+    }
+    const stat = await this.backend.stat(path);
+    return stat.ok || !stat.issues.every((issue) => issue.code === "address-not-found");
   }
 
   async references(query: ReferencesQuery = {}): Promise<Outcome<readonly Reference[]>> {

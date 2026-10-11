@@ -35,8 +35,11 @@ export interface CheckedStore {
   parse(path: string): Promise<Outcome<ParsedRecord>>;
   /** The issue that makes a collection's schema unusable, the same one each time; null when its schema can be used or it has none. */
   schemaIssue(collection: Collection): Promise<Issue | null>;
-  /** The resolver of the store's references, the same one each time, or why there is none, such as an invalid alias file. */
-  referenceResolver(): Promise<Outcome<ReferenceResolver>>;
+  /**
+   * The resolver of the store's references, the same one each time, or why there is none, such as an invalid alias file;
+   * `listing` is the store's files but the ignored ones, which the check has listed.
+   */
+  referenceResolver(listing: readonly string[]): Promise<Outcome<ReferenceResolver>>;
 }
 
 /** How many paths a page of the listing that a check reads holds. */
@@ -54,8 +57,7 @@ const LIST_PAGE = 1000;
  * - once per collection, the issue that makes its schema unusable; the collection's records are still checked for everything
  *   else;
  * - the issues of the references of each record without a structural error, resolved against the store as readers read it,
- *   and `alias-shadowed`
- *   for a record's path, or an anchor of it, that an alias has as its old name.
+ *   and `alias-shadowed` for a record's path, or an anchor of it, that an alias has as its old name.
  *
  * With `records`, only those records' issues are reported, and a collection's schema issue only when one of them is in it.
  * Fails as the backend's `list` does, with nothing checked, and with the issue of an alias file that cannot be read as one,
@@ -90,7 +92,9 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
   ).length;
   let checked = failedRecords;
   let unreadable = failedRecords;
-  const resolver = await store.referenceResolver();
+  // A file the backend could not read when listing it is still there, for a reference to it.
+  const unread = listed.issues.flatMap((issue) => (issue.code === "storage-failed" && issue.path !== null ? [issue.path] : []));
+  const resolver = await store.referenceResolver([...listed.value.map((file) => file.path), ...unread]);
   if (!resolver.ok) return fail(resolver.issues);
   for (const record of records) {
     if (!inScope(record.path)) continue;

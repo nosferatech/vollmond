@@ -126,6 +126,25 @@
       "expect": {"issues": [{"code": "ref-dangling", "severity": "error", "path": "refs/prose.json", "at": "/missing/0"}]}
     },
     {
+      "id": "refs-data-title-definitions-in-scope",
+      "spec": ["5.4", "8.1"],
+      "description": "A JSON $title is read as a heading's inline content with the link reference definitions of the record's $body values in scope, so [a][b](c.md) is a reference to the definition of b, followed by text, and not a link to c.md, as in a Markdown heading (§5.4, decision Q1).",
+      "input": {"record": "refs/title-definition.json"},
+      "expect": {"result": [
+        {"from": {"path": "refs/title-definition.json", "at": "/$body", "offset": 7}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-directory-targets",
+      "spec": ["8.2", "8.5"],
+      "description": "A directory target is its path without a trailing /, and the store root's is the empty path (§8.2).",
+      "input": {"record": "refs/root.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/root.md", "at": "/$body", "offset": 0}, "raw": "../", "status": "ok", "targets": [{"path": ""}]},
+        {"from": {"path": "refs/root.md", "at": "/$body", "offset": 9}, "raw": "../docs", "status": "ok", "targets": [{"path": "docs"}]}
+      ]}
+    },
+    {
       "id": "refs-yaml-prose",
       "spec": ["5.9", "8.1"],
       "description": "A YAML record's $body and a section's $title are Markdown too: an image in the $body, which is missing, and a link in the title (§8.1, decisions C21 and U7).",

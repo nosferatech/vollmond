@@ -38,6 +38,8 @@ export interface AliasTable {
   recordMove(path: string): string | undefined;
   /** Gives the anchor of `record` that `name` was renamed to, or undefined when no anchor alias has them. */
   anchorRename(record: string, name: string): string | undefined;
+  /** Gives the anchor aliases of a record, from each old name to the new one; an empty map for a record without any. */
+  anchorRenamesOf(record: string): ReadonlyMap<string, string>;
 }
 
 /** The members of each kind of entry. */
@@ -54,7 +56,8 @@ export const NO_ALIASES: AliasTable = aliasTableOf([]);
 /**
  * Reads an alias file: JSON Lines, each line a JSON object, either `{"kind": "record", "from", "to", "at"}` with store paths, or
  * `{"kind": "anchor", "record", "from", "to", "at"}` with a store path and two anchor names, `at` a string, and no other member.
- * A line ends at LF, a CR before it included; the last line may end without one. Fails with one `alias-file-invalid`, which
+ * A byte order mark at the start is skipped. A line ends at LF, a CR before it included; the last line may end without one.
+ * Fails with one `alias-file-invalid`, which
  * has no node, naming the first line that breaks these rules: a file that is not UTF-8, an empty line, a line that is not JSON
  * or holds a duplicate member, or an entry of another shape.
  */
@@ -65,7 +68,8 @@ export function readAliases(content: Uint8Array): Outcome<AliasTable> {
   const text = source.text;
   const entries: Alias[] = [];
   let line = 0;
-  for (let start = 0; start < text.length; line += 1) {
+  // A byte order mark is not part of the first line, as in every file vmd reads.
+  for (let start = source.hasBom ? 1 : 0; start < text.length; line += 1) {
     const newline = text.indexOf("\n", start);
     const next = newline < 0 ? text.length : newline + 1;
     // A CR before the LF is JSON white space, which the line's parse reads past.
@@ -115,6 +119,8 @@ function aliasOf(object: ValueObject): Alias | string {
   return { kind, record: text("record"), from: text("from"), to: text("to"), at: text("at") };
 }
 
+const NO_RENAMES: ReadonlyMap<string, string> = new Map();
+
 /** Builds the lookups of a table, the last entry of each old name winning. */
 function aliasTableOf(entries: readonly Alias[]): AliasTable {
   const moves = new Map<string, string>();
@@ -135,6 +141,7 @@ function aliasTableOf(entries: readonly Alias[]): AliasTable {
     entries: Object.freeze([...entries]),
     recordMove: (path: string) => moves.get(path),
     anchorRename: (record: string, name: string) => renames.get(record)?.get(name),
+    anchorRenamesOf: (record: string) => renames.get(record) ?? NO_RENAMES,
   });
 }
 

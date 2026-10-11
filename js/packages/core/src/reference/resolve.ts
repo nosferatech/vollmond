@@ -2,14 +2,13 @@ import { type Fragment, formatFragment, readFragment } from "../address/address.
 import { resolveAddress, resolveAddressSteps, type StepMatch, type Target } from "../address/resolve.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
 import type { PathClass } from "../config/classify.js";
-import { definitionLabelsIn } from "../format/markdown/library.js";
 import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ValueObject } from "../value/value.js";
 import type { AliasTable } from "./aliases.js";
-import { occurrencesOf } from "./extract.js";
+import { definitionLabelsOf, occurrencesOf } from "./extract.js";
 import type { Reference, ReferenceOccurrence, ReferenceStatus, ReferenceTarget } from "./reference.js";
 import { resolveReferenceUri } from "./uri.js";
 
@@ -19,6 +18,11 @@ export interface ReferenceStore {
   classify(path: string): PathClass;
   /** Reads a record as readers do: a failure for one with a structural error or one refused for its schema. */
   record(path: string): Promise<Outcome<ParsedRecord> | null>;
+  /**
+   * Looks up a path that the listing the resolver was given leaves out, because the configuration ignores it: whether a file
+   * is there, or for `directory`, whether a file is below it. A file the backend cannot read is there.
+   */
+  exists(path: string, directory: boolean): Promise<boolean>;
 }
 
 /** What a target path and fragment resolved to, before aliases and warnings. */
@@ -44,16 +48,18 @@ interface Steps {
 
 /**
  * Resolves the references of a store's records against its files, its records and its aliases, all read once: the files are
- * the store's every file, ignored ones included, and a record is read as a reader reads it. It is meant for one operation, as a
- * store is.
+ * those of the store's listing without the paths vmd ignores, an ignored path that a reference names is looked up on its own,
+ * once, and a record is read as a reader reads it. It is meant for one operation, as a store is.
  */
 export class ReferenceResolver {
   readonly #store: ReferenceStore;
   readonly #files: ReadonlySet<string>;
   readonly #directories: ReadonlySet<string>;
   readonly #aliases: AliasTable;
+  /** What the store said of each ignored path looked up, by `path` for a file and `path/` for a directory. */
+  readonly #lookedUp = new Map<string, Promise<boolean>>();
 
-  /** Takes the store paths of every file of the store, and its aliases. */
+  /** Takes the store paths of the store's files but those vmd ignores, and its aliases. */
   constructor(store: ReferenceStore, files: Iterable<string>, aliases: AliasTable) {
     this.#store = store;
     this.#files = new Set(files);
@@ -65,6 +71,20 @@ export class ReferenceResolver {
     }
     this.#directories = directories;
     this.#aliases = aliases;
+  }
+
+  /** Whether a file is at `path`, or for `directory` below it: in the listing, or for an ignored path, by looking it up. */
+  async #exists(path: string, directory: boolean): Promise<boolean> {
+    if (directory ? this.#directories.has(path) : this.#files.has(path)) return true;
+    // A path is left out of the listing only when the configuration ignores it, or ignores what is below it.
+    if (this.#store.classify(directory ? `${path}/x` : path).kind !== "ignored") return false;
+    const key = directory ? `${path}/` : path;
+    let found = this.#lookedUp.get(key);
+    if (found === undefined) {
+      found = this.#store.exists(path, directory);
+      this.#lookedUp.set(key, found);
+    }
+    return found;
   }
 
   /** The store paths of every record among the store's files, in the order given. */
@@ -92,35 +112,35 @@ export class ReferenceResolver {
    */
   async issuesOf(path: string, record: ParsedRecord | null): Promise<Issue[]> {
     const issues: Issue[] = [];
-    for (const alias of this.#aliases.entries) {
-      if (alias.kind === "record" && alias.from === path) {
+    const moved = this.#aliases.recordMove(path);
+    if (moved !== undefined) {
+      issues.push(
+        makeIssue({
+          code: "alias-shadowed",
+          path,
+          at: "",
+          message: `${path} is the old path of an alias to ${moved}, so references to it reach this record, not ${moved}`,
+          hint: "a live record wins over an alias; remove the alias, or move this record",
+        }),
+      );
+    }
+    for (const [from, to] of record === null ? [] : this.#aliases.anchorRenamesOf(path)) {
+      // A node's explicit and derived anchors may share the name: one warning per node, a block being a node of its own.
+      const nodes = new Set<unknown>();
+      for (const entry of (record as ParsedRecord).anchors.named(from)) {
+        const node = entry.kind === "block" ? entry : entry.at;
+        if (nodes.has(node)) continue;
+        nodes.add(node);
         issues.push(
           makeIssue({
             code: "alias-shadowed",
             path,
-            at: "",
-            message: `${path} is the old path of an alias to ${alias.to}, so references to it reach this record, not ${alias.to}`,
-            hint: "a live record wins over an alias; remove the alias, or move this record",
+            at: entry.at,
+            message: `the anchor ${JSON.stringify(from)} is the old name of an alias to ${JSON.stringify(to)}, so references to it reach this node`,
+            hint: "a live anchor wins over an alias; remove the alias, or rename this anchor",
+            ...(entry.kind === "block" ? { offset: entry.range.start } : {}),
           }),
         );
-      } else if (alias.kind === "anchor" && alias.record === path && record !== null) {
-        // A node's explicit and derived anchors may share the name: one warning per node, a block being a node of its own.
-        const nodes = new Set<unknown>();
-        for (const entry of record.anchors.named(alias.from)) {
-          const node = entry.kind === "block" ? entry : entry.at;
-          if (nodes.has(node)) continue;
-          nodes.add(node);
-          issues.push(
-            makeIssue({
-              code: "alias-shadowed",
-              path,
-              at: entry.at,
-              message: `the anchor ${JSON.stringify(alias.from)} is the old name of an alias to ${JSON.stringify(alias.to)}, so references to it reach this node`,
-              hint: "a live anchor wins over an alias; remove the alias, or rename this anchor",
-              ...(entry.kind === "block" ? { offset: entry.range.start } : {}),
-            }),
-          );
-        }
       }
     }
     if (record !== null) for (const reference of await this.referencesOf(record)) issues.push(...reference.issues);
@@ -150,12 +170,12 @@ export class ReferenceResolver {
   /** Resolves a target path and fragment against the live store. */
   async #resolveTarget(path: string, directory: boolean, fragmentText: string | null): Promise<Resolution> {
     if (directory) {
-      return this.#directories.has(path)
+      return (await this.#exists(path, true))
         ? { status: "ok", targets: [{ path, kind: "directory" }] }
         : { status: "dangling", message: `the store has no directory ${path}/`, missing: true };
     }
-    if (!this.#files.has(path)) {
-      if (this.#directories.has(path)) return { status: "ok", targets: [{ path, kind: "directory" }] };
+    if (!(await this.#exists(path, false))) {
+      if (await this.#exists(path, true)) return { status: "ok", targets: [{ path, kind: "directory" }] };
       return { status: "dangling", message: `the store has no file ${path}`, missing: true };
     }
     if (this.#store.classify(path).kind !== "record") return { status: "ok", targets: [{ path, kind: "asset" }] };
@@ -198,11 +218,14 @@ export class ReferenceResolver {
     if (live.status === "dangling" && live.missing === true) {
       const seen = new Set([path]);
       let target = path;
-      for (let next = this.#aliases.recordMove(target); next !== undefined; next = this.#aliases.recordMove(target)) {
+      // A chain is no longer than the entries, which bounds the walk if the paths seen ever failed to.
+      const bound = this.#aliases.entries.length;
+      for (let step = 0, next = this.#aliases.recordMove(target); next !== undefined && step < bound; step += 1) {
         if (seen.has(next)) break;
         seen.add(next);
         target = next;
-        if (this.#files.has(target)) break;
+        if (await this.#exists(target, false)) break;
+        next = this.#aliases.recordMove(target);
       }
       if (target === path) return null;
       current = await this.#resolveTarget(target, false, fragmentText);
@@ -328,16 +351,6 @@ function derivedAnchorWarning(steps: Steps): Pick<IssueInit, "code" | "message" 
     message: `reaches its target through the title-derived name ${JSON.stringify(step)}, which changes when the title does`,
     hint,
   };
-}
-
-/** The labels of the link reference definitions in every section's `$body`, in scope in every title of a record. */
-function definitionLabelsOf(record: ParsedRecord): string[] {
-  const labels: string[] = [];
-  for (const section of record.nodes.sections()) {
-    const body = (valueAt(record, section.at) as ValueObject).$body;
-    if (typeof body === "string") labels.push(...definitionLabelsIn(body));
-  }
-  return labels;
 }
 
 const slugCountsOf = new WeakMap<ParsedRecord, ReadonlyMap<string, number>>();

@@ -331,7 +331,6 @@ describe("the alias file", () => {
       `{"kind": "record", "from": "a.md", "to": 1, "at": "${at}"}`,
       `{"kind": "anchor", "record": "a.md", "from": "has space", "to": "b", "at": "${at}"}`,
       `{"kind": "anchor", "from": "a", "to": "b", "at": "${at}"}`,
-      `﻿${valid}`,
     ];
     for (const content of invalid) {
       const store = await storeOf({ ".vmd/aliases.jsonl": content, "docs/r.md": "# R\n" });
