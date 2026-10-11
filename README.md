@@ -10,7 +10,8 @@ Each language has its own top-level directory. The TypeScript implementation is 
 (`@vollmond/core`, no Node APIs, so it also runs in browsers and Lambda), `js/packages/cli` (`@vollmond/cli`, the `vmd`
 command) and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans
 and specification are in `docs/`, and the conformance suite in `conformance/`; both are shared by all languages and stay at the
-root.
+root. `examples/` holds configurations for stores kept outside this repository, with their demonstrations, such as
+`examples/vampiredb/` (task I1.11).
 
 Prerequisites: Node 24 or later and npm. Run the commands below in `js/`.
 
