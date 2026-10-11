@@ -15,11 +15,15 @@ export const ExitCode = Object.freeze({
 });
 
 /**
- * Gives the exit code of a command's outcome. A failure is {@link ExitCode.conflict} when one of its issues is a `conflict`, and
- * {@link ExitCode.error} otherwise. A success is {@link ExitCode.validationFailed} when one of its issues is an error, and
- * {@link ExitCode.ok} when they are warnings or there are none.
+ * Gives the exit code of a command's outcome. A failure is {@link ExitCode.usage} when one of its issues is a `usage-invalid`,
+ * {@link ExitCode.conflict} when one is a `conflict`, and {@link ExitCode.error} otherwise. A success is
+ * {@link ExitCode.validationFailed} when one of its issues is an error, and {@link ExitCode.ok} when they are warnings or there
+ * are none.
  */
 export function exitCodeOf(outcome: Outcome<unknown>): number {
-  if (!outcome.ok) return outcome.issues.some((issue) => issue.code === "conflict") ? ExitCode.conflict : ExitCode.error;
+  if (!outcome.ok) {
+    if (outcome.issues.some((issue) => issue.code === "usage-invalid")) return ExitCode.usage;
+    return outcome.issues.some((issue) => issue.code === "conflict") ? ExitCode.conflict : ExitCode.error;
+  }
   return outcome.issues.some((issue) => issue.severity === "error") ? ExitCode.validationFailed : ExitCode.ok;
 }

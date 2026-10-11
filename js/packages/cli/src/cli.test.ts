@@ -111,7 +111,7 @@ describe("without a command", () => {
     const result = await runText(["give"], deleted(environment("/", [giving(succeed(1))])));
     expect(result).toEqual({
       stdout: "",
-      stderr: "error: cannot read the working directory: ENOENT\n  hint change to a directory that exists\n",
+      stderr: "error store-not-found: cannot read the working directory: ENOENT\n  hint change to a directory that exists\n",
       exitCode: 1,
     });
   });
@@ -135,7 +135,11 @@ describe("without a command", () => {
   });
 
   test("exits with code 2 and a hint when no command is given", async () => {
-    expect(await runText([])).toEqual({ stdout: "", stderr: "vmd: no command given; try --help\n", exitCode: 2 });
+    expect(await runText([])).toEqual({
+      stdout: "",
+      stderr: "error usage-invalid: no command given\n  hint try vmd --help\n",
+      exitCode: 2,
+    });
   });
 
   test("rejects an unknown option with exit code 2", async () => {
@@ -150,7 +154,7 @@ describe("the command line", () => {
   test("rejects an unknown command with exit code 2", async () => {
     expect(await runText(["nope"], environment("/", [list]))).toEqual({
       stdout: "",
-      stderr: 'vmd: unknown command "nope"; try --help\n',
+      stderr: 'error usage-invalid: unknown command "nope"\n  hint try vmd --help\n',
       exitCode: 2,
     });
   });
@@ -376,7 +380,7 @@ describe("the store", () => {
     const result = await runText(["give"], environment(cwd, [command("give", run)]));
     expect(result).toEqual({
       stdout: "",
-      stderr: `error: no vmd store here: neither ${cwd} nor a directory above it holds .vmd/config.yaml\n  hint run vmd inside a store, or name its root with --store\n`,
+      stderr: `error store-not-found: no vmd store here: neither ${cwd} nor a directory above it holds .vmd/config.yaml\n  hint run vmd inside a store, or name its root with --store\n`,
       exitCode: 1,
     });
     expect(run).not.toHaveBeenCalled();
@@ -440,7 +444,7 @@ describe("the store", () => {
   test("named with --store holding escape sequences, is named escaped in the failure", async () => {
     const result = await runText(["give", "--store", "a\u001b]0;x\u0007b"], environment(store(), [giving(succeed(1))]));
     expect(result.stderr).toBe(
-      "error: --store a\\u001b]0;x\\u0007b is not a directory\n  hint name the store root, the directory that holds .vmd/\n",
+      "error store-not-found: --store a\\u001b]0;x\\u0007b is not a directory\n  hint name the store root, the directory that holds .vmd/\n",
     );
   });
 
@@ -470,14 +474,15 @@ describe("the store", () => {
     const result = await runText(["give", "--config", "missing.yaml"], environment(store(), [giving(succeed(1))]));
     expect(result).toEqual({
       stdout: "",
-      stderr: "error: cannot read the configuration missing.yaml: it does not exist\n  hint check the path given to --config\n",
+      stderr:
+        "error config-invalid: cannot read the configuration missing.yaml: it does not exist\n  hint check the path given to --config\n",
       exitCode: 1,
     });
   });
 });
 
 describe("the Unicode probe", () => {
-  const warning = "warning: this runtime's Unicode 16.0 is older than Unicode 17.0.0";
+  const warning = "warning unicode-runtime-older: this runtime's Unicode 16.0 is older than Unicode 17.0.0";
 
   test("warns once, on a runtime whose Unicode data is older, and the command still runs", async () => {
     const probe = vi.fn(() => OLDER);
@@ -520,6 +525,181 @@ describe("the Unicode probe", () => {
   test("is core's probe by default", async () => {
     const { unicodeRuntimeProbe } = await import("@vollmond/core");
     const result = await runText(["list"], { cwd: store(), commands: [list] });
-    expect(result.stderr.includes("warning: this runtime's Unicode")).toBe(!unicodeRuntimeProbe().agrees);
+    expect(result.stderr.includes("warning unicode-runtime-older: ")).toBe(!unicodeRuntimeProbe().agrees);
+  });
+});
+
+/** Runs `vmd` and reads its stdout as one JSON object. */
+async function runJson(
+  args: readonly string[],
+  env: Partial<CliEnvironment>,
+): Promise<{ printed: { ok: boolean; value?: unknown; issues: Issue[] }; stderr: string; exitCode: number }> {
+  const result = await runText(args, env);
+  return { printed: JSON.parse(result.stdout), stderr: result.stderr, exitCode: result.exitCode };
+}
+
+/** The codes of `issues`, in order. */
+function codes(issues: readonly Issue[]): string[] {
+  return issues.map((each) => each.code);
+}
+
+describe("--json, for every failure", () => {
+  test.each([
+    ["an unknown option before the command", ["--json", "--nope", "give"]],
+    ["an unknown option after it", ["give", "--nope", "--json"]],
+    ["an unknown command", ["--json", "nope"]],
+    ["no command", ["--json"]],
+    ["a value given to a flag", ["--json", "--quiet=yes", "give"]],
+  ])("prints %s as usage-invalid, with exit code 2 and nothing on stderr", async (_name, args) => {
+    const { printed, stderr, exitCode } = await runJson(args, environment(store(), [giving(succeed(1))]));
+    expect(printed).toMatchObject({ ok: false, issues: [{ code: "usage-invalid", severity: "error", path: null, at: null }] });
+    expect(Object.hasOwn(printed, "value")).toBe(false);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(2);
+  });
+
+  test("prints a usage error the command finds as usage-invalid", async () => {
+    const { printed, exitCode } = await runJson(["list", "-n", "0", "--json"], environment(store(), [list]));
+    expect(codes(printed.issues)).toEqual(["usage-invalid"]);
+    expect(printed.issues[0]?.message).toContain("-n takes a whole number");
+    expect(exitCode).toBe(2);
+  });
+
+  test("prints a missing store as store-not-found, with exit code 1", async () => {
+    const env = environment(temporaryDirectory(), [giving(succeed(1))]);
+    const { printed, stderr, exitCode } = await runJson(["give", "--json"], env);
+    expect(printed).toMatchObject({ ok: false, issues: [{ code: "store-not-found", hint: expect.stringContaining("--store") }] });
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(1);
+  });
+
+  test("prints a --store that is not a directory as store-not-found", async () => {
+    const { printed } = await runJson(["give", "--json", "--store", "missing"], environment(store(), [giving(succeed(1))]));
+    expect(codes(printed.issues)).toEqual(["store-not-found"]);
+  });
+
+  test("prints an unreadable working directory as store-not-found", async () => {
+    const env = Object.defineProperty({ ...environment("/", [giving(succeed(1))]) }, "cwd", {
+      get: () => {
+        throw Object.assign(new Error("uv_cwd"), { code: "ENOENT" });
+      },
+    });
+    const { printed, exitCode } = await runJson(["give", "--json"], env);
+    expect(codes(printed.issues)).toEqual(["store-not-found"]);
+    expect(exitCode).toBe(1);
+  });
+
+  test("prints a missing --config as config-invalid", async () => {
+    const { printed, stderr, exitCode } = await runJson(
+      ["give", "--json", "--config", "missing.yaml"],
+      environment(store(), [giving(succeed(1))]),
+    );
+    expect(printed).toMatchObject({ ok: false, issues: [{ code: "config-invalid", path: null }] });
+    expect(printed.issues[0]?.message).toContain("missing.yaml");
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(1);
+  });
+
+  test("puts the Unicode warning in the object, once, before the command's issues", async () => {
+    const outcome = succeed(1, [issue("heading-html", "/h")]);
+    const { printed, stderr, exitCode } = await runJson(["give", "--json"], environment(store(), [giving(outcome)], OLDER));
+    expect(printed.ok).toBe(true);
+    expect(printed.value).toBe(1);
+    expect(codes(printed.issues)).toEqual(["unicode-runtime-older", "heading-html"]);
+    expect(printed.issues[0]).toMatchObject({ severity: "warning", class: "operation", path: null, at: null });
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+  });
+
+  test("puts the Unicode warning in a failure's object too", async () => {
+    const env = environment(store(), [giving(fail([issue("address-not-found")]))], OLDER);
+    const { printed } = await runJson(["give", "--json"], env);
+    expect(printed).toEqual({
+      ok: false,
+      issues: [expect.objectContaining({ code: "unicode-runtime-older" }), expect.anything()],
+    });
+  });
+
+  test("drops warnings from the object with --quiet, the Unicode one included, and keeps errors", async () => {
+    const outcome = succeed(1, [issue("heading-html", "/h"), issue("ref-dangling", "/r")]);
+    const { printed, exitCode } = await runJson(["give", "--json", "--quiet"], environment(store(), [giving(outcome)], OLDER));
+    expect(codes(printed.issues)).toEqual(["ref-dangling"]);
+    expect(exitCode).toBe(4);
+  });
+
+  test("still reports a bug as a bug, with exit code 1, on stderr", async () => {
+    const broken = command("broken", async () => {
+      throw new TypeError("oops");
+    });
+    const result = await runText(["broken", "--json"], environment(store(), [broken]));
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/^vmd: internal error, which is a bug: TypeError: oops/);
+    expect(result.exitCode).toBe(1);
+  });
+});
+
+describe("without --json, failures as issues on stderr", () => {
+  test("writes a usage error as usage-invalid", async () => {
+    expect(await runText(["--nope"])).toEqual({
+      stdout: "",
+      stderr: "error usage-invalid: unknown option --nope; a command's own options come after its name\n  hint try vmd --help\n",
+      exitCode: 2,
+    });
+  });
+
+  test("writes a missing store as store-not-found", async () => {
+    const cwd = temporaryDirectory();
+    const result = await runText(["give"], environment(cwd, [giving(succeed(1))]));
+    expect(result).toEqual({
+      stdout: "",
+      stderr: `error store-not-found: no vmd store here: neither ${cwd} nor a directory above it holds .vmd/config.yaml\n  hint run vmd inside a store, or name its root with --store\n`,
+      exitCode: 1,
+    });
+  });
+
+  test("writes the Unicode warning as unicode-runtime-older", async () => {
+    const result = await runText(["give"], environment(store(), [giving(succeed(1))], OLDER));
+    expect(result.stderr).toMatch(/^warning unicode-runtime-older: /);
+  });
+});
+
+describe("commands whose result is their issues, or lists references", () => {
+  const warningAndError = succeed({ checked: 2 }, [issue("heading-html", "/h"), issue("ref-dangling", "/r")]);
+  const check = giving(warningAndError, { name: "check", issueOutput: "result" });
+  const refs = giving(warningAndError, { name: "refs", issueOutput: "listing" });
+
+  test("print their issues on stdout after the value, the Unicode warning staying on stderr", async () => {
+    for (const each of [check, refs]) {
+      const result = await runText([each.name], environment(store(), [each], OLDER));
+      expect(result.stdout).toBe(
+        '{"checked":2}\na.md warning heading-html: the heading-html of the tests\n  in   #/h\n' +
+          "a.md error ref-dangling: the ref-dangling of the tests\n  in   #/r\n",
+      );
+      expect(result.stderr).toMatch(/^warning unicode-runtime-older: [^\n]*\n {2}hint [^\n]*\n$/);
+      expect(result.exitCode).toBe(4);
+    }
+  });
+
+  test("keep their configuration's issues on stderr", async () => {
+    const root = store({ ".vmd/config.yaml": "vmd: 2\n" });
+    const result = await runText(["check"], environment(root, [check]));
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toMatch(/^\.vmd\/config\.yaml:1:1 error format-version-unsupported: /);
+  });
+
+  test("with --quiet, check keeps its warnings, which are its result, and drops the Unicode warning", async () => {
+    const result = await runText(["check", "--quiet"], environment(store(), [check], OLDER));
+    expect(result.stdout).toContain("warning heading-html");
+    expect(result.stderr).toBe("");
+    const { printed } = await runJson(["check", "--quiet", "--json"], environment(store(), [check], OLDER));
+    expect(codes(printed.issues)).toEqual(["heading-html", "ref-dangling"]);
+  });
+
+  test("with --quiet, refs drops its warnings like any other command", async () => {
+    const result = await runText(["refs", "--quiet"], environment(store(), [refs], OLDER));
+    expect(result.stdout).not.toContain("heading-html");
+    expect(result.stdout).toContain("error ref-dangling");
+    const { printed } = await runJson(["refs", "--quiet", "--json"], environment(store(), [refs], OLDER));
+    expect(codes(printed.issues)).toEqual(["ref-dangling"]);
   });
 });

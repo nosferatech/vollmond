@@ -19,8 +19,13 @@ export interface StoreLocation {
   readonly workingPrefix: string | null;
 }
 
-/** Why no store was found: a message and a hint, for the user. */
+/** Why no store was found: the issue code, and a message and a hint for the user. */
 export interface StoreNotFound {
+  /**
+   * `store-not-found` when no directory is the store, `config-invalid` when the store's `.vmd/config.yaml` is there but is not
+   * a file, or cannot be checked.
+   */
+  readonly code: "store-not-found" | "config-invalid";
   readonly message: string;
   readonly hint: string;
 }
@@ -72,10 +77,11 @@ export async function discoverStore(
         return notFound(
           `cannot read ${join(request.store, CONFIGURATION_PATH)}: ${configuration.reason}`,
           "check its permissions",
+          "config-invalid",
         );
       }
       if (configuration.kind === "directory" || configuration.kind === "other") {
-        return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT);
+        return notFound(`${join(request.store, CONFIGURATION_PATH)} is not a file`, NOT_A_FILE_HINT, "config-invalid");
       }
       if (configuration.kind !== "file") {
         return notFound(
@@ -106,9 +112,13 @@ export async function discoverStore(
   };
 }
 
-/** A failed discovery. */
-function notFound(message: string, hint: string): { readonly ok: false; readonly error: StoreNotFound } {
-  return { ok: false, error: { message, hint } };
+/** A failed discovery, `store-not-found` unless `code` says otherwise. */
+function notFound(
+  message: string,
+  hint: string,
+  code: StoreNotFound["code"] = "store-not-found",
+): { readonly ok: false; readonly error: StoreNotFound } {
+  return { ok: false, error: { code, message, hint } };
 }
 
 /** Looks for `.vmd/config.yaml` in `start` and each directory above it, and returns the first that holds it, or null. */
@@ -122,7 +132,7 @@ async function findRootUpwards(
     if (kind.kind === "file") return { ok: true, root: directory };
     if (kind.kind === "failed")
       return notFound(`cannot read ${candidate}: ${kind.reason}`, "check its permissions, or name the store with --store");
-    if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT);
+    if (kind.kind !== "absent") return notFound(`${candidate} is not a file`, NOT_A_FILE_HINT, "config-invalid");
     const parent = dirname(directory);
     if (parent === directory) return { ok: true, root: null };
     directory = parent;

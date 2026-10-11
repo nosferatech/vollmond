@@ -3,7 +3,7 @@ import { chmodSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { makeDirectories, temporaryDirectory, writeFiles } from "./directories.testkit.js";
-import { discoverStore, type StoreLocation } from "./store-discovery.js";
+import { discoverStore, type StoreLocation, type StoreNotFound } from "./store-discovery.js";
 
 const runsAsRoot = process.getuid?.() === 0;
 const canChmod = process.platform !== "win32" && !runsAsRoot;
@@ -18,7 +18,7 @@ async function found(request: Parameters<typeof discoverStore>[0]): Promise<Stor
 }
 
 /** Finds the store and expects not to find one; returns the message and the hint. */
-async function notFound(request: Parameters<typeof discoverStore>[0]): Promise<{ message: string; hint: string }> {
+async function notFound(request: Parameters<typeof discoverStore>[0]): Promise<StoreNotFound> {
   const discovered = await discoverStore(request);
   if (discovered.ok) throw new Error(`a store at ${discovered.value.root}`);
   return discovered.error;
@@ -48,6 +48,7 @@ describe("from the working directory", () => {
     makeDirectories(repository, ".git");
     expect((await found({ cwd: makeDirectories(repository, "docs/design") })).root).toBe(join(repository, "docs"));
     expect((await notFound({ cwd: repository })).message).toContain("no vmd store here");
+    expect((await notFound({ cwd: repository })).code).toBe("store-not-found");
   });
 
   test("finds the nearest of two nested stores", async () => {
@@ -67,6 +68,7 @@ describe("from the working directory", () => {
     makeDirectories(outer, "a/.vmd/config.yaml");
     const error = await notFound({ cwd: makeDirectories(outer, "a/b") });
     expect(error.message).toBe(`${join(outer, "a", ".vmd", "config.yaml")} is not a file`);
+    expect(error.code).toBe("config-invalid");
   });
 
   test.skipIf(process.platform === "win32")("fails for a config.yaml that is a FIFO, without waiting on it", async () => {

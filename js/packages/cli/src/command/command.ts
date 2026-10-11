@@ -34,7 +34,8 @@ export type CommandOutput =
   | {
       readonly kind: "outcome";
       /**
-       * The library's outcome, which `--json` prints unchanged, except that a `Uint8Array` anywhere in it is written as
+       * The library's outcome, which `--json` prints as `{"ok", "value", "issues"}`, with the store's issues (the
+       * configuration's, the Unicode warning) before its own, and a `Uint8Array` anywhere in it written as
        * `{ "base64": "…" }`, its bytes in base64 (RFC 4648, with padding).
        */
       readonly outcome: Outcome<unknown>;
@@ -46,6 +47,7 @@ export type CommandOutput =
       /** Gives what the command knows of each issue beyond the issue itself, such as the semantic path of its node. */
       readonly details?: IssueDetailsSource;
     }
+  /** A command line the command cannot read: printed as `usage-invalid`, with exit code 2. */
   | { readonly kind: "usage"; readonly message: string };
 
 /**
@@ -70,6 +72,9 @@ export function usageOutput(message: string): CommandOutput {
   return { kind: "usage", message };
 }
 
+/** What a command's issues are: see {@link Command.issueOutput}. */
+export type IssueOutput = "diagnostics" | "listing" | "result";
+
 /** A `vmd` command. */
 export interface Command {
   /** The name that selects it: `ls`. */
@@ -85,6 +90,17 @@ export interface Command {
   readonly options: Readonly<Record<string, OptionSpec>>;
   /** Whether it reads a store, which the CLI then finds, and whose configuration it reads, before it runs the command. */
   readonly readsStore: boolean;
+  /**
+   * What the issues of its outcome are, which decides where they are printed without `--json`; the configuration's issues and
+   * the warning about the runtime's Unicode data go to stderr whatever this says.
+   *
+   * - `diagnostics` (the default): about the result, on stderr; `--quiet` leaves out the warnings.
+   * - `listing`: part of what the command lists, as `refs` lists references with their status, on stdout after the value;
+   *   `--quiet` leaves out the warnings.
+   * - `result`: the result itself, as `check`'s are, on stdout after the value; `--quiet` keeps the warnings, here and in the
+   *   JSON object.
+   */
+  readonly issueOutput?: IssueOutput;
   /**
    * Runs the command. Expected failures are in the output's outcome; a thrown exception is a bug, which the CLI reports with
    * exit code 1.

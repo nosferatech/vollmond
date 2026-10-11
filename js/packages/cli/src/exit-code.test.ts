@@ -32,6 +32,11 @@ describe("exitCodeOf", () => {
     expect(exitCodeOf(fail([issue("syntax-error"), issue("heading-html")]))).toBe(1);
   });
 
+  test("is 2 for a failure with a usage-invalid among its issues", () => {
+    expect(exitCodeOf(fail([issue("usage-invalid")]))).toBe(2);
+    expect(exitCodeOf(fail([issue("unicode-runtime-older"), issue("usage-invalid")]))).toBe(2);
+  });
+
   test("is 3 for a failure with a conflict among its issues", () => {
     expect(exitCodeOf(fail([issue("storage-failed"), issue("conflict")]))).toBe(3);
   });
