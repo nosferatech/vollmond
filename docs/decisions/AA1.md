@@ -52,7 +52,9 @@ terrible performance to a schema nobody should have.
   schemas pass. Of the options, (a) refuses the fewest schemas that are cheap to check, since it counts the check's work, while
   (b) and (c), by the card, refuse cheap schemas. The bound, 1,000,000, is the card's "about a million steps", five orders of
   magnitude above what the repository's schemas need. This is the engineering manager's reading of the note, which the spec
-  agent shares.
+  agent shares. Measured on #97's code (`f74bc12`), a schema at the bound costs seconds: the suite's near miss, 984,064 pairs,
+  takes about 4.6 s alone on the loaded development machine, and with it the two tests that run the whole suite took 13.3 s and
+  11.6 s in CI (#105's first run after the rebase).
 - **A count the specification defines, the same for every implementation**, rather than an implementation limit with a required
   minimum, the other framing the card names. The spec agent's reasons: the note asks for a check beside the size check, which
   every implementation applies alike, and a schema that one implementation accepts and another refuses is a refusal of a schema
