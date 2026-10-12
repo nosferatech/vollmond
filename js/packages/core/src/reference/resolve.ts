@@ -119,9 +119,9 @@ export class ReferenceResolver {
   /**
    * Gives the issues of a record that `check` reports for its references: those of each reference it makes, and an
    * `alias-shadowed` for its path that is the old name of a record alias, and for each node or block anchor that a first step
-   * named by the old name of one of the record's anchor aliases reaches, those under its old paths included: an anchor, or a
-   * key of the root, as a JSON or YAML record's top-level key or a Markdown record's front matter key. `record` is null for a
-   * record that cannot be read, which has only its path.
+   * named by the old name of one of the record's anchor aliases reaches, those under its old paths included: an anchor, a key
+   * of the root, as a JSON or YAML record's top-level key or a Markdown record's front matter key, or a child section of the
+   * root by its key. `record` is null for a record that cannot be read, which has only its path.
    */
   async issuesOf(path: string, record: ParsedRecord | null): Promise<Issue[]> {
     const issues: Issue[] = [];

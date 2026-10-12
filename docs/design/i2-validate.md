@@ -742,8 +742,9 @@ be reported as dangling that are not (reading R9). A reference that resolves thr
 
 A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`. `alias-shadowed` warns for
 each live record path that equals a record alias's `from`, and for each node that a first step named by an anchor alias's `from`
-reaches, the same names that stop a chain: an anchor, or a key of the root, as a JSON or YAML record's top-level key or a Markdown
-record's front matter key (the project owner's answer on card AC). Writing the file is I5's.
+reaches, the same names that stop a chain: an anchor, a key of the root, as a JSON or YAML record's top-level key or a Markdown
+record's front matter key, or a child section of the root by its key (the project owner's answer on card AC). Writing the file is
+I5's.
 
 ### 5.6 The reference warnings
 

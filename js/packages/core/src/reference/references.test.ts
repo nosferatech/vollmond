@@ -795,6 +795,18 @@ describe("alias chains and shadowed names", () => {
     expect(await shadowedOf("docs/r.md", text, ["owner", "remarks"])).toEqual(["docs/r.md /owner"]);
     expect(await shadowedOf("docs/r.md", text, ["status", "remarks"])).toEqual([]);
   });
+
+  test("warn alias-shadowed about each child section of the root that a first step reaches by its key", async () => {
+    // Both sections have the key notes, the second by its title as the first by its derived anchor.
+    expect(await shadowedOf("docs/r.md", "# R\n\n## Notes\n\n## Notes\n", ["notes", "remarks"])).toEqual([
+      "docs/r.md /$sections/0",
+      "docs/r.md /$sections/1",
+    ]);
+    // A JSON record's section has the key notes by its title, and so stops a chain from notes too.
+    expect(await shadowedOf("data/k.json", '{"$sections": [{"$title": "Notes"}], "k": 1}', ["notes", "k"])).toEqual([
+      "data/k.json /$sections/0",
+    ]);
+  });
 });
 
 describe("the title-derived warnings", () => {
