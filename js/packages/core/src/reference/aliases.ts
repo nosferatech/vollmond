@@ -43,10 +43,14 @@ export interface AliasTable {
   readonly entries: readonly Alias[];
   /** Gives the path a record moved to from `path`, or undefined when no record alias has that `from`. */
   recordMove(path: string): string | undefined;
-  /** Gives the anchor of `record` that `name` was renamed to, or undefined when no anchor alias has them. */
-  anchorRename(record: string, name: string): string | undefined;
-  /** Gives the anchor aliases of a record, from each old name to the new one; an empty map for a record without any. */
-  anchorRenamesOf(record: string): ReadonlyMap<string, string>;
+  /** Gives the paths that {@link recordMove} gives `path` for, in the order of their first entries; empty for none. */
+  recordMovesTo(path: string): readonly string[];
+  /**
+   * Gives the anchor aliases of a record recorded under any of `records`, its store paths, from each old name to the new one:
+   * for an old name, the `to` of the last anchor alias in the file whose `record` is one of them; an empty map for none. It
+   * takes time in the number of those aliases, so a caller that looks up many names of one record keeps the map.
+   */
+  anchorRenamesOf(records: readonly string[]): ReadonlyMap<string, string>;
 }
 
 /** The members of each kind of entry. */
@@ -127,28 +131,47 @@ function aliasOf(object: ValueObject): Alias | string {
 }
 
 const NO_RENAMES: ReadonlyMap<string, string> = new Map();
+const NO_PATHS: readonly string[] = Object.freeze([]);
 
 /** Builds the lookups of a table, the last entry of each old name winning. */
 function aliasTableOf(entries: readonly Alias[]): AliasTable {
   const moves = new Map<string, string>();
-  const renames = new Map<string, Map<string, string>>();
-  for (const entry of entries) {
+  /** The last anchor alias of each record and old name: its new name, and its line, which says which of a record's paths wins. */
+  const renames = new Map<string, Map<string, { readonly to: string; readonly line: number }>>();
+  entries.forEach((entry, line) => {
     if (entry.kind === "record") {
       moves.set(entry.from, entry.to);
-    } else {
-      let names = renames.get(entry.record);
-      if (names === undefined) {
-        names = new Map();
-        renames.set(entry.record, names);
-      }
-      names.set(entry.from, entry.to);
+      return;
     }
+    let names = renames.get(entry.record);
+    if (names === undefined) {
+      names = new Map();
+      renames.set(entry.record, names);
+    }
+    names.set(entry.from, { to: entry.to, line });
+  });
+  const movesTo = new Map<string, string[]>();
+  for (const [from, to] of moves) {
+    const froms = movesTo.get(to);
+    if (froms === undefined) movesTo.set(to, [from]);
+    else froms.push(from);
   }
+  const anchorRenamesOf = (records: readonly string[]): ReadonlyMap<string, string> => {
+    const last = new Map<string, { readonly to: string; readonly line: number }>();
+    for (const record of records) {
+      for (const [from, rename] of renames.get(record) ?? []) {
+        const known = last.get(from);
+        if (known === undefined || rename.line > known.line) last.set(from, rename);
+      }
+    }
+    if (last.size === 0) return NO_RENAMES;
+    return new Map([...last].map(([from, rename]) => [from, rename.to]));
+  };
   return Object.freeze({
     entries: Object.freeze([...entries]),
     recordMove: (path: string) => moves.get(path),
-    anchorRename: (record: string, name: string) => renames.get(record)?.get(name),
-    anchorRenamesOf: (record: string) => renames.get(record) ?? NO_RENAMES,
+    recordMovesTo: (path: string) => movesTo.get(path) ?? NO_PATHS,
+    anchorRenamesOf,
   });
 }
 
