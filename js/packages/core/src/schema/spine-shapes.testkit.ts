@@ -79,3 +79,14 @@ export function deepClosures(n: number): unknown {
   }
   return { type: "object", properties, $defs };
 }
+
+/** `n` members, member i referring to link i of one `$ref` chain, each link a bare `x-vmd-ref`: n²/2 closure entries in all. */
+export function bareReferenceChain(n: number): unknown {
+  const properties: Record<string, unknown> = {};
+  const $defs: Record<string, unknown> = {};
+  for (let i = 0; i < n; i++) {
+    properties[`p${i}`] = { $ref: `#/$defs/c${i}` };
+    $defs[`c${i}`] = i + 1 < n ? { $ref: `#/$defs/c${i + 1}`, "x-vmd-ref": {} } : { "x-vmd-ref": {} };
+  }
+  return { type: "object", properties, $defs };
+}
