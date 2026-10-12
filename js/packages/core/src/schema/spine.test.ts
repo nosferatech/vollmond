@@ -429,11 +429,30 @@ describe("the groupings of listed names the spine's check computes", () => {
     expect(spine.nameGroupings).toBeGreaterThanOrEqual(1);
     expect(spine.nameGroupings).toBeLessThanOrEqual(4);
   });
+
+  // Review of #125: a grouping visited every listed name, so pairs that each have their own pattern list, whose groupings
+  // the memo never shares, paid for every listed name again.
+  test("the names some pattern matches, not every listed name, when every pair has its own pattern list", async () => {
+    const allOf = [];
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { [`^z${branch}$`]: {} }, $ref: "#/$defs/one" });
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { [`^y${branch}$`]: {} }, $ref: "#/$defs/many" });
+    const listed = Object.fromEntries(Array.from({ length: 7000 }, (_, index) => [`name${index}`, {}]));
+    const { spine, problems } = await checked({
+      allOf,
+      $defs: { one: ref("one"), many: ref("many"), unused: { properties: listed } },
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeGreaterThan(400);
+    expect(spine.nameGroupings).toBeGreaterThan(300);
+    // No pattern matches a listed name, so each pair examines one name: the first that none matches.
+    expect(spine.nameSteps).toBeLessThanOrEqual(spine.pairsVisited);
+  });
 });
 
 describe("the memo of the listed names' groupings", () => {
   test("is emptied when it would hold more than its bound, to the same problems", async () => {
-    // Four groups of branches with four pattern lists: up to sixteen groupings of 100 names each.
+    // Four groups of branches with four pattern lists: a grouping for each pair of groups that meets, of the 50 names one
+    // of the two lists matches, counted with one for the grouping itself.
     const allOf = [];
     for (const [group, source] of ["^a", "^b", "^c", "^d"].entries()) {
       for (let branch = 0; branch < 5; branch++) {
@@ -445,10 +464,10 @@ describe("the memo of the listed names' groupings", () => {
     const unbounded = await spineOf(schema);
     const all = unbounded.check();
     expect(all.problems.length).toBeGreaterThan(0);
-    expect(unbounded.groupedNames).toBeGreaterThan(300);
-    const bounded = await spineOf(schema, { maxGroupedNames: 250 });
+    expect(unbounded.groupedNames).toBeGreaterThan(150);
+    const bounded = await spineOf(schema, { maxGroupedNames: 100 });
     expect(bounded.check()).toEqual(all);
-    expect(bounded.groupedNames).toBeLessThanOrEqual(250);
+    expect(bounded.groupedNames).toBeLessThanOrEqual(100);
     expect(bounded.groupedNames).toBeGreaterThan(0);
   });
 });
