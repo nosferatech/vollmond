@@ -11,11 +11,13 @@ export {
   formatFragment,
   parseAddress,
 } from "./address/address.js";
+export { proveSingular } from "./address/prove.js";
 export {
   type AddressUse,
   blockAnchorAddress,
   canonicalAddress,
   type RecordLookup,
+  type ResolutionSubject,
   resolveAddress,
   resolveAddressSteps,
   resolveStoreAddress,
@@ -26,6 +28,7 @@ export {
 } from "./address/resolve.js";
 export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
+export { bindRecord, type KeyedList, type RecordBinding } from "./binding/binding.js";
 export type { CheckOptions, CheckSummary } from "./check/check.js";
 export { collectionOfRecord, type PathClass, PathClassifier } from "./config/classify.js";
 export {
@@ -81,7 +84,7 @@ export type {
   ReferenceTarget,
 } from "./reference/reference.js";
 export { resolveReferenceUri, type UriResolution } from "./reference/uri.js";
-export { type CollectionSchema, loadCollectionSchema, type SchemaLoading } from "./schema/collection-schema.js";
+export { type CollectionSchema, type ListChecks, loadCollectionSchema, type SchemaLoading } from "./schema/collection-schema.js";
 export { EXTENSION_KEYWORDS, type ListDeclaration, type RefDeclaration } from "./schema/keywords.js";
 export {
   type DateParts,
@@ -103,6 +106,7 @@ export {
 export { DRAFT_2020_12, type SchemaLocation, type SchemaReader } from "./schema/schema-set.js";
 export type { SchemaShape, ShapeStep } from "./schema/spine.js";
 export { closeValidatorUriSchemes } from "./schema/validator.js";
+export type { NativeFailure } from "./schema/violations.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
 export { compileLineTest, type LineTest } from "./storage/grep.js";
 export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";

@@ -6,20 +6,35 @@ import type { SchemaSet } from "./schema-set.js";
 import { FALSE_SCHEMA_KEYWORD, type ValidatorError } from "./validator.js";
 import { isObject, pointerTokens, valueAtPointer } from "./walk.js";
 
+/** A failure that core found itself rather than the validator, such as a keyed list's missing required key. */
+export interface NativeFailure {
+  /** The exact path of the failing value. */
+  readonly at: string;
+  /** What the value fails, as the message of its issue says it. */
+  readonly message: string;
+}
+
 /**
- * Turns the validator's failures for a record into `schema-violation` issues: one per failing value, at the value's exact
- * path, whose message lists what each failing keyword requires, positioned at the value in the record's file. A failure of
- * `required` is at the object, and a member that `additionalProperties` or `unevaluatedProperties` refuses, or whose name a
- * `propertyNames` refuses, at the member. Issues come in the order of the values' first failures.
+ * Turns the validator's failures for a record, and the failures core found itself, into `schema-violation` issues: one per
+ * failing value, at the value's exact path, whose message lists what each failing keyword requires, positioned at the value
+ * in the record's file. A failure of `required` is at the object, and a member that `additionalProperties` or
+ * `unevaluatedProperties` refuses, or whose name a `propertyNames` refuses, at the member. Issues come in the order of the
+ * values' first failures, the validator's first.
  */
-export function violationIssues(record: ParsedRecord, set: SchemaSet, errors: readonly ValidatorError[]): Issue[] {
+export function violationIssues(
+  record: ParsedRecord,
+  set: SchemaSet,
+  errors: readonly ValidatorError[],
+  native: readonly NativeFailure[] = [],
+): Issue[] {
   const messages = new Map<string, string[]>();
-  for (const error of errors) {
-    const message = describeError(record, set, error);
-    const found = messages.get(error.at) ?? [];
+  const add = (at: string, message: string) => {
+    const found = messages.get(at) ?? [];
     if (!found.includes(message)) found.push(message);
-    messages.set(error.at, found);
-  }
+    messages.set(at, found);
+  };
+  for (const error of errors) add(error.at, describeError(record, set, error));
+  for (const failure of native) add(failure.at, failure.message);
   const issues: Issue[] = [];
   for (const [at, found] of messages) {
     const node = record.nodes.node(at);

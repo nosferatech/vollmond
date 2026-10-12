@@ -1,4 +1,11 @@
-import { blockAnchorAddress, canonicalAddress, type Target } from "../address/resolve.js";
+import {
+  blockAnchorAddress,
+  canonicalAddress,
+  type ResolutionSubject,
+  subjectBinding,
+  subjectRecord,
+  type Target,
+} from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
 import type { IssueCode, Severity } from "../issue/codes.js";
 import { applySeverities, type SeverityConfiguration } from "../issue/severity.js";
@@ -112,8 +119,10 @@ export interface ComputedFieldContext {
 // block anchor has computed fields of its own (`@range`, its anchor) and shares its `$body`'s path. A target, and not any
 // object with a range, so that a node of the index, whose range is in the file, cannot be taken for a block anchor.
 /**
- * Computes the requested fields of a node of a parsed record, given by its exact path, or of a target that resolving an
- * address in the record gave, which may be a block anchor. `all` requests every field but `@nodes`, which is requested by
+ * Computes the requested fields of a node of a record, given by its exact path, or of a target that resolving an address in
+ * the record gave, which may be a block anchor. The record is a parsed one, or its binding to its collection's schema, which
+ * gives a keyed-list item its key as `@key` and in `@address`, proves the canonical address singular, and adds the schema's
+ * issues to `@issues`. `all` requests every field but `@nodes`, which is requested by
  * name. `@refs` lists those of the context's references that the node, or a node below it, makes, and is absent when the
  * context gives no references, since resolving them needs the store. `@collection` is the context's collection, absent
  * without one. `@issues` holds the issues found while parsing, with the
@@ -123,11 +132,12 @@ export interface ComputedFieldContext {
  * range that is not one of the record's block anchors. `@version` hashes the value with the runtime's Web Crypto API.
  */
 export async function computeFields(
-  record: ParsedRecord,
+  of: ResolutionSubject,
   subject: string | Target,
   names: readonly ComputedFieldName[] | "all",
   context: ComputedFieldContext = {},
 ): Promise<ComputedFields> {
+  const record = subjectRecord(of);
   const requested = names === "all" ? COMPUTED_FIELD_NAMES.filter((name) => name !== "@nodes") : [...new Set(names)];
   const at = typeof subject === "string" ? subject : subject.at;
   if (typeof subject !== "string" && subject.path !== record.path) {
@@ -139,7 +149,7 @@ export async function computeFields(
   const block = range === undefined ? undefined : blockAnchorOf(record, at, range);
   const fields: Record<string, unknown> = {};
   for (const name of requested) {
-    const value = await fieldOf(record, node, block, name, requested, context);
+    const value = await fieldOf(of, node, block, name, requested, context);
     if (value !== undefined) fields[name] = value;
   }
   return fields as ComputedFields;
@@ -147,24 +157,33 @@ export async function computeFields(
 
 /** Gives one computed field of a node or a block anchor, or undefined where it does not apply. */
 async function fieldOf(
-  record: ParsedRecord,
+  of: ResolutionSubject,
   node: NodeInfo,
   block: BlockAnchorEntry | undefined,
   name: ComputedFieldName,
   requested: readonly ComputedFieldName[],
   context: ComputedFieldContext,
 ): Promise<unknown> {
+  const record = subjectRecord(of);
+  const binding = subjectBinding(of);
   switch (name) {
     case "@path":
       return record.path;
     case "@at":
       return node.at;
     case "@address":
-      return block === undefined ? canonicalAddress(record, node.at) : blockAnchorAddress(record, block);
+      return block === undefined ? canonicalAddress(of, node.at) : blockAnchorAddress(of, block);
     case "@key":
       // The root is a section without an entry in the section keys.
       if (block !== undefined) return undefined;
-      return node.kind === "section" ? record.sectionKeys.get(node.at) : node.key;
+      if (node.kind === "section") return record.sectionKeys.get(node.at);
+      // An item of a keyed list has its key; one without a key keeps its index.
+      if (typeof node.key === "number" && node.parent !== null) {
+        const list = binding?.lists.get(node.parent);
+        const key = list === undefined || list.type === "undeclared" ? null : list.keyOf(node.key);
+        if (key !== null) return key;
+      }
+      return node.key;
     case "@anchors":
       if (block !== undefined) return [{ name: block.name, kind: block.kind }];
       return record.anchors.of(node.at).map(({ name: anchor, kind }) => ({ name: anchor, kind }));
@@ -181,8 +200,9 @@ async function fieldOf(
     }
     case "@range":
       return block?.range;
-    case "@issues":
-      return (context.severities === undefined ? record.issues : applySeverities(record.issues, context.severities))
+    case "@issues": {
+      const issues = binding?.issues ?? record.issues;
+      return (context.severities === undefined ? issues : applySeverities(issues, context.severities))
         .filter((issue) => issue.at === node.at)
         .filter(
           (issue) =>
@@ -190,6 +210,7 @@ async function fieldOf(
             (issue.offset !== undefined && issue.offset >= block.range.start && issue.offset < block.range.end),
         )
         .map(({ code, severity, at, message }) => ({ code, severity, at, message }));
+    }
     case "@depth":
       return block === undefined && node.kind === "section" ? node.depth : undefined;
     case "@nodes": {
@@ -197,7 +218,7 @@ async function fieldOf(
       const inner = requested.filter((field) => field !== "@nodes");
       const below: Record<string, ComputedFields> = {};
       for (const section of record.nodes.sections()) {
-        if (section.at.startsWith(`${node.at}/`)) below[section.at] = await computeFields(record, section.at, inner, context);
+        if (section.at.startsWith(`${node.at}/`)) below[section.at] = await computeFields(of, section.at, inner, context);
       }
       return below;
     }

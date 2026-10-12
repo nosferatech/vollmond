@@ -3,11 +3,14 @@ import {
   type AddressUse,
   blockAnchorAddress,
   canonicalAddress,
+  type ResolutionSubject,
   resolveStoreAddress,
   type StoreResolution,
+  subjectRecord,
   type Target,
 } from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
+import { bindRecord, type RecordBinding } from "../binding/binding.js";
 import { type CheckOptions, type CheckSummary, checkStore } from "../check/check.js";
 import { collectionOfRecord, type PathClass, PathClassifier } from "../config/classify.js";
 import {
@@ -192,7 +195,13 @@ export interface Store {
   record(path: string): Promise<Outcome<ParsedRecord> | null>;
   /** Gives what {@link Store.record} read at a path, without reading: undefined when it was not read. */
   recordRead(path: string): Outcome<ParsedRecord> | null | undefined;
-  /** Resolves an address, reading its record with {@link Store.record}. */
+  /**
+   * Reads a record as {@link Store.record} does and binds it to its collection's schema, once: its keyed lists, its shapes
+   * and its issues, the schema's included. A record that no collection, or several, claim, or whose collection has no
+   * schema, is bound without one. Fails, or gives null, as {@link Store.record} does.
+   */
+  binding(path: string): Promise<Outcome<RecordBinding> | null>;
+  /** Resolves an address in the record's binding, read with {@link Store.binding}. */
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>>;
   /**
    * Reads the node a singular address names, in the requested form, with the requested computed fields. Fails as resolving
@@ -251,6 +260,8 @@ export interface Store {
  * configuration's warnings are the outcome's issues. Schemas are read when a record of their collection is first read or
  * checked, not here.
  */
+// TODO(#23): the strict read mode of §9.5, which refuses records with schema violations as readers' errors, comes as an
+// option here in its own pull request, over the bindings' issues.
 export async function openStore(
   backend: StorageReader,
   options: { readonly configuration?: ConfigurationSource } = {},
@@ -337,6 +348,8 @@ class BackendStore implements Store {
   readonly #read = new Map<string, Outcome<ParsedRecord> | null>();
   /** The parses of records, whatever their collections' schemas, by path. */
   readonly #parses = new Map<string, Promise<Outcome<ParsedRecord>>>();
+  /** The bindings of records read, by path. */
+  readonly #bindings = new Map<string, Promise<Outcome<RecordBinding> | null>>();
   /** Each collection's schema, loaded once, when it is first looked at: null for a collection without one. */
   readonly #schemas = new Map<Collection, Promise<Outcome<CollectionSchema> | null>>();
   /** The resolver of the store's references, made when references are first needed. */
@@ -367,6 +380,24 @@ class BackendStore implements Store {
 
   recordRead(path: string): Outcome<ParsedRecord> | null | undefined {
     return this.#read.get(path);
+  }
+
+  binding(path: string): Promise<Outcome<RecordBinding> | null> {
+    let binding = this.#bindings.get(path);
+    if (binding === undefined) {
+      binding = this.#bind(path);
+      this.#bindings.set(path, binding);
+    }
+    return binding;
+  }
+
+  /** Reads a record and binds it to its collection's schema, which a readable record's collection can use, or has none. */
+  async #bind(path: string): Promise<Outcome<RecordBinding> | null> {
+    const read = await this.record(path);
+    if (read === null || !read.ok) return read;
+    const collection = collectionOfRecord(this.classify(path));
+    const schema = collection === undefined ? null : await this.schema(collection);
+    return succeed(bindRecord(read.value, schema?.ok === true ? schema.value : null));
   }
 
   // Deviation from the I2 design, recorded in issue #21: every read of a record of a collection with a schema reads the schema
@@ -500,13 +531,14 @@ class BackendStore implements Store {
   }
 
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>> {
-    return resolveStoreAddress((path) => this.record(path), address, use, reading);
+    return resolveStoreAddress((path) => this.binding(path), address, use, reading);
   }
 
   async get(address: string, options: GetOptions = {}): Promise<Outcome<GetResult>> {
     const resolved = await this.resolve(address, "singular", options.reading);
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
+    const subject: ResolutionSubject = resolved.value.binding ?? record;
     const target = targets[0] as Target;
     const value = formOf(record, target, options.form ?? "value");
     if (!value.ok) return fail(value.issues);
@@ -518,7 +550,7 @@ class BackendStore implements Store {
       if (!resolver.ok) return fail(resolver.issues);
       references = await resolver.value.referencesOf(record, target.at);
     }
-    const meta = await computeFields(record, target, options.meta, {
+    const meta = await computeFields(subject, target, options.meta, {
       severities: this.configuration,
       ...(collection === undefined ? {} : { collection: collection.name }),
       ...(references === undefined ? {} : { references }),
@@ -537,11 +569,12 @@ class BackendStore implements Store {
     const resolved = await this.resolve(address, "singular", options.reading);
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
+    const subject: ResolutionSubject = resolved.value.binding ?? record;
     const target = targets[0] as Target;
     const block = blockAnchorOf(record, target);
     const node = record.nodes.node(target.at) as NodeInfo;
     if (block !== undefined) {
-      return succeed({ path: record.path, node: blockEntry(record, block), sections: [] });
+      return succeed({ path: record.path, node: blockEntry(subject, block), sections: [] });
     }
     // Whether the outline goes down to `levels` below the node.
     const reaches = (levels: number) => depth === undefined || levels <= depth;
@@ -552,13 +585,13 @@ class BackendStore implements Store {
             .sections()
             .filter((section) => section.at.startsWith(`${node.at}/`))
             .filter((section) => reaches(section.depth - node.depth))
-            .map((section) => outlineEntry(record, section, reaches(section.depth - node.depth + 1)));
-    const outline: Outline = { path: record.path, node: outlineEntry(record, node, reaches(1)), sections };
+            .map((section) => outlineEntry(subject, section, reaches(section.depth - node.depth + 1)));
+    const outline: Outline = { path: record.path, node: outlineEntry(subject, node, reaches(1)), sections };
     if (node.at !== "" || record.format === "md" || !reaches(1)) return succeed(outline);
     const members = record.nodes
       .children("")
       .filter((member) => member.key !== "$sections")
-      .map((member) => outlineEntry(record, member, false));
+      .map((member) => outlineEntry(subject, member, false));
     return succeed({ ...outline, members });
   }
 
@@ -650,11 +683,12 @@ function blockAnchorOf(record: ParsedRecord, target: Target): BlockAnchorEntry |
  * Gives the outline entry of a node: for a member, with its name; for a section or a `$body`, with its block anchors when
  * `withBlocks`.
  */
-function outlineEntry(record: ParsedRecord, node: NodeInfo, withBlocks: boolean): OutlineEntry {
-  const base = { at: node.at, address: canonicalAddress(record, node.at), size: sizeOf(node.range) };
+function outlineEntry(subject: ResolutionSubject, node: NodeInfo, withBlocks: boolean): OutlineEntry {
+  const record = subjectRecord(subject);
+  const base = { at: node.at, address: canonicalAddress(subject, node.at), size: sizeOf(node.range) };
   if (node.kind !== "section") {
     const member = typeof node.key === "string" ? { ...base, key: node.key } : base;
-    return withBlocks && node.key === "$body" ? { ...member, blocks: blocksOf(record, node.at) } : member;
+    return withBlocks && node.key === "$body" ? { ...member, blocks: blocksOf(subject, node.at) } : member;
   }
   const key = record.sectionKeys.get(node.at);
   const title = (valueAt(record, node.at) as ValueObject).$title;
@@ -664,21 +698,22 @@ function outlineEntry(record: ParsedRecord, node: NodeInfo, withBlocks: boolean)
     ...(typeof title === "string" ? { title } : {}),
     depth: node.depth,
   };
-  return withBlocks ? { ...section, blocks: blocksOf(record, `${node.at}/$body`) } : section;
+  return withBlocks ? { ...section, blocks: blocksOf(subject, `${node.at}/$body`) } : section;
 }
 
 /** Gives the outline entries of the block anchors of the `$body` at an exact path, in document order. */
-function blocksOf(record: ParsedRecord, body: string): OutlineEntry[] {
+function blocksOf(subject: ResolutionSubject, body: string): OutlineEntry[] {
+  const record = subjectRecord(subject);
   return record.anchors.anchors
     .filter((entry): entry is BlockAnchorEntry => entry.kind === "block" && entry.at === body)
-    .map((entry) => blockEntry(record, entry));
+    .map((entry) => blockEntry(subject, entry));
 }
 
 /** Gives the outline entry of a block anchor: its `$body`, its canonical address, its block's size and its range. */
-function blockEntry(record: ParsedRecord, entry: BlockAnchorEntry): OutlineEntry {
+function blockEntry(subject: ResolutionSubject, entry: BlockAnchorEntry): OutlineEntry {
   return {
     at: entry.at,
-    address: blockAnchorAddress(record, entry),
+    address: blockAnchorAddress(subject, entry),
     size: sizeOf(entry.fileRange),
     range: entry.range,
   };

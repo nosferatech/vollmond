@@ -4,58 +4,6 @@
   "profiles": ["read", "validate"],
   "skip": [
     {
-      "id": "addresses/cardinality/keyed-list-duplicate-lenient",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/keyed-list-duplicate-strict",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/keyed-list-exact",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/keyed-list-step",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-derived-anchor",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-exact",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-meta",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-not-singular",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-selector",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-selector-no-match",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-suffix-not-singular",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-suffixed-derived-anchor",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
-      "id": "addresses/cardinality/multimap-unique-level",
-      "reason": "I2.3 (#23): keyed lists follow in a later pull request"
-    },
-    {
       "id": "addresses/explicit-refs/positional-steps-allowed-by-default",
       "reason": "I2.4 (#24): typed references follow in a later pull request"
     },

@@ -1,3 +1,4 @@
+import { bindRecord } from "../binding/binding.js";
 import { collectionOfRecord, type PathClassifier } from "../config/classify.js";
 import type { Collection, StoreConfiguration } from "../config/configuration.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
@@ -52,9 +53,10 @@ const LIST_PAGE = 1000;
  * Checks a store's records and paths, and gives every issue found, with the severities the configuration gives them, those
  * that are off left out, in the byte order of their paths (issues without a path first) and then of their positions:
  *
- * - each record's structural errors, or the validation issues parsing found; a file the backend could not read is
- *   `storage-failed`;
- * - for a record that parses, of a collection whose schema can be used, the schema's violations (`schema-violation`);
+ * - each record's structural errors, or the validation issues parsing found, adjusted for the levels its schema declares; a
+ *   file the backend could not read is `storage-failed`;
+ * - for a record that parses, of a collection whose schema can be used, the schema's violations (`schema-violation`) and the
+ *   repeated keys of the lists it declares a map (`duplicate-key`);
  * - the path rules over every listed path (`path-invalid`, `path-case-conflict`), records and assets alike;
  * - `collection-conflict` for a record that several collections claim, which is then checked as a record of none;
  *   `filename-mismatch` for a record whose name does not match its collection's pattern;
@@ -111,9 +113,8 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     }
     const parsed = await store.parse(record.path);
     if (parsed.ok) {
-      issues.push(...parsed.value.issues);
       const schema = collection === undefined ? null : await store.schema(collection);
-      if (schema?.ok === true) issues.push(...schema.value.validate(parsed.value));
+      issues.push(...bindRecord(parsed.value, schema?.ok === true ? schema.value : null).issues);
     } else {
       unreadable += 1;
       issues.push(...parsed.issues);

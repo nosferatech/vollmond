@@ -119,3 +119,79 @@ describe("the pairs the spine's check visits", () => {
     expect(problems.some((message) => message.startsWith("unevaluatedItems stands beside an x-vmd-list"))).toBe(true);
   });
 });
+
+/** The pointers of a shape's locations. */
+const pointers = (shape: { readonly locations: readonly { readonly pointer: string }[] }) =>
+  shape.locations.map((location) => location.pointer);
+
+describe("the shapes of keyed lists and their items", () => {
+  const list = {
+    type: "array",
+    prefixItems: [{ title: "first" }],
+    items: { title: "rest" },
+    "x-vmd-list": { type: "map", keys: ["name"], items: { a: { title: "a" } }, additional: { title: "other" } },
+  };
+
+  test("an item at any position has every prefixItems entry and items, with the schema of its key", async () => {
+    const { spine } = await checked({ properties: { l: list } });
+    const shape = spine.root.child({ member: "l" });
+    expect(pointers(shape.anyItem("a"))).toEqual([
+      "/properties/l/prefixItems/0",
+      "/properties/l/x-vmd-list/items/a",
+      "/properties/l/items",
+    ]);
+    expect(pointers(shape.anyItem("b"))).toEqual([
+      "/properties/l/prefixItems/0",
+      "/properties/l/x-vmd-list/additional",
+      "/properties/l/items",
+    ]);
+    expect(pointers(shape.anyItem(undefined))).toEqual(["/properties/l/prefixItems/0", "/properties/l/items"]);
+  });
+
+  test("the schemas an item is checked against for its key are the per-key schema, else additional", async () => {
+    const { spine } = await checked({ properties: { l: list, m: { "x-vmd-list": { type: "map", keys: ["k"] } } } });
+    const shape = spine.root.child({ member: "l" });
+    expect(shape.listSchemas("a").map((location) => location.pointer)).toEqual(["/properties/l/x-vmd-list/items/a"]);
+    expect(shape.listSchemas("b").map((location) => location.pointer)).toEqual(["/properties/l/x-vmd-list/additional"]);
+    expect(spine.root.child({ member: "m" }).listSchemas("a")).toEqual([]);
+    expect(spine.root.child({ member: "x" }).listSchemas("a")).toEqual([]);
+  });
+
+  test("multimap is whether any keyed list here declares it, unequal ones included", async () => {
+    const multimap = { "x-vmd-list": { type: "multimap", keys: ["k"] } };
+    const map = { "x-vmd-list": { type: "map", keys: ["k"] } };
+    const { spine } = await checked({
+      properties: { mm: multimap, m: map, plain: { type: "array" } },
+      patternProperties: { "^c": multimap, d$: map },
+    });
+    expect(spine.root.child({ member: "mm" }).multimap).toBe(true);
+    expect(spine.root.child({ member: "m" }).multimap).toBe(false);
+    expect(spine.root.child({ member: "plain" }).multimap).toBe(false);
+    const conflicting = spine.root.child({ member: "cd" });
+    expect(conflicting.list).toBeNull();
+    expect(conflicting.multimap).toBe(true);
+    // Unequal declarations leave the array unkeyed, so neither one's schemas apply to its items.
+    const { spine: withSchemas } = await checked({
+      patternProperties: {
+        "^c": { "x-vmd-list": { type: "multimap", keys: ["k"], additional: { title: "c" } } },
+        d$: { "x-vmd-list": { type: "map", keys: ["k"], additional: { title: "d" } } },
+      },
+    });
+    expect(withSchemas.root.child({ member: "cd" }).listSchemas("x")).toEqual([]);
+    expect(withSchemas.root.child({ member: "c" }).listSchemas("x")).toHaveLength(1);
+  });
+
+  test("an item step past the longest prefixItems, or by a key no list names, is computed once whatever the index or key", async () => {
+    const { spine } = await checked({ properties: { l: list } });
+    const shape = spine.root.child({ member: "l" });
+    const before = spine.stepsComputed;
+    for (let index = 1; index < 1000; index++) shape.child({ item: index, key: `k${index}` });
+    // Index 1 and up all take items, and every key but a takes additional: one step computed for them all.
+    expect(spine.stepsComputed - before).toBe(1);
+    shape.child({ item: 0, key: "k0" });
+    shape.child({ item: 7, key: "a" });
+    shape.child({ item: 7 });
+    expect(spine.stepsComputed - before).toBe(4);
+    expect(shape.child({ item: 5, key: "zz" })).toBe(shape.child({ item: 999, key: "yy" }));
+  });
+});

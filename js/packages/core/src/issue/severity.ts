@@ -22,6 +22,28 @@ const NONE: readonly SeveritySetting[] = Object.freeze([]);
 /** The codes that lenient uniqueness makes warnings, at the levels no schema declares. */
 const UNIQUENESS_CODES: ReadonlySet<IssueCode> = new Set(["duplicate-key", "duplicate-anchor"]);
 
+/** The `duplicate-key` issues raised at a level a schema declares `type: map`, which no setting lowers. */
+const declaredDuplicates = new WeakSet<Issue>();
+
+/**
+ * Gives a `duplicate-key` as one at a level a schema declares `type: map`: a frozen copy that {@link applySeverities} keeps
+ * an error under lenient uniqueness, and that {@link isDeclaredDuplicate} recognizes. The mark is not a member of the issue,
+ * so it is not printed and does not survive a copy; {@link applySeverities} returns such an issue as it is.
+ *
+ * Throws a `RangeError` for an issue of another code.
+ */
+export function declaredDuplicate(issue: Issue): Issue {
+  if (issue.code !== "duplicate-key") throw new RangeError(`only a duplicate-key is declared, not a ${issue.code}`);
+  const marked = Object.freeze({ ...issue });
+  declaredDuplicates.add(marked);
+  return marked;
+}
+
+/** Whether an issue is a `duplicate-key` at a level a schema declares `type: map` (see {@link declaredDuplicate}). */
+export function isDeclaredDuplicate(issue: Issue): boolean {
+  return declaredDuplicates.has(issue);
+}
+
 /** The codes that minimal quoting turns off. */
 const QUOTING_CODES: ReadonlySet<IssueCode> = new Set(["yaml-ambiguous-string", "yaml-ambiguous-number"]);
 
@@ -43,20 +65,21 @@ export function settingsAllowed(code: IssueCode): readonly SeveritySetting[] {
  * comes with the severity its raiser gave it, the default unless its context decided (a path rule broken by an asset is a
  * warning). Then, in order:
  *
- * 1. under lenient uniqueness, `duplicate-key` and `duplicate-anchor` are warnings;
+ * 1. under lenient uniqueness, `duplicate-key` and `duplicate-anchor` are warnings, but a `duplicate-key` at a level a
+ *    schema declares `type: map` ({@link declaredDuplicate}), which stays an error in either mode;
  * 2. under minimal quoting, `yaml-ambiguous-string` and `yaml-ambiguous-number` are off;
  * 3. an `issues` entry sets the severity of every issue of its code that is a warning or off at that point, so that it wins
  *    over the setting that implied a severity, and never lowers an error.
  *
  * An issue whose severity changes is a frozen copy with the new severity; the others are returned as they are.
  */
-// A duplicate key at a level a schema declares a map stays an error under lenient uniqueness. No level is declared until
-// keyed lists come (TODO(#23)), so every duplicate is at an undeclared level here; the binding will mark the others.
 export function applySeverities(issues: readonly Issue[], configuration: SeverityConfiguration): Issue[] {
   const reported: Issue[] = [];
   for (const issue of issues) {
     let severity: SeveritySetting = issue.severity;
-    if (configuration.uniqueness === "lenient" && UNIQUENESS_CODES.has(issue.code)) severity = "warning";
+    if (configuration.uniqueness === "lenient" && UNIQUENESS_CODES.has(issue.code) && !isDeclaredDuplicate(issue)) {
+      severity = "warning";
+    }
     if (configuration.yamlQuoting === "minimal" && QUOTING_CODES.has(issue.code)) severity = "off";
     const entry = configuration.issues.get(issue.code);
     if (entry !== undefined && severity !== "error") severity = entry;
