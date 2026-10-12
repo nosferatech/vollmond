@@ -28,7 +28,9 @@ describe("runConformance", () => {
     const report = JSON.parse(await readFile(join(directory, "conformance-report.json"), "utf8"));
     expect(report.implementation).toEqual({ name: "vollmond-ts", version: "0.0.0", profiles: ["read", "validate"] });
     expect(report.selection).toBeNull();
-  });
+    // The whole suite runs here: a few seconds alone, and over ten on a loaded machine or runner, growing with every case; the
+    // test is about the verdicts, not how fast they come.
+  }, 60_000);
 
   test("exits with 1 on a failing case, and prints the failing ids when asked", async () => {
     const suite = await suiteWithFailure();
