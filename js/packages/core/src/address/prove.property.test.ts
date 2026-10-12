@@ -8,8 +8,10 @@
 // keys must be unique.
 //
 // The expected verdict is the rule of the design's section 4.4 applied to the tree, not to the schema: every place a step can
-// reach counts, at every position of a list, and a step crosses a multimap when it leaves a section whose child sections, or a
-// list whose items, are declared multimap. So the oracle does not read the JSON Schema that core's spine reads. Besides the
+// reach counts, at every position of a list, and a step crosses a multimap when it leaves a level where a section's child
+// sections, or a list's items, are declared multimap. The nodes one step reaches together, every position's included, are one
+// level, as the locations of one instance location are, since the schema cannot tell them apart. So the oracle does not read
+// the JSON Schema that core's spine reads. Besides the
 // exact verdict: an accepted address resolves to its node alone, and an address through a key the data repeats is refused.
 
 import fc from "fast-check";
@@ -271,42 +273,51 @@ function instance(root: SectionNode, pick: Pick): { value: unknown; paths: Path[
   return { value: section(root, [], false), paths };
 }
 
-/** A place a step may stand at in the tree, as the oracle reads it. */
-type Place = { readonly kind: "section"; readonly node: SectionNode } | { readonly kind: "value"; readonly node: Node };
+/**
+ * A group of tree nodes that a step may stand at together: the nodes one step reaches from one group, every position of a
+ * list or of a section's child sections included, whose schemas apply there together. The schema cannot tell them apart, so
+ * the rule reads them as one level, as it reads the locations of one instance location.
+ */
+type Group =
+  | { readonly kind: "section"; readonly nodes: readonly SectionNode[] }
+  | { readonly kind: "value"; readonly nodes: readonly Node[] };
+
+/** The nodes of a list or child sections at every position. */
+const positions = <T>(of: { readonly prefix: readonly T[]; readonly item: T }): T[] => [...of.prefix, of.item];
 
 /**
- * Whether the rule of §4.4, applied to the tree, refuses these steps: from every place the previous step can reach, a step
- * crosses a multimap when it leaves a section whose child sections, or a list whose items, are declared multimap; and it
- * reaches a member of that name, every position's child section of a section, and every position's item of a keyed list, or
- * the item at an index of a list that is not keyed.
+ * Whether the rule of §4.4, applied to the tree, refuses these steps. A step crosses a multimap when it leaves a group in
+ * which a section's child sections, or a list's items, are declared multimap; a declaration anywhere in the group decides.
+ * From a group of sections it reaches the group of their members of that name, and the group of every position's child
+ * section. From a group of values it reaches the group of their members of that name; where a list of the group is keyed,
+ * the group of every position's item of every list in it, since a step there may be a key; and otherwise, for an index, the
+ * group of the items at that index.
  */
 function oracleRefuses(root: SectionNode, steps: readonly string[]): boolean {
-  let places: Place[] = [{ kind: "section", node: root }];
+  let groups: Group[] = [{ kind: "section", nodes: [root] }];
   for (const step of steps) {
-    const next: Place[] = [];
-    for (const place of places) {
-      if (place.kind === "section") {
-        const sections = place.node.sections;
-        if (sections?.list === "multimap") return true;
-        const member = place.node.members[step];
-        if (member !== undefined) next.push({ kind: "value", node: member });
-        if (sections !== null) {
-          for (const child of [...sections.prefix, sections.item]) next.push({ kind: "section", node: child });
-        }
-      } else if (place.node.kind === "object") {
-        const member = place.node.members[step];
-        if (member !== undefined) next.push({ kind: "value", node: member });
-      } else if (place.node.kind === "list") {
-        const list = place.node;
-        if (list.list === "multimap") return true;
-        if (list.list !== "none") {
-          for (const item of [...list.prefix, list.item]) next.push({ kind: "value", node: item });
-        } else if (/^(0|[1-9][0-9]*)$/.test(step)) {
-          next.push({ kind: "value", node: list.prefix[Number(step)] ?? list.item });
-        }
+    const next: Group[] = [];
+    for (const group of groups) {
+      if (group.kind === "section") {
+        if (group.nodes.some((node) => node.sections?.list === "multimap")) return true;
+        next.push({ kind: "value", nodes: group.nodes.flatMap((node) => node.members[step] ?? []) });
+        next.push({
+          kind: "section",
+          nodes: group.nodes.flatMap((node) => (node.sections === null ? [] : positions(node.sections))),
+        });
+        continue;
+      }
+      const lists = group.nodes.filter((node): node is ListNode => node.kind === "list");
+      if (lists.some((list) => list.list === "multimap")) return true;
+      const objects = group.nodes.filter((node): node is ObjectNode => node.kind === "object");
+      next.push({ kind: "value", nodes: objects.flatMap((node) => node.members[step] ?? []) });
+      if (lists.some((list) => list.list !== "none")) {
+        next.push({ kind: "value", nodes: lists.flatMap(positions) });
+      } else if (/^(0|[1-9][0-9]*)$/.test(step)) {
+        next.push({ kind: "value", nodes: lists.map((list) => list.prefix[Number(step)] ?? list.item) });
       }
     }
-    places = next;
+    groups = next.filter((group) => group.nodes.length > 0);
   }
   return false;
 }
