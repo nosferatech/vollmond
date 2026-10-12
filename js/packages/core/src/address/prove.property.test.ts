@@ -302,7 +302,7 @@ function oracleRefuses(root: SectionNode, steps: readonly string[]): boolean {
     const next: Group[] = [];
     for (const group of groups) {
       if (group.kind === "section") {
-        // No section key begins with $, so such a step names the section's own member and crosses no level (card AD).
+        // No section key of a valid record begins with $, so such a step names the section's own member and crosses no level (card AD).
         if (step.startsWith("$")) continue;
         if (group.nodes.some((node) => node.sections?.list === "multimap")) return true;
         next.push({ kind: "value", nodes: group.nodes.flatMap((node) => node.members[step] ?? []) });

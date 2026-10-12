@@ -8,6 +8,7 @@ import { computeFields } from "../meta/computed-fields.js";
 import type { ParsedRecord } from "../record/record.js";
 import { usable } from "../schema/schema.testkit.js";
 import { parseAddress } from "./address.js";
+import { proveSingular } from "./prove.js";
 import { canonicalAddress, resolveAddress, resolveAddressSteps, semanticMatchCount } from "./resolve.js";
 
 /** A record that must parse. */
@@ -175,7 +176,7 @@ describe("the proof that a singular address names one node", () => {
     expect(singular(binding, "#summary/notes")).toBe("address-not-singular journal/week-41.md null");
   });
 
-  // Card AD (project owner, 2026-10-12): no section key begins with `$`, so a `$` step from a section names the section's own
+  // Card AD (project owner, 2026-10-12): no section key of a valid record begins with `$`, so a `$` step from a section names the section's own
   // member and crosses no level of its child sections.
   test("a $ step from a section names the section's own member, below a level declared multimap too", async () => {
     const schema = {
@@ -217,6 +218,30 @@ describe("the proof that a singular address names one node", () => {
     const binding = await bound("r.md", "# W\n\n## Summary\n\nQuiet.\n", schema);
     expect(singular(binding, "#summary/$title/x")).toBe("address-not-found r.md null");
     expect(singular(binding, "#summary/notes/x")).toBe("address-not-singular r.md null");
+  });
+
+  // Review of #117: an invalid explicit anchor still becomes the section's key, so in a record with anchor-invalid a section key
+  // can begin with $. The proof then accepts a $ step that evaluation finds ambiguous, one of §7.4's cases left to evaluation.
+  // This pins today's behaviour, so that a change to it shows up here.
+  test("a section keyed by an invalid anchor beginning with $ passes the proof, and evaluation reports the ambiguity", async () => {
+    const level = (sections: unknown) => ({ type: "object", properties: { $sections: sections } });
+    const map = (items?: unknown) => ({
+      type: "array",
+      "x-vmd-list": { type: "map", keys: ["@key"] },
+      ...(items === undefined ? {} : { items }),
+    });
+    const schema = level(map(level(map(level({ type: "array", "x-vmd-list": { type: "multimap", keys: ["@key"] } })))));
+    const text = JSON.stringify({
+      $sections: [{ $title: "A", $sections: [{ $anchor: "$x", $title: "X", $sections: [{ $title: "B" }, { $title: "B" }] }] }],
+    });
+    const binding = await bound("r.json", text, schema);
+    expect(binding.issues.map((issue) => `${issue.code} ${issue.at}`)).toContain("anchor-invalid /$sections/0/$sections/0");
+    expect(proveSingular(binding, fragmentOf("#a/$x/b")).ok).toBe(true);
+    expect(singular(binding, "#a/$x/b")).toBe("address-ambiguous r.json null");
+    expect(selected(binding, "#a/$x/b")).toEqual([
+      "/$sections/0/$sections/0/$sections/0",
+      "/$sections/0/$sections/0/$sections/1",
+    ]);
   });
 
   test("a $ step into a data list declared multimap is a key like any other, and stays refused", async () => {

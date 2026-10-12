@@ -44,7 +44,7 @@ export function proveSingular(binding: RecordBinding, fragment: Fragment | null)
  * place the previous step can reach, and a declaration anywhere among them decides: a section's fields and child sections,
  * whose level is its `$sections` declaration; a keyed list's items, by key at any position; an object's members; an array's
  * items by index. A section's step that begins with `$` names the section's own member, such as `$body` or `$sections`, and
- * crosses no level: no section key begins with `$`. A level the schema leaves undeclared is unique by the strict default; lenient mode and duplicates in the
+ * crosses no level: no section key of a valid record begins with `$`. A level the schema leaves undeclared is unique by the strict default; lenient mode and duplicates in the
  * data are the cases §7.4 leaves to evaluation.
  *
  * Cost: a few memoized shape steps per step of the path.
@@ -73,7 +73,7 @@ export function unprovableStep(binding: RecordBinding, fragment: Fragment | null
 
 /**
  * Whether a section's step names only the section's own member, such as `$body` or `$sections`: a step that begins with `$`.
- * No section key begins with `$`, since a heading's slug drops it and an anchor begins with a letter, so such a step matches
+ * No section key of a valid record begins with `$`, since a heading's slug drops it and an anchor begins with a letter, so such a step matches
  * no child section and crosses no level of them.
  */
 function namesOwnMember(step: string): boolean {
