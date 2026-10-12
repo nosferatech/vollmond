@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"l": {"type": "array", "items": {"type": "object", "properties": {"r": {"type": "object", "x-vmd-ref": {}}}}, "x-vmd-list": {"type": "map", "keys": ["name"], "additional": {"properties": {"r": {"type": "object", "x-vmd-ref": {"cardinality": "many"}}}}}}}}

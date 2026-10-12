@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"x": {"type": "object", "properties": {"rx": {}}}}, "allOf": [{"patternProperties": {"^r": {"type": "object", "x-vmd-ref": {}}}}, {"patternProperties": {"x$": {"type": "object", "x-vmd-ref": {"cardinality": "many"}}}}]}

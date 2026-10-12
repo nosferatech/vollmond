@@ -346,21 +346,24 @@ vmd checks the keywords of §9.3 before the validator sees the schema:
   `$ref` object, or for a string, which the design proposes must then have `format: uri-reference` (question 18).
 - **`x-vmd-summary`**: a boolean, as the design proposes (question 19). **`x-vmd-ordered`**: `asc` or `desc`, beside an `enum`.
 - A malformed keyword is `schema-invalid`. An unknown `x-vmd-*` keyword is `feature-unsupported`, of class operation in a schema
-  (Appendix D).
+  (Appendix D), and so is an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, such as `sorted: true` or `type: set`
+  (decision AA2, Draft v0.14 §9.3); a member whose value has the wrong form stays `schema-invalid`.
 
 **The spine.** `x-vmd-list` changes what an address means and `x-vmd-ref` what a value is, so vmd must know, for each node of a
 record, which of them apply. The spine is the part of a schema reached from its root through keywords whose subschema for an
 instance location does not depend on the instance's validity: `properties`, `patternProperties`, `additionalProperties`,
 `prefixItems`, `items`, `$ref` (to a fixed location), `allOf`, and `x-vmd-list`'s own `items` and `additional`. It does not go
 through `anyOf`, `oneOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `contains`, `propertyNames`, `unevaluated*` or
-`$dynamicRef`.
+`$dynamicRef`. A `$dynamicRef` is allowed, and every `$dynamicAnchor` of its name counts as a target reached off the spine
+(decision AA3, Draft v0.14 §9.2 and §9.3).
 
-**Declarations off the spine.** An `x-vmd-list` or `x-vmd-ref` that the collection's schema reaches only through an applicator off
-the spine, such as a branch of `oneOf`, is `schema-invalid` (question 2), so that what an address means never depends on which
-branch the data happens to satisfy, and the proof of §7.4 can work from the schema alone. A declaration the collection's schema
-does not reach at all is no error: a shared `common.schema.yaml` whose `$defs` each collection uses only in part is valid, and
-what is unreached is never checked against the spine. Reached means through any keyword, so the walk that finds the off-spine
-declarations follows every applicator and every `$ref`, with a set of visited locations against cycles.
+**Declarations off the spine.** An `x-vmd-list` or `x-vmd-ref` that the collection's schema reaches through an applicator off the
+spine, such as a branch of `oneOf`, is `schema-invalid` (question 2), also where the spine reaches it too (decision AA4, item 6,
+Draft v0.14 §9.3), so that what an address means never depends on which branch the data happens to satisfy, and the proof of §7.4
+can work from the schema alone. A declaration the collection's schema does not reach at all is no error: a shared
+`common.schema.yaml` whose `$defs` each collection uses only in part is valid, and what is unreached is never checked against the
+spine. Reached means through any keyword, so the walk that finds the off-spine declarations follows every applicator and every
+`$ref`, with a set of visited locations against cycles.
 
 **Several declarations at one instance location** must be equal. Where the schema alone shows two unequal ones, it is
 `schema-invalid`; where only a member name in the data brings them together, that member of that record has a `schema-violation`.
@@ -370,7 +373,9 @@ They meet in four ways:
   is loaded;
 - a member named in `properties` whose name a `patternProperties` pattern also matches: static too, since the name is in the
   schema; patterns are ECMA-262 expressions, run with the `u` flag (D: 2020-12 Core, section 10.3.2.2, which names ECMA-262);
-- two patterns that both match one member name: only a name in the data can tell, so the check runs when a record is bound, and
+- two patterns that both match one member name: only a name in the data can tell, so the check runs when a record is bound
+  (but a name that a `properties` anywhere in the schema lists is checked when the schema is loaded, conservatively; decision
+  AA4, item 4, Draft v0.14 §9.3), and
   raises a `schema-violation` at that member of that record, naming both patterns and their declarations, as any value the schema
   cannot accept would. The member then gets neither declaration: an array there is not a keyed list, a string there is no typed
   reference. The record stays readable, and the collection's other records are unaffected, so the result depends neither on which
@@ -383,6 +388,10 @@ They meet in four ways:
   remove the `multimap` one from the schema;
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
   `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both.
+
+The check of where declarations meet is bounded: a schema whose count, the pairs of schema objects that apply together and could
+disagree, with the pairs of a typed reference lacking the format and an object beside it, is more than 1,000,000 is
+`schema-invalid`, too complex to check (decision AA1, Draft v0.14 §9.3).
 
 `x-vmd-summary` and `x-vmd-ordered` are left to I3, whose queries read them. A schema with `unevaluatedItems` beside `x-vmd-list`
 would fail valid data, since the validator does not see the items `x-vmd-list` checks as evaluated; the design proposes to make it
@@ -647,8 +656,9 @@ nodes, and the link's position maps to the `$body` or `$title` that holds it:
 A separate mdast parse for links would cost as much as the record's own parse: 849 to 878 ms over vampiredb's docs against 932 to
 948 ms in the same runs (M).
 
-**Prose in JSON and YAML** (C21). Each `$body` string of a section is parsed as a Markdown document of its own, and each `$title`
-as the content of an ATX heading (K8), with offsets into the string itself. These parses run when references are asked for and not
+**Prose in JSON and YAML** (C21). Each `$body` string of a section is parsed as a Markdown document of its own, with the link
+reference definitions of every `$body` of the record in scope, the first in document order winning where two define one label
+(decision AB, Draft v0.14 §5.4), and each `$title` as the content of an ATX heading (K8), with offsets into the string itself. These parses run when references are asked for and not
 otherwise: in `check`, `refs` and the index for every record, and in `get` only when `@refs` is requested, then for the strings of
 the requested node and the sections below it. A plain `get` parses no prose. (The first version said "never for `get`", which
 contradicted `@refs` on `get`, section 5.7.) A Markdown record's links need no extra parse, since they come from its own.

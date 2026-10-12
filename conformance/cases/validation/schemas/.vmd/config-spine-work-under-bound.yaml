@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["a.json"]
+    schema: spine-work-under-bound.schema.json

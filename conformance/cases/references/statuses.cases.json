@@ -153,6 +153,33 @@
         {"from": {"path": "refs/prose.yaml", "at": "/$body", "offset": 16}, "raw": "../assets/missing.png", "status": "dangling", "targets": []},
         {"from": {"path": "refs/prose.yaml", "at": "/$sections/0/$title", "offset": 5}, "raw": "../docs/twin.md", "status": "ok", "targets": [{"path": "docs/twin.md", "at": "", "address": ""}]}
       ]}
+    },
+    {
+      "id": "refs-body-definition-in-other-section-md",
+      "spec": ["5.5", "8.1"],
+      "description": "In a Markdown file, one document, the root's $body defines b, and a section's $body holds [a][b](../docs/twin.md). With the definitions of every $body of the record in scope, [a][b] is a reference link to the definition, which is the reference, and (../docs/twin.md) after it is text, so twin.md is no reference (§8.1, CommonMark 0.31.2 4.7). The JSON and YAML forms of this record read the same (decision AB).",
+      "input": {"record": "refs/body-definition.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/body-definition.md", "at": "/$body", "offset": 0}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-body-definition-in-other-section-json",
+      "spec": ["5.5", "8.1"],
+      "description": "A JSON record's bodies see each other's definitions, as one Markdown file does (§5.5, decision AB): the root's $body defines b, and a section's $body holds [a][b](../docs/twin.md). With the definitions of every $body of the record in scope, [a][b] is a reference link to the definition, which is the reference, and (../docs/twin.md) after it is text, so twin.md is no reference, as in refs-body-definition-in-other-section-md. With only its own definitions in scope, the section's body would give a second reference, to twin.md.",
+      "input": {"record": "refs/body-definition.json"},
+      "expect": {"result": [
+        {"from": {"path": "refs/body-definition.json", "at": "/$body", "offset": 0}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-body-definition-in-other-section-yaml",
+      "spec": ["5.5", "8.1"],
+      "description": "The YAML form of refs-body-definition-in-other-section-json (§5.5, decision AB): the root's $body defines b, and a section's $body holds [a][b](../docs/twin.md). With the definitions of every $body of the record in scope, [a][b] is a reference link to the definition, which is the reference, and (../docs/twin.md) after it is text, so twin.md is no reference.",
+      "input": {"record": "refs/body-definition.yaml"},
+      "expect": {"result": [
+        {"from": {"path": "refs/body-definition.yaml", "at": "/$body", "offset": 0}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
     }
   ]
 }

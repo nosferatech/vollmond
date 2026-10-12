@@ -1,0 +1,1 @@
+{"$title": "Doc", "$body": "[b]: ../docs/target.md\n", "$sections": [{"$title": "S", "$body": "See [a][b](../docs/twin.md).\n"}]}

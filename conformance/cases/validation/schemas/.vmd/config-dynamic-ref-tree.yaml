@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["tree.json"]
+    schema: dynamic-ref-tree.schema.json

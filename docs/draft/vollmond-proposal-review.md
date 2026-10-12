@@ -566,7 +566,7 @@ and the entries are gone.
 - [T](../decisions/T.md) Block anchors in a list item's later paragraphs
 - [I2-design](../decisions/I2-design.md) Approving the design of phase I2
 - [U1](../decisions/U1.md) The JSON Schema validator: @hyperjump/json-schema
-- [U2](../decisions/U2.md) x-vmd-list and x-vmd-ref stand on the schema's spine only
+- [U2](../decisions/U2.md) x-vmd-list and x-vmd-ref stand on the schema's spine only (superseded by AA4)
 - [U3](../decisions/U3.md) A reference through a multimap level is ambiguous
 - [U4](../decisions/U4.md) The cache lives in the per-user cache directory, never in the store
 - [U5](../decisions/U5.md) A record that two collections match gets collection-conflict
@@ -598,7 +598,7 @@ exceptions named in a note, or (c) discussing first. Where the records fill in a
 agent's reading, for the owner to confirm; card W3 (Draft v0.13) confirmed those readings, except a FIFO in the store, which it
 made a failure. Section numbers refer to Draft v0.12.
 
-- [W1](../decisions/W1.md) The agent's readings in Draft v0.11 are confirmed
+- [W1](../decisions/W1.md) The agent's readings in Draft v0.11 are confirmed (superseded by AA2)
 - [W2](../decisions/W2.md) Renames and writes beside an unusable schema are refused, like unreadable records
 - [X1](../decisions/X1.md) A schema file that cannot be read is `storage-failed` (superseded by W3)
 - [X2](../decisions/X2.md) A refused read's issue has a null path
@@ -636,20 +636,42 @@ Recorded 2026-10-11, and applied to Draft v0.13. Card W3 confirms the agent's re
 owner, with a note that makes a FIFO in the store a failure. Cards Z1 to Z3 come from the references pull request (#99): a data
 `$body` and the Markdown limits, chains of anchor aliases, and a bound on the alias file. The project owner accepted the
 recommended option on every card: (a) "Confirm all eight" on W3, and (a) on each of Z1 to Z3, which offered two options each.
-Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section
-numbers refer to Draft v0.13.
+Where the records fill in a detail the cards left open, they marked it as the agent's reading, for the owner to confirm; card W4
+(Draft v0.14) confirmed those readings. Section numbers refer to Draft v0.13.
 
 - [W3](../decisions/W3.md) The agent's readings in Draft v0.12 are confirmed, and a FIFO in the store is a failure
 - [Z1](../decisions/Z1.md) The Markdown limits apply to a data `$body`
 - [Z2](../decisions/Z2.md) Anchor aliases are followed through chains, and under a record's old paths
 - [Z3](../decisions/Z3.md) The alias file is read with a bound of 16 MiB
 
-One more change is applied without a decision, and is an agent's reading, for the owner to confirm: §6.3 and Appendix D's
+One more change is applied without a decision of its own. It was an agent's reading, for the owner to confirm, and the owner
+confirmed it on card [W4](../decisions/W4.md) (item 9): §6.3 and Appendix D's
 `ref-derived-anchor` and `ref-derived-repeat` rows also warn about a reference whose first step reaches a JSON or YAML section
 only by its key, the slug of its `$title`, where Draft v0.12 spoke of derived anchors only. It widens the two warnings, so it is
 a rule change rather than a wording fix. The I2 design states it (`docs/design/i2-validate.md`, section 5.6: the first step
 matched only by a derived anchor or a title's key), and #99 implements it and asked the owner to confirm it (its question 6).
-No owner decision records it yet.
+W4 records the confirmation.
+
+## Decisions from cards AA, AB and W4 (Draft v0.14)
+
+Recorded 2026-10-12, and applied to Draft v0.14. Cards AA1 to AA4 come from the schemas pull request (#97): a bound on the work
+of checking where a schema's vmd keywords meet, the code for an unknown member or value inside `x-vmd-list` or `x-vmd-ref`,
+`$dynamicRef`, and seven readings of schema checking. Card AB comes from the pull request that holds a data `$body` to the
+Markdown limits (#103): which link reference definitions a `$body` sees. Card W4 confirms the agent's readings that the Draft v0.13
+round marked for the owner. The project owner accepted the recommended option on AA2, AA3, AA4 ("Confirm all seven"), AB and W4
+("Confirm all ten"), and answered AA1 with a note instead of an option. Where the records fill in a detail the cards left open,
+they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.14.
+
+- [AA1](../decisions/AA1.md) Checking where a schema's vmd keywords meet is bounded by a count of its work
+- [AA2](../decisions/AA2.md) An unknown member or value inside `x-vmd-list` or `x-vmd-ref` is `feature-unsupported`
+- [AA3](../decisions/AA3.md) `$dynamicRef` is allowed in collection schemas, and its targets count as off the spine
+- [AA4](../decisions/AA4.md) Seven readings of schema checking from the schemas pull request are confirmed
+- [AB](../decisions/AB.md) Every `$body` of a JSON or YAML record sees the link reference definitions of all its bodies
+- [W4](../decisions/W4.md) The agent's readings in Draft v0.13 are confirmed
+
+One more change is applied without a decision: §5.10's interim sentence on `field-not-computed`, which said that a read gives
+`@refs` as `null` until I2 computes it, is gone, since the references pull request (#99) computes `@refs`, as #99 noted for this
+draft. Appendix D keeps the code, which core still lists.
 
 ## Decisions given in conversation
 
