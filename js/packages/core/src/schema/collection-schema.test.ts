@@ -493,6 +493,18 @@ describe("the spine", () => {
       },
     ],
     [
+      "the array's items, which every item of a keyed list gets beside its per-key schema",
+      {
+        properties: {
+          l: {
+            type: "array",
+            items: { allOf: [{ format: "uri-reference" }] },
+            "x-vmd-list": { type: "map", keys: ["k"], items: { x: { "x-vmd-ref": {} } }, additional: { "x-vmd-ref": {} } },
+          },
+        },
+      },
+    ],
+    [
       "a pattern that matches the declaration's member",
       { properties: { p: { "x-vmd-ref": {} } }, patternProperties: { "^p$": { type: "string", format: "uri-reference" } } },
     ],
@@ -511,6 +523,42 @@ describe("the spine", () => {
       }),
     );
     expect(issue.message).toContain("without format: uri-reference");
+    // Review of #97's second recheck, item 2: an items schema gets nothing from a sibling whose prefixItems reach further,
+    // since the items there are that sibling's prefixItems, not its items.
+    const prefix = await unusable(
+      file({
+        allOf: [{ items: { type: "string", "x-vmd-ref": {} } }, { prefixItems: [{ format: "uri-reference" }], items: {} }],
+      }),
+    );
+    expect(prefix.message).toContain("without format: uri-reference");
+    // An item of a keyed list may be at an index that a sibling's prefixItems give, so that sibling's items do not count.
+    const keyedPrefix = await unusable(
+      file({
+        properties: {
+          l: {
+            allOf: [
+              { type: "array", "x-vmd-list": { type: "map", keys: ["k"], items: { x: { "x-vmd-ref": {} } } } },
+              { prefixItems: [{}], items: { format: "uri-reference" } },
+            ],
+          },
+        },
+      }),
+    );
+    expect(keyedPrefix.message).toContain("without format: uri-reference");
+    // Nor do they when both have prefixItems of one length: the first item gets the sibling's prefixItems entry.
+    const keyedSamePrefix = await unusable(
+      file({
+        properties: {
+          l: {
+            allOf: [
+              { prefixItems: [{}], "x-vmd-list": { type: "map", keys: ["k"], items: { x: { "x-vmd-ref": {} } } } },
+              { prefixItems: [{}], items: { format: "uri-reference" } },
+            ],
+          },
+        },
+      }),
+    );
+    expect(keyedSamePrefix.message).toContain("without format: uri-reference");
     // A member that only the data names gets nothing from its parent's other members: the object's own type is not its.
     const unnamed = await unusable(file({ type: "object", additionalProperties: { "x-vmd-ref": {} } }));
     expect(unnamed.message).toContain("without format: uri-reference");

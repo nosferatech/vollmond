@@ -63,6 +63,52 @@ describe("the pairs the spine's check visits", () => {
     expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
   });
 
+  // Review of #97's second recheck, item 1: two patterns, or a pattern and additionalProperties, meet at a name that only a
+  // third co-applying location lists, which the schema names, so the conflict is static.
+  test.each([
+    [
+      "two patterns",
+      {
+        allOf: [
+          { patternProperties: { "^r": ref("one") } },
+          { patternProperties: { "^r": ref("many") } },
+          { properties: { rx: true } },
+        ],
+      },
+    ],
+    [
+      "a pattern and additionalProperties",
+      {
+        allOf: [{ additionalProperties: ref("one") }, { patternProperties: { "^r": ref("many") } }, { properties: { rx: true } }],
+      },
+    ],
+  ])("%s that meet at a name a third location lists are unequal declarations", async (_case, schema) => {
+    const { problems } = await checked(schema);
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+  });
+
+  test("a keyed list and an unevaluatedItems that patterns bring to a name another location lists meet", async () => {
+    const { problems } = await checked({
+      $defs: { D1: { patternProperties: { "^[ab]$": { unevaluatedItems: false } } } },
+      patternProperties: { "^a$": { allOf: [{ "x-vmd-list": { type: "map", keys: ["k"] } }] } },
+      allOf: [{ properties: { a: {} }, allOf: [{ $ref: "#/$defs/D1" }] }],
+    });
+    expect(problems.some((message) => message.startsWith("unevaluatedItems stands beside an x-vmd-list"))).toBe(true);
+  });
+
+  // Review of #97's second recheck, optional b: the candidates are filtered before they are paired, which the count shows.
+  test("plain branches beside one that conflicts with itself are not paired", async () => {
+    const one = ref("one");
+    const { spine, problems } = await checked({
+      allOf: [
+        { properties: { a: { allOf: [{ properties: { r: one } }, { properties: { r: ref("many") } }] } } },
+        ...Array.from({ length: 50 }, () => ({ properties: { a: { type: "object" } } })),
+      ],
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeLessThanOrEqual(10);
+  });
+
   test("a keyed list and an unevaluatedItems in different branches still meet", async () => {
     const { problems } = await checked({
       allOf: [

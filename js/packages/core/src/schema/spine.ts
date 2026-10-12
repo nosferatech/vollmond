@@ -64,6 +64,7 @@ type SpineEdge =
   | { readonly kind: "member"; readonly name: string }
   | { readonly kind: "prefix"; readonly index: number }
   | { readonly kind: "items" }
+  | { readonly kind: "keyed" }
   | { readonly kind: "unnamed" };
 
 /**
@@ -87,6 +88,7 @@ export class Spine {
   readonly #marks = new Map<string, SubtreeMarks>();
   #pairsVisited = 0;
   #mustSteps = 0;
+  #names: readonly string[] | undefined;
   readonly root: SchemaShape;
 
   constructor(set: SchemaSet) {
@@ -393,7 +395,9 @@ export class Spine {
               ? { kind: "prefix", index: Number(last) }
               : subschema.keyword === "items"
                 ? { kind: "items" }
-                : { kind: "unnamed" };
+                : subschema.keyword === "x-vmd-list"
+                  ? { kind: "keyed" }
+                  : { kind: "unnamed" };
       edges.push({ child, edge });
     }
     const reference = this.#set.references.get(referenceKey(location, "$ref"));
@@ -514,6 +518,17 @@ export class Spine {
       if (edge.kind === "same") return above;
       const found = new Set<string>();
       if (edge.kind === "unnamed") return found;
+      // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
+      if (edge.kind === "keyed") {
+        for (const key of above) {
+          this.#mustSteps += 1;
+          const beside = locationOf(key);
+          const schema = this.schemaAt(beside);
+          if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) continue;
+          for (const location of this.closure([at(beside, "items")])) if (useful(location)) found.add(locationKey(location));
+        }
+        return found;
+      }
       for (const key of above) {
         this.#mustSteps += 1;
         const beside = locationOf(key);
@@ -599,7 +614,7 @@ export class Spine {
       const second = this.schemaAt(other);
       if (!isObject(first) || !isObject(second)) continue;
       this.#checkPair(one, first, other, second, report);
-      for (const step of checkSteps(first, second)) {
+      for (const step of this.#checkSteps(one, first, other, second)) {
         const applying =
           step.kind === "member"
             ? [...this.memberLocations(one, step.name), ...this.memberLocations(other, step.name)]
@@ -621,6 +636,39 @@ export class Spine {
         }
       }
     }
+  }
+
+  /**
+   * The steps a pair follows: the members either location's `properties` names and the items, and every other name the
+   * schema lists anywhere that both locations take, through a pattern or `additionalProperties`. Such a name is in the
+   * schema, so two declarations that meet there meet without the data's help. This is conservative: the name may be listed
+   * where the pair does not apply.
+   */
+  #checkSteps(one: SchemaLocation, first: ValueObject, other: SchemaLocation, second: ValueObject): CheckStep[] {
+    const steps = namedSteps(first, second);
+    const takesUnnamed = (schema: ValueObject) =>
+      isObject(schema.patternProperties) || isSchemaValue(schema.additionalProperties);
+    if (!takesUnnamed(first) || !takesUnnamed(second)) return steps;
+    const named = new Set(steps.flatMap((step) => (step.kind === "member" ? [step.name] : [])));
+    for (const name of this.#listedNames()) {
+      if (named.has(name)) continue;
+      if (this.memberLocations(one, name).length > 0 && this.memberLocations(other, name).length > 0) {
+        steps.push({ kind: "member", name });
+      }
+    }
+    return steps;
+  }
+
+  /** Every member name a `properties` of the schema set lists, in any schema object. */
+  #listedNames(): readonly string[] {
+    if (this.#names === undefined) {
+      const names = new Set<string>();
+      for (const { value } of this.#set.schemas.values()) {
+        if (isObject(value) && isObject(value.properties)) for (const name of Object.keys(value.properties)) names.add(name);
+      }
+      this.#names = [...names];
+    }
+    return this.#names;
   }
 
   /** Reports what two locations that apply together, or one with itself, show. */
@@ -683,7 +731,7 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
 }
 
 /** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */
-function checkSteps(first: ValueObject, second: ValueObject): CheckStep[] {
+function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
   let prefix = 0;
