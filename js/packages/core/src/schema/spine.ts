@@ -20,8 +20,26 @@ export interface SchemaShape {
   readonly locations: readonly SchemaLocation[];
   /** The shape of the location one step below. A step no schema location names gives a shape with no locations. */
   child(step: ShapeStep): SchemaShape;
+  /**
+   * The shape of an item whose position is not known, as a semantic step's is not: every `prefixItems` entry and `items` of
+   * each location, with the keyed list's schema for `key`, if one is given, as {@link SchemaShape.child} adds it.
+   */
+  anyItem(key: string | undefined): SchemaShape;
   /** The keyed list declared here; null when none is, or when unequal ones meet here (see `conflicts`). */
   readonly list: ListDeclaration | null;
+  /** Whether an `x-vmd-list` here declares `multimap`, among unequal ones too, whose meeting leaves `list` null. */
+  readonly multimap: boolean;
+  /**
+   * Whether any location here has an `x-vmd-list`, unequal ones included. Where it is true an item may be keyed: the
+   * locations of an item at one position may declare a list although `list` is null for all positions together.
+   */
+  readonly declaresList: boolean;
+  /**
+   * The schemas of the keyed list declared here that an item with this key must also match, beside the array's own `items`:
+   * of each location that declares it, the per-key schema of `key`, or else `additional` when that is a schema. None where
+   * `list` is null.
+   */
+  listSchemas(key: string): readonly SchemaLocation[];
   /** The typed reference declared here; null when none is, or when unequal ones meet here (see `conflicts`). */
   readonly ref: RefDeclaration | null;
   /**
@@ -88,6 +106,7 @@ export class Spine {
   readonly #marks = new Map<string, SubtreeMarks>();
   #pairsVisited = 0;
   #mustSteps = 0;
+  #stepsComputed = 0;
   #names: readonly string[] | undefined;
   readonly root: SchemaShape;
 
@@ -99,6 +118,19 @@ export class Spine {
   /** How many pairs of locations the last {@link Spine.check} visited: the work its pair walk did, for tests of its cost. */
   get pairsVisited(): number {
     return this.#pairsVisited;
+  }
+
+  /**
+   * How many steps from a shape to a child shape have been computed rather than found in a shape's memo, for tests of the
+   * cost of binding records: the items of a long list share their steps.
+   */
+  get stepsComputed(): number {
+    return this.#stepsComputed;
+  }
+
+  /** Counts a step computed, for {@link Spine.stepsComputed}. */
+  countStep(): void {
+    this.#stepsComputed += 1;
   }
 
   /**
@@ -759,6 +791,14 @@ class Shape implements SchemaShape {
   readonly format: string | null;
   readonly summary: boolean | null;
   readonly ordered: "asc" | "desc" | null;
+  readonly multimap: boolean;
+  readonly declaresList: boolean;
+  /** The longest `prefixItems` among the locations: an item at this index or later takes `items` from every location. */
+  readonly #prefix: number;
+  /** The locations of the `x-vmd-list` declarations here, with the keys their `items` name. */
+  readonly #lists: readonly { readonly at: SchemaLocation; readonly declaration: ValueObject }[];
+  /** Every key that the `items` of an `x-vmd-list` here names; an item with any other key takes `additional` alike. */
+  readonly #namedKeys: ReadonlySet<string>;
 
   constructor(spine: Spine, locations: readonly SchemaLocation[]) {
     this.#spine = spine;
@@ -767,6 +807,9 @@ class Shape implements SchemaShape {
     let format: string | null = null;
     let summary: boolean | null = null;
     let ordered: "asc" | "desc" | null = null;
+    let prefix = 0;
+    const listsHere: { readonly at: SchemaLocation; readonly declaration: ValueObject }[] = [];
+    const namedKeys = new Set<string>();
     for (const location of locations) {
       const schema = spine.schemaAt(location);
       if (!isObject(schema)) continue;
@@ -775,6 +818,12 @@ class Shape implements SchemaShape {
         const found = declarations.get(keyword) ?? [];
         found.push({ location, value: schema[keyword] as Value });
         declarations.set(keyword, found);
+      }
+      if (Array.isArray(schema.prefixItems)) prefix = Math.max(prefix, schema.prefixItems.length);
+      const list = schema["x-vmd-list"];
+      if (isObject(list)) {
+        listsHere.push({ at: at(location, "x-vmd-list"), declaration: list });
+        if (isObject(list.items)) for (const key of Object.keys(list.items)) namedKeys.add(key);
       }
       if (format === null && typeof schema.format === "string") format = schema.format;
       if (summary === null && typeof schema["x-vmd-summary"] === "boolean") summary = schema["x-vmd-summary"];
@@ -798,12 +847,25 @@ class Shape implements SchemaShape {
     this.format = format;
     this.summary = summary;
     this.ordered = ordered;
+    this.multimap = listsHere.some(({ declaration }) => declaration.type === "multimap");
+    this.declaresList = listsHere.length > 0;
+    this.#prefix = prefix;
+    this.#lists = listsHere;
+    this.#namedKeys = namedKeys;
   }
 
   child(step: ShapeStep): SchemaShape {
-    const id = "member" in step ? `m${step.member}` : `i${step.item}${step.key === undefined ? "" : `\n${step.key}`}`;
+    // The memo is keyed by what the step's result depends on, so that the items of a long list share a few entries: an
+    // index from the longest prefixItems on takes items everywhere, and a key no x-vmd-list names takes additional.
+    let id: string;
+    if ("member" in step) {
+      id = `m${step.member}`;
+    } else {
+      id = `i${Math.min(step.item, this.#prefix)}${this.#keyId(step.key)}`;
+    }
     let child = this.#children.get(id);
     if (child === undefined) {
+      this.#spine.countStep();
       const locations = this.locations.flatMap((location) =>
         "member" in step
           ? this.#spine.memberLocations(location, step.member)
@@ -813,6 +875,38 @@ class Shape implements SchemaShape {
       this.#children.set(id, child);
     }
     return child;
+  }
+
+  /** What an item step's result depends on of its key: none without a list, the key if a list names it, else any other. */
+  #keyId(key: string | undefined): string {
+    if (key === undefined || this.#lists.length === 0) return "";
+    return this.#namedKeys.has(key) ? `\nk${key}` : "\nother";
+  }
+
+  anyItem(key: string | undefined): SchemaShape {
+    // Memoized as child is, so that a step through a long prefixItems costs its positions once.
+    const id = `a${this.#keyId(key)}`;
+    let union = this.#children.get(id);
+    if (union === undefined) {
+      this.#spine.countStep();
+      const shapes: SchemaShape[] = [];
+      for (let index = 0; index <= this.#prefix; index++) {
+        shapes.push(this.child(key === undefined ? { item: index } : { item: index, key }));
+      }
+      union = this.#spine.shape(unique(shapes.flatMap((shape) => shape.locations)));
+      this.#children.set(id, union);
+    }
+    return union;
+  }
+
+  listSchemas(key: string): readonly SchemaLocation[] {
+    if (this.list === null) return [];
+    const found: SchemaLocation[] = [];
+    for (const { at: listAt, declaration } of this.#lists) {
+      if (isObject(declaration.items) && Object.hasOwn(declaration.items, key)) found.push(at(listAt, "items", key));
+      else if (isObject(declaration.additional)) found.push(at(listAt, "additional"));
+    }
+    return found;
   }
 }
 

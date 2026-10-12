@@ -197,6 +197,9 @@ export class ReferenceResolver {
     const record = await this.#store.record(path);
     if (record === null) return { status: "dangling", message: `the store has no record ${path}`, missing: true };
     if (!record.ok) return { status: "unreadable", path, issues: record.issues };
+    // TODO(#24): references resolve in the parsed record alone, as in a record without a schema: no step goes through a keyed
+    // list by key and none is proved singular. Typed references bring both, with ref-ambiguous for a reference the proof
+    // refuses.
     const resolved = resolveAddressSteps(record.value, fragment, "singular");
     const shown = `${path}${formatFragment(fragment)}`;
     if (resolved.ok) {

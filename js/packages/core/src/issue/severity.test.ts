@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { ISSUE_CODES, type IssueCode } from "./codes.js";
 import { type Issue, makeIssue } from "./issue.js";
-import { applySeverities, type SeverityConfiguration, settingsAllowed } from "./severity.js";
+import {
+  applySeverities,
+  declaredDuplicate,
+  isDeclaredDuplicate,
+  type SeverityConfiguration,
+  settingsAllowed,
+} from "./severity.js";
 
 /** A configuration with the defaults, changed by `changes`. */
 function configuration(changes: Partial<SeverityConfiguration> = {}): SeverityConfiguration {
@@ -61,6 +67,20 @@ describe("applySeverities", () => {
       "anchor-invalid error",
       "path-invalid error",
     ]);
+  });
+
+  test("keeps a duplicate key at a level a schema declares a map an error under lenient uniqueness, entries included", () => {
+    const declared = declaredDuplicate(issue("duplicate-key"));
+    const undeclared = issue("duplicate-key");
+    expect(isDeclaredDuplicate(declared)).toBe(true);
+    expect(isDeclaredDuplicate(undeclared)).toBe(false);
+    const lenient = configuration({ uniqueness: "lenient", issues: new Map([["duplicate-key", "off"]]) });
+    const reported = applySeverities([declared, undeclared], configuration({ uniqueness: "lenient" }));
+    expect(shown(reported)).toEqual(["duplicate-key error", "duplicate-key warning"]);
+    // The declared one is the same issue, so it stays recognizable after severities apply.
+    expect(isDeclaredDuplicate(reported[0] as Issue)).toBe(true);
+    expect(shown(applySeverities([declared, undeclared], lenient))).toEqual(["duplicate-key error"]);
+    expect(() => declaredDuplicate(issue("duplicate-anchor"))).toThrow(RangeError);
   });
 
   test("turns the YAML ambiguity warnings off under minimal quoting, and nothing else", () => {

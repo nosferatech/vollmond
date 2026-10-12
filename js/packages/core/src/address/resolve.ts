@@ -1,4 +1,5 @@
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
+import type { KeyedList, RecordBinding } from "../binding/binding.js";
 import { makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { documentOrderOf } from "../record/document-order.js";
@@ -7,6 +8,23 @@ import type { NodeInfo, SectionInfo } from "../record/node-index.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ByteRange } from "../text/source-text.js";
 import { type AddressReading, encodeExactPath, type Fragment, formatFragment, parseAddress } from "./address.js";
+import { proveSingular, unprovableStep } from "./prove.js";
+
+/**
+ * What an address is resolved in: a record bound to its collection's schema, whose keyed lists steps go through and whose
+ * declarations decide what is singular, or a parsed record alone, resolved as a record without a schema is.
+ */
+export type ResolutionSubject = ParsedRecord | RecordBinding;
+
+/** Gives the binding of a subject, or null for a record alone. */
+export function subjectBinding(subject: ResolutionSubject): RecordBinding | null {
+  return "lists" in subject ? subject : null;
+}
+
+/** Gives the parsed record of a subject. */
+export function subjectRecord(subject: ResolutionSubject): ParsedRecord {
+  return "lists" in subject ? subject.record : subject;
+}
 
 // Deviation from the I1 design, recorded in issue #15: `at` and `address` are required, since every target that resolution
 // gives is a node or a block anchor of a record. The targets of references that are assets or directories, which have a path
@@ -58,30 +76,43 @@ export interface StepResolution {
  */
 export type AddressUse = "singular" | "selector";
 
-// Deviation from the specification, recorded in issue #15: `address-not-singular`, the proof before evaluation that a singular
-// address crosses only levels whose keys are unique, needs schemas, whose `multimap` levels are the only ones it can reject.
-// Until schemas come, a singular address is only evaluated, so a duplicate it meets is `address-ambiguous`.
 /**
  * Resolves a fragment in a record: an exact path to the node of that JSON Pointer, and a semantic path step by step. A step
  * matches, in a section, a member (a field or a section member) of that name and each child section with that key; in an
- * object, the member of that name; in `$sections`, each section with that key, never an index; in another array, the item at
- * a decimal index without leading zeros. The first step also matches every anchor of that name, of any kind; a block anchor
- * is a range of its `$body` and no later step goes into it. A node that a step matches several ways is one match.
+ * object, the member of that name; in `$sections`, each section with that key, never an index; in an array the binding
+ * makes a keyed list, each item with that key, never an index; in another array, the item at a decimal index without leading
+ * zeros. The first step also matches every anchor of that name, of any kind; a block anchor is a range of its `$body` and no
+ * later step goes into it. A node that a step matches several ways is one match.
  *
  * As a selector, the result is every match, possibly none, in document order: the pre-order of the value view, a block anchor
- * after the `$body` that holds it. As a singular address it is exactly one target, and the outcome fails with
- * `address-ambiguous` when a step matches several nodes, even when a later step would leave one: evaluation stops there, and
- * the candidates are that step's matches, in document order. It fails with `address-not-found` when nothing matches. Issues
- * have the record's path and no node.
+ * after the `$body` that holds it. As a singular address it is exactly one target. In a bound record it is first proved
+ * singular from the schema, and fails with `address-not-singular` when a step could cross a level declared `multimap`. It
+ * fails with `address-ambiguous` when a step matches several nodes, even when a later step would leave one: evaluation stops
+ * there, and the candidates are that step's matches, in document order. It fails with `address-not-found` when nothing
+ * matches. Issues have the record's path and no node.
  */
-export function resolveAddress(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<readonly Target[]> {
-  const resolved = resolveAddressSteps(record, fragment, use);
+export function resolveAddress(
+  subject: ResolutionSubject,
+  fragment: Fragment | null,
+  use: AddressUse,
+): Outcome<readonly Target[]> {
+  const resolved = resolveAddressSteps(subject, fragment, use);
   return resolved.ok ? succeed(resolved.value.targets) : resolved;
 }
 
 /** Resolves a fragment in a record as {@link resolveAddress} does, and also gives how each step matched. */
-export function resolveAddressSteps(record: ParsedRecord, fragment: Fragment | null, use: AddressUse): Outcome<StepResolution> {
-  const resolver = resolverOf(record);
+export function resolveAddressSteps(
+  subject: ResolutionSubject,
+  fragment: Fragment | null,
+  use: AddressUse,
+): Outcome<StepResolution> {
+  const binding = subjectBinding(subject);
+  if (use === "singular" && binding !== null) {
+    const proof = proveSingular(binding, fragment);
+    if (!proof.ok) return fail(proof.issues);
+  }
+  const record = subjectRecord(subject);
+  const resolver = resolverOf(subject);
   const evaluated = resolver.evaluate(fragment, use === "singular");
   const shown = `${record.path}${formatFragment(fragment)}`;
   if (evaluated.ambiguous) {
@@ -114,13 +145,14 @@ export function resolveAddressSteps(record: ParsedRecord, fragment: Fragment | n
  * Gives the canonical address of the node at an exact path, as a fragment with its `#`: `""` for the root, and otherwise the
  * first of these that, used as a singular address, resolves to that node: its explicit anchor; the semantic path from its
  * nearest ancestor with an explicit anchor, the root never counting, or else from the root; its derived anchor; and last its
- * exact path, which always does. A form with an empty step is skipped. The address is percent-encoded.
+ * exact path, which always does. A form with an empty step is skipped. The address is percent-encoded. In a bound record a
+ * form must also be proved singular, and an item of a keyed list is named by its key.
  *
  * Throws a `RangeError` when the record has no node at `at`.
  */
-export function canonicalAddress(record: ParsedRecord, at: string): string {
-  const resolver = resolverOf(record);
-  const node = record.nodes.node(at);
+export function canonicalAddress(subject: ResolutionSubject, at: string): string {
+  const resolver = resolverOf(subject);
+  const node = subjectRecord(subject).nodes.node(at);
   if (node === undefined) throw new RangeError(`no node at ${JSON.stringify(at)}`);
   return resolver.canonical(node);
 }
@@ -131,19 +163,24 @@ export function canonicalAddress(record: ParsedRecord, at: string): string {
  *
  * Throws a `RangeError` for an entry that is not one of the entries of the record's anchor table.
  */
-export function blockAnchorAddress(record: ParsedRecord, entry: BlockAnchorEntry): string {
-  if (!record.anchors.named(entry.name).includes(entry)) {
+export function blockAnchorAddress(subject: ResolutionSubject, entry: BlockAnchorEntry): string {
+  if (!subjectRecord(subject).anchors.named(entry.name).includes(entry)) {
     throw new RangeError(`the block anchor ${JSON.stringify(entry.name)} is not an entry of the record's anchor table`);
   }
-  return resolverOf(record).canonical(entry);
+  return resolverOf(subject).canonical(entry);
 }
 
-/** Reads the record at a store path: its parse outcome, or null when the store holds no record there. */
-export type RecordLookup = (path: string) => Promise<Outcome<ParsedRecord> | null>;
+/**
+ * Reads the record at a store path: its parse outcome, or its binding to its collection's schema, or null when the store holds
+ * no record there.
+ */
+export type RecordLookup = (path: string) => Promise<Outcome<ResolutionSubject> | null>;
 
 /** What an address resolved to in a store: the record it names, as the lookup read it, and the targets in it. */
 export interface StoreResolution {
   readonly record: ParsedRecord;
+  /** The record's binding, when the lookup gave one. */
+  readonly binding?: RecordBinding;
   readonly targets: readonly Target[];
 }
 
@@ -171,7 +208,15 @@ export async function resolveStoreAddress(
   }
   if (!loaded.ok) return fail(loaded.issues);
   const resolved = resolveAddress(loaded.value, fragment, use);
-  return resolved.ok ? succeed(Object.freeze({ record: loaded.value, targets: resolved.value })) : fail(resolved.issues);
+  if (!resolved.ok) return fail(resolved.issues);
+  const binding = subjectBinding(loaded.value);
+  return succeed(
+    Object.freeze({
+      record: subjectRecord(loaded.value),
+      ...(binding === null ? {} : { binding }),
+      targets: resolved.value,
+    }),
+  );
 }
 
 /** What a step can match: a node of the value view, or a block anchor. */
@@ -210,14 +255,25 @@ function grouped(finds: readonly StepFind[]): Map<Match, StepMatch[]> {
   return byMatch;
 }
 
-const resolvers = new WeakMap<ParsedRecord, RecordResolver>();
+/** How many matches the steps of semantic paths have found in this process, for {@link semanticMatchCount}. */
+let semanticMatches = 0;
 
-/** Gives the resolver of a record, made once per record. */
-function resolverOf(record: ParsedRecord): RecordResolver {
-  let resolver = resolvers.get(record);
+/**
+ * Gives how many matches the steps of semantic paths have found in this process, for tests that count the work resolution
+ * does: an ambiguous step's candidates must not each find every match again.
+ */
+export function semanticMatchCount(): number {
+  return semanticMatches;
+}
+
+const resolvers = new WeakMap<ResolutionSubject, RecordResolver>();
+
+/** Gives the resolver of a record or a binding, made once for each. */
+function resolverOf(subject: ResolutionSubject): RecordResolver {
+  let resolver = resolvers.get(subject);
   if (resolver === undefined) {
-    resolver = new RecordResolver(record);
-    resolvers.set(record, resolver);
+    resolver = new RecordResolver(subjectRecord(subject), subjectBinding(subject));
+    resolvers.set(subject, resolver);
   }
   return resolver;
 }
@@ -228,13 +284,23 @@ function resolverOf(record: ParsedRecord): RecordResolver {
  */
 class RecordResolver {
   readonly #record: ParsedRecord;
+  readonly #binding: RecordBinding | null;
   readonly #root: NodeInfo;
   readonly #childSections = new Map<string, ReadonlyMap<string, readonly SectionInfo[]>>();
   readonly #canonical = new Map<Match, string>();
+  /** The one node that a form of a canonical address names as a singular address, by its steps; null where it names none. */
+  readonly #singular = new Map<string, Match | null>();
 
-  constructor(record: ParsedRecord) {
+  constructor(record: ParsedRecord, binding: RecordBinding | null) {
     this.#record = record;
+    this.#binding = binding;
     this.#root = record.nodes.node("") as NodeInfo;
+  }
+
+  /** The keyed list a schema declares at an array, which a step goes through by key; undefined for any other array. */
+  #declaredList(at: string): KeyedList | undefined {
+    const list = this.#binding?.lists.get(at);
+    return list === undefined || list.type === "undeclared" ? undefined : list;
   }
 
   /** Evaluates a fragment; a singular evaluation stops at the first step that matches several nodes. */
@@ -247,6 +313,7 @@ class RecordResolver {
     }
     const [first, ...rest] = fragment.steps;
     let found = this.#inDocumentOrder(grouped(this.#firstStep(first as string)));
+    semanticMatches += found.size;
     const ways: (readonly StepMatch[])[] = [];
     let steps = 1;
     for (const step of rest) {
@@ -255,6 +322,7 @@ class RecordResolver {
       const next = grouped([...found.keys()].flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
       // One match's results can come after a later match's, when the later one is its descendant.
       found = this.#inDocumentOrder(next);
+      semanticMatches += found.size;
       steps++;
     }
     if (found.size === 1 && ways.length === steps - 1) ways.push([...found.values()][0] as StepMatch[]);
@@ -313,10 +381,23 @@ class RecordResolver {
     return `#${encodeExactPath(match.at)}`;
   }
 
-  /** Whether `steps`, as a singular address, resolve to `match` and nothing else. */
+  // Deviation from the I2 design, recorded in issue #23: the proof applies to every form of a canonical address, the explicit
+  // anchor included, since a form must be singular as an address and a first step is not provable through a root whose
+  // sections are declared multimap.
+  /** Whether `steps`, as a singular address, are proved singular and resolve to `match` and nothing else. */
   #namesOnly(steps: readonly string[], match: Match): boolean {
-    const evaluated = this.evaluate({ kind: "semantic", steps }, true);
-    return !evaluated.ambiguous && evaluated.matches.length === 1 && evaluated.matches[0] === match;
+    // The candidates of one ambiguous step share their forms, so each form is proved and evaluated once, not once each.
+    const id = JSON.stringify(steps);
+    let singular = this.#singular.get(id);
+    if (singular === undefined) {
+      const fragment: Fragment = { kind: "semantic", steps };
+      const evaluated =
+        this.#binding !== null && unprovableStep(this.#binding, fragment) !== null ? null : this.evaluate(fragment, true);
+      singular =
+        evaluated === null || evaluated.ambiguous || evaluated.matches.length !== 1 ? null : (evaluated.matches[0] as Match);
+      this.#singular.set(id, singular);
+    }
+    return singular === match;
   }
 
   /** The semantic path to a node from its nearest ancestor with an explicit anchor, which it starts with, or from the root. */
@@ -330,7 +411,9 @@ class RecordResolver {
         steps.push(this.#record.sectionKeys.get(current.at) as string);
         up = nodes.node(nodes.node(current.parent as string)?.parent as string) as NodeInfo;
       } else {
-        steps.push(String(current.key));
+        // An item of a keyed list is named by its key; one without a key keeps its index, which no step matches there.
+        const key = typeof current.key === "number" ? this.#declaredList(current.parent as string)?.keyOf(current.key) : null;
+        steps.push(key ?? String(current.key));
         up = nodes.node(current.parent as string) as NodeInfo;
       }
       if (up.at === "") break;
@@ -371,6 +454,12 @@ class RecordResolver {
       case "array": {
         const holder = node.parent === null ? undefined : nodes.node(node.parent);
         if (node.key === "$sections" && holder?.kind === "section") return this.#keyedSections(holder, step);
+        const list = this.#declaredList(node.at);
+        if (list !== undefined) {
+          return list
+            .indexesOf(step)
+            .map((index): StepFind => ({ match: nodes.node(childPath(node.at, index)) as NodeInfo, way: "list-key" }));
+        }
         // The index names an item by its index in decimal without leading zeros, so a step names an item exactly when it is
         // RFC 6901's array index: `01`, `-`, `1e0` and a number too large to be exact name none.
         const item = nodes.node(childPath(node.at, step));

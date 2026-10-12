@@ -11,7 +11,7 @@ import { addFormat, type EvaluationPlugin, setFormatHandler } from "@hyperjump/j
 import { uri as instanceUri } from "@hyperjump/json-schema/instance/experimental";
 import type { Value, ValueObject } from "../value/value.js";
 import { LOGICAL_TYPES } from "./logical-types.js";
-import { DRAFT_2020_12, type SchemaSet } from "./schema-set.js";
+import { DRAFT_2020_12, locationKey, type SchemaLocation, type SchemaSet } from "./schema-set.js";
 import { isObject, pointerTokens } from "./walk.js";
 
 // The adapter over @hyperjump/json-schema, whose registry, format handlers and format setting are global to the process. Core
@@ -38,6 +38,13 @@ export interface CompiledSchemaSet {
   readonly digest: string;
   /** Validates a value against the set's root schema, giving its folded failures, none for a valid value. */
   validate(value: Value): ValidatorError[];
+  /**
+   * Validates a value against one of the schemas the set was compiled with besides its root, such as a keyed list's per-key
+   * schema, giving its folded failures with instance locations relative to the value.
+   *
+   * Throws a `RangeError` for a location the set was not compiled with.
+   */
+  validateAt(location: SchemaLocation, value: Value): ValidatorError[];
 }
 
 /** The keywords whose failure stands for its subschemas' failures, which are then not reported. */
@@ -60,7 +67,7 @@ const BASE = "https://vmd.invalid/";
 interface RegisteredSet {
   readonly uris: readonly string[];
   readonly files: ReadonlyMap<string, string>;
-  /** The compiled root of each collection schema file that the set was compiled for. */
+  /** The compiled schemas, by URI: the root of each collection schema file the set was compiled for, and the others asked for. */
   readonly validators: Map<string, Promise<Validator>>;
 }
 
@@ -83,13 +90,18 @@ function setFormats(): void {
 }
 
 /**
- * Registers a schema set with the validator and compiles its root, or reuses the registration and compilation of the same
- * bytes made earlier in the process. Every `$ref` and `$dynamicRef` is rewritten to the absolute URI of its target, which the
- * set has resolved, so that the validator resolves nothing itself and never retrieves anything. Rejects with the validator's
- * error for a schema it cannot compile, such as one with a pattern that is not a regular expression; the set must have no
- * problems, and its references must have targets.
+ * Registers a schema set with the validator and compiles its root and the schemas at `others`, or reuses the registration
+ * and compilations of the same bytes made earlier in the process. Every `$ref` and `$dynamicRef` is rewritten to the absolute
+ * URI of its target, which the set has resolved, so that the validator resolves nothing itself and never retrieves anything.
+ * Rejects with the validator's error for a schema it cannot compile, such as one with a pattern that is not a regular
+ * expression; the set must have no problems, its references must have targets, and each of `others` must be a schema object
+ * or a boolean schema of the set.
  */
-export async function compileSchemaSet(set: SchemaSet, configuration: Uint8Array): Promise<CompiledSchemaSet> {
+export async function compileSchemaSet(
+  set: SchemaSet,
+  configuration: Uint8Array,
+  others: readonly SchemaLocation[] = [],
+): Promise<CompiledSchemaSet> {
   setFormats();
   const digest = await digestOf(set, configuration);
   let entry = registered.get(digest);
@@ -104,16 +116,34 @@ export async function compileSchemaSet(set: SchemaSet, configuration: Uint8Array
     registered.delete(digest);
     registered.set(digest, entry);
   }
-  let compiling = entry.validators.get(set.root);
-  if (compiling === undefined) {
-    compiling = validate(entry.files.get(set.root) as string);
-    entry.validators.set(set.root, compiling);
-    // A failed compilation is not kept, so that it is attempted, and reported, again.
-    compiling.catch(() => entry.validators.delete(set.root));
-  }
-  const validator = await compiling;
   const files = entry.files;
-  return { digest, validate: (value) => run(validator, value, files) };
+  const validator = await compiled(entry, files.get(set.root) as string);
+  const atLocation = new Map<string, Validator>();
+  for (const location of others) {
+    const uri = `${files.get(location.file) as string}#${encodePointer(location.pointer)}`;
+    atLocation.set(locationKey(location), await compiled(entry, uri));
+  }
+  return {
+    digest,
+    validate: (value) => run(validator, value, files),
+    validateAt: (location, value) => {
+      const found = atLocation.get(locationKey(location));
+      if (found === undefined) throw new RangeError(`the schema set was not compiled with ${locationKey(location)}`);
+      return run(found, value, files);
+    },
+  };
+}
+
+/** Compiles the schema at a URI of a registered set, once per registration. */
+function compiled(entry: RegisteredSet, uri: string): Promise<Validator> {
+  let compiling = entry.validators.get(uri);
+  if (compiling === undefined) {
+    compiling = validate(uri);
+    entry.validators.set(uri, compiling);
+    // A failed compilation is not kept, so that it is attempted, and reported, again.
+    compiling.catch(() => entry.validators.delete(uri));
+  }
+  return compiling;
 }
 
 /**

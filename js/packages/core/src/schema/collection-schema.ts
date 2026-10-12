@@ -2,12 +2,13 @@ import type { Collection } from "../config/configuration.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { childPath } from "../record/exact-path.js";
+import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import { checkExtensionKeywords } from "./keywords.js";
-import { readSchemaSet, type SchemaProblem, type SchemaReader, type SchemaSet } from "./schema-set.js";
+import { readSchemaSet, type SchemaLocation, type SchemaProblem, type SchemaReader, type SchemaSet } from "./schema-set.js";
 import { type SchemaShape, Spine } from "./spine.js";
-import { compileSchemaSet, metaSchemaFailures } from "./validator.js";
-import { violationIssues } from "./violations.js";
+import { compileSchemaSet, metaSchemaFailures, type ValidatorError } from "./validator.js";
+import { type NativeFailure, violationIssues } from "./violations.js";
 import { isObject, isSchemaValue } from "./walk.js";
 
 // Deviation from the I2 design, recorded in issue #22: `validate` takes the parsed record, since a record's structure without
@@ -20,11 +21,26 @@ export interface CollectionSchema {
   readonly digest: string;
   /** The spine's shape of a record's root. */
   readonly root: SchemaShape;
+  // Deviation from the I2 design, recorded in issue #23: the binding hands its keyed lists' checks to `validate`, which
+  // checks items against per-key schemas compiled at load, at their own locations, rather than through wrapper schemas, so
+  // that one value's failures from both make one issue.
   /**
    * Validates a record's value view against the schema: one `schema-violation` per failing value, at its exact path, the
-   * logical types of §4.3 included; none for a valid record.
+   * logical types of §4.3 included; none for a valid record. `lists` adds what the record's keyed lists require, which the
+   * validator does not see inside `x-vmd-list`: items to check against per-key schemas, and failures found by evaluating the
+   * lists natively, each folded into the issue of its value.
+   *
+   * Throws a `RangeError` for a schema location in `lists` that is not a per-key or `additional` schema of the set.
    */
-  validate(record: ParsedRecord): readonly Issue[];
+  validate(record: ParsedRecord, lists?: ListChecks): readonly Issue[];
+}
+
+/** What a record's keyed lists add to its validation (see {@link CollectionSchema.validate}). */
+export interface ListChecks {
+  /** The items to check against a schema of a keyed list, each by its exact path in the record. */
+  readonly subschemas: readonly { readonly at: string; readonly location: SchemaLocation }[];
+  /** The failures found by evaluating the keyed lists natively, such as a missing required key. */
+  readonly failures: readonly NativeFailure[];
 }
 
 /** What loading a collection's schema needs beyond the collection. */
@@ -37,6 +53,14 @@ export interface SchemaLoading {
   readonly declared: number;
   /** Reads a file of the schema directory. */
   readonly read: SchemaReader;
+}
+
+/** The spine of each schema loaded, for {@link spineOf}. */
+const spines = new WeakMap<CollectionSchema, Spine>();
+
+/** Gives the spine a collection's schema was loaded with, for tests that count the work its shapes do. */
+export function spineOf(schema: CollectionSchema): Spine | undefined {
+  return spines.get(schema);
 }
 
 /** The most problems an issue's message lists; it counts the others. */
@@ -53,11 +77,9 @@ const MAX_LISTED = 10;
  * vmd's rules (`$id`, YAML anchors, references out of the directory, extension keywords malformed or off the spine). Every
  * reader refuses the collection's records with that issue.
  *
- * The keyed lists that `x-vmd-list` declares are not evaluated yet: their per-key schemas, required keys and uniqueness are
- * checked once records are bound to their schema.
+ * The validator does not see inside `x-vmd-list`, whose lists a record's binding evaluates natively: the per-key and
+ * `additional` schemas are compiled here, for {@link CollectionSchema.validate} to check items against.
  */
-// TODO(#23): keyed lists are evaluated natively with the binding of keyed lists; until then the validator checks every
-// other keyword, and `x-vmd-list` is only checked for its form and its place on the spine.
 export async function loadCollectionSchema(
   collection: Collection,
   loading: SchemaLoading,
@@ -67,6 +89,7 @@ export async function loadCollectionSchema(
   const set = await readSchemaSet(root, loading.read);
   const problems: SchemaProblem[] = [...set.problems];
   const metaRoots: { readonly file: string; readonly pointer: string; readonly value: unknown }[] = [];
+  const listSchemas: SchemaLocation[] = [];
   for (const document of set.files.values()) metaRoots.push({ file: document.path, pointer: "", value: document.value });
   for (const { location, value } of set.schemas.values()) {
     if (!isObject(value)) continue;
@@ -80,18 +103,24 @@ export async function loadCollectionSchema(
         ...(position === undefined ? {} : { position }),
       });
     }
-    // The meta-schema does not look into an unknown keyword, so the per-key schemas of a keyed list are checked on their own.
+    // The meta-schema does not look into an unknown keyword, so the per-key schemas of a keyed list are checked on their own,
+    // and compiled on their own for the items they apply to.
     const list = value["x-vmd-list"];
     if (!isObject(list)) continue;
     const at = childPath(location.pointer, "x-vmd-list");
     if (isObject(list.items)) {
       for (const [key, item] of Object.entries(list.items)) {
-        if (isSchemaValue(item))
-          metaRoots.push({ file: location.file, pointer: childPath(childPath(at, "items"), key), value: item });
+        if (!isSchemaValue(item)) continue;
+        const pointer = childPath(childPath(at, "items"), key);
+        metaRoots.push({ file: location.file, pointer, value: item });
+        listSchemas.push({ file: location.file, pointer });
       }
     }
-    if (isObject(list.additional))
-      metaRoots.push({ file: location.file, pointer: childPath(at, "additional"), value: list.additional });
+    if (isObject(list.additional)) {
+      const pointer = childPath(at, "additional");
+      metaRoots.push({ file: location.file, pointer, value: list.additional });
+      listSchemas.push({ file: location.file, pointer });
+    }
   }
   for (const meta of metaRoots) {
     const document = set.files.get(meta.file);
@@ -121,14 +150,24 @@ export async function loadCollectionSchema(
   }
   if (problems.length === 0 && spine !== undefined) {
     try {
-      const compiled = await compileSchemaSet(set, loading.configuration);
+      const compiled = await compileSchemaSet(set, loading.configuration, listSchemas);
       const shape = spine.root;
-      return succeed({
+      const schema: CollectionSchema = {
         collection: collection.name,
         digest: compiled.digest,
         root: shape,
-        validate: (record) => violationIssues(record, set, compiled.validate(record.value)),
-      });
+        validate: (record, lists) => {
+          const errors: ValidatorError[] = compiled.validate(record.value);
+          for (const { at, location } of lists?.subschemas ?? []) {
+            const item = valueAt(record, at);
+            // A failure's instance location is relative to the item, whose exact path comes first.
+            for (const error of compiled.validateAt(location, item)) errors.push({ ...error, at: `${at}${error.at}` });
+          }
+          return violationIssues(record, set, errors, lists?.failures ?? []);
+        },
+      };
+      spines.set(schema, spine);
+      return succeed(schema);
     } catch (error) {
       // The set's own checks guarantee that every reference has a target in it, so a retrieval is a bug of those checks.
       if (!(error instanceof Error) || error.name === "RetrievalError") throw error;
