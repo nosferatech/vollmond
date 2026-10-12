@@ -107,9 +107,13 @@ export async function loadCollectionSchema(
     }
   }
   let spine: Spine | undefined;
+  // The spine's problems that the issue does not list, which the spine counts without keeping.
+  let unlisted = 0;
   if (problems.length === 0) {
     spine = new Spine(set);
-    for (const problem of spine.check()) {
+    const checked = spine.check(MAX_LISTED);
+    unlisted = checked.unlisted;
+    for (const problem of checked.problems) {
       const position = set.files.get(problem.location.file)?.position(problem.location.pointer);
       problems.push({
         code: "schema-invalid",
@@ -137,20 +141,30 @@ export async function loadCollectionSchema(
       problems.push({ code: "schema-invalid", file: root, message: `the validator cannot compile it: ${message}` });
     }
   }
-  return fail([schemaIssue(collection, set, problems, loading)]);
+  return fail([schemaIssue(collection, set, problems, loading, unlisted)]);
 }
 
 // Deviation from the I2 design, recorded in issue #22: one issue per collection lists every problem, rather than one issue
 // per problem, since the specification reports a schema's issue once and the suite expects one for two YAML problems.
-/** The one issue of a collection whose schema cannot be used, listing its problems. */
-function schemaIssue(collection: Collection, set: SchemaSet, problems: readonly SchemaProblem[], loading: SchemaLoading): Issue {
+/**
+ * The one issue of a collection whose schema cannot be used, listing its problems: those given, and `unlisted` more that
+ * follow them and are only counted.
+ */
+function schemaIssue(
+  collection: Collection,
+  set: SchemaSet,
+  problems: readonly SchemaProblem[],
+  loading: SchemaLoading,
+  unlisted: number,
+): Issue {
   const code = problems.some((problem) => problem.code === "storage-failed")
     ? "storage-failed"
     : problems.some((problem) => problem.code === "feature-unsupported")
       ? "feature-unsupported"
       : "schema-invalid";
   const consequence = "so the collection's records cannot be read";
-  const only = problems.length === 1 ? problems[0] : undefined;
+  const total = problems.length + unlisted;
+  const only = total === 1 ? problems[0] : undefined;
   let message: string;
   if (only !== undefined && only.file === set.root && only.position === undefined && only.message.startsWith(`${set.root} `)) {
     message = `the schema ${set.root} of the collection ${collection.name} ${only.message.slice(set.root.length + 1)}, ${consequence}`;
@@ -160,7 +174,7 @@ function schemaIssue(collection: Collection, set: SchemaSet, problems: readonly 
         problem.position === undefined ? problem.file : `${problem.file}:${problem.position.line}:${problem.position.col}`;
       return `${where}: ${problem.message}`;
     });
-    if (problems.length > MAX_LISTED) listed.push(`and ${problems.length - MAX_LISTED} more`);
+    if (total > MAX_LISTED) listed.push(`and ${total - MAX_LISTED} more`);
     message = `the schema ${set.root} of the collection ${collection.name} cannot be used, ${consequence}: ${listed.join("; ")}`;
   }
   if (code === "feature-unsupported") {
