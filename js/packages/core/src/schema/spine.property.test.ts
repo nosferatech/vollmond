@@ -40,6 +40,8 @@ async function compare(schema: unknown, listed: number): Promise<{ readonly expe
   expect(some.unlisted).toBe(Math.max(0, expected.length - listed));
   // A memo of closures emptied every few locations computes them again, to the same result.
   expect(new Spine(set, { maxClosureEntries: 4 }).check()).toEqual(all);
+  // So does a memo of the names' groupings emptied before each new one.
+  expect(new Spine(set, { maxGroupedNames: 1 }).check()).toEqual(all);
   return { expected, spine };
 }
 
