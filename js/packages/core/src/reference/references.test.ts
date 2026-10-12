@@ -641,6 +641,24 @@ describe("alias chains and shadowed names", () => {
     expect(codes(await one("moved.md#before", files))).toEqual(["ref-dangling error"]);
   });
 
+  test("warn alias-shadowed about a live anchor that an alias recorded under the record's old path has as its old name", async () => {
+    const moved = { "docs/moved.md": "# M\n\n## Before\n\n## After\n" };
+    const shadowedIn = async (record: string) => {
+      const files = alias(
+        { kind: "anchor", record, from: "before", to: "after", at },
+        { kind: "record", from: "docs/old.md", to: "docs/moved.md", at },
+      );
+      const store = await storeOf({ ...files, ...moved });
+      const issues = (await store.check({ records: ["docs/moved.md"] })).issues;
+      return issues.filter((issue) => issue.code === "alias-shadowed").map((issue) => `${issue.path} ${issue.at}`);
+    };
+    expect(await shadowedIn("docs/old.md")).toEqual(["docs/moved.md /$sections/0"]);
+    // As for the same alias recorded under the record's current path.
+    expect(await shadowedIn("docs/moved.md")).toEqual(["docs/moved.md /$sections/0"]);
+    // Its near miss: an alias under a path that is not one of the record's does not shadow its anchor.
+    expect(await shadowedIn("docs/elsewhere.md")).toEqual([]);
+  });
+
   test("warn alias-shadowed about a derived anchor alone, as a title added again has", async () => {
     const store = await storeOf({
       ...alias({ kind: "anchor", record: "docs/r.md", from: "notes", to: "remarks", at }),

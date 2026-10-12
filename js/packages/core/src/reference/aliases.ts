@@ -46,12 +46,11 @@ export interface AliasTable {
   /** Gives the paths that {@link recordMove} gives `path` for, in the order of their first entries; empty for none. */
   recordMovesTo(path: string): readonly string[];
   /**
-   * Gives the anchor that `name` was renamed to under any of `records`, the store paths of one record: the `to` of the last
-   * anchor alias in the file whose `record` is one of them and whose `from` is `name`, or undefined when there is none.
+   * Gives the anchor aliases of a record recorded under any of `records`, its store paths, from each old name to the new one:
+   * for an old name, the `to` of the last anchor alias in the file whose `record` is one of them; an empty map for none. It
+   * takes time in the number of those aliases, so a caller that looks up many names of one record keeps the map.
    */
-  anchorRename(records: readonly string[], name: string): string | undefined;
-  /** Gives the anchor aliases of a record, from each old name to the new one; an empty map for a record without any. */
-  anchorRenamesOf(record: string): ReadonlyMap<string, string>;
+  anchorRenamesOf(records: readonly string[]): ReadonlyMap<string, string>;
 }
 
 /** The members of each kind of entry. */
@@ -137,24 +136,19 @@ const NO_PATHS: readonly string[] = Object.freeze([]);
 /** Builds the lookups of a table, the last entry of each old name winning. */
 function aliasTableOf(entries: readonly Alias[]): AliasTable {
   const moves = new Map<string, string>();
-  const renames = new Map<string, Map<string, string>>();
-  /** The line of the last anchor alias of each record and old name, which says which of a record's paths wins. */
-  const renameLines = new Map<string, Map<string, number>>();
+  /** The last anchor alias of each record and old name: its new name, and its line, which says which of a record's paths wins. */
+  const renames = new Map<string, Map<string, { readonly to: string; readonly line: number }>>();
   entries.forEach((entry, line) => {
     if (entry.kind === "record") {
       moves.set(entry.from, entry.to);
       return;
     }
     let names = renames.get(entry.record);
-    let lines = renameLines.get(entry.record);
-    if (names === undefined || lines === undefined) {
+    if (names === undefined) {
       names = new Map();
-      lines = new Map();
       renames.set(entry.record, names);
-      renameLines.set(entry.record, lines);
     }
-    names.set(entry.from, entry.to);
-    lines.set(entry.from, line);
+    names.set(entry.from, { to: entry.to, line });
   });
   const movesTo = new Map<string, string[]>();
   for (const [from, to] of moves) {
@@ -162,20 +156,22 @@ function aliasTableOf(entries: readonly Alias[]): AliasTable {
     if (froms === undefined) movesTo.set(to, [from]);
     else froms.push(from);
   }
-  const anchorRename = (records: readonly string[], name: string): string | undefined => {
-    let last: { readonly record: string; readonly line: number } | undefined;
+  const anchorRenamesOf = (records: readonly string[]): ReadonlyMap<string, string> => {
+    const last = new Map<string, { readonly to: string; readonly line: number }>();
     for (const record of records) {
-      const line = renameLines.get(record)?.get(name);
-      if (line !== undefined && (last === undefined || line > last.line)) last = { record, line };
+      for (const [from, rename] of renames.get(record) ?? []) {
+        const known = last.get(from);
+        if (known === undefined || rename.line > known.line) last.set(from, rename);
+      }
     }
-    return last === undefined ? undefined : renames.get(last.record)?.get(name);
+    if (last.size === 0) return NO_RENAMES;
+    return new Map([...last].map(([from, rename]) => [from, rename.to]));
   };
   return Object.freeze({
     entries: Object.freeze([...entries]),
     recordMove: (path: string) => moves.get(path),
     recordMovesTo: (path: string) => movesTo.get(path) ?? NO_PATHS,
-    anchorRename,
-    anchorRenamesOf: (record: string) => renames.get(record) ?? NO_RENAMES,
+    anchorRenamesOf,
   });
 }
 
