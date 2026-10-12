@@ -138,6 +138,7 @@ export class Spine {
   readonly #shapes = new Map<string, Shape>();
   readonly #closures = new Map<string, readonly SchemaLocation[]>();
   #closureEntries = 0;
+  readonly #maxClosureEntries: number;
   readonly #patterns = new Map<string, RegExp | null>();
   readonly #marks = new Map<string, SubtreeMarks>();
   readonly #matchesBySource = new Map<string, Uint32Array>();
@@ -150,9 +151,21 @@ export class Spine {
   #names: readonly string[] | undefined;
   readonly root: SchemaShape;
 
-  constructor(set: SchemaSet) {
+  /**
+   * The spine of `set`. `maxClosureEntries` is how many locations the memo of closures holds before it is emptied, for
+   * tests of that bound; a positive integer.
+   */
+  constructor(set: SchemaSet, options: { readonly maxClosureEntries?: number } = {}) {
     this.#set = set;
+    this.#maxClosureEntries = options.maxClosureEntries ?? MAX_CLOSURE_ENTRIES;
     this.root = this.shape([{ file: set.root, pointer: "" }]);
+  }
+
+  /** How many locations the memo of closures holds now, for tests of its bound. */
+  get memoizedLocations(): number {
+    let count = 0;
+    for (const closed of this.#closures.values()) count += closed.length;
+    return count;
   }
 
   /** How many pairs of locations the last {@link Spine.check} visited: the work its pair walk did, for tests of its cost. */
@@ -238,7 +251,7 @@ export class Spine {
     }
     // The closures of a long chain of references add up to the square of its length, so the memo is emptied before it holds
     // more than a bounded number of locations; what it held is computed again when asked for.
-    if (this.#closureEntries + closed.length > MAX_CLOSURE_ENTRIES) {
+    if (this.#closureEntries + closed.length > this.#maxClosureEntries) {
       this.#closures.clear();
       this.#closureEntries = 0;
     }
@@ -346,22 +359,30 @@ export class Spine {
    * only for references whose own schema object lacks the format, and only of the locations that could give it, which in
    * the worst case is quadratic too.
    *
-   * Memory: linear in the schema, but for bitsets. The pairs met take a bit for each pair of locations whose spine below
-   * holds a declaration or `unevaluatedItems`, for the first of the pair once it is met, and the pairs waiting two integers
-   * each; what applies beside a typed reference on every path takes a bit for each pair of a location above a reference
-   * and a location that could give the format. A bitset takes at most the square of the locations over eight bytes, and
-   * the waiting pairs at most eight bytes for each pair met.
+   * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
+   * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
+   * pairs waiting take two integers each, at most eight bytes for each pair met. The fixed point for the format keeps two
+   * bitsets for each location above a reference that lacks the format: what applies beside it on every path, and what its
+   * own `allOf` and `$ref` give, each a bit for each location that could give the format. Each of these takes at most the
+   * square of the locations over eight bytes, the fixed point's twice that.
+   *
+   * @throws RangeError when `listed` is neither a non-negative integer nor infinite.
    */
   // Deviation from the I2 design, recorded in issue #22: the check walks pairs of locations rather than every set a path
   // reaches, which was exponential; a declaration reached off the spine is refused even where the spine reaches it too.
   check(listed = Number.POSITIVE_INFINITY): SpineCheck {
     // Unequal declarations give a problem per pair, as many as the square of the schema, so only the first `listed` by
     // location and message are kept, and the others counted.
+    if (listed !== Number.POSITIVE_INFINITY && !(Number.isInteger(listed) && listed >= 0)) {
+      throw new RangeError(`the problems to list must be a non-negative integer or Infinity, not ${listed}`);
+    }
     let kept: SpineProblem[] = [];
     let found = 0;
     const keep = (location: SchemaLocation, message: string) => {
       found += 1;
       kept.push({ location, message });
+      // Trimming when the kept problems reach twice those listed, plus a margin for a small `listed`, sorts each problem
+      // a bounded number of times, so the trims cost O(problems × log listed) in all and hold O(listed) problems.
       if (kept.length > 2 * listed + 1024) kept = kept.sort(problemOrder).slice(0, listed);
     };
     // A pair is visited once, so its unequal declarations are reported once; the other problems can be met again.
@@ -1073,11 +1094,46 @@ class IntegerStack {
   }
 }
 
-/** The order of the problems the check gives: by their location's key, then by message. */
+/**
+ * The order of the problems the check gives: by their location's file, then its pointer one reference token at a time, then
+ * by message; tokens and messages compare their runs of digits as numbers, so `/allOf/2` comes before `/allOf/10`.
+ */
 function problemOrder(one: SpineProblem, other: SpineProblem): number {
-  const [a, b] = [locationKey(one.location), locationKey(other.location)];
-  if (a !== b) return a < b ? -1 : 1;
-  return one.message < other.message ? -1 : one.message > other.message ? 1 : 0;
+  const byFile = naturalOrder(one.location.file, other.location.file);
+  if (byFile !== 0) return byFile;
+  const a = one.location.pointer.split("/");
+  const b = other.location.pointer.split("/");
+  for (let index = 0; index < Math.min(a.length, b.length); index++) {
+    const byToken = naturalOrder(a[index] as string, b[index] as string);
+    if (byToken !== 0) return byToken;
+  }
+  if (a.length !== b.length) return a.length - b.length;
+  return naturalOrder(one.message, other.message);
+}
+
+/** Compares two strings by their runs of digits, as numbers, and of other characters, as text; then as text alone. */
+function naturalOrder(one: string, other: string): number {
+  const a = one.match(/[0-9]+|[^0-9]+/g) ?? [];
+  const b = other.match(/[0-9]+|[^0-9]+/g) ?? [];
+  for (let index = 0; index < Math.min(a.length, b.length); index++) {
+    const [x, y] = [a[index] as string, b[index] as string];
+    if (x === y) continue;
+    const digits = /^[0-9]/;
+    if (digits.test(x) && digits.test(y)) {
+      const byValue = compareDigits(x, y);
+      if (byValue !== 0) return byValue;
+    }
+    return x < y ? -1 : 1;
+  }
+  if (a.length !== b.length) return a.length - b.length;
+  return one < other ? -1 : one > other ? 1 : 0;
+}
+
+/** Compares two runs of decimal digits by their value, whatever their length. */
+function compareDigits(one: string, other: string): number {
+  const [a, b] = [one.replace(/^0+/, ""), other.replace(/^0+/, "")];
+  if (a.length !== b.length) return a.length - b.length;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** Whether a schema object keeps a string from standing without the URI format: it gives the format, or a type without strings. */

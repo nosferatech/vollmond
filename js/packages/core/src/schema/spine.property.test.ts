@@ -1,6 +1,6 @@
 // The spine's check against its first form, over random schemas and over the schemas that are costly for one of its parts:
 // every reduction of its cost must leave what it reports unchanged. The first form gives its problems in the order its walks
-// meet them, the check by location and then message, so the first form's are sorted before they are compared.
+// meet them and the check in its own order, which its unit tests check, so both are sorted as text before they are compared.
 
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
@@ -31,13 +31,15 @@ async function compare(schema: unknown, listed: number): Promise<{ readonly expe
   const expected = oracle.check().map(shown).sort();
   const spine = new Spine(set);
   const all = spine.check();
-  expect(all.problems.map(shown)).toEqual(expected);
+  expect(all.problems.map(shown).sort()).toEqual(expected);
   expect(all.unlisted).toBe(0);
   expect(spine.pairsVisited).toBe(oracle.pairsVisited);
   expect(spine.mustSteps).toBe(oracle.mustSteps);
   const some = new Spine(set).check(listed);
-  expect(some.problems.map(shown)).toEqual(expected.slice(0, listed));
+  expect(some.problems).toEqual(all.problems.slice(0, listed));
   expect(some.unlisted).toBe(Math.max(0, expected.length - listed));
+  // A memo of closures emptied every few locations computes them again, to the same result.
+  expect(new Spine(set, { maxClosureEntries: 4 }).check()).toEqual(all);
   return { expected, spine };
 }
 

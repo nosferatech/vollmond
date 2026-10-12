@@ -3,8 +3,8 @@
 import { describe, expect, test } from "vitest";
 import { succeed } from "../issue/outcome.js";
 import { locationKey, readSchemaSet } from "./schema-set.js";
-import { Spine } from "./spine.js";
-import { chain, deepClosures, fanIn, unequalBranches } from "./spine-shapes.testkit.js";
+import { Spine, type SpineProblem } from "./spine.js";
+import { bareReferenceChain, chain, deepClosures, fanIn, unequalBranches } from "./spine-shapes.testkit.js";
 
 /** The spine of a schema held in `s.json`, after its check, with the problems found. */
 async function checked(schema: unknown): Promise<{ readonly spine: Spine; readonly problems: readonly string[] }> {
@@ -17,11 +17,11 @@ async function checked(schema: unknown): Promise<{ readonly spine: Spine; readon
 }
 
 /** The spine of a schema held in `s.json`, unchecked. */
-async function spineOf(schema: unknown): Promise<Spine> {
+async function spineOf(schema: unknown, options: { readonly maxClosureEntries?: number } = {}): Promise<Spine> {
   const text = new TextEncoder().encode(JSON.stringify(schema));
   const set = await readSchemaSet("s.json", async () => succeed(text));
   expect(set.problems).toEqual([]);
-  return new Spine(set);
+  return new Spine(set, options);
 }
 
 /** `branches` allOf branches, each naming the same `names` properties, each given by `property`. */
@@ -334,5 +334,66 @@ describe("the work of walking single locations", () => {
     const { spine, problems } = await checked(deepClosures(400));
     expect(problems).toEqual([]);
     expect(spine.placeSteps).toBeLessThan(10 * 400);
+  });
+});
+
+describe("the order of the problems", () => {
+  const where = (problems: readonly SpineProblem[]) => problems.map((problem) => problem.location.pointer);
+
+  test("by location, an array index as a number: /allOf/2 before /allOf/10", async () => {
+    // Twelve branches: 0 to 5 declare x-vmd-ref {}, 6 to 11 cardinality many, so each of 0 to 5 meets each of 6 to 11.
+    const { problems } = (await spineOf(unequalBranches(6))).check();
+    expect(where(problems).slice(0, 6)).toEqual(Array.from({ length: 6 }, () => "/allOf/0/x-vmd-ref"));
+    // A pair's problem stands at the first of its two locations as text, which for 2 to 5 beside 10 and 11 is 10 or 11.
+    const locations = [0, 1, 2, 3, 4, 5, 10, 11].map((index) => `/allOf/${index}/x-vmd-ref`);
+    expect([...new Set(where(problems))]).toEqual(locations);
+    // At one location, the messages name the other of the pair, also in the order of its index.
+    const partners = problems.slice(0, 6).map((problem) => /, s\.json#\/allOf\/([0-9]+);/.exec(problem.message)?.[1]);
+    expect(partners).toEqual(["6", "7", "8", "9", "10", "11"]);
+  });
+
+  test("by location one reference token at a time: /a/b before /a-b, and a location before those below it", async () => {
+    const one = { type: "object", "x-vmd-ref": {} };
+    const many = { type: "object", "x-vmd-ref": { cardinality: "many" } };
+    const { problems } = (
+      await spineOf({
+        type: "object",
+        properties: {
+          "a-b": { allOf: [one, many] },
+          a: { allOf: [{ properties: { b: { allOf: [one, many] } } }, one, many] },
+        },
+      })
+    ).check();
+    expect(where(problems)).toEqual([
+      "/properties/a/allOf/0/properties/b/allOf/0/x-vmd-ref",
+      "/properties/a/allOf/1/x-vmd-ref",
+      "/properties/a-b/allOf/0/x-vmd-ref",
+    ]);
+  });
+});
+
+describe("the number of problems asked for", () => {
+  test.each([-1, 1.5, Number.NaN, Number.NEGATIVE_INFINITY])("is refused when it is %s", async (listed) => {
+    const spine = await spineOf(unequalBranches(2));
+    expect(() => spine.check(listed)).toThrow(RangeError);
+  });
+
+  test.each([0, 3, Number.POSITIVE_INFINITY])("is taken when it is %s", async (listed) => {
+    const { problems, unlisted } = (await spineOf(unequalBranches(2))).check(listed);
+    expect(problems.length + unlisted).toBe(4);
+  });
+});
+
+// Review of #114: the memo of closures, which a long chain of references fills with the square of its length, is emptied
+// when it reaches its bound.
+describe("the memo of closures", () => {
+  test("is emptied when it would hold more than its bound, to the same problems", async () => {
+    const unbounded = await spineOf(bareReferenceChain(200));
+    const all = unbounded.check();
+    expect(unbounded.memoizedLocations).toBeGreaterThan(5000);
+    const bounded = await spineOf(bareReferenceChain(200), { maxClosureEntries: 1000 });
+    expect(bounded.check()).toEqual(all);
+    expect(bounded.memoizedLocations).toBeLessThanOrEqual(1000);
+    expect(bounded.memoizedLocations).toBeGreaterThan(0);
   });
 });
