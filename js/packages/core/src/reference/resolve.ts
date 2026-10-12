@@ -60,8 +60,8 @@ export class ReferenceResolver {
   readonly #lookedUp = new Map<string, Promise<boolean>>();
   /** Each record's anchor aliases, those under its path and its old paths, by the record's path, found when first needed. */
   readonly #anchorRenames = new Map<string, Promise<ReadonlyMap<string, string>>>();
-  /** Where the record alias chain from each path ends, by that path, found when first needed. */
-  readonly #recordChainEnds = new Map<string, Promise<string>>();
+  /** Where the record alias chains walked end, by the paths they started at and passed. */
+  readonly #recordChainEnds: RecordChainEnds = { starts: new Map(), acyclic: new Map() };
   /** The live name that the anchor alias chain from each name reaches in a record, or null, by the record's path and the name. */
   readonly #anchorChainEnds = new Map<string, Map<string, string | null>>();
 
@@ -248,18 +248,16 @@ export class ReferenceResolver {
     return current === live || current.status === "dangling" ? null : current;
   }
 
-  /** Gives where the record alias chain from `path` ends, which stops at the first path where a file is; walked once a path. */
+  /**
+   * Gives where the record alias chain from `path` ends, which stops at the first path where a file is. A chain without a
+   * cycle is walked once, whichever of its paths references start at.
+   */
   #recordChainEnd(path: string): Promise<string> {
-    let end = this.#recordChainEnds.get(path);
-    if (end === undefined) {
-      const moves: AliasChain = {
-        next: (from) => this.#aliases.recordMove(from),
-        live: (to) => this.#exists(to, false),
-      };
-      end = followAliasChain(path, moves, this.#aliases.entries.length);
-      this.#recordChainEnds.set(path, end);
-    }
-    return end;
+    const moves: AliasChain = {
+      next: (from) => this.#aliases.recordMove(from),
+      live: (to) => this.#exists(to, false),
+    };
+    return endOfAliasChain(path, moves, this.#aliases.entries.length, this.#recordChainEnds);
   }
 
   /**
@@ -384,33 +382,70 @@ interface AliasChain {
   live(to: string): boolean | Promise<boolean>;
 }
 
+/** The ends of record alias chains a resolver has walked, by the path a walk started at, or passed. */
+interface RecordChainEnds {
+  /** The end of the walk from each path it started at, cycle or not. */
+  readonly starts: Map<string, string>;
+  /**
+   * The end of every walk that ended without a cycle, by the path it started at and by each path it passed: the end from any
+   * of those paths, since a walk without a cycle goes from each of them the same way to the same end.
+   */
+  readonly acyclic: Map<string, string>;
+}
+
 /**
  * Follows a chain of aliases from `start`: from each name to the one its alias leads to, until a name that is live, one that
  * no alias has as its old name, or one the chain has passed, which ends a cycle. Gives the last name reached, which is `start`
  * when no alias has it as its old name, live or not. A walk takes at most `bound` steps, which bounds it if the names seen
- * ever failed to.
+ * ever failed to; one cut short counts as a cycle.
+ *
+ * `ends` keeps the end of each walk under its start, and the end of a walk without a cycle under every name it passed too; a
+ * walk that reaches a name kept so stops there with that end. In a cycle the last name reached depends on where the walk
+ * started, so a walk with one keeps only its start's. A walk passes no live name, and stops at a live name before looking at
+ * what is kept, so the start, never checked for being live, is the only live name whose end is kept. A kept end that is
+ * `start` is passed by: the chain from there comes back to `start`, which is a cycle.
  */
-async function followAliasChain(start: string, chain: AliasChain, bound: number): Promise<string> {
+async function endOfAliasChain(start: string, chain: AliasChain, bound: number, ends: RecordChainEnds): Promise<string> {
+  const kept = ends.starts.get(start) ?? ends.acyclic.get(start);
+  if (kept !== undefined) return kept;
   const seen = new Set([start]);
+  const passed: string[] = [];
   let end = start;
-  for (let step = 0, next = chain.next(start); next !== undefined && step < bound; step += 1) {
-    if (seen.has(next)) break;
+  let cycle = false;
+  for (let step = 0, next = chain.next(start); next !== undefined; step += 1) {
+    if (seen.has(next) || step >= bound) {
+      cycle = true;
+      break;
+    }
+    if (await chain.live(next)) {
+      end = next;
+      break;
+    }
+    const known = ends.acyclic.get(next);
+    if (known !== undefined && known !== start) {
+      end = known;
+      break;
+    }
     seen.add(next);
+    passed.push(next);
     end = next;
-    if (await chain.live(end)) break;
-    next = chain.next(end);
+    next = chain.next(next);
   }
+  ends.starts.set(start, end);
+  if (!cycle) for (const name of [start, ...passed]) ends.acyclic.set(name, end);
   return end;
 }
 
 /**
- * Follows a chain of aliases from `start` as {@link followAliasChain} does, but gives only the live name it stops at, or null
+ * Follows a chain of aliases from `start` as {@link endOfAliasChain} does, but gives only the live name it stops at, or null
  * when it ends before one: at a name that no alias has as its old name, or at a cycle. `known` keeps that result of every walk,
  * by the name it started at and by each name it passed, and a walk that reaches a name in it stops there with its result.
  *
- * Every name a walk passes is not live, and the result from such a name is the result from the name that leads to it, so
- * keeping it is sound. The start is not checked for being live, so a live start's result is kept under it as a start only: a
- * walk that reaches a live name stops there before looking in `known`.
+ * Every name a walk passes is not live, and the result from such a name is that of the walk from the name before it, so keeping
+ * it is sound, with one exception: a walk that comes back to a live start ends with nothing for the start, since a walk never
+ * ends at the name it started at, but with the start for every name it passed, from which the chain reaches the live start.
+ * The start is not checked for being live, so a live start's result is kept under it as a start only: a walk that reaches a
+ * live name stops there before looking in `known`. A kept result that is `start` comes back to it too.
  */
 async function liveEndOfAliasChain(
   start: string,
@@ -422,14 +457,23 @@ async function liveEndOfAliasChain(
   const seen = new Set([start]);
   const passed: string[] = [];
   let end: string | null = null;
+  /** The result of the names passed, which differs from the start's only when the walk comes back to a live start. */
+  let passedEnd: string | null = null;
   for (let step = 0, next = chain.next(start); next !== undefined && step < bound; step += 1) {
+    if (next === start) {
+      passedEnd = (await chain.live(start)) ? start : null;
+      break;
+    }
     if (seen.has(next)) break;
     if (await chain.live(next)) {
-      end = next;
+      end = passedEnd = next;
       break;
     }
     if (known.has(next)) {
-      end = known.get(next) ?? null;
+      const result = known.get(next) ?? null;
+      // A result is live, so one that is the start is a live start that the chain from `next` comes back to.
+      if (result === start) passedEnd = start;
+      else end = passedEnd = result;
       break;
     }
     seen.add(next);
@@ -437,7 +481,7 @@ async function liveEndOfAliasChain(
     next = chain.next(next);
   }
   known.set(start, end);
-  for (const name of passed) known.set(name, end);
+  for (const name of passed) known.set(name, passedEnd);
   return end;
 }
 

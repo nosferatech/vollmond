@@ -603,6 +603,37 @@ describe("alias chains and shadowed names", () => {
     expect(refs.map(shown)).toEqual(["aliased #b/y", "aliased #a", "aliased #b/y"]);
   });
 
+  test("end a record alias cycle where its walk ends, which depends on the path the walk started at", async () => {
+    // a, b and c lead round to a; nothing is at a or b, and c is a directory, which no walk stops at as it would at a file.
+    const files = {
+      ...alias(
+        { kind: "record", from: "docs/a.md", to: "docs/b.md", at },
+        { kind: "record", from: "docs/b.md", to: "docs/c.md", at },
+        { kind: "record", from: "docs/c.md", to: "docs/a.md", at },
+      ),
+      "docs/c.md/inner.txt": "x",
+    };
+    // From a the walk's last path is the directory c; from b it is a, where nothing is.
+    const shown = (reference: Reference) => `${reference.status} ${reference.targets.map((target) => target.path)}`;
+    expect((await refsOf("# R\n\n[a](a.md) [b](b.md)\n", files)).map(shown)).toEqual(["aliased docs/c.md", "dangling "]);
+    expect((await refsOf("# R\n\n[b](b.md) [a](a.md)\n", files)).map(shown)).toEqual(["dangling ", "aliased docs/c.md"]);
+  });
+
+  test("resolve a name on a cycle through a live start alike, whichever link is resolved first", async () => {
+    // a is live and a/missing matches nothing, so a's chain goes a, b, a; from b the chain reaches the live a.
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/c.md", from: "a", to: "b", at },
+        { kind: "anchor", record: "docs/c.md", from: "b", to: "a", at },
+      ),
+      "docs/c.md": '# C\n\n## A <a id="a"></a>\n',
+    };
+    const shown = (reference: Reference) =>
+      `${reference.status} ${reference.targets.map((target) => ("address" in target ? target.address : target.path))}`;
+    expect((await refsOf("# R\n\n[x](c.md#a/missing) [y](c.md#b)\n", files)).map(shown)).toEqual(["dangling ", "aliased #a"]);
+    expect((await refsOf("# R\n\n[y](c.md#b) [x](c.md#a/missing)\n", files)).map(shown)).toEqual(["aliased #a", "dangling "]);
+  });
+
   test("end an anchor alias cycle as dangling, and follow a chain one step short of one", async () => {
     const files = {
       ...alias(

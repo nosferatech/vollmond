@@ -246,6 +246,29 @@ describe("the aliases a resolver reads", () => {
     expect(lookups.count).toBe(length + 1);
   });
 
+  test("walk a record alias chain once for references to every path along it", async () => {
+    const length = 40;
+    const lines = Array.from({ length }, (_, n) => ({ kind: "record", from: `old/${n}.md`, to: `old/${n + 1}.md`, at }));
+    const table = successValue(readAliases(encode(aliasFile(...lines))));
+    let moves = 0;
+    const counted: AliasTable = {
+      ...table,
+      entries: table.entries,
+      recordMove: (path) => {
+        moves += 1;
+        return table.recordMove(path);
+      },
+    };
+    // Links to old/0 ... old/39 and then back: every start a path that an earlier walk passed.
+    const paths = Array.from({ length }, (_, n) => `../old/${n}.md`);
+    const links = [...paths, ...paths.reverse()].map((path) => `[x](${path})`).join(" ");
+    const { resolver, records } = resolverOver({ "docs/r.md": `# R\n\n${links}\n` }, counted);
+    const resolved = await resolver.referencesOf(records.get("docs/r.md") as ParsedRecord);
+    expect(resolved.map((reference) => reference.status)).toEqual(Array(2 * length).fill("dangling"));
+    // One lookup a path of the chain, old/40 included, whose missing alias ends it.
+    expect(moves).toBe(length + 1);
+  });
+
   test("walk a record alias chain once per path, however many references name it", async () => {
     const length = 40;
     const lines = Array.from({ length }, (_, n) => ({ kind: "record", from: `old/${n}.md`, to: `old/${n + 1}.md`, at }));
