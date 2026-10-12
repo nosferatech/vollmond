@@ -672,6 +672,35 @@ describe("alias chains and shadowed names", () => {
     ]);
   });
 
+  test("resolve the names of a cycle through a live name alike, whichever walk is recorded first", async () => {
+    // s, l and t lead round to s, and l is live: from s and t the chain stops at l, and l is never walked from.
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/c.md", from: "s", to: "l", at },
+        { kind: "anchor", record: "docs/c.md", from: "l", to: "t", at },
+        { kind: "anchor", record: "docs/c.md", from: "t", to: "s", at },
+      ),
+      "docs/c.md": '# C\n\n## L <a id="l"></a>\n',
+    };
+    const shown = (reference: Reference) =>
+      `${reference.raw} ${reference.status} ${reference.targets.map((target) => ("address" in target ? target.address : target.path))}`;
+    const expected: Record<string, string> = {
+      "c.md#s": "c.md#s aliased #l",
+      "c.md#t": "c.md#t aliased #l",
+      "c.md#l/x": "c.md#l/x dangling ",
+      "c.md#s/x": "c.md#s/x dangling ",
+      "c.md#t/x": "c.md#t/x dangling ",
+    };
+    // Each order on a fresh resolver, so that the results one walk records are what a later link reaches.
+    for (const links of [
+      ["c.md#l/x", "c.md#t", "c.md#s", "c.md#s/x", "c.md#t/x"],
+      ["c.md#l/x", "c.md#s", "c.md#t", "c.md#t/x", "c.md#s/x"],
+    ]) {
+      const refs = await refsOf(`# R\n\n${links.map((link) => `[x](${link})`).join(" ")}\n`, files);
+      expect(refs.map(shown), links.join(" ")).toEqual(links.map((link) => expected[link]));
+    }
+  });
+
   test("show a link left dangling by its live first step beside the alias-shadowed warning of that name", async () => {
     const store = await storeOf({
       ...alias({ kind: "anchor", record: "data/k.json", from: "a", to: "b", at }),
