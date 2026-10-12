@@ -119,3 +119,60 @@ describe("the pairs the spine's check visits", () => {
     expect(problems.some((message) => message.startsWith("unevaluatedItems stands beside an x-vmd-list"))).toBe(true);
   });
 });
+
+/**
+ * Two groups of `branches` allOf branches that take members of any name, each with a `$ref` to its group's declaration, beside
+ * an unreferenced definition that lists `listed` names. `take` is how a branch takes them.
+ */
+function takers(branches: number, listed: number, take: object): unknown {
+  const allOf = [];
+  for (let branch = 0; branch < branches; branch++) allOf.push({ ...take, $ref: "#/$defs/one" });
+  for (let branch = 0; branch < branches; branch++) allOf.push({ ...take, $ref: "#/$defs/many" });
+  const properties: Record<string, unknown> = {};
+  for (let name = 0; name < listed; name++) properties[`name${name}`] = {};
+  return { allOf, $defs: { one: ref("one"), many: ref("many"), unused: { properties } } };
+}
+
+// Issue #109: a pair whose locations both take members of any name stepped over every name the schema lists, so the check's
+// work was the pairs times the listed names.
+describe("the listed names the spine's check examines", () => {
+  test("one per pair for pairs that take every name through additionalProperties, however many are listed", async () => {
+    const { spine, problems } = await checked(takers(20, 400, { additionalProperties: {} }));
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeGreaterThan(400);
+    expect(spine.nameSteps).toBeLessThanOrEqual(spine.pairsVisited);
+  });
+
+  test("the names the patterns match, not every listed name, for pairs that take members through patterns", async () => {
+    // Both groups' pattern takes name1, name10 to name19 and name100 to name199; their additionalProperties the rest.
+    const schema = takers(20, 400, { patternProperties: { "^name1": {} }, additionalProperties: {} });
+    const { spine, problems } = await checked(schema);
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    const matched = 111;
+    expect(spine.nameSteps).toBeLessThanOrEqual(spine.pairsVisited * (matched + 1));
+  });
+
+  test("a pattern and additionalProperties that meet at a name only an unreferenced definition lists still meet", async () => {
+    const { problems } = await checked({
+      allOf: [{ patternProperties: { "^r": ref("one") } }, { additionalProperties: ref("many") }],
+      $defs: { unused: { properties: { rx: {}, s: {} } } },
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+  });
+
+  test("two additionalProperties do not meet at a name only the pair's own properties lists", async () => {
+    // rx is listed only by the second branch, whose additionalProperties does not take it.
+    const { problems } = await checked({
+      allOf: [{ additionalProperties: ref("one") }, { properties: { rx: {} }, additionalProperties: ref("many") }],
+    });
+    expect(problems).toEqual([]);
+  });
+
+  test("two additionalProperties meet at a name another location lists", async () => {
+    const { problems } = await checked({
+      allOf: [{ additionalProperties: ref("one") }, { properties: { rx: {} }, additionalProperties: ref("many") }],
+      $defs: { unused: { properties: { rx: {}, s: {} } } },
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+  });
+});
