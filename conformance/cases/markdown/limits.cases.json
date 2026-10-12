@@ -651,6 +651,48 @@
           }
         ]
       }
+    },
+    {
+      "id": "data-body-feff-nesting-257-json",
+      "spec": [
+        "5.1",
+        "5.4"
+      ],
+      "description": "A JSON section's $body that starts with U+FEFF and then 257 block quote markers reads: a U+FEFF that is not at a file's first byte is an ordinary character (§5.1), so the text is one paragraph that starts with it, as the same text after a heading in a Markdown file is, and holds no block quote (§5.4, decision Z1).",
+      "input": {
+        "record": "body-feff-nesting-257.json"
+      },
+      "expect": {
+        "result": {
+          "$sections": [
+            {
+              "$title": "S",
+              "$body": "﻿>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> a"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-body-feff-nesting-257-yaml",
+      "spec": [
+        "5.1",
+        "5.4"
+      ],
+      "description": "A YAML section's $body that starts with U+FEFF and then 257 block quote markers reads: a U+FEFF that is not at a file's first byte is an ordinary character (§5.1), so the text is one paragraph that starts with it, as the same text after a heading in a Markdown file is, and holds no block quote (§5.4, decision Z1).",
+      "input": {
+        "record": "body-feff-nesting-257.yaml"
+      },
+      "expect": {
+        "result": {
+          "$sections": [
+            {
+              "$title": "S",
+              "$body": "﻿>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> a"
+            }
+          ]
+        }
+      }
     }
   ]
 }

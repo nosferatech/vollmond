@@ -69,11 +69,27 @@ const RUN_CHARACTERS: readonly number[] = [0x2a, 0x5f, 0x7e];
  */
 const INLINE_NESTING_TYPES: ReadonlySet<Nodes["type"]> = new Set(["emphasis", "strong", "delete", "link", "linkReference"]);
 
+/** The identifiers of the labels of each array given to {@link identifiersOf}, normalized once per array. */
+const identifiersByLabels = new WeakMap<readonly string[], ReadonlySet<string>>();
+
 /** The extension that bounds the nesting of containers, made once: it keeps its counts per parse. */
 const CONTAINER_DEPTH: MicromarkExtension = containerDepthExtension();
 
+/** The extension that counts the runs of each paragraph, table cell and heading, made once. */
+const RECORD_RUN_COUNT: MicromarkExtension = runCountExtension(false);
+
 /** The options of a record's parse, made once rather than for every record. */
-const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, runCountExtension(false)]);
+const RECORD_OPTIONS: Options = optionsOf([CONTAINER_DEPTH, RECORD_RUN_COUNT]);
+
+/**
+ * The options of the parse that finds a text's link reference definitions, made once. Containers are counted, but the text
+ * constructs whose cost grows faster than the text, emphasis, strikethrough and links, are off: no definition depends on
+ * them, since the library finds the definitions of a text before it reads its inline content.
+ */
+const DEFINITION_OPTIONS: Options = optionsOf([
+  CONTAINER_DEPTH,
+  { disable: { null: ["attention", "strikethrough", "labelStartLink", "labelStartImage", "labelEnd"] } },
+]);
 
 /** The extension that counts the runs of a data `$title`, all its lines together, made once. */
 const TITLE_RUN_COUNT: MicromarkExtension = runCountExtension(true);
@@ -109,7 +125,9 @@ class LimitPassed extends Error {
 /**
  * Parses a Markdown text into its syntax tree, whose positions are UTF-16 indexes into `text`, with tabs counted as one
  * character, a CRLF as two, and one exception: a U+FEFF at index 0 is skipped, and the indexes count from the character after
- * it. A caller that reads U+FEFF as content passes a text that does not start with one.
+ * it. A caller that reads U+FEFF as content passes a text that does not start with one. The link reference definitions whose
+ * labels are `labels`, as {@link definitionLabelsIn} gives them, are in scope beside the text's own, as for the `$body` of a
+ * JSON or YAML record, which has the definitions of every `$body` of its record in scope.
  *
  * The resource limits of a Markdown record hold, and a text beyond one gives no tree:
  *
@@ -124,19 +142,61 @@ class LimitPassed extends Error {
  *
  * Costs time linear in the text, but for the library's own costs.
  */
-export function parseMarkdownTree(text: string): MarkdownTree {
+export function parseMarkdownTree(text: string, labels: readonly string[] = []): MarkdownTree {
+  const parsed = parseWithinLimits(text, labels);
+  if (!parsed.ok) return { ok: false, limitAt: parsed.passage.at, message: parsed.passage.message };
+  let root = parsed.root;
+  for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
+  return { ok: true, root };
+}
+
+/**
+ * Finds a resource limit that a Markdown text passes, as {@link parseMarkdownTree} reads it: the first container nested
+ * deeper than {@link MAX_NESTING}, or the first run beyond {@link MAX_EMPHASIS_RUNS} in a paragraph, table cell or heading,
+ * or else the first inline node nested deeper than {@link MAX_NESTING} within its block. Returns null when it passes none,
+ * which is exactly when {@link parseMarkdownTree} gives a tree for the same `labels` and the text that
+ * {@link keepingLeadingFeff} gives: a U+FEFF at index 0 is a character here, as in the `$body` of a JSON or YAML record.
+ *
+ * It costs what {@link parseMarkdownTree} does, without the autolink literals' tree transform, and a text past a limit
+ * stops the parse where {@link parseMarkdownTree} stops.
+ */
+export function markdownLimitPassedIn(text: string, labels: readonly string[] = []): LimitPassage | null {
+  const kept = keepingLeadingFeff(text);
+  const parsed = parseWithinLimits(kept.text, labels);
+  return parsed.ok ? null : { ...parsed.passage, at: parsed.passage.at + kept.shift };
+}
+
+/**
+ * Gives the text to parse for a Markdown text whose U+FEFF at index 0, if it has one, is a character, as in a `$body` or a
+ * `$title` of a JSON or YAML record, where a U+FEFF is a byte order mark only at a file's first byte. The library skips one
+ * at index 0, so such a text gets a line feed in front, a blank line that changes no block and no inline content. `shift`
+ * is the index into `text` of the parse's index 0: -1 with the line feed, 0 without.
+ */
+export function keepingLeadingFeff(text: string): { readonly text: string; readonly shift: number } {
+  return text.charCodeAt(0) === 0xfeff ? { text: `\n${text}`, shift: -1 } : { text, shift: 0 };
+}
+
+/** The tree of a Markdown text before any tree transform, or the resource limit it passes. */
+type LimitedParse = { readonly ok: true; readonly root: Root } | { readonly ok: false; readonly passage: LimitPassage };
+
+/**
+ * Parses a Markdown text with the record's options, with the definitions whose labels are `labels` in scope, and checks its
+ * inline nesting, before any tree transform.
+ */
+function parseWithinLimits(text: string, labels: readonly string[]): LimitedParse {
+  const options =
+    labels.length === 0 ? RECORD_OPTIONS : optionsOf([CONTAINER_DEPTH, RECORD_RUN_COUNT, labelsInScopeExtension(labels)]);
   let root: Root;
   try {
-    root = fromMarkdown(text, RECORD_OPTIONS);
+    root = fromMarkdown(text, options);
   } catch (error) {
     if (!(error instanceof LimitPassed)) throw error;
-    return { ok: false, limitAt: error.at, message: error.message };
+    return { ok: false, passage: { at: error.at, message: error.message } };
   }
   const tooDeepAt = inlineNestedBeyond(root, MAX_NESTING);
   if (tooDeepAt !== null) {
-    return { ok: false, limitAt: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` };
+    return { ok: false, passage: { at: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` } };
   }
-  for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
   return { ok: true, root };
 }
 
@@ -145,23 +205,85 @@ export function parseMarkdownTree(text: string): MarkdownTree {
  * starts a block, and the link reference definitions whose labels are `labels` are in scope.
  */
 function inlineContentExtensions(labels: readonly string[]): MicromarkExtension[] {
-  const identifiers = labels.map(normalizeIdentifier);
+  const blocks = ["blockQuote", "list", "codeFenced", "codeIndented", "headingAtx", "htmlFlow", "setextUnderline"];
+  return [labelsInScopeExtension(labels), { disable: { null: [...blocks, "thematicBreak", "definition", "table"] } }];
+}
+
+/**
+ * An extension that puts the link reference definitions whose labels are `labels`, as written or as identifiers, in scope
+ * of a parse, beside the text's own, as if the text held them. When the parse starts its first line, before any inline
+ * content is read, it replaces the library's list of defined labels with a {@link DefinedLabels} over the labels'
+ * identifiers, which {@link identifiersOf} normalizes once per array: a parse costs the same however many labels there are.
+ */
+function labelsInScopeExtension(labels: readonly string[]): MicromarkExtension {
+  const shared = identifiersOf(labels);
+  const seeded = new WeakSet<ParseContext>();
   const defineLabels: Construct = {
     partial: true,
     tokenize(_effects, _ok, nok) {
-      const defined = this.parser.defined;
-      for (const identifier of identifiers) if (!defined.includes(identifier)) defined.push(identifier);
+      // The library tries the construct at the start of every line, and the list is replaced once.
+      if (!seeded.has(this.parser)) {
+        seeded.add(this.parser);
+        this.parser.defined = new DefinedLabels(shared, this.parser.defined);
+      }
       return nok;
     },
   };
-  const blocks = ["blockQuote", "list", "codeFenced", "codeIndented", "headingAtx", "htmlFlow", "setextUnderline"];
-  return [{ document: { null: defineLabels }, disable: { null: [...blocks, "thematicBreak", "definition", "table"] } }];
+  return { document: { null: defineLabels } };
+}
+
+/**
+ * Gives the identifiers of `labels`, normalized as the library matches them, computed on the first call for an array and
+ * kept for the next: the labels of a record's definitions are one array (see `definitionLabelsOfRecord`), so every parse of
+ * its `$body` and `$title` values shares one set. The array is not changed after the first call.
+ */
+function identifiersOf(labels: readonly string[]): ReadonlySet<string> {
+  let identifiers = identifiersByLabels.get(labels);
+  if (identifiers === undefined) {
+    identifiers = new Set(labels.map(normalizeIdentifier));
+    identifiersByLabels.set(labels, identifiers);
+  }
+  return identifiers;
+}
+
+/**
+ * The library's list of the identifiers defined in a parse, with the identifiers of a shared set defined too, without
+ * copying them in. The list holds the parse's own identifiers, those its definitions push; `includes` finds those and the
+ * shared ones, in constant time. The library uses the list only through `push` and `includes`, in micromark 4.0.3 and
+ * micromark-core-commonmark 2.0.4 (`definition.js` and `label-end.js`); any other array method sees only the parse's own
+ * identifiers, which the tests of definitions in another `$body` would show.
+ */
+class DefinedLabels extends Array<string> {
+  // Methods such as `map` and `slice` make plain arrays, not lists with a shared set.
+  static override get [Symbol.species](): ArrayConstructor {
+    return Array;
+  }
+
+  readonly #shared: ReadonlySet<string>;
+  readonly #own = new Set<string>();
+
+  /** Makes the list of a parse whose own identifiers so far are `own`, with the identifiers of `shared` defined too. */
+  constructor(shared: ReadonlySet<string>, own: readonly string[]) {
+    super();
+    this.#shared = shared;
+    for (const identifier of own) this.push(identifier);
+  }
+
+  override push(...identifiers: string[]): number {
+    for (const identifier of identifiers) this.#own.add(identifier);
+    return super.push(...identifiers);
+  }
+
+  override includes(identifier: string, fromIndex?: number): boolean {
+    if (fromIndex !== undefined) return super.includes(identifier, fromIndex);
+    return this.#own.has(identifier) || this.#shared.has(identifier);
+  }
 }
 
 /**
  * Parses a text as a heading's inline content, as a JSON or YAML section's `$title` is read: a line break is a soft break, no
  * closing sequence is stripped, nothing in it starts a block, and the link reference definitions whose labels are `labels`,
- * as written in their definitions, are in scope. Returns its inline nodes, a blank line between two of its lines giving a
+ * as written or as their identifiers, are in scope. Returns its inline nodes, a blank line between two of its lines giving a
  * text node of two line feeds, or null when its inline nodes nest deeper than {@link MAX_NESTING} or it holds more than
  * {@link MAX_EMPHASIS_RUNS} runs, all its lines counting together.
  */
@@ -180,7 +302,8 @@ export function parseInlineContent(text: string, labels: readonly string[]): rea
   for (const block of transformed.children) {
     if (block.type !== "paragraph") throw new Error(`a heading's content parsed as a ${block.type}`);
     if (content.length > 0) content.push({ type: "text", value: "\n\n" });
-    content.push(...block.children);
+    // One by one, since a title may hold more nodes than a call takes arguments.
+    for (const child of block.children) content.push(child);
   }
   return content;
 }
@@ -224,16 +347,28 @@ export function inlineLimitPassedIn(text: string, labels: () => readonly string[
 }
 
 /**
- * Finds the labels of the link reference definitions in a Markdown text, as written, in document order, at any depth of
- * containers. A text beyond a resource limit has none.
+ * Finds the labels of the link reference definitions in a Markdown text whose U+FEFF at index 0 is a character (see
+ * {@link keepingLeadingFeff}), in document order, at any depth of containers, as
+ * the labels that the parses of this module take: each definition's identifier, which the library normalizes from the label
+ * as written, escapes kept. A text whose containers nest deeper than {@link MAX_NESTING} has none; a text past an inline
+ * limit has its own, since definitions elsewhere may bring it within the limit (see {@link markdownLimitPassedIn}).
+ *
+ * Costs time linear in the text, but for the library's own costs, and close to none for a text without a `]:`.
  */
 export function definitionLabelsIn(text: string): string[] {
-  const tree = parseMarkdownTree(text);
-  if (!tree.ok) return [];
+  // A definition's label is followed by its colon.
+  if (!text.includes("]:")) return [];
+  let root: Root;
+  try {
+    root = fromMarkdown(keepingLeadingFeff(text).text, DEFINITION_OPTIONS);
+  } catch (error) {
+    if (error instanceof LimitPassed) return [];
+    throw error;
+  }
   const labels: string[] = [];
-  const pending: Nodes[] = [tree.root];
+  const pending: Nodes[] = [root];
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
-    if (node.type === "definition") labels.push(node.label ?? node.identifier);
+    if (node.type === "definition") labels.push(node.identifier);
     if ("children" in node) for (let i = node.children.length - 1; i >= 0; i--) pending.push(node.children[i] as Nodes);
   }
   return labels;

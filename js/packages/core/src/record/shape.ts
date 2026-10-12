@@ -1,4 +1,4 @@
-import { inlineLimitPassedIn } from "../format/markdown/library.js";
+import { inlineLimitPassedIn, type LimitPassage, markdownLimitPassedIn } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
@@ -33,11 +33,12 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * they were added.
  *
  * - on a section, a `$title` that passes a resource limit of inline content, which is more runs of emphasis than a text may
- *   hold, or inline elements nested deeper than it may (`syntax-error`, at the root, positioned at the member); a `$title`,
- *   `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array
- *   of objects (`reserved-member-type`, at the member); an item of `$sections` without a
- *   `$title` (`section-title-missing`, at the item); `$key`, or `$schema` below the root (`dollar-member`); and any other
- *   member whose name begins with `$` (`feature-unsupported`);
+ *   hold, or inline elements nested deeper than it may, or a `$body` that passes a resource limit of Markdown, read as a
+ *   Markdown file; each with the link reference definitions of every `$body` of the record in scope (`syntax-error`, at the
+ *   root, positioned at the member, one for the record however many pass); a `$title`, `$body` or `$anchor` that is not a
+ *   string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects (`reserved-member-type`,
+ *   at the member); an item of `$sections` without a `$title` (`section-title-missing`, at the item); `$key`, or `$schema`
+ *   below the root (`dollar-member`); and any other member whose name begins with `$` (`feature-unsupported`);
  * - at the top of front matter or of a data block, `$key` and the section members (`dollar-member`), `$schema` in a data block
  *   (`dollar-member`), and any other `$` member except front matter's `$schema` (`feature-unsupported`);
  * - inside a field's value, where other `$` members are data: an object with a `$ref` member that has other members or a `$ref`
@@ -76,8 +77,8 @@ class ShapeChecker {
   /** The object being checked, the record's root for a record, whose `$body` values hold the definitions in scope. */
   readonly #root: ValueObject;
   #definitionLabels: readonly string[] | null = null;
-  /** Whether a `$title` has passed a resource limit, which is one `syntax-error` for the record. */
-  #titleLimitPassed = false;
+  /** Whether a `$title` or a `$body` has passed a resource limit, which is one `syntax-error` for the record. */
+  #limitPassed = false;
 
   constructor(context: ShapeContext, root: ValueObject) {
     this.#context = context;
@@ -97,16 +98,21 @@ class ShapeChecker {
         case "$title":
           if (typeof member !== "string") {
             this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
-          } else if (!this.#titleLimitPassed) {
-            const passed = inlineLimitPassedIn(member, () => this.#labels());
-            if (passed !== null) {
-              // The record is beyond a resource limit, which is one syntax error at the root, positioned at the first title.
-              this.#titleLimitPassed = true;
-              this.#raise("syntax-error", "", `$title passes a resource limit: ${passed.message}`, memberAt);
-            }
+          } else if (!this.#limitPassed) {
+            this.#raiseLimitPassage(
+              name,
+              inlineLimitPassedIn(member, () => this.#labels()),
+              memberAt,
+            );
           }
           break;
         case "$body":
+          if (typeof member !== "string") {
+            this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
+          } else if (!this.#limitPassed) {
+            this.#raiseLimitPassage(name, markdownLimitPassedIn(member, member.includes("[") ? this.#labels() : []), memberAt);
+          }
+          break;
         case "$anchor":
           if (typeof member !== "string") this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
           break;
@@ -146,6 +152,16 @@ class ShapeChecker {
         this.#fieldValue(member, memberAt);
       }
     }
+  }
+
+  /**
+   * Raises the record's one `syntax-error` when `passed` gives the resource limit that the `$title` or `$body` at `memberAt`
+   * passes: at the root, positioned at the member.
+   */
+  #raiseLimitPassage(name: "$title" | "$body", passed: LimitPassage | null, memberAt: string): void {
+    if (passed === null) return;
+    this.#limitPassed = true;
+    this.#raise("syntax-error", "", `${name} passes a resource limit: ${passed.message}`, memberAt);
   }
 
   #sections(member: Value, memberAt: string): void {

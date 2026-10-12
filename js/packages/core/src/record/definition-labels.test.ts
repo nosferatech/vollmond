@@ -1,0 +1,31 @@
+import { describe, expect, test } from "vitest";
+import { definitionLabelsOfRecord } from "./definition-labels.js";
+
+describe("definitionLabelsOfRecord", () => {
+  test("lists the labels in the order of the record's Markdown form: each section's $body, then its sections", () => {
+    const record = {
+      $body: "[root]: /r",
+      $sections: [
+        { $title: "S", $body: "[s]: /s\n\n[same]: /first", $sections: [{ $title: "U", $body: "[u]: /u" }] },
+        { $title: "V", $body: "[same]: /second" },
+      ],
+    };
+    expect(definitionLabelsOfRecord(record)).toEqual(["root", "s", "same", "u", "same"]);
+  });
+
+  test("finds the labels of a value once, and gives the same array for it again", () => {
+    const record = { $body: "[a]: /x" };
+    const labels = definitionLabelsOfRecord(record);
+    expect(definitionLabelsOfRecord(record)).toBe(labels);
+    expect(definitionLabelsOfRecord({ $body: "[a]: /x" })).not.toBe(labels);
+  });
+
+  test("skips a $body or a $sections item of the wrong type, which the shape check reports", () => {
+    expect(definitionLabelsOfRecord({ $body: 1, $sections: ["x", { $title: "S", $body: "[a]: /x" }] })).toEqual(["a"]);
+  });
+
+  test("walks a record of 300,000 sections", () => {
+    const sections = Array.from({ length: 300_000 }, (_, i) => ({ $title: `[s${i}]`, $body: i === 299_999 ? "[z]: /x" : "a" }));
+    expect(definitionLabelsOfRecord({ $sections: sections })).toEqual(["z"]);
+  });
+});

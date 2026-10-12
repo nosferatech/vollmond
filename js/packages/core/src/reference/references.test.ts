@@ -220,9 +220,18 @@ describe("references in JSON and YAML", () => {
     ]);
   });
 
-  test("give a link's offset in a $body that starts with U+FEFF, which the value holds", async () => {
+  test("give a link's offset in a $body or a $title that starts with U+FEFF, which the value holds", async () => {
     const refs = await refsOf('{"$body": "\\ufeff[x](gone.md)"}', {}, "docs/j.json");
     expect(refs.map(({ offset }) => offset)).toEqual([3]);
+    const title = await refsOf('{"$title": "\\ufeff[t](gone.md)"}', {}, "docs/j.json");
+    expect(title.map(({ at, offset }) => [at, offset])).toEqual([["/$title", 3]]);
+    const indented = await refsOf('{"$body": "\\ufeff    text [x](gone.md)"}', {}, "docs/j.json");
+    expect(indented.map(({ offset, raw }) => [offset, raw])).toEqual([[12, "gone.md"]]);
+  });
+
+  test("read no definition in a $body that starts with U+FEFF and then a definition, as Markdown after a heading does", async () => {
+    expect(await refsOf('{"$title": "T", "$body": "\\ufeff[r]: gone.md"}', {}, "docs/j.json")).toEqual([]);
+    expect(await refsOf("# T\n\n\uFEFF[r]: gone.md\n", {}, "docs/j.md")).toEqual([]);
   });
 
   test("give the references in a node and below it, not those of a node whose path only starts like it", async () => {
@@ -522,13 +531,44 @@ describe("the prose of a JSON or YAML record", () => {
     expect(await raws("docs/t.json")).toEqual(["definition d.md"]);
   });
 
-  // TODO(#24): the Markdown limits apply to a data $body, which makes it a syntax-error (card Z1, recorded in Draft v0.13);
-  // until the code follows, such a $body gives no references and no issue, which this test pins.
-  test("gives no references, and raises nothing yet, for a $body beyond the Markdown parser's limits", async () => {
+  test("reads a $body with the definitions of every $body in scope, as one Markdown file has them", async () => {
+    // `[a][b]` is a use of the definition of b, so `(gone.md)` is text and not the destination of a link `[b](gone.md)`.
+    const first = "Before [a][b](gone.md).";
+    const second = "[b]: d.md";
+    const store = await storeOf({
+      "docs/t.md": `# T\n\n## S\n\n${first}\n\n## U\n\n${second}\n`,
+      "docs/t.json": JSON.stringify({
+        $title: "T",
+        $sections: [
+          { $title: "S", $body: first },
+          { $title: "U", $body: second },
+        ],
+      }),
+      "docs/t.yaml": `$title: T\n$sections:\n  - $title: S\n    $body: ${JSON.stringify(first)}\n  - $title: U\n    $body: ${JSON.stringify(second)}\n`,
+      "docs/u.json": JSON.stringify({
+        $title: "T",
+        $sections: [
+          { $title: "U", $body: second },
+          { $title: "S", $body: first },
+        ],
+      }),
+      "docs/d.md": "# D\n",
+    });
+    const found = async (from: string) =>
+      successValue(await store.references({ from })).map((reference) => `${reference.form} ${reference.raw} ${reference.status}`);
+    for (const path of ["docs/t.md", "docs/t.json", "docs/t.yaml", "docs/u.json"]) {
+      expect(await found(path)).toEqual(["definition d.md ok"]);
+      expect((await store.check({ records: [path] })).issues).toEqual([]);
+    }
+  });
+
+  test("a $body beyond the Markdown limits makes its record a syntax-error, so that no link in it goes unread", async () => {
     const deep = `${"> ".repeat(300)}[x](gone.md)`;
     const store = await storeOf({ "docs/d.json": JSON.stringify({ $body: deep }) });
-    expect(successValue(await store.references({ from: "docs/d.json" }))).toEqual([]);
-    expect((await store.check({ records: ["docs/d.json"] })).issues).toEqual([]);
+    const codes = (issues: readonly Issue[]) => issues.map(({ code, path, at }) => `${code} ${path} ${at}`);
+    expect(codes((await store.check({ records: ["docs/d.json"] })).issues)).toEqual(["syntax-error docs/d.json "]);
+    const references = await store.references({ from: "docs/d.json" });
+    expect(references.ok).toBe(false);
   });
 });
 

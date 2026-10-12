@@ -32,42 +32,6 @@
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
     {
-      "id": "markdown/limits/data-body-nesting-257-json",
-      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
-    },
-    {
-      "id": "markdown/limits/data-body-nesting-257-yaml",
-      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
-    },
-    {
-      "id": "markdown/limits/data-body-runs-4097-json",
-      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
-    },
-    {
-      "id": "markdown/limits/data-body-runs-4097-yaml",
-      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
-    },
-    {
-      "id": "markdown/limits/data-section-body-nesting-257-json",
-      "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
-    },
-    {
-      "id": "markdown/limits/data-section-body-reference-link-nesting-256-json",
-      "reason": "Draft v0.14 (AB): a $body that uses another body's definitions follows the Markdown limits on a data $body in #103, which reads each body with its own definitions only"
-    },
-    {
-      "id": "markdown/limits/data-section-body-reference-link-nesting-256-yaml",
-      "reason": "Draft v0.14 (AB): a $body that uses another body's definitions follows the Markdown limits on a data $body in #103, which reads each body with its own definitions only"
-    },
-    {
-      "id": "references/statuses/refs-body-definition-in-other-section-json",
-      "reason": "Draft v0.14 (AB): every $body sees the definitions of all the record's bodies once #103 takes the rule; the references code of #99 reads each body with its own definitions only"
-    },
-    {
-      "id": "references/statuses/refs-body-definition-in-other-section-yaml",
-      "reason": "Draft v0.14 (AB): every $body sees the definitions of all the record's bodies once #103 takes the rule; the references code of #99 reads each body with its own definitions only"
-    },
-    {
       "id": "references/targets/many-reference-to-missing-record",
       "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
     },
