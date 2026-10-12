@@ -165,6 +165,69 @@ describe("the proof that a singular address names one node", () => {
     expect(singular(plain, "#summary/$body")).toBe("/$sections/1/$body #summary/$body");
   });
 
+  // Review of #108, B1: prefixItems and items bring unequal keyed lists to one member of an item at an unknown position. Their
+  // union declares no list, yet the item at each position is keyed by one of them, so a key step must still be followed.
+  test("follows a key step where the positions of an item bring unequal keyed lists, and finds the multimap below", async () => {
+    const inner = (key: string) => ({
+      type: "array",
+      "x-vmd-list": { type: "map", keys: [key] },
+      items: { type: "object", properties: { deep: { type: "array", "x-vmd-list": { type: "multimap", keys: ["id"] } } } },
+    });
+    const schema = {
+      properties: {
+        outer: {
+          type: "array",
+          "x-vmd-list": { type: "map", keys: ["k"] },
+          prefixItems: [{ type: "object", properties: { inner: inner("name") } }],
+          items: { type: "object", properties: { inner: inner("other") } },
+        },
+      },
+    };
+    const text = JSON.stringify({ outer: [{ k: "a", inner: [{ name: "x", deep: [{ id: "z" }, { id: "z" }] }] }] });
+    const binding = await bound("r.json", text, schema);
+    expect(binding.issues).toEqual([]);
+    expect(singular(binding, "#outer/a/inner/x/deep/z")).toBe("address-not-singular r.json null");
+    expect(singular(binding, "#outer/a/inner/x/deep")).toBe("/outer/0/inner/0/deep #outer/a/inner/x/deep");
+  });
+
+  test("the same through sections whose prefixItems and items bring keyed lists that differ only in required", async () => {
+    const runs = (required: string[]) => ({
+      type: "array",
+      "x-vmd-list": { type: "map", keys: ["id"], required },
+      items: { type: "object", properties: { deep: { type: "array", "x-vmd-list": { type: "multimap", keys: ["id"] } } } },
+    });
+    const schema = {
+      properties: {
+        $sections: {
+          type: "array",
+          prefixItems: [{ type: "object", properties: { runs: runs([]) } }],
+          items: { type: "object", properties: { runs: runs(["r"]) } },
+        },
+      },
+    };
+    const text = JSON.stringify({ $sections: [{ $title: "A", runs: [{ id: "r", deep: [{ id: "z" }] }] }] });
+    const binding = await bound("r.json", text, schema);
+    expect(singular(binding, "#a/runs/r/deep/z")).toBe("address-not-singular r.json null");
+    expect(canonicalAddress(binding, "/$sections/0/runs/0/deep/0")).toBe("#/$sections/0/runs/0/deep/0");
+  });
+
+  // Review of #108, S1: a derived anchor in the first step leads to the section whose level a later step crosses.
+  test("continues from the section a first step's derived anchor names", async () => {
+    const level = (sections: unknown) => ({ type: "object", properties: { $sections: sections } });
+    const schema = level({
+      type: "array",
+      "x-vmd-list": { type: "map", keys: ["@key"] },
+      items: level({
+        type: "array",
+        "x-vmd-list": { type: "map", keys: ["@key"] },
+        items: level({ type: "array", "x-vmd-list": { type: "multimap", keys: ["@key"] } }),
+      }),
+    });
+    const binding = await bound("r.md", "# T\n\n## A\n\n### Notes\n\n#### X\n\none\n\n#### X\n\ntwo\n", schema);
+    expect(singular(binding, "#notes/x")).toBe("address-not-singular r.md null");
+    expect(singular(binding, "#notes")).toBe("/$sections/0/$sections/0 #a/notes");
+  });
+
   test("continues from the node a first step's anchor names", async () => {
     const schema = {
       properties: {

@@ -194,4 +194,20 @@ describe("the shapes of keyed lists and their items", () => {
     expect(spine.stepsComputed - before).toBe(4);
     expect(shape.child({ item: 5, key: "zz" })).toBe(shape.child({ item: 999, key: "yy" }));
   });
+
+  // Review of #108, S2: the union of every position cost the prefixItems' length on each step of each proof.
+  test("an item at any position is computed once per key a list names, and once for every other key", async () => {
+    const long = { ...list, prefixItems: Array.from({ length: 4000 }, (_, index) => ({ title: `p${index}` })) };
+    const { spine } = await checked({ properties: { l: long } });
+    const shape = spine.root.child({ member: "l" });
+    const before = spine.stepsComputed;
+    shape.anyItem("b");
+    // The union, and an item step at each of the 4,001 positions.
+    expect(spine.stepsComputed - before).toBe(4002);
+    const after = spine.stepsComputed;
+    for (let index = 0; index < 1000; index++) shape.anyItem(`k${index}`);
+    expect(spine.stepsComputed - after).toBe(0);
+    shape.anyItem("a");
+    expect(spine.stepsComputed - after).toBe(4002);
+  });
 });

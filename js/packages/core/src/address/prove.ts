@@ -88,8 +88,10 @@ function stepFrom(position: Position, step: string): Position[] {
       return [{ shape: shape.anyItem(step), place: "section" }];
     case "value": {
       const member: Position = { shape: shape.child({ member: step }), place: "value" };
-      if (shape.list !== null) return [member, { shape: shape.anyItem(step), place: "value" }];
-      // An index step, as an exact path writes it; the data says whether the node is an array.
+      // Where a location declares a keyed list, unequal ones included, the item may be keyed by the step at any position, or
+      // reached by its index where the declarations leave it unkeyed: every position's locations, and the key's schema.
+      if (shape.declaresList) return [member, { shape: shape.anyItem(step), place: "value" }];
+      // Otherwise only an index step, as an exact path writes it, reaches an item: the data says whether it is an array.
       return /^(0|[1-9][0-9]*)$/.test(step) ? [member, { shape: shape.child({ item: Number(step) }), place: "value" }] : [member];
     }
   }

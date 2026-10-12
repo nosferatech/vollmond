@@ -93,3 +93,27 @@ describe("the validator's process-wide registry", () => {
     expect(violationsAt(again, '{"evicted": "x"}')).toEqual(["/evicted"]);
   });
 });
+
+// Review of #108, on its deviation 3: core compiles a keyed list's per-key schemas where they stand, inside x-vmd-list, a
+// keyword the validator does not know. This pins that @hyperjump/json-schema compiles and applies a schema there, a $ref in it
+// included, so that a release that stops doing so fails here rather than as a confusing schema-invalid of a collection.
+describe("per-key schemas inside x-vmd-list", () => {
+  test("the validator compiles a schema at a JSON Pointer into an unknown keyword, and applies it with its references", async () => {
+    const schema = {
+      properties: { l: { "x-vmd-list": { type: "map", keys: ["k"], items: { a: { $ref: "#/$defs/needsX" } } } } },
+      $defs: { needsX: { required: ["x"] } },
+    };
+    const text = new TextEncoder().encode(JSON.stringify(schema));
+    const set = await readSchemaSet("pinned.json", async () => succeed(text));
+    const location = { file: "pinned.json", pointer: "/properties/l/x-vmd-list/items/a" };
+    const compiled = await compileSchemaSet(set, CONFIGURATION, [location]).catch((error: Error) =>
+      expect.fail(
+        `@hyperjump/json-schema no longer compiles a schema inside an unknown keyword, which per-key schemas rely on: ${error.message}`,
+      ),
+    );
+    const failures = compiled.validateAt(location, { k: "a" }).map((error) => error.at);
+    expect(failures, "a per-key schema compiled inside x-vmd-list no longer applies its $ref").toEqual([""]);
+    expect(compiled.validateAt(location, { k: "a", x: 1 })).toEqual([]);
+    expect(() => compiled.validateAt({ file: "pinned.json", pointer: "" }, {})).toThrow(RangeError);
+  });
+});

@@ -277,6 +277,8 @@ class RecordResolver {
   readonly #root: NodeInfo;
   readonly #childSections = new Map<string, ReadonlyMap<string, readonly SectionInfo[]>>();
   readonly #canonical = new Map<Match, string>();
+  /** The one node that a form of a canonical address names as a singular address, by its steps; null where it names none. */
+  readonly #singular = new Map<string, Match | null>();
 
   constructor(record: ParsedRecord, binding: RecordBinding | null) {
     this.#record = record;
@@ -371,10 +373,18 @@ class RecordResolver {
   // sections are declared multimap.
   /** Whether `steps`, as a singular address, are proved singular and resolve to `match` and nothing else. */
   #namesOnly(steps: readonly string[], match: Match): boolean {
-    const fragment: Fragment = { kind: "semantic", steps };
-    if (this.#binding !== null && unprovableStep(this.#binding, fragment) !== null) return false;
-    const evaluated = this.evaluate(fragment, true);
-    return !evaluated.ambiguous && evaluated.matches.length === 1 && evaluated.matches[0] === match;
+    // The candidates of one ambiguous step share their forms, so each form is proved and evaluated once, not once each.
+    const id = JSON.stringify(steps);
+    let singular = this.#singular.get(id);
+    if (singular === undefined) {
+      const fragment: Fragment = { kind: "semantic", steps };
+      const evaluated =
+        this.#binding !== null && unprovableStep(this.#binding, fragment) !== null ? null : this.evaluate(fragment, true);
+      singular =
+        evaluated === null || evaluated.ambiguous || evaluated.matches.length !== 1 ? null : (evaluated.matches[0] as Match);
+      this.#singular.set(id, singular);
+    }
+    return singular === match;
   }
 
   /** The semantic path to a node from its nearest ancestor with an explicit anchor, which it starts with, or from the root. */

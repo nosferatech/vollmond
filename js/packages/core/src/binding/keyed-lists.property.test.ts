@@ -32,17 +32,22 @@ const declaration: fc.Arbitrary<Declaration> = fc.record(
   { requiredKeys: ["type", "required", "items"] },
 );
 
-/** An item: keyed by a key of the alphabet, or without a key, or with a key that is not a string; with or without an `x`. */
+/**
+ * An item: keyed by a key of the alphabet, or without a key, or with a key that is not a string, or not an object at all; with
+ * or without an `x`.
+ */
 const item = fc.oneof(
   { weight: 6, arbitrary: fc.record({ k: fc.constantFrom(...KEYS), x: fc.constantFrom(1, "s") }, { requiredKeys: ["k"] }) },
   { weight: 1, arbitrary: fc.record({ x: fc.constant(1) }) },
   { weight: 1, arbitrary: fc.record({ k: fc.constant(5) }) },
+  // Review of #108, N3: an item that is not an object has no key member either.
+  { weight: 1, arbitrary: fc.constantFrom<unknown>("x", 3, null, ["a"]) },
 );
 
 /**
  * The standard compilation of §9.3 of a list keyed by `k`: the per-key schemas as `if`/`then` under `items`, a `contains` per
  * required key, `contains` with `maxContains: 1` per key under `map`, and `additional` over the keys `items` does not name.
- * Beside them, §5.6's rule that each item has a string key, which `required` and `type` state. §9.3 notes that uniqueness
+ * Beside them, §5.6's rule that each item is an object with a string key, which `type` and `required` state. §9.3 notes that uniqueness
  * across keys `items` does not name has no standard form; since every generated key is one of {@link KEYS}, a `maxContains`
  * per key of the alphabet states it here.
  */
@@ -53,7 +58,7 @@ function compiled(list: Declaration): SchemaObject {
   // as a promise to the linter.
   const conditional = (condition: unknown, consequence: unknown): unknown =>
     JSON.parse(`{"if": ${JSON.stringify(condition)}, "then": ${JSON.stringify(consequence)}}`);
-  const items: unknown[] = [{ required: ["k"], properties: { k: { type: "string" } } }];
+  const items: unknown[] = [{ type: "object", required: ["k"], properties: { k: { type: "string" } } }];
   for (const [key, schema] of Object.entries(list.items)) items.push(conditional(has(key), schema));
   const additional = list.additional ?? true;
   if (additional === false) items.push({ properties: { k: named.length === 0 ? false : { enum: named } } });
