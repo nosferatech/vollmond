@@ -571,6 +571,38 @@ describe("alias chains and shadowed names", () => {
     expect(await one("/data/ok.json#old/b", files)).toMatchObject({ status: "aliased", targets: [{ at: "/a/b" }] });
   });
 
+  test("follow each record's own anchor alias chain from one old name", async () => {
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/a.md", from: "old", to: "x", at },
+        { kind: "anchor", record: "docs/b.md", from: "old", to: "y", at },
+      ),
+      "docs/a.md": '# A\n\n## X <a id="x"></a>\n',
+      "docs/b.md": '# B\n\n## Y <a id="y"></a>\n',
+    };
+    const refs = await refsOf("# R\n\n[a](a.md#old) [b](b.md#old) [c](a.md#old)\n", files);
+    expect(refs.map((reference) => `${reference.status} ${reference.targets.map((target) => JSON.stringify(target))}`)).toEqual([
+      `aliased ${JSON.stringify({ path: "docs/a.md", at: "/$sections/0", address: "#x" })}`,
+      `aliased ${JSON.stringify({ path: "docs/b.md", at: "/$sections/0", address: "#y" })}`,
+      `aliased ${JSON.stringify({ path: "docs/a.md", at: "/$sections/0", address: "#x" })}`,
+    ]);
+  });
+
+  test("follow a chain from a live start past it, while a chain that reaches that name stops there", async () => {
+    // The start a is live, but a/y matches nothing, so its chain goes on to b; a chain from z stops at a.
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/c.md", from: "a", to: "b", at },
+        { kind: "anchor", record: "docs/c.md", from: "z", to: "a", at },
+      ),
+      "docs/c.md": '# C\n\n## A <a id="a"></a>\n\n## B <a id="b"></a>\n\n### Y\n',
+    };
+    const refs = await refsOf("# R\n\n[x](c.md#a/y) [z](c.md#z) [w](c.md#a/y)\n", files);
+    const shown = (reference: Reference) =>
+      `${reference.status} ${reference.targets.map((target) => ("address" in target ? target.address : target.path))}`;
+    expect(refs.map(shown)).toEqual(["aliased #b/y", "aliased #a", "aliased #b/y"]);
+  });
+
   test("end an anchor alias cycle as dangling, and follow a chain one step short of one", async () => {
     const files = {
       ...alias(

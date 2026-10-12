@@ -62,8 +62,8 @@ export class ReferenceResolver {
   readonly #anchorRenames = new Map<string, Promise<ReadonlyMap<string, string>>>();
   /** Where the record alias chain from each path ends, by that path, found when first needed. */
   readonly #recordChainEnds = new Map<string, Promise<string>>();
-  /** Where the anchor alias chain from each name ends in a record, by the record's path and then the name. */
-  readonly #anchorChainEnds = new Map<string, Map<string, string>>();
+  /** The live name that the anchor alias chain from each name reaches in a record, or null, by the record's path and the name. */
+  readonly #anchorChainEnds = new Map<string, Map<string, string | null>>();
 
   /** Takes the store paths of the store's files but those vmd ignores, and its aliases. */
   constructor(store: ReferenceStore, files: Iterable<string>, aliases: AliasTable) {
@@ -239,8 +239,8 @@ export class ReferenceResolver {
     if (current.status === "dangling" && current.inRecord !== undefined && current.inRecord.fragment.kind === "semantic") {
       const { record, fragment } = current.inRecord;
       const [first, ...rest] = fragment.steps as [string, ...string[]];
-      const renamed = await this.#anchorChainEnd(record, first);
-      if (renamed !== first) {
+      const renamed = await this.#anchorChainLiveEnd(record, first);
+      if (renamed !== null) {
         current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] });
       }
     }
@@ -263,23 +263,19 @@ export class ReferenceResolver {
   }
 
   /**
-   * Gives where the anchor alias chain from `name` ends in a record, among the record's anchor aliases, which stops at the
-   * first name that a first step reaches in the record; walked once a record and name.
+   * Gives the live name that the anchor alias chain from `name` reaches in a record, among the record's anchor aliases: the
+   * first name after `name` that a first step reaches in the record, or null when the chain ends before one. Each name of a
+   * record's chains is walked from once, however many references start at it or pass it.
    */
-  async #anchorChainEnd(record: ParsedRecord, name: string): Promise<string> {
+  async #anchorChainLiveEnd(record: ParsedRecord, name: string): Promise<string | null> {
     let ends = this.#anchorChainEnds.get(record.path);
     if (ends === undefined) {
       ends = new Map();
       this.#anchorChainEnds.set(record.path, ends);
     }
-    let end = ends.get(name);
-    if (end === undefined) {
-      const renames = await this.#anchorRenamesOf(record.path);
-      const chain: AliasChain = { next: (from) => renames.get(from), live: (to) => firstStepReaches(record, to) };
-      end = await followAliasChain(name, chain, this.#aliases.entries.length);
-      ends.set(name, end);
-    }
-    return end;
+    const renames = await this.#anchorRenamesOf(record.path);
+    const chain: AliasChain = { next: (from) => renames.get(from), live: (to) => firstStepReaches(record, to) };
+    return liveEndOfAliasChain(name, chain, this.#aliases.entries.length, ends);
   }
 
   /**
@@ -404,6 +400,44 @@ async function followAliasChain(start: string, chain: AliasChain, bound: number)
     if (await chain.live(end)) break;
     next = chain.next(end);
   }
+  return end;
+}
+
+/**
+ * Follows a chain of aliases from `start` as {@link followAliasChain} does, but gives only the live name it stops at, or null
+ * when it ends before one: at a name that no alias has as its old name, or at a cycle. `known` keeps that result of every walk,
+ * by the name it started at and by each name it passed, and a walk that reaches a name in it stops there with its result.
+ *
+ * Every name a walk passes is not live, and the result from such a name is the result from the name that leads to it, so
+ * keeping it is sound. The start is not checked for being live, so a live start's result is kept under it as a start only: a
+ * walk that reaches a live name stops there before looking in `known`.
+ */
+async function liveEndOfAliasChain(
+  start: string,
+  chain: AliasChain,
+  bound: number,
+  known: Map<string, string | null>,
+): Promise<string | null> {
+  if (known.has(start)) return known.get(start) ?? null;
+  const seen = new Set([start]);
+  const passed: string[] = [];
+  let end: string | null = null;
+  for (let step = 0, next = chain.next(start); next !== undefined && step < bound; step += 1) {
+    if (seen.has(next)) break;
+    if (await chain.live(next)) {
+      end = next;
+      break;
+    }
+    if (known.has(next)) {
+      end = known.get(next) ?? null;
+      break;
+    }
+    seen.add(next);
+    passed.push(next);
+    next = chain.next(next);
+  }
+  known.set(start, end);
+  for (const name of passed) known.set(name, end);
   return end;
 }
 
