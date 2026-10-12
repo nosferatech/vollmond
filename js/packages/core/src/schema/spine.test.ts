@@ -2,8 +2,9 @@
 
 import { describe, expect, test } from "vitest";
 import { succeed } from "../issue/outcome.js";
-import { readSchemaSet } from "./schema-set.js";
+import { locationKey, readSchemaSet } from "./schema-set.js";
 import { Spine } from "./spine.js";
+import { chain, deepClosures, fanIn, unequalBranches } from "./spine-shapes.testkit.js";
 
 /** The spine of a schema held in `s.json`, after its check, with the problems found. */
 async function checked(schema: unknown): Promise<{ readonly spine: Spine; readonly problems: readonly string[] }> {
@@ -11,8 +12,16 @@ async function checked(schema: unknown): Promise<{ readonly spine: Spine; readon
   const set = await readSchemaSet("s.json", async () => succeed(text));
   expect(set.problems).toEqual([]);
   const spine = new Spine(set);
-  const problems = spine.check().map((problem) => problem.message);
+  const problems = spine.check().problems.map((problem) => problem.message);
   return { spine, problems };
+}
+
+/** The spine of a schema held in `s.json`, unchecked. */
+async function spineOf(schema: unknown): Promise<Spine> {
+  const text = new TextEncoder().encode(JSON.stringify(schema));
+  const set = await readSchemaSet("s.json", async () => succeed(text));
+  expect(set.problems).toEqual([]);
+  return new Spine(set);
 }
 
 /** `branches` allOf branches, each naming the same `names` properties, each given by `property`. */
@@ -266,5 +275,64 @@ describe("the listed names the spine's check examines", () => {
       $defs: { unused: { properties: { rx: {}, s: {} } } },
     });
     expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+  });
+});
+
+// Issue #110: the check gave a problem for every unequal pair, so a schema of 3,000 branches of one declaration beside 3,000
+// of another (160 KB) held nine million problems and ran out of memory.
+describe("the problems the spine's check gives", () => {
+  test("at most the number asked for, the first by location, with a count of the rest", async () => {
+    const spine = await spineOf(unequalBranches(300));
+    const { problems, unlisted } = spine.check(10);
+    expect(problems).toHaveLength(10);
+    expect(unlisted).toBe(300 * 300 - 10);
+    const shown = problems.map((problem) => `${locationKey(problem.location)} ${problem.message}`);
+    expect(shown).toEqual([...shown].sort());
+    expect(shown[0]).toContain("s.json#/allOf/0/x-vmd-ref unequal x-vmd-ref declarations");
+  });
+
+  test("all of them, sorted by location and then message, when no number is asked for", async () => {
+    const spine = await spineOf(unequalBranches(3));
+    const { problems, unlisted } = spine.check();
+    expect(unlisted).toBe(0);
+    const shown = problems.map((problem) => `${locationKey(problem.location)} ${problem.message}`);
+    expect(shown).toHaveLength(9);
+    expect(shown).toEqual([...shown].sort());
+  });
+
+  test.each([5, 40])("the same first problems whatever the number asked for, of %i² problems", async (branches) => {
+    const all = (await spineOf(unequalBranches(branches))).check().problems;
+    expect(all).toHaveLength(branches * branches);
+    for (const listed of [0, 1, 7, 25, 26, 1599, 1600, 1601])
+      expect((await spineOf(unequalBranches(branches))).check(listed)).toEqual({
+        problems: all.slice(0, listed),
+        unlisted: Math.max(0, branches * branches - listed),
+      });
+  });
+});
+
+// Issue #110: marking each location with what its spine below holds copied every value below into every location above, and
+// copied a location's list of parents for each new parent.
+describe("the work of marking what the spine below each location holds", () => {
+  test("linear in a chain of members over many typed references", async () => {
+    const { spine, problems } = await checked(chain(200, 200));
+    expect(problems).toEqual([]);
+    expect(spine.markSteps).toBeLessThan(20 * 400);
+  });
+
+  test("linear in the references to one definition", async () => {
+    const { spine, problems } = await checked(fanIn(2000));
+    expect(problems).toEqual([]);
+    expect(spine.markSteps).toBeLessThan(20 * 2000);
+  });
+});
+
+// Issue #110: the walk of single locations took up each member's whole closure, so members that each refer to one link of a
+// long $ref chain held the square of its length, which ran out of memory near 1 MiB.
+describe("the work of walking single locations", () => {
+  test("linear in members that each refer to a link of one long chain of references", async () => {
+    const { spine, problems } = await checked(deepClosures(400));
+    expect(problems).toEqual([]);
+    expect(spine.placeSteps).toBeLessThan(10 * 400);
   });
 });
