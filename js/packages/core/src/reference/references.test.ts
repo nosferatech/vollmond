@@ -378,7 +378,9 @@ describe("the warnings of references through titles", () => {
   });
 
   test("warn about an aliased reference through a title too", async () => {
-    const files = { ".vmd/aliases.jsonl": `{"kind": "record", "from": "docs/old.md", "to": "docs/guide.md", "at": "x"}\n` };
+    const files = {
+      ".vmd/aliases.jsonl": `{"kind": "record", "from": "docs/old.md", "to": "docs/guide.md", "at": "2026-10-09T08:00:00Z"}\n`,
+    };
     expect(codes(await one("old.md#install", files))).toEqual(["ref-aliased warning", "ref-derived-anchor warning"]);
   });
 });
