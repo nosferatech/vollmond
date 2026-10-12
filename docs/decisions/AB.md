@@ -73,5 +73,9 @@ and `-yaml` (the labels' `*` are no runs), `data-section-body-reference-link-nes
 level) with the near miss `data-section-body-reference-link-nesting-255-json`, and
 `references/statuses/refs-body-definition-in-other-section-json` and `-yaml`, which read `[a][b](twin.md)` in a section as the
 Markdown form `refs-body-definition-in-other-section-md` does: a reference link through the root's definition, with no reference
-to `twin.md`. The JSON and YAML cases that main fails are skipped in the TypeScript runner's declaration until #103 takes the
+to `twin.md`. The JSON and YAML cases that main failed were skipped in the TypeScript runner's declaration until #103 took the
 rule; the suite has no case for two definitions of one label, which no reference shows.
+
+The TypeScript reader follows in #103, which removes those four skips: the limit check and the references read each `$body`
+with the definitions of every `$body` of its record in scope, collected once per record in the order of its Markdown form, as
+[Z1](Z1.md)'s record notes.
