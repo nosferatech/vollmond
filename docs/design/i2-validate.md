@@ -736,12 +736,14 @@ be reported as dangling that are not (reading R9). A reference that resolves thr
 
 1. a record alias whose `from` is the path, followed through chains with a guard against cycles, to the first path that exists;
 2. then, in the record found, an anchor alias whose `from` is the fragment's first step, the remaining steps unchanged, followed
-   through chains in the same way, to the first live anchor, a cycle ending as `dangling`; the anchor aliases recorded under the
-   record's old paths, the paths whose record aliases lead to it, count as its own (decision Z2, Draft v0.13 §13.6). This design
-   first followed an anchor alias one step only, and looked only under the record's final path.
+   through chains in the same way, to the first name a first step reaches, a cycle ending as `dangling`; the anchor aliases
+   recorded under the record's old paths, the paths whose record aliases lead to it, count as its own (decision Z2, Draft v0.13
+   §13.6). This design first followed an anchor alias one step only, and looked only under the record's final path.
 
 A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`. `alias-shadowed` warns for
-each live anchor or record path that equals an alias's `from`. Writing the file is I5's.
+each live record path that equals a record alias's `from`, and for each node that a first step named by an anchor alias's `from`
+reaches, the same names that stop a chain: an anchor, or a key of the root, as a JSON or YAML record's top-level key or a Markdown
+record's front matter key (the project owner's answer on card AC). Writing the file is I5's.
 
 ### 5.6 The reference warnings
 

@@ -770,6 +770,31 @@ describe("alias chains and shadowed names", () => {
     const shadowed = (await store.check({ records: ["docs/r.md"] })).issues.filter((issue) => issue.code === "alias-shadowed");
     expect(shadowed.map((issue) => `${issue.path} ${issue.at}`)).toEqual(["docs/r.md /$sections/0"]);
   });
+
+  /** The alias-shadowed warnings that `check` gives for one record, as `path at`, under the anchor aliases `renames` of it. */
+  async function shadowedOf(path: string, text: string, ...renames: [string, string][]): Promise<string[]> {
+    const lines = renames.map(([from, to]) => ({ kind: "anchor", record: path, from, to, at }));
+    const store = await storeOf({ ...alias(...lines), [path]: text });
+    const issues = (await store.check({ records: [path] })).issues;
+    return issues.filter((issue) => issue.code === "alias-shadowed").map((issue) => `${issue.path} ${issue.at}`);
+  }
+
+  test("warn alias-shadowed about a top-level key of a JSON or YAML record that an alias has as its old name", async () => {
+    // The key a is what a link's first step a reaches, so it stops a chain from a, as an anchor does.
+    expect(await shadowedOf("data/k.json", '{"a": 1, "b": 2}', ["a", "b"])).toEqual(["data/k.json /a"]);
+    expect(await shadowedOf("data/k.yaml", "a: 1\nb: 2\n", ["a", "b"])).toEqual(["data/k.yaml /a"]);
+    // Its near misses: an old name that nothing live has, and a nested key, which no first step reaches.
+    expect(await shadowedOf("data/k.json", '{"a": 1, "b": 2}', ["gone", "b"])).toEqual([]);
+    expect(await shadowedOf("data/k.json", '{"a": {"n": 1}, "b": 2}', ["n", "b"])).toEqual([]);
+    expect(await shadowedOf("data/k.yaml", "a:\n  n: 1\nb: 2\n", ["n", "b"])).toEqual([]);
+  });
+
+  test("warn alias-shadowed about a Markdown record's front matter key, but not a section's data block key", async () => {
+    // A first step reaches the root's members, the front matter's keys, and not the members of a section's data block.
+    const text = "---\nowner: ann\n---\n# R\n\n## Notes\n\n```yaml data\nstatus: open\n```\n\n## Remarks\n";
+    expect(await shadowedOf("docs/r.md", text, ["owner", "remarks"])).toEqual(["docs/r.md /owner"]);
+    expect(await shadowedOf("docs/r.md", text, ["status", "remarks"])).toEqual([]);
+  });
 });
 
 describe("the title-derived warnings", () => {

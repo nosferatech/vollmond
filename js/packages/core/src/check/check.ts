@@ -63,7 +63,8 @@ const LIST_PAGE = 1000;
  * - once per collection, the issue that makes its schema unusable; the collection's records are still checked for everything
  *   else;
  * - the issues of the references of each record without a structural error, resolved against the store as readers read it,
- *   and `alias-shadowed` for a record's path, or an anchor of it, that an alias has as its old name.
+ *   and `alias-shadowed` for a record's path, or a name a first step reaches in it, an anchor or a root key, that an alias
+ *   has as its old name.
  *
  * With `records`, only those records' issues are reported, and a collection's schema issue only when one of them is in it.
  * Fails as the backend's `list` does, with nothing checked, and with the issue of an alias file that cannot be read as one,
