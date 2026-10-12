@@ -656,11 +656,12 @@ A separate mdast parse for links would cost as much as the record's own parse: 8
 948 ms in the same runs (M).
 
 **Prose in JSON and YAML** (C21). Each `$body` string of a section is parsed as a Markdown document of its own, with the link
-reference definitions of every `$body` of the record in scope, the first in document order winning where two define one label
-(decision AB, Draft v0.14 §5.4), and each `$title` as the content of an ATX heading (K8), with offsets into the string itself. These parses run when references are asked for and not
-otherwise: in `check`, `refs` and the index for every record, and in `get` only when `@refs` is requested, then for the strings of
-the requested node and the sections below it. A plain `get` parses no prose. (The first version said "never for `get`", which
-contradicted `@refs` on `get`, section 5.7.) A Markdown record's links need no extra parse, since they come from its own.
+reference definitions of every `$body` of the record in scope, the first in the order of the record's Markdown form winning where
+two define one label (decision AB, Draft v0.14 §5.4), and each `$title` as the content of an ATX heading (K8), with offsets into
+the string itself. These parses run when references are asked for and not otherwise: in `check`, `refs` and the index for every
+record, and in `get` only when `@refs` is requested, then for the strings of the requested node and the sections below it. A plain
+`get` parses no prose. (The first version said "never for `get`", which contradicted `@refs` on `get`, section 5.7.) A Markdown
+record's links need no extra parse, since they come from its own.
 
 **`$ref` objects** (§8.1) are found by I1's shape walk wherever they stand in a field's value, schema or not: `form:
 "ref-object"`, `at` the object. **Typed strings** come from the binding: a string whose spine location has `x-vmd-ref` and that is
