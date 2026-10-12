@@ -11,6 +11,12 @@ import type { Value, ValueObject } from "../value/value.js";
 /** The store's alias file, relative to its root. */
 export const ALIASES_PATH = ".vmd/aliases.jsonl";
 
+/**
+ * The largest alias file, in bytes: 16 MiB, the bound of a record. A larger file is `alias-file-invalid` whatever it holds,
+ * and a store refuses it by its size before reading it.
+ */
+export const MAX_ALIAS_FILE_BYTES = 16 * 1024 * 1024;
+
 /** An old store path of a record, and the path it moved to. */
 export interface RecordAlias {
   readonly kind: "record";
@@ -56,10 +62,12 @@ export const NO_ALIASES: AliasTable = aliasTableOf([]);
  * Reads an alias file: JSON Lines, each line a JSON object, either `{"kind": "record", "from", "to", "at"}` with store paths, or
  * `{"kind": "anchor", "record", "from", "to", "at"}` with a store path and two anchor names, `at` an RFC 3339 date-time string,
  * and no other member. A byte order mark at the start is skipped. A line ends at LF, a CR before it included; the last line may
- * end without one. Fails with one `alias-file-invalid`, which has no node, naming the first line that breaks these rules: a file
- * that is not UTF-8, an empty line, a line that is not JSON or holds a duplicate member, or an entry of another shape.
+ * end without one. Fails with one `alias-file-invalid`, which has no node: for a file larger than {@link MAX_ALIAS_FILE_BYTES},
+ * without parsing it, and otherwise naming the first line that breaks these rules: a file that is not UTF-8, an empty line, a
+ * line that is not JSON or holds a duplicate member, or an entry of another shape.
  */
 export function readAliases(content: Uint8Array): Outcome<AliasTable> {
+  if (content.length > MAX_ALIAS_FILE_BYTES) return fail([aliasFileTooLarge()]);
   const decoded = decodeSource(ALIASES_PATH, content);
   if (!decoded.ok) return fail([invalid("it is not UTF-8")]);
   const source = decoded.value;
@@ -141,6 +149,16 @@ function aliasTableOf(entries: readonly Alias[]): AliasTable {
     recordMove: (path: string) => moves.get(path),
     anchorRename: (record: string, name: string) => renames.get(record)?.get(name),
     anchorRenamesOf: (record: string) => renames.get(record) ?? NO_RENAMES,
+  });
+}
+
+/** The `alias-file-invalid` of an alias file larger than {@link MAX_ALIAS_FILE_BYTES}, naming the bound and the remedy. */
+export function aliasFileTooLarge(): Issue {
+  return makeIssue({
+    code: "alias-file-invalid",
+    path: null,
+    at: null,
+    message: `${ALIASES_PATH} is larger than ${MAX_ALIAS_FILE_BYTES} bytes, the largest alias file: remove the aliases that no open branch still needs with \`vmd alias prune\``,
   });
 }
 

@@ -24,7 +24,7 @@ import { type ComputedFieldName, type ComputedFields, computeFields } from "../m
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
-import { ALIASES_PATH, NO_ALIASES, readAliases } from "../reference/aliases.js";
+import { ALIASES_PATH, aliasFileTooLarge, MAX_ALIAS_FILE_BYTES, NO_ALIASES, readAliases } from "../reference/aliases.js";
 import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
 import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
@@ -231,7 +231,8 @@ export interface Store {
    * Gives the references made in a node and below it, or in every record of the store, each resolved against the store, in
    * document order of each record and the records in UTF-8 byte order of their paths. References that leave the store are not
    * given. Without `from`, a record that cannot be read is left out; with it, the read fails as resolving `from` does. Fails
-   * with `alias-file-invalid` for an alias file that cannot be read as one, and as the backend's `list` and `read` do.
+   * with `alias-file-invalid` for an alias file that cannot be read as one, or one larger than `MAX_ALIAS_FILE_BYTES`, which is
+   * refused by its size before it is read, and as the backend's `list` and `read` do.
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
   /**
@@ -451,9 +452,9 @@ class BackendStore implements Store {
       if (cursor === null) break;
     }
     let aliases = NO_ALIASES;
-    const file = await this.backend.read(ALIASES_PATH);
+    const file = await this.backend.read(ALIASES_PATH, { maxBytes: MAX_ALIAS_FILE_BYTES });
     if (file.ok) {
-      if ("oversized" in file.value) throw new Error("a read without a size bound gave an oversized file");
+      if ("oversized" in file.value) return fail([aliasFileTooLarge()]);
       const read = readAliases(file.value.content);
       if (!read.ok) return fail(read.issues);
       aliases = read.value;
