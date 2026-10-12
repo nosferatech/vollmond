@@ -19,8 +19,32 @@
       ]}
     },
     {
+      "id": "refs-anchor-chain-short-of-cycle",
+      "description": "The cycle's near miss: a chain one step short of closing, near-a to near-b and near-b to the live anchor loop, with no alias from loop back to near-a, is followed to loop, as aliased (§13.6, decision Z2).",
+      "input": {"record": "refs/near.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/near.md", "at": "/$body", "offset": 4}, "raw": "../docs/cycle.md#near-a", "status": "aliased", "targets": [{"path": "docs/cycle.md", "at": "/$sections/0", "address": "#loop"}]}
+      ]}
+    },
+    {
+      "id": "refs-anchor-chain-live-midway",
+      "description": "This case pins an agent's reading recorded in decision Z2: an anchor chain stops at the first name that is live. mid-a was renamed to mid-b and mid-b to third, and a live anchor mid-b exists again, so a link to #mid-a resolves to #mid-b, not #third, as aliased (§13.6).",
+      "input": {"record": "refs/midway.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/midway.md", "at": "/$body", "offset": 4}, "raw": "../docs/chain.md#mid-a", "status": "aliased", "targets": [{"path": "docs/chain.md", "at": "/$sections/1", "address": "#mid-b"}]}
+      ]}
+    },
+    {
+      "id": "refs-record-chain-live-midway",
+      "description": "This case pins an agent's reading recorded in decision Z2: a chain of record aliases stops at the first path that exists. docs/r1.md moved to docs/r2.md and docs/r2.md to docs/r3.md, and docs/r2.md exists again, so a link to docs/r1.md resolves to docs/r2.md, not docs/r3.md, as aliased (§13.6).",
+      "input": {"record": "refs/records.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/records.md", "at": "/$body", "offset": 4}, "raw": "../docs/r1.md", "status": "aliased", "targets": [{"path": "docs/r2.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
       "id": "refs-anchor-alias-under-old-path",
-      "description": "An anchor alias recorded under a record's old path still applies after the record moves: before was renamed to after in docs/old.md, which then moved to docs/moved.md, so docs/old.md#before, and docs/moved.md#before too, resolve to docs/moved.md#after, as aliased (§13.6, decision Z2).",
+      "description": "An anchor alias recorded under a record's old path still applies after the record moves: before was renamed to after in docs/old.md, which then moved to docs/moved.md, so docs/old.md#before resolves to docs/moved.md#after, as aliased (§13.6, decision Z2). The second link, docs/moved.md#before, which names the record's current path, pins an agent's reading recorded in decision Z2: the record's old paths count for it too.",
       "input": {"record": "refs/moved.md"},
       "expect": {"result": [
         {"from": {"path": "refs/moved.md", "at": "/$body", "offset": 4}, "raw": "../docs/old.md#before", "status": "aliased", "targets": [{"path": "docs/moved.md", "at": "/$sections/0", "address": "#after"}]},

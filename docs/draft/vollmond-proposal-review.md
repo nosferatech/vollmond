@@ -644,10 +644,12 @@ numbers refer to Draft v0.13.
 - [Z2](../decisions/Z2.md) Anchor aliases are followed through chains, and under a record's old paths
 - [Z3](../decisions/Z3.md) The alias file is read with a bound of 16 MiB
 
-A wording fix that #99 noted, among its questions, is applied without a decision: Appendix D's `ref-derived-anchor` and
-`ref-derived-repeat` rows, and §6.3 with them, cover a reference whose first step reaches its target only by a title-derived
-name, anchor-derived or key-title, as the I2 design does (`docs/design/i2-validate.md`, section 5.6), where they spoke of derived
-anchors only.
+One more change is applied without a decision, and is an agent's reading, for the owner to confirm: §6.3 and Appendix D's
+`ref-derived-anchor` and `ref-derived-repeat` rows also warn about a reference whose first step reaches a JSON or YAML section
+only by its key, the slug of its `$title`, where Draft v0.12 spoke of derived anchors only. It widens the two warnings, so it is
+a rule change rather than a wording fix. The I2 design states it (`docs/design/i2-validate.md`, section 5.6: the first step
+matched only by a derived anchor or a title's key), and #99 implements it and asked the owner to confirm it (its question 6).
+No owner decision records it yet.
 
 ## Decisions given in conversation
 

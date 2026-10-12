@@ -224,8 +224,10 @@ export function openStore(backend: StorageReader, options?: {
 
 Every file vmd reads skips a byte order mark at byte 0 (J5), which the suite's `validation/bom-config` case checks for a
 configuration and a schema. The configuration is at most 1 MiB, the bound I1.8 set, recorded as a deviation in #17; the design
-proposes the same bound for each schema file (question 20). The alias file has no bound in the specification; I2 reads it whole
-and sets none. Records have none either, beyond the nesting bound of I1.
+proposes the same bound for each schema file (question 20). The alias file is at most 16 MiB (decision Z3, Draft v0.13 §11.2),
+read with that bound; a larger one is `alias-file-invalid`, whose message names the limit and suggests `vmd alias prune`. This
+design first read it whole and set no bound, as the specification had none. Records have none either, beyond the nesting bound
+of I1.
 
 ---
 
@@ -714,8 +716,11 @@ of section 5.1, with `offset` for a link (Appendix D's note on prose).
 included, is `alias-file-invalid`, an operation error, and `check` stops with it, since without the aliases some references would
 be reported as dangling that are not (reading R9). A reference that resolves through no live node is tried through the aliases:
 
-1. a record alias whose `from` is the path, followed through chains with a guard against cycles;
-2. then, in the record found, an anchor alias whose `from` is the fragment's first step, the remaining steps unchanged.
+1. a record alias whose `from` is the path, followed through chains with a guard against cycles, to the first path that exists;
+2. then, in the record found, an anchor alias whose `from` is the fragment's first step, the remaining steps unchanged, followed
+   through chains in the same way, to the first live anchor, a cycle ending as `dangling`; the anchor aliases recorded under the
+   record's old paths, the paths whose record aliases lead to it, count as its own (decision Z2, Draft v0.13 §13.6). This design
+   first followed an anchor alias one step only, and looked only under the record's final path.
 
 A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`. `alias-shadowed` warns for
 each live anchor or record path that equals an alias's `from`. Writing the file is I5's.

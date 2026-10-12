@@ -885,11 +885,11 @@ Derived anchors make links such as `file.md#what-is-confirmed` work with no mark
 change when the title changes; renaming through vmd rewrites references (§13.4), and `vmd check` detects a retitle made with plain
 tools (§13.5). `vmd check` therefore warns about a reference that reaches its target through a derived anchor
 (`ref-derived-anchor`). A reference through a derived anchor whose slug is repeated in the record gets `ref-derived-repeat`
-instead. That covers the unsuffixed anchor and the suffixed ones alike (`#notes` and `#notes-1`, while two `## Notes` exist),
-since inserting, removing or retitling one of those headings renumbers the others (§13.4). Both warnings also cover a reference
-whose first step reaches a section only by its key, when the section has no explicit anchor, so that the key is the slug of its
-title (§5.5) and changes with it; that is how a JSON or YAML section, which has no derived anchor, is reached by its title. A
-store used as a database can require explicit anchors in its typed references (`x-vmd-ref` with `anchors: explicit`, §9.3).
+instead. That covers the unsuffixed anchor and the suffixed ones alike (`#notes` and `#notes-1`, while two `## Notes` exist), since
+inserting, removing or retitling one of those headings renumbers the others (§13.4). Both warnings also cover a reference whose
+first step reaches a JSON or YAML section only by its key, when the key is the slug of its `$title` (§5.5), since that key changes
+with the title as a derived anchor does. A store used as a database can require
+explicit anchors in its typed references (`x-vmd-ref` with `anchors: explicit`, §9.3).
 
 Derived anchors exist only for Markdown headings. JSON and YAML have no headings, so their objects have only explicit anchors.
 
@@ -1141,16 +1141,19 @@ A record in no collection is valid and unschematized; its references are still c
   not a valid schema, is `schema-invalid`; and one whose file is a file of the store that the backend cannot read, such as one
   refused by a permission error or a directory with files in it where the file is named, is `storage-failed` (§11.2), so that the
   code says what failed. What a backend reads as no file follows the storage contract (§11.2): in a store's own `.vmd/schema/`,
-  the filesystem backend reads a symbolic link or an empty directory where the file is named as missing, so such a schema is
-  `schema-invalid`, and a FIFO, a socket or a device is `storage-failed`, as anywhere in the store; beside a `--config` file,
-  which is not read through a backend, a FIFO or a directory is `storage-failed`. `vmd check` reports it once, checks the
-  collection's records for everything but their schema, and checks the other collections as usual. Every reader refuses that
-  collection's records, whichever code the schema got, since without its schema a reader would read them wrongly: a single-record
-  read (`get`, `outline`, `resolve`) fails with the schema's code, in one issue about the collection, with no record path and no
-  node, whose message names the schema file; a multi-record read leaves them out and counts them among the records it could not
-  read, with one issue of that code (§9.5); and a reference into one is `unreadable` (§8.5). Writing is refused alike: a write
-  into one of its records fails with the schema's code, since it could not be validated (§9.4), and `rename` and `mv` refuse to
-  run while such a collection exists (`unreadable-records`, §13.4).
+  the filesystem backend reads a symbolic link or a directory where the file is named as missing, and a FIFO, a socket or a device
+  as a file it cannot read, which is `storage-failed`, as anywhere in the store. A schema the backend finds missing is
+  `schema-invalid`, unless the backend lists files below its path: then the path is a directory with files in it, which vmd
+  reports as `storage-failed`, since a file is there that cannot be read as one, while an empty directory, a symbolic link and a
+  path where nothing is stay `schema-invalid`. Beside a `--config` file, which is not read through a backend, a FIFO, a socket, a
+  device or a directory is `storage-failed`. `vmd check` reports it once, checks the collection's records for everything but their
+  schema, and checks the other collections as usual. Every reader refuses that collection's records, whichever code the schema
+  got, since without its schema a reader would read them wrongly: a single-record read (`get`, `outline`, `resolve`) fails with
+  the schema's code, in one issue about the collection, with no record path and no node, whose message names the schema file; a
+  multi-record read leaves them out and counts them among the records it could not read, with one issue of that code (§9.5); and a
+  reference into one is `unreadable` (§8.5). Writing is refused alike: a write into one of its records fails with the schema's
+  code, since it could not be validated (§9.4), and `rename` and `mv` refuse to run while such a collection exists
+  (`unreadable-records`, §13.4).
 
 - **Only `vmd` is required.** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness, compatibility
   quoting, every issue at its default severity, no `.jsonc` records, no collections and nothing ignored. A configuration without
@@ -1510,11 +1513,12 @@ A read that the backend cannot complete, such as one refused by a permission err
 **What a file is.** A store's files are regular files. A path where nothing is, a directory, and a path that the backend does not
 follow, as the filesystem backend follows no symbolic link at any segment, name no file: `read` and `stat` fail with
 `address-not-found`, and `list` leaves such a path out without an issue, listing a directory through the files below it, so that
-an empty directory lists nothing. Anything else that is not a regular file, such as a FIFO, a socket or a device, does not belong
-in a store, and is a failure rather than a missing file: `read` and `stat` fail with `storage-failed`, and `list` and `grep` leave
-it out with a `storage-failed` issue of severity `error`, as they leave out a file they cannot read (below). A path that vmd
-ignores (§3.3) is neither a record nor an asset, so a listing of the store raises no issue for such a file there, while a read of
-one by name, such as a schema in `.vmd/schema/` (§9.1), still fails.
+an empty directory lists nothing; vmd, which lists below such a path, reports a schema named by a directory with files in it as
+`storage-failed` (§9.1). Anything else that is not a regular file, such as a FIFO, a socket or a device, does not belong in a
+store, and is a failure rather than a missing file: `read` and `stat` fail with `storage-failed`, and `list` and `grep` leave it
+out with a `storage-failed` issue of severity `error`, as they leave out a file they cannot read (below). A path that vmd ignores
+(§3.3) is neither a record nor an asset, so a listing of the store raises no issue for such a file there, while a read of one by
+name, such as a schema in `.vmd/schema/` (§9.1), still fails.
 
 **Bounded reads.** `read` takes an optional `maxBytes`. A file larger than it is refused by its size, before its content is read
 or hashed: the result says that the file is oversized and gives its size as far as the backend can tell, with no content and no
@@ -1860,8 +1864,10 @@ an old name that was added after the rename may mean a new node that reuses the 
 that synced before the rename and pushes after it cannot be told apart from one that means the new node. How vmd resolves such
 references is open ([#48](https://github.com/nosferatech/vollmond/issues/48)), including whether an alias should reserve its old
 name until it is pruned; a chain of aliases asks the same question at each of its steps. Which alias counts where several have the
-same old name is open there too. Until then a live node wins. An address that resolves to a live anchor or path is not resolved
-through an alias, and `vmd check` warns when a live anchor or path has the old name of an alias (`alias-shadowed`).
+same old name is open there too, and so is a record's old path that a live record has again: whether an anchor alias recorded
+under it applies to that record, to the one that moved away, or to both. Until then a live node wins. An address that resolves to
+a live anchor or path is not resolved through an alias, and `vmd check` warns when a live anchor or path has the old name of an
+alias (`alias-shadowed`).
 
 Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike;
 writing it belongs to the Refactor profile (§19.2). A file that is not valid JSONL of alias entries is an error
@@ -2501,8 +2507,8 @@ The columns:
 | `yaml-ambiguous-number` | warning; off under `yaml_quoting: minimal` | validation | §4.4 | a plain YAML scalar that vmd reads as a number and that a YAML 1.1 reader reads otherwise; the number |
 | `multiple-h1` | warning | validation | §5.3 | a Markdown record with several level-1 headings outside container blocks; the root |
 | `heading-html` | warning | validation | §5.3 | HTML in a heading other than the anchor element and the supported inline elements; the section |
-| `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, anchor-derived or key-title (a derived anchor, §6.3, or the key of a section that has no explicit anchor, §5.5), and whose slug is not repeated in the record; the reference |
-| `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, anchor-derived or key-title, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
+| `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is not repeated in the record; the reference |
+| `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
@@ -2521,7 +2527,7 @@ The columns:
 | `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than 17.0.0, the version that derived anchors follow, so derived anchors may differ; once per command that reads a store; none |
 | `field-not-computed` | warning | operation | §5.10 | a requested computed field that the implementation does not compute yet, given as `null`; none |
 | `unreadable-records` | error | operation | §9.1, §13.4 | a `rename` or `mv` while the store has records with structural errors, or a collection whose schema cannot be used; none |
-| `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a FIFO, a socket or a device in the store, which is not a regular file, read or listed, a listing leaving it out with the issue; a collection's schema file that cannot be read, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
+| `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a FIFO, a socket or a device in the store, which is not a regular file, read or listed, a listing leaving it out with the issue, except at a path that vmd ignores (§3.3), which a listing leaves out without one; a collection's schema file that cannot be read, a directory with files in it where the file is named included, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
 
 For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A reference
