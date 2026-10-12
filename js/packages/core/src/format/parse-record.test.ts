@@ -108,13 +108,38 @@ describe("parseRecord", () => {
     ["a reference link in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[r]: /x", false],
     ["an undefined reference in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[s]: /x", true],
   ])("a JSON, YAML and Markdown record agree on %s", (_name, text, definition, reads) => {
-    const json = JSON.stringify({ $body: definition, $sections: [{ $title: "S", $body: text }, { $title: text }] });
-    const yaml = `$body: ${JSON.stringify(definition)}\n$sections:\n  - $title: S\n  - $title: ${JSON.stringify(text)}\n`;
-    // In Markdown the same text is a paragraph and a heading, beside the definition.
-    const markdown = `${definition}\n\n${text}\n\n# ${text}\n`;
+    // The same record in each format: a root `$body` that holds the definition and the text, and a section titled the text.
+    const body = `${definition}\n\n${text}`;
+    const json = JSON.stringify({ $body: body, $sections: [{ $title: text }] });
+    const yaml = `$body: ${JSON.stringify(body)}\n$sections:\n  - $title: ${JSON.stringify(text)}\n`;
+    const markdown = `${body}\n\n# ${text}\n`;
     expect(parseRecord("a.json", bytes(json)).ok).toBe(reads);
     expect(parseRecord("a.yaml", bytes(yaml)).ok).toBe(reads);
     expect(parseRecord("a.md", bytes(markdown)).ok).toBe(reads);
+  });
+
+  test.each([
+    ["block quotes nested 256 levels", `${">".repeat(256)} a`, true],
+    ["block quotes nested 257 levels", `${">".repeat(257)} a`, false],
+    ["list items nested 257 levels", `${"- ".repeat(257)}a`, false],
+    ["a paragraph of 4,096 runs", "*a* ".repeat(2048), true],
+    ["a paragraph of 4,097 runs", `${"*a* ".repeat(2048)}_b_`, false],
+    ["two paragraphs of 4,096 runs each", `${"*a* ".repeat(2048)}\n\n${"*a* ".repeat(2048)}`, true],
+    ["emphasis nested 256 levels", `${"*a ".repeat(256)}b${" a*".repeat(256)}`, true],
+    ["emphasis nested 257 levels", `${"*a ".repeat(257)}b${" a*".repeat(257)}`, false],
+    ["runs in the labels of references defined beside them", `[*b*]: /x\n\n${"[a][*b*] ".repeat(2049)}`, true],
+  ])("a JSON, YAML and Markdown record agree on a $body of %s, in the root and in a section", (_name, text, reads) => {
+    const outcomes = (path: string, record: string) => {
+      const outcome = parseRecord(path, bytes(record));
+      return { ok: outcome.ok, issues: outcome.issues.map(({ code, at }) => `${code} ${at}`) };
+    };
+    const expected = reads ? { ok: true, issues: [] } : { ok: false, issues: ["syntax-error "] };
+    expect(outcomes("a.json", JSON.stringify({ $body: text }))).toEqual(expected);
+    expect(outcomes("a.yaml", `$body: ${JSON.stringify(text)}\n`)).toEqual(expected);
+    expect(outcomes("a.md", text)).toEqual(expected);
+    expect(outcomes("b.json", JSON.stringify({ $title: "T", $sections: [{ $title: "S", $body: text }] }))).toEqual(expected);
+    expect(outcomes("b.yaml", `$title: T\n$sections:\n  - $title: S\n    $body: ${JSON.stringify(text)}\n`)).toEqual(expected);
+    expect(outcomes("b.md", `# T\n\n## S\n\n${text}`)).toEqual(expected);
   });
 
   test("fails with the Markdown parser's structural errors", () => {

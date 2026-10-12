@@ -522,13 +522,13 @@ describe("the prose of a JSON or YAML record", () => {
     expect(await raws("docs/t.json")).toEqual(["definition d.md"]);
   });
 
-  // TODO(#24): the Markdown limits apply to a data $body, which makes it a syntax-error (card Z1, recorded in Draft v0.13);
-  // until the code follows, such a $body gives no references and no issue, which this test pins.
-  test("gives no references, and raises nothing yet, for a $body beyond the Markdown parser's limits", async () => {
+  test("a $body beyond the Markdown limits makes its record a syntax-error, so that no link in it goes unread", async () => {
     const deep = `${"> ".repeat(300)}[x](gone.md)`;
     const store = await storeOf({ "docs/d.json": JSON.stringify({ $body: deep }) });
-    expect(successValue(await store.references({ from: "docs/d.json" }))).toEqual([]);
-    expect((await store.check({ records: ["docs/d.json"] })).issues).toEqual([]);
+    const codes = (issues: readonly Issue[]) => issues.map(({ code, path, at }) => `${code} ${path} ${at}`);
+    expect(codes((await store.check({ records: ["docs/d.json"] })).issues)).toEqual(["syntax-error docs/d.json "]);
+    const references = await store.references({ from: "docs/d.json" });
+    expect(references.ok).toBe(false);
   });
 });
 

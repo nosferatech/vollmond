@@ -125,18 +125,44 @@ class LimitPassed extends Error {
  * Costs time linear in the text, but for the library's own costs.
  */
 export function parseMarkdownTree(text: string): MarkdownTree {
+  const parsed = parseWithinLimits(text);
+  if (!parsed.ok) return { ok: false, limitAt: parsed.passage.at, message: parsed.passage.message };
+  let root = parsed.root;
+  for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
+  return { ok: true, root };
+}
+
+/**
+ * Finds a resource limit that a Markdown text passes, as {@link parseMarkdownTree} reads it: the first container nested
+ * deeper than {@link MAX_NESTING}, or the first run beyond {@link MAX_EMPHASIS_RUNS} in a paragraph, table cell or heading,
+ * or else the first inline node nested deeper than {@link MAX_NESTING} within its block. Returns null when it passes none,
+ * which is exactly when {@link parseMarkdownTree} gives a tree. The text's own link reference definitions, and only those,
+ * decide what is a reference link.
+ *
+ * It costs what {@link parseMarkdownTree} does, without the autolink literals' tree transform, and a text past a limit
+ * stops the parse where {@link parseMarkdownTree} stops.
+ */
+export function markdownLimitPassedIn(text: string): LimitPassage | null {
+  const parsed = parseWithinLimits(text);
+  return parsed.ok ? null : parsed.passage;
+}
+
+/** The tree of a Markdown text before any tree transform, or the resource limit it passes. */
+type LimitedParse = { readonly ok: true; readonly root: Root } | { readonly ok: false; readonly passage: LimitPassage };
+
+/** Parses a Markdown text with the record's options and checks its inline nesting, before any tree transform. */
+function parseWithinLimits(text: string): LimitedParse {
   let root: Root;
   try {
     root = fromMarkdown(text, RECORD_OPTIONS);
   } catch (error) {
     if (!(error instanceof LimitPassed)) throw error;
-    return { ok: false, limitAt: error.at, message: error.message };
+    return { ok: false, passage: { at: error.at, message: error.message } };
   }
   const tooDeepAt = inlineNestedBeyond(root, MAX_NESTING);
   if (tooDeepAt !== null) {
-    return { ok: false, limitAt: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` };
+    return { ok: false, passage: { at: tooDeepAt, message: `inline nodes nest more than ${MAX_NESTING} deep` } };
   }
-  for (const transform of AUTOLINK_TRANSFORMS as readonly Transform[]) root = transform(root) ?? root;
   return { ok: true, root };
 }
 

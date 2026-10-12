@@ -14,7 +14,8 @@ const UTF8 = new TextEncoder();
  * Gives the references a record makes, in document order: the links, images and link reference definitions of every `$title`
  * and `$body`, and every `$ref` object in a field's value, wherever it stands. A Markdown record's links come from its parse;
  * a JSON or YAML record's `$body` strings are parsed here as Markdown documents, and its `$title` strings as a heading's
- * inline content, as their section keys are. Prose beyond the Markdown parser's limits gives no links.
+ * inline content, as their section keys are. A parsed record's prose is within the Markdown parser's limits, which the reader
+ * checks.
  *
  * With `under`, the exact path of a node, only the references in that node and below it are given, and only the prose there
  * is parsed. The root's `$schema` is stored data, and is not looked into.
@@ -103,12 +104,13 @@ export function definitionLabelsOf(record: ParsedRecord): string[] {
   return labels;
 }
 
-// TODO(#24): the Markdown limits apply to a data `$body` too, which makes one beyond them a syntax-error (card Z1, recorded in
-// Draft v0.13); until the parse refuses it, such a `$body` gives no references here and raises no issue.
 /**
  * Parses a JSON or YAML record's `$body` as a Markdown document, or its `$title` as a heading's inline content with the
  * definitions whose labels are `titleLabels` in scope, and gives its links at their offsets in the string. They have no
  * destination range, since the string's bytes in the file may hold escapes. `titleLabels` is null for a `$body`.
+ *
+ * The prose of a parsed record is within the Markdown parser's limits, since the reader refuses a record whose `$title` or
+ * `$body` passes one; a text past them gives no links.
  */
 function proseLinks(text: string, at: string, titleLabels: readonly string[] | null): ReferenceOccurrence[] {
   const title = titleLabels !== null;

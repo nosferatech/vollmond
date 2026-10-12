@@ -80,6 +80,79 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ $sections: [{ $title: "S" }, { $title: nested }, { $title: title }] })).toEqual([["syntax-error", ""]]);
   });
 
+  test("a $body past a Markdown limit is a syntax-error at the root, in every section's $body", () => {
+    const quotes = (levels: number) => `${">".repeat(levels)} a`;
+    const runs = (count: number) => "*a* ".repeat(count / 2);
+    const emphasis = (levels: number) => `${"*a ".repeat(levels)}b${" a*".repeat(levels)}`;
+    expect(issuesOf({ $body: quotes(257) })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $sections: [{ $title: "S", $body: quotes(257) }] })).toEqual([["syntax-error", ""]]);
+    const nested = { $sections: [{ $title: "S", $sections: [{ $title: "U", $body: `Text.\n\n${runs(4096)}_b_` }] }] };
+    expect(issuesOf(nested)).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: emphasis(257) })).toEqual([["syntax-error", ""]]);
+    // A list item is a container as a block quote is, and a table cell holds its own runs.
+    expect(issuesOf({ $body: `${"- ".repeat(257)}a` })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: `| h |\n| - |\n| ${runs(4096)}_b_ |` })).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: a $body at the limits reads, and its runs count per paragraph, not for the whole $body", () => {
+    const runs = "*a* ".repeat(2048);
+    expect(issuesOf({ $body: `${">".repeat(256)} a` })).toEqual([]);
+    expect(issuesOf({ $body: `${"*a ".repeat(256)}b${" a*".repeat(256)}` })).toEqual([]);
+    expect(issuesOf({ $sections: [{ $title: "S", $body: `${runs}\n\n${runs}\n\n# ${runs}\n\n| ${runs} |\n| - |` }] })).toEqual(
+      [],
+    );
+    // The text of a `$body` is not inline content as a title's is: escaped and fenced characters are no runs.
+    expect(issuesOf({ $body: `${"\\* ".repeat(5000)}\n\n\`\`\`\n${"*a* ".repeat(5000)}\n\`\`\`` })).toEqual([]);
+  });
+
+  test("the link reference definitions of a $body are in scope for its own runs, as in a Markdown file", () => {
+    // The `*` of a defined label are not runs, since the library reads the label without its text constructs.
+    const references = "[a][*b*] ".repeat(2049);
+    expect(issuesOf({ $body: `${references}\n\n[*b*]: /x` })).toEqual([]);
+    expect(issuesOf({ $sections: [{ $title: "S", $body: `[*b*]: /x\n\n${references}` }] })).toEqual([]);
+    // Without the definition they are runs: 4,098 of them.
+    expect(issuesOf({ $body: `[b]: /x\n\n${references}` })).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a $body is read on its own, as references read it: the definitions of another $body are not in scope for it", () => {
+    const references = "[a][*b*] ".repeat(2049);
+    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: "S", $body: references }] })).toEqual([["syntax-error", ""]]);
+    const around = `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`;
+    expect(issuesOf({ $body: `[r]: /x\n\n${around}` })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: "[r]: /x", $sections: [{ $title: "S", $body: around }] })).toEqual([]);
+  });
+
+  test("a record with several $body values or titles past a limit has one syntax-error, at the first", () => {
+    const deep = `${">".repeat(257)} a`;
+    const title = "*a* ".repeat(2049);
+    expect(
+      issuesOf({
+        $body: deep,
+        $sections: [
+          { $title: "S", $body: deep },
+          { $title: "U", $body: deep },
+        ],
+      }),
+    ).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $title: title, $body: deep, $sections: [{ $title: title, $body: deep }] })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: deep, $title: title })).toEqual([["syntax-error", ""]]);
+  });
+
+  test("a $body past a limit is positioned at its member, and is not parsed when it is not a string", () => {
+    const decoded = decodeSource("r.json", new TextEncoder().encode(" ".repeat(40)));
+    if (!decoded.ok) throw new Error("not UTF-8");
+    const builder = new NodeIndexBuilder({ range: { start: 0, end: 40 } });
+    builder.add("", "$title", { kind: "string", range: { start: 10, end: 13 }, memberRange: { start: 1, end: 13 } });
+    builder.add("", "$body", { kind: "string", range: { start: 24, end: 39 }, memberRange: { start: 15, end: 39 } });
+    const locate = nodeLocator(builder.build(), decoded.value);
+    const [issue, ...others] = checkShape("record", { $title: "T", $body: `${">".repeat(257)} a` }, "", {
+      path: "r.json",
+      locate,
+    });
+    expect([issue?.code, issue?.at, issue?.position?.offset, others]).toEqual(["syntax-error", "", 15, []]);
+    expect(issuesOf({ $body: ["> ".repeat(257)] })).toEqual([["reserved-member-type", "/$body"]]);
+  });
+
   test("a title with too many runs is positioned at its member, and is not looked at when it is not a string", () => {
     const decoded = decodeSource("r.json", new TextEncoder().encode(" ".repeat(40)));
     if (!decoded.ok) throw new Error("not UTF-8");
