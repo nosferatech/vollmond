@@ -1,7 +1,8 @@
 // Resolving through aliases does not depend on what was resolved before: each reference of a record, resolved by one resolver
 // in the record's order, is resolved as a resolver that resolves that reference alone resolves it, which walks each alias
 // chain once from its start, with nothing kept from earlier walks. The stores are small, so that chains, cycles, live names on
-// and off them, directories and old paths meet often, and the links are most of the store's in a random order, some twice.
+// and off them, directories, an asset (`p3`, which has no record extension) and old paths meet often, and the links are most
+// of the store's in a random order, some twice.
 
 import fc from "fast-check";
 import { expect, test } from "vitest";
@@ -10,8 +11,8 @@ import { createMemoryStorage } from "../storage/memory.js";
 import { openStore } from "../store/store.js";
 import type { Reference } from "./reference.js";
 
-const PATHS = ["p0.md", "p1.md", "p2.md"];
-const NAMES = ["a", "b", "c"];
+const PATHS = ["p0.md", "p1.md", "p2.md", "p3", "p4.md"];
+const NAMES = ["a", "b", "c", "d"];
 const at = "2026-10-09T08:00:00Z";
 
 /** What is at a path: nothing, a directory, or a record with explicit anchors, a heading Y below some of them. */
@@ -31,10 +32,10 @@ const place = fc.oneof(
 
 // Aliases come in chains, each from one name to the next, so that chains and, where a name repeats, cycles are common.
 const recordChain = fc
-  .array(fc.constantFrom(...PATHS), { minLength: 2, maxLength: 4 })
+  .array(fc.constantFrom(...PATHS), { minLength: 2, maxLength: 7 })
   .map((paths) => paths.slice(1).map((to, n) => ({ kind: "record", from: `docs/${paths[n] as string}`, to: `docs/${to}`, at })));
 const anchorChain = fc
-  .tuple(fc.constantFrom(...PATHS), fc.array(fc.constantFrom(...NAMES), { minLength: 2, maxLength: 4 }))
+  .tuple(fc.constantFrom(...PATHS), fc.array(fc.constantFrom(...NAMES), { minLength: 2, maxLength: 7 }))
   .map(([record, names]) =>
     names.slice(1).map((to, n) => ({ kind: "anchor", record: `docs/${record}`, from: names[n] as string, to, at })),
   );
@@ -49,7 +50,7 @@ const LINKS = PATHS.flatMap((path) => [path, ...NAMES.flatMap((name) => [`${path
 
 const store = fc.record({
   places: fc.array(place, { minLength: PATHS.length, maxLength: PATHS.length }),
-  aliases: fc.array(fc.oneof(recordChain, anchorChain), { minLength: 1, maxLength: 4 }).map((chains) => chains.flat()),
+  aliases: fc.array(fc.oneof(recordChain, anchorChain), { minLength: 1, maxLength: 7 }).map((chains) => chains.flat()),
   // Most links of the universe in a random order, then some again, so that walks meet what earlier walks kept.
   links: fc
     .tuple(fc.shuffledSubarray(LINKS, { minLength: 1 }), fc.array(link, { maxLength: 6 }))
@@ -100,6 +101,7 @@ test("resolves each reference through the aliases as it is resolved alone, whate
       for (const target of shape.links) alone.push(...(await referencesOf(filesOf(shape, [target]))));
       expect(together).toEqual(alone);
     }),
-    { numRuns: 400 },
+    { numRuns: 1500 },
   );
-}, 120_000);
+  // About 15 seconds alone, more under a parallel run.
+}, 60_000);
