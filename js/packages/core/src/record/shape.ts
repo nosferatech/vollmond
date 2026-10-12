@@ -1,7 +1,9 @@
+import { inlineLimitPassedIn } from "../format/markdown/library.js";
 import type { IssueCode } from "../issue/codes.js";
 import { type Issue, makeIssue, repeatedNodes } from "../issue/issue.js";
 import type { Position, SourceText } from "../text/source-text.js";
 import { hasMember, type Value, type ValueObject } from "../value/value.js";
+import { definitionLabelsOfRecord } from "./definition-labels.js";
 import { childPath } from "./exact-path.js";
 import type { NodeIndex } from "./node-index.js";
 
@@ -30,8 +32,10 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * document order: like `Object.entries`, it lists integer-like names first, in ascending order, then the others in the order
  * they were added.
  *
- * - on a section, a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or
- *   `$sections` that is not an array of objects (`reserved-member-type`, at the member); an item of `$sections` without a
+ * - on a section, a `$title` that passes a resource limit of inline content, which is more runs of emphasis than a text may
+ *   hold, or inline elements nested deeper than it may (`syntax-error`, at the root, positioned at the member); a `$title`,
+ *   `$body` or `$anchor` that is not a string, `$tags` that is not an array of strings, or `$sections` that is not an array
+ *   of objects (`reserved-member-type`, at the member); an item of `$sections` without a
  *   `$title` (`section-title-missing`, at the item); `$key`, or `$schema` below the root (`dollar-member`); and any other
  *   member whose name begins with `$` (`feature-unsupported`);
  * - at the top of front matter or of a data block, `$key` and the section members (`dollar-member`), `$schema` in a data block
@@ -46,7 +50,7 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  * `$schema` is stored data and is not looked into. Every structural issue is an error; positions come from `context.locate`.
  */
 export function checkShape(unit: ShapeUnit, value: ValueObject, at: string, context: ShapeContext): Issue[] {
-  const checker = new ShapeChecker(context);
+  const checker = new ShapeChecker(context, value);
   if (unit === "record") {
     checker.section(value, at, true);
   } else {
@@ -69,9 +73,21 @@ export function nodeLocator(index: NodeIndex, source: SourceText): (at: string) 
 class ShapeChecker {
   readonly issues: Issue[] = [];
   readonly #context: ShapeContext;
+  /** The object being checked, the record's root for a record, whose `$body` values hold the definitions in scope. */
+  readonly #root: ValueObject;
+  #definitionLabels: readonly string[] | null = null;
+  /** Whether a `$title` has passed a resource limit, which is one `syntax-error` for the record. */
+  #titleLimitPassed = false;
 
-  constructor(context: ShapeContext) {
+  constructor(context: ShapeContext, root: ValueObject) {
     this.#context = context;
+    this.#root = root;
+  }
+
+  /** The labels of the link reference definitions in every section's `$body`, found on the first call. */
+  #labels(): readonly string[] {
+    if (this.#definitionLabels === null) this.#definitionLabels = definitionLabelsOfRecord(this.#root);
+    return this.#definitionLabels;
   }
 
   section(section: ValueObject, at: string, isRoot: boolean): void {
@@ -79,6 +95,17 @@ class ShapeChecker {
       const memberAt = childPath(at, name);
       switch (name) {
         case "$title":
+          if (typeof member !== "string") {
+            this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
+          } else if (!this.#titleLimitPassed) {
+            const passed = inlineLimitPassedIn(member, () => this.#labels());
+            if (passed !== null) {
+              // The record is beyond a resource limit, which is one syntax error at the root, positioned at the first title.
+              this.#titleLimitPassed = true;
+              this.#raise("syntax-error", "", `$title passes a resource limit: ${passed.message}`, memberAt);
+            }
+          }
+          break;
         case "$body":
         case "$anchor":
           if (typeof member !== "string") this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
@@ -168,8 +195,9 @@ class ShapeChecker {
     }
   }
 
-  #raise(code: IssueCode, at: string, message: string): void {
-    const position = this.#context.locate?.(at);
+  /** Raises an issue at `at`, positioned at the node `placeAt`, which is `at` unless given. */
+  #raise(code: IssueCode, at: string, message: string, placeAt: string = at): void {
+    const position = this.#context.locate?.(placeAt);
     this.issues.push(
       makeIssue(
         position === undefined

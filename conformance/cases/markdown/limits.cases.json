@@ -220,6 +220,167 @@
           "$body": "<div>Note</div>\n\n```yaml data\na: 1\n```"
         }
       }
+    },
+    {
+      "id": "html-then-unknown-data-marker",
+      "spec": [
+        "5.3"
+      ],
+      "description": "Likewise an unknown data marker after an HTML block that holds more than comments is a prose fence, not the first block of a record without a title heading, and the record reads (§5.3, decisions Y3 and P6).",
+      "input": {
+        "record": "html-then-unknown-data.md"
+      },
+      "expect": {
+        "result": {
+          "$body": "<div>Note</div>\n\n```toml data\na = 1\n```"
+        }
+      }
+    },
+    {
+      "id": "comment-and-text-then-data-block",
+      "spec": [
+        "5.3"
+      ],
+      "description": "An HTML block that holds a comment and other text on one line holds more than comments, so it is the first block, a yaml data block after it is a prose fence, and the record reads (§5.3, decision Y3).",
+      "input": {
+        "record": "comment-and-text-then-data-block.md"
+      },
+      "expect": {
+        "result": {
+          "$body": "<!-- c --> text\n\n```yaml data\na: 1\n```"
+        }
+      }
+    },
+    {
+      "id": "data-title-inline-nesting-256",
+      "spec": [
+        "5.4",
+        "5.5"
+      ],
+      "description": "A JSON section's $title with emphasis nested 256 levels deep is within the limit on inline nesting, and reads (§5.4, decision Y1).",
+      "input": {
+        "record": "title-nesting-256.json"
+      },
+      "expect": {
+        "result": {
+          "$sections": [
+            {
+              "$title": "*a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a b a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a*"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-title-inline-nesting-257",
+      "spec": [
+        "5.4",
+        "5.5",
+        "D"
+      ],
+      "description": "One more level, 257, in a JSON section's $title is a syntax error at the root: a data $title is read as a heading's inline content (§5.5), and inline nesting counts toward the 256-level limit within it (§5.4, decision Y1).",
+      "input": {
+        "record": "title-nesting-257.json"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "title-nesting-257.json",
+            "at": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "data-title-reference-label-runs",
+      "spec": [
+        "5.4",
+        "5.5"
+      ],
+      "description": "A JSON section's $title is read with the link reference definitions of the record's $body values in scope, so the * in the label of a defined reference are no runs, as in Markdown, and 2,049 references with 2 of them each are within the run limit (§5.4, §5.5, decision Y2).",
+      "input": {
+        "record": "title-reference-label-runs.json"
+      },
+      "expect": {
+        "result": {
+          "$body": "[*b*]: /x",
+          "$sections": [
+            {
+              "$title": "[a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] [a][*b*] "
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-title-reference-link-nesting-255",
+      "spec": [
+        "5.4",
+        "5.5"
+      ],
+      "description": "A reference link that a definition in the record's $body makes, inside 255 levels of emphasis in a JSON section's $title, is the 256th level, and reads (§5.4, §5.5, decision Y1).",
+      "input": {
+        "record": "title-reference-link-nesting-255.json"
+      },
+      "expect": {
+        "result": {
+          "$body": "[r]: /x",
+          "$sections": [
+            {
+              "$title": "*a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a *a [b][r] a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a* a*"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-title-reference-link-nesting-256",
+      "spec": [
+        "5.4",
+        "5.5",
+        "D"
+      ],
+      "description": "The same reference link inside 256 levels of emphasis is the 257th level, since reference links are inline levels too, and is a syntax error at the root, as in Markdown (§5.4, §5.5, decision Y1).",
+      "input": {
+        "record": "title-reference-link-nesting-256.json"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "title-reference-link-nesting-256.json",
+            "at": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "data-titles-beyond-limit-one-error",
+      "spec": [
+        "5.4",
+        "5.5",
+        "D"
+      ],
+      "description": "Two $titles beyond the nesting limit in one record give one syntax error at the root, as a Markdown record beyond a resource limit does (§5.4, Appendix D).",
+      "input": {
+        "record": "titles-nesting-257-twice.json"
+      },
+      "expect": {
+        "fails": true,
+        "issues": [
+          {
+            "code": "syntax-error",
+            "severity": "error",
+            "path": "titles-nesting-257-twice.json",
+            "at": ""
+          }
+        ]
+      }
     }
   ]
 }

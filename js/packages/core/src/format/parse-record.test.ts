@@ -73,6 +73,50 @@ describe("parseRecord", () => {
     expect(outcome.ok && outcome.value).toMatchObject({ path: "notes/a.md", format: "md", value: { a: 1, $title: "Title" } });
   });
 
+  test.each([
+    ["a.json", (title: string) => JSON.stringify({ $sections: [{ $title: title }] })],
+    ["a.yaml", (title: string) => `$sections:\n  - $title: ${JSON.stringify(title)}\n`],
+  ])("a section's $title of 4,096 runs reads, and one of 4,097 fails with a syntax-error at the root, in %s", (path, record) => {
+    expect(parseRecord(path, bytes(record("*a* ".repeat(2048)))).ok).toBe(true);
+    const outcome = parseRecord(path, bytes(record(`${"*a* ".repeat(2048)}_b_`)));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.issues.map(({ code, path: issuePath, at }) => ({ code, path: issuePath, at }))).toEqual([
+      { code: "syntax-error", path, at: "" },
+    ]);
+  });
+
+  test.each([
+    ["a.json", (title: string) => JSON.stringify({ $sections: [{ $title: title }] })],
+    ["a.yaml", (title: string) => `$sections:\n  - $title: ${JSON.stringify(title)}\n`],
+  ])(
+    "a section's $title with emphasis nested 256 levels reads, and 257 levels fail with a syntax-error at the root, in %s",
+    (path, record) => {
+      const nested = (levels: number) => `${"*a ".repeat(levels)}b${" a*".repeat(levels)}`;
+      expect(parseRecord(path, bytes(record(nested(256)))).ok).toBe(true);
+      const outcome = parseRecord(path, bytes(record(nested(257))));
+      expect(outcome.ok).toBe(false);
+      expect(outcome.issues.map(({ code, path: issuePath, at }) => ({ code, path: issuePath, at }))).toEqual([
+        { code: "syntax-error", path, at: "" },
+      ]);
+    },
+  );
+
+  test.each([
+    ["runs in the labels of references", "[a][*b*] ".repeat(2049), "[*b*]: /x", true],
+    ["runs in the labels of undefined references", "[a][*b*] ".repeat(2049), "[b]: /x", false],
+    ["a reference link in 255 levels of emphasis", `${"*a ".repeat(255)}[b][r]${" a*".repeat(255)}`, "[r]: /x", true],
+    ["a reference link in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[r]: /x", false],
+    ["an undefined reference in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[s]: /x", true],
+  ])("a JSON, YAML and Markdown record agree on %s", (_name, text, definition, reads) => {
+    const json = JSON.stringify({ $body: definition, $sections: [{ $title: "S", $body: text }, { $title: text }] });
+    const yaml = `$body: ${JSON.stringify(definition)}\n$sections:\n  - $title: S\n  - $title: ${JSON.stringify(text)}\n`;
+    // In Markdown the same text is a paragraph and a heading, beside the definition.
+    const markdown = `${definition}\n\n${text}\n\n# ${text}\n`;
+    expect(parseRecord("a.json", bytes(json)).ok).toBe(reads);
+    expect(parseRecord("a.yaml", bytes(yaml)).ok).toBe(reads);
+    expect(parseRecord("a.md", bytes(markdown)).ok).toBe(reads);
+  });
+
   test("fails with the Markdown parser's structural errors", () => {
     expect(parseRecord("a.md", bytes("---\na: 1\n")).issues.map((issue) => issue.code)).toEqual(["syntax-error"]);
   });

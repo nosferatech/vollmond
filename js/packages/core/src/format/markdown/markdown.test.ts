@@ -299,9 +299,21 @@ describe("emphasis runs", () => {
     expect(issuesOf(`${"\\**a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
   });
 
-  test("near miss: a heading is not a paragraph, so its runs are not bounded", () => {
-    expect(issuesOf(`# R\n\n## ${"*a* ".repeat(2500)}\n\nText ${"*a* ".repeat(100)}\n`)).toEqual([]);
-    expect(issuesOf(`${"*a* ".repeat(2500)}\n---\n\n${"*a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
+  test("a heading holds 4,096 runs like a paragraph; one more is a syntax error at the root, at the run", () => {
+    expect(issuesOf(`# R\n\n## ${"*a* ".repeat(2048)}\n`)).toEqual([]);
+    const text = `# R\n\n## ${"*a* ".repeat(2048)}_b_\n`;
+    const issue = parse(text).issues[0];
+    expect([issue?.code, issue?.at, issue?.position?.offset]).toEqual(["syntax-error", "", bytesOf(text, "_b_").start]);
+    // The title heading, and a setext heading, whose text is read as a paragraph's is.
+    expect(issuesOf(`# ${"*a* ".repeat(2049)}\n`)).toEqual([["syntax-error", ""]]);
+    expect(issuesOf(`${"*a* ".repeat(2049)}\n---\n`)).toEqual([["syntax-error", ""]]);
+  });
+
+  test("near miss: each heading counts on its own, as each paragraph and table cell does", () => {
+    const full = "*a* ".repeat(2048);
+    expect(issuesOf(`# ${full}\n\n## ${full}\n\n${full}\n\n### ${full}\n\n| a |\n|---|\n| ${full} |\n`)).toEqual([]);
+    const some = "*a* ".repeat(100);
+    expect(issuesOf(`## A ${some}\n\n## B ${some}\n\nText ${some}\n`)).toEqual([]);
   });
 
   test("containers nested too deep after a heading beyond the runs are a syntax error at the containers, found first", () => {
@@ -347,6 +359,43 @@ describe("sections", () => {
     expect(valueView("<!-- markdownlint-disable -->\n# One\n\nText.\n")).toEqual({ $title: "One", $body: "Text." });
     expect(valueView("---\na: 1\n---\n<!-- x -->\n\n<!--\ny --> <!-- z -->\n# One\n")).toEqual({ a: 1, $title: "One" });
     expect(valueView("<!---->\n<!-->\n# One\n")).toEqual({ $title: "One" });
+  });
+
+  test("HTML blocks of comments alone do not count as the first block for a misplaced data block either", () => {
+    expect(issuesOf("<!-- c -->\n\n```yaml data\na: 1\n```\n")).toEqual([["data-block-misplaced", ""]]);
+    expect(issuesOf("<!-- c -->\n\n```json data\n{}\n```\n")).toEqual([["data-block-misplaced", ""]]);
+    expect(issuesOf("<!-- c -->\n\n```toml data\na = 1\n```\n")).toEqual([["feature-unsupported", ""]]);
+    // Several comment blocks, and after front matter.
+    expect(issuesOf("---\na: 1\n---\n<!-- x -->\n\n<!--\ny --> <!-- z -->\n\n```yaml data\nb: 1\n```\n")).toEqual([
+      ["data-block-misplaced", ""],
+    ]);
+    // A misplaced block that is not closed is a syntax error too, and a marker of a newer version after one is detected.
+    expect(issuesOf("<!-- c -->\n\n```yaml data\na: 1\n")).toEqual([
+      ["data-block-misplaced", ""],
+      ["syntax-error", ""],
+    ]);
+    expect(issuesOf("<!-- c -->\n\n```yaml data\na: 1\n```\n```toml data\n```\n")).toEqual([
+      ["data-block-misplaced", ""],
+      ["feature-unsupported", ""],
+    ]);
+  });
+
+  test("the comment blocks before a misplaced data block stay in the root's $body", () => {
+    const body = "<!-- c -->\n\n```yaml data\na: 1\n```\nText.";
+    expect(read(`${body}\n`).root?.body?.value).toBe(body);
+  });
+
+  test("near miss: a comment block after the title heading is the block right after it, so it hides a data block", () => {
+    expect(issuesOf("# R\n\n<!-- c -->\n\n```yaml data\na: 1\n```\n")).toEqual([]);
+    expect(issuesOf("# R\n\n<!-- c -->\n\n```toml data\na = 1\n```\n")).toEqual([]);
+  });
+
+  test("near miss: an HTML block with more than comments is the first block, so a data block after it is a prose fence", () => {
+    for (const html of ["<div>Note</div>", "<!-- c --> text", "<!-- c -->\n<div></div>", "<!-- c --> <b>x</b>"]) {
+      expect(issuesOf(`${html}\n\n\`\`\`yaml data\na: 1\n\`\`\`\n`)).toEqual([]);
+      expect(issuesOf(`${html}\n\n\`\`\`toml data\na = 1\n\`\`\`\n`)).toEqual([]);
+    }
+    expect(issuesOf("Text.\n\n<!-- c -->\n\n```yaml data\na: 1\n```\n")).toEqual([]);
   });
 
   test("near miss: an HTML block with more than comments is the first block, so a level-1 heading after it is a section", () => {

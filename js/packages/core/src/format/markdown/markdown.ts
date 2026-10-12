@@ -88,16 +88,15 @@ export function parseMarkdownRecord(path: string, source: SourceText): Outcome<P
  *   `syntax-error` at the root, and nothing else is read. It is a YAML unit whose members are the root's fields.
  * - The body is parsed as the file's text after the front matter, its offsets shifted to the file's, so that every range is
  *   a range of the file. A body beyond a resource limit of the Markdown library's parse (containers nested too deep, too many
- *   runs of emphasis in a paragraph) is a `syntax-error` at the root, and no section is read.
+ *   runs of emphasis in a paragraph, table cell or heading) is a `syntax-error` at the root, and no section is read.
  * - Only the tree's top-level blocks make structure. The first block, not counting HTML blocks that hold only comments, is
- *   the title heading when it is a level-1 heading and the record's only one; several level-1 headings raise
- *   `multiple-h1`. Every other top-level heading starts a section, whose parent is the nearest earlier heading of a lower
- *   level.
+ *   the title heading when it is a level-1 heading and the record's only one; several level-1 headings raise `multiple-h1`.
+ *   Every other top-level heading starts a section, whose parent is the nearest earlier heading of a lower level.
  * - A section's data block is the fenced block right after its heading with the info string `yaml data` or `json data`; one
  *   whose fence is not closed is a `syntax-error` at its section. Such a block after the title heading, as the first block
- *   of a record without one, or right after a data block, is `data-block-misplaced`, and a `syntax-error` too when it is not
- *   closed, at the root or the section; a `data` marker of a newer version in any of those places, or after a heading, is
- *   `feature-unsupported`.
+ *   of a record without one (HTML blocks that hold only comments not counting, as for the title), or right after a data
+ *   block, is `data-block-misplaced`, and a `syntax-error` too when it is not closed, at the root or the section; a `data`
+ *   marker of a newer version in any of those places, or after a heading, is `feature-unsupported`.
  * - A section's `$body` runs from the line after its heading, or its data block, to the next top-level heading.
  */
 export function readMarkdown(path: string, source: SourceText): MarkdownReading {
@@ -217,13 +216,15 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     index = titleIndex + 1;
     from = nextLineStart(text, heading.range.end);
   }
-  const misplaced = readFence(text, blocks[index], shift);
+  // Where the root's data block would stand: right after the title heading, or else the first block, comments not counting.
+  const rootFenceIndex = titleHeading === null ? titleIndex : index;
+  const misplaced = readFence(text, blocks[rootFenceIndex], shift);
   if (misplaced?.marker === "yaml" || misplaced?.marker === "json") {
     const where = titleHeading === null ? "the first block of a record without a title heading" : "right after the title heading";
     const message = `a data block ${where} has no section; the root's fields come from front matter`;
     raise("data-block-misplaced", "", message, misplaced.start);
     if (!misplaced.closed) raise("syntax-error", "", UNCLOSED_MESSAGE, misplaced.start);
-    const after = readFence(text, blocks[index + 1], shift);
+    const after = readFence(text, blocks[rootFenceIndex + 1], shift);
     if (after?.marker === "unsupported") raise("feature-unsupported", "", unsupportedMessage(after.words), after.start);
   } else if (misplaced?.marker === "unsupported") {
     raise("feature-unsupported", "", unsupportedMessage(misplaced.words), misplaced.start);

@@ -79,7 +79,10 @@ describe("the slug of a data section's $title, read as a heading's inline conten
     expect(titleSlugOf("*a* b &amp; *c*", [])).toBe("a-b--c");
   });
 
-  test("near miss: a title of more runs than a paragraph may hold is read, as a heading's are", () => {
-    expect(titleSlugOf("*a* ".repeat(2500), [])).toBe("a-".repeat(2499).concat("a"));
+  test("a title of more runs than a heading may hold is slugged as plain text, and one at the limit is read", () => {
+    // A record with such a title is refused when it is parsed, so this is only what the function does if asked.
+    // As Markdown, `&amp;` gives `&`, which the filter removes; as plain text it gives `amp`.
+    expect(titleSlugOf(`${"*a* ".repeat(2048)}&amp;`, [])).toBe("a-".repeat(2048));
+    expect(titleSlugOf(`${"*a* ".repeat(2049)}&amp;`, [])).toBe(`${"a-".repeat(2049)}amp`);
   });
 });
