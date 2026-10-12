@@ -10,7 +10,7 @@ decided_by: owner
 sources:
   card: "AA4"
   design: ["docs/design/i2-validate.md, section 3.3"]
-  prs: [97, 104]
+  prs: [97, 105]
 ---
 
 ## Question
@@ -74,7 +74,7 @@ Why (b) and (c) lost: Not recorded.
 
 ## Applied in
 
-Draft v0.14 (#104): §9.1 (item 1), §9.2 (items 3 and 5), §9.3 ("The spine", "Declarations that meet", "What else is refused"),
+Draft v0.14 (#105): §9.1 (item 1), §9.2 (items 3 and 5), §9.3 ("The spine", "Declarations that meet", "What else is refused"),
 Appendix D `feature-unsupported` and `schema-invalid`; the I2 design's section 3.3 (items 4 and 6). Suite cases in
 `validation/schemas`, each refusal with its near miss: `unknown-keyword-beside-id` (item 1), `ref-without-type` and
 `ref-on-object-type` (item 2), `boolean-schema-file` (item 3), `patterns-meet-at-listed-name`, `patterns-meet-only-in-data`,

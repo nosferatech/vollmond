@@ -10,7 +10,7 @@ decided_by: owner
 sources:
   card: "AA2"
   design: ["docs/design/i2-validate.md, section 3.3"]
-  prs: [97, 104]
+  prs: [97, 105]
 ---
 
 ## Question
@@ -64,7 +64,7 @@ Why (b) lost: Not recorded. The card's consequence for it: a newer schema read b
 
 ## Applied in
 
-Draft v0.14 (#104): §9.1 ("A collection whose schema cannot be used", and "Every addition is detectable"), §9.3, Appendix D
+Draft v0.14 (#105): §9.1 ("A collection whose schema cannot be used", and "Every addition is detectable"), §9.3, Appendix D
 `feature-unsupported` and `schema-invalid`; the I2 design's section 3.3; suite cases `validation/schemas/list-unknown-member`,
 `list-unknown-value`, `ref-unknown-member`, `ref-unknown-value`, their near miss `list-and-ref-known-members`, and
 `list-keys-wrong-form`. The four cases of unknown members and values are skipped in the TypeScript runner's declaration until #97

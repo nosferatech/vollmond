@@ -8,7 +8,7 @@ sections: ["§9.3", "Appendix D"]
 decided_by: owner
 sources:
   card: "AA1"
-  prs: [97, 104]
+  prs: [97, 105]
 ---
 
 ## Question
@@ -101,6 +101,6 @@ don't want to admit crazy, expensive, dangerous schema."
 
 ## Applied in
 
-Draft v0.14 (#104): §9.3 ("A bound on the check", and "Declarations that meet" for what applies together), Appendix D
+Draft v0.14 (#105): §9.3 ("A bound on the check", and "Declarations that meet" for what applies together), Appendix D
 `schema-invalid`; the I2 design's section 3.3; suite cases `validation/schemas/spine-work-over-bound` and its near miss
 `spine-work-under-bound`. The case over the bound is skipped in the TypeScript runner's declaration until #97 adds the bound.

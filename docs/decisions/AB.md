@@ -9,7 +9,7 @@ decided_by: owner
 sources:
   card: "AB"
   design: ["docs/design/i2-validate.md, section 5.1"]
-  prs: [99, 103, 104]
+  prs: [99, 103, 105]
 ---
 
 ## Question
@@ -67,7 +67,7 @@ On two definitions of one label:
 
 ## Applied in
 
-Draft v0.14 (#104): §5.4 (the scope of definitions for a data `$body`, and which definition wins), §5.5 and §8.1, which point at
+Draft v0.14 (#105): §5.4 (the scope of definitions for a data `$body`, and which definition wins), §5.5 and §8.1, which point at
 it; the I2 design's section 5.1 ("Prose in JSON and YAML"). Suite cases `markdown/limits/data-section-body-reference-label-runs-json`
 and `-yaml` (the labels' `*` are no runs), `data-section-body-reference-link-nesting-256-json` and `-yaml` (the link is an inline
 level) with the near miss `data-section-body-reference-link-nesting-255-json`, and
