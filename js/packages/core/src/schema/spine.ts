@@ -1145,7 +1145,10 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
   return Array.isArray(type) ? !type.includes("string") : type !== "string";
 }
 
-/** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */
+/**
+ * The steps that two schema objects name, which both follow together: the members `properties` names, the items at each
+ * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes.
+ */
 function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
@@ -1159,7 +1162,8 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   }
   for (const name of names) steps.push({ kind: "member", name });
   for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
-  for (const key of keys) steps.push({ kind: "item", index: prefix, key });
+  // An item with a key can stand at any index, so its key's schema meets each prefixItems entry as well as items.
+  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 
