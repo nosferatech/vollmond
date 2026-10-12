@@ -58,7 +58,9 @@ describe("the real suite", () => {
     expect(results.filter((item) => !item.id.startsWith("selftest/") && item.verdict === "pass").length).toBeGreaterThan(0);
     expect(results.length).toBeGreaterThan(1000);
     expect(unused_skips).toEqual([]);
-  });
+    // The whole suite runs here: a few seconds alone, and over ten on a loaded machine or runner, growing with every case; the
+    // test is about the verdicts, not how fast they come.
+  }, 60_000);
 });
 
 describe("the self-test with a comparison broken on purpose", () => {
