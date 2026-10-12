@@ -3,13 +3,20 @@
 // chain once from its start, with nothing kept from earlier walks. The stores are small, so that chains, cycles, live names on
 // and off them, directories, an asset (`p3`, which has no record extension) and old paths meet often, and the links are most
 // of the store's in a random order, some twice.
+//
+// The store's resolver resolves the record's references together. Each reference alone gets a resolver of its own, made from
+// what a store gives its resolver: the files it lists, its aliases and its records, each read once for all the references. A
+// store per reference would list the files, read the aliases and parse the records again for each, which is most of the work.
 
 import fc from "fast-check";
 import { expect, test } from "vitest";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage } from "../storage/memory.js";
 import { openStore } from "../store/store.js";
+import { readAliases } from "./aliases.js";
+import { occurrencesOf } from "./extract.js";
 import type { Reference } from "./reference.js";
+import { ReferenceResolver, type ReferenceStore } from "./resolve.js";
 
 const PATHS = ["p0.md", "p1.md", "p2.md", "p3", "p4.md"];
 const NAMES = ["a", "b", "c", "d"];
@@ -59,12 +66,12 @@ const store = fc.record({
 
 type Store = typeof store extends fc.Arbitrary<infer T> ? T : never;
 
-/** The files of a store, with `docs/r.md` holding the links given. */
-function filesOf(shape: Store, links: readonly string[]): Record<string, string> {
+/** The files of a store, with `docs/r.md` holding its links. */
+function filesOf(shape: Store): Record<string, string> {
   const files: Record<string, string> = {
     ".vmd/config.yaml": "vmd: 1\n",
     ".vmd/aliases.jsonl": shape.aliases.map((alias) => `${JSON.stringify(alias)}\n`).join(""),
-    "docs/r.md": `# R\n\n${links.map((target) => `[x](${target})`).join(" ")}\n`,
+    "docs/r.md": `# R\n\n${shape.links.map((target) => `[x](${target})`).join(" ")}\n`,
   };
   shape.places.forEach((where, index) => {
     const path = `docs/${PATHS[index] as string}`;
@@ -79,13 +86,32 @@ function filesOf(shape: Store, links: readonly string[]): Record<string, string>
   return files;
 }
 
-/** The references of `docs/r.md` in a store of these files, as their status, targets and issue codes. */
-async function referencesOf(files: Record<string, string>): Promise<string[]> {
+/** The references of `docs/r.md` in a store of these files, as the store resolves them: one resolver, in the record's order. */
+async function referencesTogether(files: Record<string, string>): Promise<readonly Reference[]> {
   const opened = successValue(await openStore(createMemoryStorage({ files })));
-  const references = successValue(await opened.references({ from: "docs/r.md" }));
-  return references.map((reference: Reference) =>
-    JSON.stringify([reference.status, reference.targets, reference.issues.map((issue) => issue.code)]),
-  );
+  return successValue(await opened.references({ from: "docs/r.md" }));
+}
+
+/** The references of `docs/r.md` in a store of these files, each resolved by a resolver that resolves nothing else. */
+async function referencesAlone(files: Record<string, string>): Promise<Reference[]> {
+  // A store of its own, so that nothing kept while resolving the references together is used here.
+  const opened = successValue(await openStore(createMemoryStorage({ files })));
+  const paths = Object.keys(files);
+  const reading: ReferenceStore = {
+    classify: (path) => opened.classify(path),
+    record: (path) => opened.record(path),
+    exists: async (path, directory) => (directory ? paths.some((file) => file.startsWith(`${path}/`)) : path in files),
+  };
+  const listed = paths.filter((path) => opened.classify(path).kind !== "ignored");
+  const aliases = successValue(readAliases(new TextEncoder().encode(files[".vmd/aliases.jsonl"])));
+  const record = (await opened.record("docs/r.md")) ?? expect.fail("docs/r.md is not a record");
+  const citing = successValue(record);
+  const references: Reference[] = [];
+  for (const occurrence of occurrencesOf(citing)) {
+    const reference = await new ReferenceResolver(reading, listed, aliases).resolve(citing, occurrence);
+    if (reference !== null) references.push(reference);
+  }
+  return references;
 }
 
 function successValue<T>(outcome: Outcome<T>): T {
@@ -96,12 +122,10 @@ function successValue<T>(outcome: Outcome<T>): T {
 test("resolves each reference through the aliases as it is resolved alone, whatever was resolved before it", async () => {
   await fc.assert(
     fc.asyncProperty(store, async (shape) => {
-      const together = await referencesOf(filesOf(shape, shape.links));
-      const alone: string[] = [];
-      for (const target of shape.links) alone.push(...(await referencesOf(filesOf(shape, [target]))));
-      expect(together).toEqual(alone);
+      const files = filesOf(shape);
+      expect(await referencesTogether(files)).toEqual(await referencesAlone(files));
     }),
     { numRuns: 1500 },
   );
-  // About 15 seconds alone, more under a parallel run.
+  // About 4 seconds alone, more under a parallel run.
 }, 60_000);
