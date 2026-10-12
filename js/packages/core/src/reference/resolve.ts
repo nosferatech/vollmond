@@ -118,9 +118,10 @@ export class ReferenceResolver {
 
   /**
    * Gives the issues of a record that `check` reports for its references: those of each reference it makes, and an
-   * `alias-shadowed` for its path, or each of its anchors, that is the old name of an alias, of the record aliases or of the
-   * record's anchor aliases, those under its old paths included. `record` is null for a record that cannot be read, which has
-   * only its path.
+   * `alias-shadowed` for its path that is the old name of a record alias, and for each node or block anchor that a first step
+   * named by the old name of one of the record's anchor aliases reaches, those under its old paths included: an anchor, a key
+   * of the root, as a JSON or YAML record's top-level key or a Markdown record's front matter key, or a child section of the
+   * root by its key. `record` is null for a record that cannot be read, which has only its path.
    */
   async issuesOf(path: string, record: ParsedRecord | null): Promise<Issue[]> {
     const issues: Issue[] = [];
@@ -137,20 +138,16 @@ export class ReferenceResolver {
       );
     }
     for (const [from, to] of record === null ? [] : await this.#anchorRenamesOf(path)) {
-      // A node's explicit and derived anchors may share the name: one warning per node, a block being a node of its own.
-      const nodes = new Set<unknown>();
-      for (const entry of (record as ParsedRecord).anchors.named(from)) {
-        const node = entry.kind === "block" ? entry : entry.at;
-        if (nodes.has(node)) continue;
-        nodes.add(node);
+      // One warning per node the name reaches: a node that a step matches several ways is one match.
+      for (const target of firstStepTargets(record as ParsedRecord, from)) {
         issues.push(
           makeIssue({
             code: "alias-shadowed",
             path,
-            at: entry.at,
-            message: `the anchor ${JSON.stringify(from)} is the old name of an alias to ${JSON.stringify(to)}, so references to it reach this node`,
-            hint: "a live anchor wins over an alias; remove the alias, or rename this anchor",
-            ...(entry.kind === "block" ? { offset: entry.range.start } : {}),
+            at: target.at,
+            message: `the name ${JSON.stringify(from)}, which a link's first step reaches here, is the old name of an alias to ${JSON.stringify(to)}, so references to it reach this node`,
+            hint: "a live name wins over an alias; remove the alias, or rename this node's anchor or key",
+            ...(target.range === undefined ? {} : { offset: target.range.start }),
           }),
         );
       }
@@ -488,8 +485,13 @@ async function liveEndOfAliasChain(
 
 /** Whether a semantic path whose only step is `name` matches anything in a record: a node, or a block anchor. */
 function firstStepReaches(record: ParsedRecord, name: string): boolean {
+  return firstStepTargets(record, name).length > 0;
+}
+
+/** Gives what a semantic path whose only step is `name` matches in a record, nodes and block anchors, in document order. */
+function firstStepTargets(record: ParsedRecord, name: string): readonly Target[] {
   const found = resolveAddress(record, { kind: "semantic", steps: [name] }, "selector");
-  return found.ok && found.value.length > 0;
+  return found.ok ? found.value : [];
 }
 
 /** A target as a message names it. */

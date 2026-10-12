@@ -51,6 +51,17 @@
       ]}
     },
     {
+      "id": "check-alias-shadowed-keys",
+      "spec": ["13.6", "D"],
+      "operation": "check",
+      "description": "This case pins the project owner's answer on card AC: a live name shadows an alias whatever a link's first step reaches by it, a top-level key of a JSON or YAML record included, as it stops a chain of anchor aliases. The alias a to b in data/keys.json and data/keys.yaml is an alias-shadowed warning at the key a. For contrast, the alias n to b, whose old name is only a nested key that no first step reaches, and the alias gone to b, whose old name nothing has, raise nothing (§13.6, Appendix D).",
+      "input": {"records": ["data/keys.json", "data/keys.yaml"]},
+      "expect": {"issues": [
+        {"code": "alias-shadowed", "severity": "warning", "path": "data/keys.json", "at": "/a"},
+        {"code": "alias-shadowed", "severity": "warning", "path": "data/keys.yaml", "at": "/a"}
+      ]}
+    },
+    {
       "id": "check-not-shadowed",
       "operation": "check",
       "description": "For contrast, a record that no alias names raises nothing (§13.6).",
