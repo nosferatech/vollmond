@@ -222,10 +222,11 @@ export class ReferenceResolver {
 
   /**
    * Resolves a reference that the live store leaves dangling through the aliases: for a path where nothing is, the chain of
-   * record aliases from it, which stops at the first path where a file is; then, in the record that was found, the chain of
-   * anchor aliases from the fragment's first step, among those recorded under the record's path and its old paths, which stops
-   * at the first name that a first step reaches in the record; the other steps are kept. Gives null when no alias applies, or
-   * when the aliases lead nowhere either.
+   * record aliases from it, which stops at the first path where a file is; then, in the record that was found, when the
+   * fragment's first step reaches nothing there, the chain of anchor aliases from that step, among those recorded under the
+   * record's path and its old paths, which stops at the first name that a first step reaches in the record; the other steps are
+   * kept. A first step that reaches something is live and wins over its aliases, whatever the later steps match. Gives null
+   * when no alias applies, or when the aliases lead nowhere either.
    */
   async #throughAliases(path: string, fragmentText: string | null, live: Resolution): Promise<Resolution | null> {
     let current = live;
@@ -237,7 +238,7 @@ export class ReferenceResolver {
     if (current.status === "dangling" && current.inRecord !== undefined && current.inRecord.fragment.kind === "semantic") {
       const { record, fragment } = current.inRecord;
       const [first, ...rest] = fragment.steps as [string, ...string[]];
-      const renamed = await this.#anchorChainLiveEnd(record, first);
+      const renamed = firstStepReaches(record, first) ? null : await this.#anchorChainLiveEnd(record, first);
       if (renamed !== null) {
         current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] });
       }
@@ -260,8 +261,9 @@ export class ReferenceResolver {
 
   /**
    * Gives the live name that the anchor alias chain from `name` reaches in a record, among the record's anchor aliases: the
-   * first name after `name` that a first step reaches in the record, or null when the chain ends before one. Each name of a
-   * record's chains is walked from once, however many references start at it or pass it.
+   * first name after `name` that a first step reaches in the record, or null when the chain ends before one. `name` must be one
+   * that no first step reaches in the record. Each name of a record's chains is walked from once, however many references
+   * start at it or pass it.
    */
   async #anchorChainLiveEnd(record: ParsedRecord, name: string): Promise<string | null> {
     let ends = this.#anchorChainEnds.get(record.path);
@@ -436,14 +438,13 @@ async function endOfAliasChain(start: string, chain: AliasChain, bound: number, 
 
 /**
  * Follows a chain of aliases from `start` as {@link endOfAliasChain} does, but gives only the live name it stops at, or null
- * when it ends before one: at a name that no alias has as its old name, or at a cycle. `known` keeps that result of every walk,
- * by the name it started at and by each name it passed, and a walk that reaches a name in it stops there with its result.
+ * when it ends before one: at a name that no alias has as its old name, or at a cycle. `start` must not be live. `known` keeps
+ * that result of every walk, by the name it started at and by each name it passed, and a walk that reaches a name in it stops
+ * there with its result.
  *
- * Every name a walk passes is not live, and the result from such a name is that of the walk from the name before it, so keeping
- * it is sound, with one exception: a walk that comes back to a live start ends with nothing for the start, since a walk never
- * ends at the name it started at, but with the start for every name it passed, from which the chain reaches the live start.
- * The start is not checked for being live, so a live start's result is kept under it as a start only: a walk that reaches a
- * live name stops there before looking in `known`. A kept result that is `start` comes back to it too.
+ * Keeping it is sound because no name kept is live: the start is not, and a walk passes only names that are not. From each
+ * name a walk passed, the chain goes the same way to the same end, and a cycle, which contains no live name, ends as null from
+ * every name on it.
  */
 async function liveEndOfAliasChain(
   start: string,
@@ -455,31 +456,21 @@ async function liveEndOfAliasChain(
   const seen = new Set([start]);
   const passed: string[] = [];
   let end: string | null = null;
-  /** The result of the names passed, which differs from the start's only when the walk comes back to a live start. */
-  let passedEnd: string | null = null;
   for (let step = 0, next = chain.next(start); next !== undefined && step < bound; step += 1) {
-    if (next === start) {
-      passedEnd = (await chain.live(start)) ? start : null;
-      break;
-    }
     if (seen.has(next)) break;
     if (await chain.live(next)) {
-      end = passedEnd = next;
+      end = next;
       break;
     }
     if (known.has(next)) {
-      const result = known.get(next) ?? null;
-      // A result is live, so one that is the start is a live start that the chain from `next` comes back to.
-      if (result === start) passedEnd = start;
-      else end = passedEnd = result;
+      end = known.get(next) ?? null;
       break;
     }
     seen.add(next);
     passed.push(next);
     next = chain.next(next);
   }
-  known.set(start, end);
-  for (const name of passed) known.set(name, passedEnd);
+  for (const name of [start, ...passed]) known.set(name, end);
   return end;
 }
 

@@ -628,19 +628,61 @@ describe("alias chains and shadowed names", () => {
     ]);
   });
 
-  test("follow a chain from a live start past it, while a chain that reaches that name stops there", async () => {
-    // The start a is live, but a/y matches nothing, so its chain goes on to b; a chain from z stops at a.
+  test("leave a link dangling when its first step is live, without following that name's anchor alias", async () => {
+    // A live name wins for the first step of every link, so where a link goes never depends on its later steps.
     const files = {
       ...alias(
-        { kind: "anchor", record: "docs/c.md", from: "a", to: "b", at },
+        { kind: "anchor", record: "data/k.json", from: "a", to: "b", at },
+        { kind: "anchor", record: "data/k.json", from: "old", to: "b", at },
+        { kind: "anchor", record: "docs/m.md", from: "a", to: "b", at },
+        { kind: "anchor", record: "docs/m.md", from: "old", to: "b", at },
         { kind: "anchor", record: "docs/c.md", from: "z", to: "a", at },
+        { kind: "record", from: "docs/was.md", to: "docs/m.md", at },
       ),
-      "docs/c.md": '# C\n\n## A <a id="a"></a>\n\n## B <a id="b"></a>\n\n### Y\n',
+      "data/k.json": '{"a": {"n": 1}, "b": {"x": 2}}',
+      "docs/m.md": '# M\n\n## A <a id="a"></a>\n\n### N\n\n## B <a id="b"></a>\n\n### X\n',
+      "docs/c.md": '# C\n\n## A <a id="a"></a>\n',
     };
-    const refs = await refsOf("# R\n\n[x](c.md#a/y) [z](c.md#z) [w](c.md#a/y)\n", files);
+    const links = [
+      "/data/k.json#a/x",
+      "m.md#a/x",
+      "was.md#a/x",
+      // Its near misses: a first step that is not live goes through the alias, a whole live link resolves directly, a record
+      // alias chain is followed as before, and a chain that reaches a live name stops there.
+      "/data/k.json#old/x",
+      "m.md#old/x",
+      "/data/k.json#a/n",
+      "m.md#a/n",
+      "was.md#a/n",
+      "c.md#z",
+    ];
+    const refs = await refsOf(`# R\n\n${links.map((link) => `[x](${link})`).join(" ")}\n`, files);
     const shown = (reference: Reference) =>
-      `${reference.status} ${reference.targets.map((target) => ("address" in target ? target.address : target.path))}`;
-    expect(refs.map(shown)).toEqual(["aliased #b/y", "aliased #a", "aliased #b/y"]);
+      `${reference.raw} ${reference.status} ${reference.targets.map((target) => ("at" in target ? `${target.path}${target.at}` : target.path))}`;
+    expect(refs.map(shown)).toEqual([
+      "/data/k.json#a/x dangling ",
+      "m.md#a/x dangling ",
+      "was.md#a/x dangling ",
+      "/data/k.json#old/x aliased data/k.json/b/x",
+      "m.md#old/x aliased docs/m.md/$sections/1/$sections/0",
+      "/data/k.json#a/n ok data/k.json/a/n",
+      "m.md#a/n ok docs/m.md/$sections/0/$sections/0",
+      "was.md#a/n aliased docs/m.md/$sections/0/$sections/0",
+      "c.md#z aliased docs/c.md/$sections/0",
+    ]);
+  });
+
+  test("show a link left dangling by its live first step beside the alias-shadowed warning of that name", async () => {
+    const store = await storeOf({
+      ...alias({ kind: "anchor", record: "data/k.json", from: "a", to: "b", at }),
+      "data/k.json": '{"a": {"n": 1}, "b": {"x": 2}}',
+      "docs/r.md": "# R\n\n[x](/data/k.json#a/x)\n",
+    });
+    const issues = (await store.check({ records: ["data/k.json", "docs/r.md"] })).issues;
+    expect(issues.map((issue) => `${issue.code} ${issue.path} ${issue.at}`)).toEqual([
+      "alias-shadowed data/k.json /a",
+      "ref-dangling docs/r.md /$body",
+    ]);
   });
 
   test("end a record alias cycle where its walk ends, which depends on the path the walk started at", async () => {
@@ -660,7 +702,7 @@ describe("alias chains and shadowed names", () => {
   });
 
   test("resolve a name on a cycle through a live start alike, whichever link is resolved first", async () => {
-    // a is live and a/missing matches nothing, so a's chain goes a, b, a; from b the chain reaches the live a.
+    // a is live, so a/missing is dangling with no alias followed; from b the chain reaches the live a.
     const files = {
       ...alias(
         { kind: "anchor", record: "docs/c.md", from: "a", to: "b", at },
