@@ -43,8 +43,13 @@ export interface AliasTable {
   readonly entries: readonly Alias[];
   /** Gives the path a record moved to from `path`, or undefined when no record alias has that `from`. */
   recordMove(path: string): string | undefined;
-  /** Gives the anchor of `record` that `name` was renamed to, or undefined when no anchor alias has them. */
-  anchorRename(record: string, name: string): string | undefined;
+  /** Gives the paths that {@link recordMove} gives `path` for, in the order of their first entries; empty for none. */
+  recordMovesTo(path: string): readonly string[];
+  /**
+   * Gives the anchor that `name` was renamed to under any of `records`, the store paths of one record: the `to` of the last
+   * anchor alias in the file whose `record` is one of them and whose `from` is `name`, or undefined when there is none.
+   */
+  anchorRename(records: readonly string[], name: string): string | undefined;
   /** Gives the anchor aliases of a record, from each old name to the new one; an empty map for a record without any. */
   anchorRenamesOf(record: string): ReadonlyMap<string, string>;
 }
@@ -127,27 +132,49 @@ function aliasOf(object: ValueObject): Alias | string {
 }
 
 const NO_RENAMES: ReadonlyMap<string, string> = new Map();
+const NO_PATHS: readonly string[] = Object.freeze([]);
 
 /** Builds the lookups of a table, the last entry of each old name winning. */
 function aliasTableOf(entries: readonly Alias[]): AliasTable {
   const moves = new Map<string, string>();
   const renames = new Map<string, Map<string, string>>();
-  for (const entry of entries) {
+  /** The line of the last anchor alias of each record and old name, which says which of a record's paths wins. */
+  const renameLines = new Map<string, Map<string, number>>();
+  entries.forEach((entry, line) => {
     if (entry.kind === "record") {
       moves.set(entry.from, entry.to);
-    } else {
-      let names = renames.get(entry.record);
-      if (names === undefined) {
-        names = new Map();
-        renames.set(entry.record, names);
-      }
-      names.set(entry.from, entry.to);
+      return;
     }
+    let names = renames.get(entry.record);
+    let lines = renameLines.get(entry.record);
+    if (names === undefined || lines === undefined) {
+      names = new Map();
+      lines = new Map();
+      renames.set(entry.record, names);
+      renameLines.set(entry.record, lines);
+    }
+    names.set(entry.from, entry.to);
+    lines.set(entry.from, line);
+  });
+  const movesTo = new Map<string, string[]>();
+  for (const [from, to] of moves) {
+    const froms = movesTo.get(to);
+    if (froms === undefined) movesTo.set(to, [from]);
+    else froms.push(from);
   }
+  const anchorRename = (records: readonly string[], name: string): string | undefined => {
+    let last: { readonly record: string; readonly line: number } | undefined;
+    for (const record of records) {
+      const line = renameLines.get(record)?.get(name);
+      if (line !== undefined && (last === undefined || line > last.line)) last = { record, line };
+    }
+    return last === undefined ? undefined : renames.get(last.record)?.get(name);
+  };
   return Object.freeze({
     entries: Object.freeze([...entries]),
     recordMove: (path: string) => moves.get(path),
-    anchorRename: (record: string, name: string) => renames.get(record)?.get(name),
+    recordMovesTo: (path: string) => movesTo.get(path) ?? NO_PATHS,
+    anchorRename,
     anchorRenamesOf: (record: string) => renames.get(record) ?? NO_RENAMES,
   });
 }

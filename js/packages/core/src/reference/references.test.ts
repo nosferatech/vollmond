@@ -545,6 +545,102 @@ describe("alias chains and shadowed names", () => {
     expect(reference).toMatchObject({ status: "aliased", targets: [{ path: "docs/b.md", at: "", address: "" }] });
   });
 
+  test("follow an anchor alias chain to its end, and stop it at the first name the first step reaches", async () => {
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/c.md", from: "first", to: "second", at },
+        { kind: "anchor", record: "docs/c.md", from: "second", to: "third", at },
+        { kind: "anchor", record: "docs/c.md", from: "mid-a", to: "mid-b", at },
+        { kind: "anchor", record: "docs/c.md", from: "mid-b", to: "third", at },
+        { kind: "anchor", record: "data/ok.json", from: "old", to: "a", at },
+        { kind: "anchor", record: "data/ok.json", from: "a", to: "gone", at },
+      ),
+      "docs/c.md": '# C\n\n## Third <a id="third"></a>\n\n## Mid <a id="mid-b"></a>\n',
+    };
+    for (const name of ["first", "second"]) {
+      const reference = await one(`c.md#${name}`, files);
+      expect(reference, name).toMatchObject({
+        status: "aliased",
+        targets: [{ path: "docs/c.md", at: "/$sections/0", address: "#third" }],
+      });
+      expect(codes(reference), name).toEqual(["ref-aliased warning"]);
+    }
+    // A live anchor midway stops the chain: a live node wins.
+    expect((await one("c.md#mid-a", files)).targets).toEqual([{ path: "docs/c.md", at: "/$sections/1", address: "#mid-b" }]);
+    // So does a root member of a data record that the first step reaches, which an anchor alias may name.
+    expect(await one("/data/ok.json#old/b", files)).toMatchObject({ status: "aliased", targets: [{ at: "/a/b" }] });
+  });
+
+  test("end an anchor alias cycle as dangling, and follow a chain one step short of one", async () => {
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/c.md", from: "loop-a", to: "loop-b", at },
+        { kind: "anchor", record: "docs/c.md", from: "loop-b", to: "loop-a", at },
+        { kind: "anchor", record: "docs/c.md", from: "near-a", to: "near-b", at },
+        { kind: "anchor", record: "docs/c.md", from: "near-b", to: "loop", at },
+      ),
+      "docs/c.md": '# C\n\n## Loop <a id="loop"></a>\n',
+    };
+    expect(codes(await one("c.md#loop-a", files))).toEqual(["ref-dangling error"]);
+    // Its near miss: no alias leads from loop back to near-a.
+    expect(await one("c.md#near-a", files)).toMatchObject({
+      status: "aliased",
+      targets: [{ path: "docs/c.md", at: "/$sections/0", address: "#loop" }],
+    });
+  });
+
+  test("apply the anchor aliases recorded under a record's old paths, to a link with an old path or its current one", async () => {
+    const moved = { "docs/moved.md": '# M\n\n## After <a id="after"></a>\n' };
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/old.md", from: "before", to: "after", at },
+        { kind: "anchor", record: "docs/older.md", from: "earliest", to: "before", at },
+        { kind: "record", from: "docs/older.md", to: "docs/old.md", at },
+        { kind: "record", from: "docs/old.md", to: "docs/moved.md", at },
+        { kind: "anchor", record: "docs/elsewhere.md", from: "stray", to: "after", at },
+      ),
+      ...moved,
+    };
+    const target = [{ path: "docs/moved.md", at: "/$sections/0", address: "#after" }];
+    for (const link of ["old.md#before", "moved.md#before", "older.md#before", "moved.md#earliest"]) {
+      const reference = await one(link, files);
+      expect(reference, link).toMatchObject({ status: "aliased", targets: target });
+      expect(codes(reference), link).toEqual(["ref-aliased warning"]);
+    }
+    // Its near miss: an alias recorded under a path that is not one of the record's does not apply.
+    expect(codes(await one("moved.md#stray", files))).toEqual(["ref-dangling error"]);
+  });
+
+  // Which alias counts where several have one old name, and an old path that a live record has again, are open questions of
+  // the alias design. These pin what the code does until they are answered.
+  test("take the last of several anchor aliases of one old name, within a record and its old paths", async () => {
+    const files = (...order: number[]) => {
+      const lines = [
+        { kind: "anchor", record: "docs/old.md", from: "x", to: "after", at },
+        { kind: "anchor", record: "docs/moved.md", from: "x", to: "other", at },
+      ];
+      return {
+        ...alias({ kind: "record", from: "docs/old.md", to: "docs/moved.md", at }, ...order.map((n) => lines[n] as object)),
+        "docs/moved.md": '# M\n\n## After <a id="after"></a>\n\n## Other <a id="other"></a>\n',
+      };
+    };
+    expect((await one("moved.md#x", files(0, 1))).targets).toMatchObject([{ address: "#other" }]);
+    expect((await one("moved.md#x", files(1, 0))).targets).toMatchObject([{ address: "#after" }]);
+  });
+
+  test("keep the anchor aliases of an old path that a live record has again with that record", async () => {
+    const files = {
+      ...alias(
+        { kind: "anchor", record: "docs/old.md", from: "before", to: "after", at },
+        { kind: "record", from: "docs/old.md", to: "docs/moved.md", at },
+      ),
+      "docs/old.md": '# O\n\n## After <a id="after"></a>\n',
+      "docs/moved.md": '# M\n\n## After <a id="after"></a>\n',
+    };
+    expect(await one("old.md#before", files)).toMatchObject({ status: "aliased", targets: [{ path: "docs/old.md" }] });
+    expect(codes(await one("moved.md#before", files))).toEqual(["ref-dangling error"]);
+  });
+
   test("warn alias-shadowed about a derived anchor alone, as a title added again has", async () => {
     const store = await storeOf({
       ...alias({ kind: "anchor", record: "docs/r.md", from: "notes", to: "remarks", at }),

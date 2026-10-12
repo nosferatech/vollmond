@@ -152,6 +152,30 @@ describe("the aliases a resolver reads", () => {
     expect(moves).toBeLessThanOrEqual(cycle.length + 1);
   });
 
+  test("end a cycle of anchor aliases within a walk of the entries' length, the loop's own bounds failing by assertion", async () => {
+    const loop = [
+      { kind: "anchor", record: "docs/c.md", from: "a", to: "b", at },
+      { kind: "anchor", record: "docs/c.md", from: "b", to: "c", at },
+      { kind: "anchor", record: "docs/c.md", from: "c", to: "a", at },
+    ];
+    const table = successValue(readAliases(encode(aliasFile(...loop))));
+    let renames = 0;
+    const bounded: AliasTable = {
+      ...table,
+      entries: table.entries,
+      anchorRename: (paths, name) => {
+        renames += 1;
+        if (renames > 1000) throw new Error("the walk of an anchor alias chain did not end");
+        return table.anchorRename(paths, name);
+      },
+    };
+    const texts = { "docs/r.md": "# R\n\n[x](c.md#a)\n", "docs/c.md": "# Loop\n\n## Other\n" };
+    const { resolver, records } = resolverOver(texts, bounded);
+    const [reference] = await resolver.referencesOf(records.get("docs/r.md") as ParsedRecord);
+    expect(reference?.status).toBe("dangling");
+    expect(renames).toBeLessThanOrEqual(loop.length + 1);
+  });
+
   test("give alias-shadowed by one lookup per record, without walking the entries", async () => {
     const lines = Array.from({ length: 200 }, (_, n) => ({ kind: "record", from: `old/${n}.md`, to: "docs/r.md", at }));
     const table = successValue(readAliases(encode(aliasFile(...lines))));

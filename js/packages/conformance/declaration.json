@@ -52,22 +52,6 @@
       "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
     },
     {
-      "id": "references/alias-chains/check-anchor-chains",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99's check looks up one alias step"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-alias-under-old-path",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-chain",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-chain-short-of-cycle",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
-    },
-    {
       "id": "references/targets/many-reference-to-missing-record",
       "reason": "I2.4 (#24): references follow in a later pull request"
     },

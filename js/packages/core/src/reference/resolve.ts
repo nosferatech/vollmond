@@ -34,7 +34,7 @@ type Resolution =
       readonly status: "dangling";
       readonly message: string;
       /** The record that exists, with the fragment that matched nothing in it, which an anchor alias may still resolve. */
-      readonly inRecord?: { readonly path: string; readonly fragment: Fragment };
+      readonly inRecord?: { readonly record: ParsedRecord; readonly fragment: Fragment };
       /** Whether nothing is at the path, which a record alias may still resolve. */
       readonly missing?: true;
     };
@@ -58,6 +58,8 @@ export class ReferenceResolver {
   readonly #aliases: AliasTable;
   /** What the store said of each ignored path looked up, by `path` for a file and `path/` for a directory. */
   readonly #lookedUp = new Map<string, Promise<boolean>>();
+  /** The paths whose anchor aliases are a record's, by the record's path, found when first needed. */
+  readonly #anchorAliasPaths = new Map<string, Promise<readonly string[]>>();
 
   /** Takes the store paths of the store's files but those vmd ignores, and its aliases. */
   constructor(store: ReferenceStore, files: Iterable<string>, aliases: AliasTable) {
@@ -212,39 +214,73 @@ export class ReferenceResolver {
     if (issue.code === "address-ambiguous") {
       return { status: "ambiguous", targets: issue.candidates ?? [], message: `${shown} matches several nodes` };
     }
-    return { status: "dangling", message: `${shown} matches no node`, inRecord: { path, fragment } };
+    return { status: "dangling", message: `${shown} matches no node`, inRecord: { record: record.value, fragment } };
   }
 
   /**
-   * Resolves a reference that the live store leaves dangling through the aliases: a record alias for a path where nothing is,
-   * followed through a chain while nothing is at its `to`; then, in the record that was found, an anchor alias for the
-   * fragment's first step, the other steps kept. Gives null when no alias applies, or when the aliases lead nowhere either.
+   * Resolves a reference that the live store leaves dangling through the aliases: for a path where nothing is, the chain of
+   * record aliases from it, which stops at the first path where a file is; then, in the record that was found, the chain of
+   * anchor aliases from the fragment's first step, among those recorded under the record's path and its old paths, which stops
+   * at the first name that a first step reaches in the record; the other steps are kept. Gives null when no alias applies, or
+   * when the aliases lead nowhere either.
    */
   async #throughAliases(path: string, fragmentText: string | null, live: Resolution): Promise<Resolution | null> {
     let current = live;
+    // A chain is no longer than the entries, which bounds a walk if the names seen ever failed to.
+    const bound = this.#aliases.entries.length;
     if (live.status === "dangling" && live.missing === true) {
-      const seen = new Set([path]);
-      let target = path;
-      // A chain is no longer than the entries, which bounds the walk if the paths seen ever failed to.
-      const bound = this.#aliases.entries.length;
-      for (let step = 0, next = this.#aliases.recordMove(target); next !== undefined && step < bound; step += 1) {
-        if (seen.has(next)) break;
-        seen.add(next);
-        target = next;
-        if (await this.#exists(target, false)) break;
-        next = this.#aliases.recordMove(target);
-      }
+      const moves: AliasChain = {
+        next: (from) => this.#aliases.recordMove(from),
+        live: (to) => this.#exists(to, false),
+      };
+      const target = await followAliasChain(path, moves, bound);
       if (target === path) return null;
       current = await this.#resolveTarget(target, false, fragmentText);
     }
     if (current.status === "dangling" && current.inRecord !== undefined && current.inRecord.fragment.kind === "semantic") {
-      const { path: record, fragment } = current.inRecord;
-      const [first, ...rest] = fragment.steps;
-      const renamed = this.#aliases.anchorRename(record, first as string);
-      if (renamed !== undefined) current = await this.#resolveFragment(record, { kind: "semantic", steps: [renamed, ...rest] });
+      const { record, fragment } = current.inRecord;
+      const [first, ...rest] = fragment.steps as [string, ...string[]];
+      const paths = await this.#anchorAliasPathsOf(record.path);
+      const renames: AliasChain = {
+        next: (from) => this.#aliases.anchorRename(paths, from),
+        live: (to) => firstStepReaches(record, to),
+      };
+      const renamed = await followAliasChain(first, renames, bound);
+      if (renamed !== first) {
+        current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] });
+      }
     }
     // An alias that leads nowhere leaves the reference as dangling as the live store does.
     return current === live || current.status === "dangling" ? null : current;
+  }
+
+  /**
+   * Gives the store paths whose anchor aliases are a record's: its own path first, then its old paths, those whose record
+   * aliases lead to it through paths where no file is. An old path where a file is again is left out, since its anchor aliases
+   * are those of that file. Each record's paths are found once.
+   */
+  #anchorAliasPathsOf(path: string): Promise<readonly string[]> {
+    let paths = this.#anchorAliasPaths.get(path);
+    if (paths === undefined) {
+      paths = this.#findAnchorAliasPaths(path);
+      this.#anchorAliasPaths.set(path, paths);
+    }
+    return paths;
+  }
+
+  /** Finds a record's paths for its anchor aliases, as {@link #anchorAliasPathsOf} gives them. */
+  async #findAnchorAliasPaths(path: string): Promise<readonly string[]> {
+    const paths = [path];
+    const seen = new Set(paths);
+    // Back along the record aliases: a path leads to the record when its alias leads to one that does, nothing being at it.
+    for (let index = 0; index < paths.length; index += 1) {
+      for (const from of this.#aliases.recordMovesTo(paths[index] as string)) {
+        if (seen.has(from)) continue;
+        seen.add(from);
+        if (!(await this.#exists(from, false))) paths.push(from);
+      }
+    }
+    return paths;
   }
 
   /** Builds a reference from its resolution, with its issues. */
@@ -314,6 +350,39 @@ export class ReferenceResolver {
       issues: Object.freeze(issues),
     });
   }
+}
+
+/** A kind of alias chain: the alias of each name, and the names that end a chain. */
+interface AliasChain {
+  /** Gives the name that the alias of `from` leads to, or undefined when no alias has `from` as its old name. */
+  next(from: string): string | undefined;
+  /** Whether `to` is live, which ends a chain there. */
+  live(to: string): boolean | Promise<boolean>;
+}
+
+/**
+ * Follows a chain of aliases from `start`: from each name to the one its alias leads to, until a name that is live, one that
+ * no alias has as its old name, or one the chain has passed, which ends a cycle. Gives the last name reached, which is `start`
+ * when no alias has it as its old name, live or not. A walk takes at most `bound` steps, which bounds it if the names seen
+ * ever failed to.
+ */
+async function followAliasChain(start: string, chain: AliasChain, bound: number): Promise<string> {
+  const seen = new Set([start]);
+  let end = start;
+  for (let step = 0, next = chain.next(start); next !== undefined && step < bound; step += 1) {
+    if (seen.has(next)) break;
+    seen.add(next);
+    end = next;
+    if (await chain.live(end)) break;
+    next = chain.next(end);
+  }
+  return end;
+}
+
+/** Whether a semantic path whose only step is `name` matches anything in a record: a node, or a block anchor. */
+function firstStepReaches(record: ParsedRecord, name: string): boolean {
+  const found = resolveAddress(record, { kind: "semantic", steps: [name] }, "selector");
+  return found.ok && found.value.length > 0;
 }
 
 /** A target as a message names it. */
