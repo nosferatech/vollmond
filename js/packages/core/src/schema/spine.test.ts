@@ -444,7 +444,9 @@ describe("the groupings of listed names the spine's check computes", () => {
     expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
     expect(spine.pairsVisited).toBeGreaterThan(400);
     expect(spine.nameGroupings).toBeGreaterThan(300);
-    // No pattern matches a listed name, so each pair examines one name: the first that none matches.
+    // No pattern matches a listed name, so a grouping holds no name, only its entry, and each pair examines one name: the
+    // first that none matches.
+    expect(spine.groupedNames).toBeLessThanOrEqual(spine.nameGroupings);
     expect(spine.nameSteps).toBeLessThanOrEqual(spine.pairsVisited);
   });
 });
