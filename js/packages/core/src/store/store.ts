@@ -27,6 +27,8 @@ import type { ParsedRecord } from "../record/record.js";
 import { ALIASES_PATH, NO_ALIASES, readAliases } from "../reference/aliases.js";
 import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
+import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
+import { MAX_SCHEMA_BYTES } from "../schema/schema-set.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
@@ -41,8 +43,7 @@ const REFERENCE_LIST_PAGE = 1000;
 /** The directory of the store's own configuration's schemas, relative to its root. */
 const SCHEMA_DIRECTORY = ".vmd/schema";
 
-/** The largest schema file, in bytes, that vmd reads: a mebibyte, as for the configuration. */
-export const MAX_SCHEMA_BYTES = 1024 * 1024;
+export { MAX_SCHEMA_BYTES };
 
 /**
  * Where a store's configuration comes from: the configuration file's bytes, and the schema directory beside it, from which
@@ -233,6 +234,12 @@ export interface Store {
    * with `alias-file-invalid` for an alias file that cannot be read as one, and as the backend's `list` and `read` do.
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
+  /**
+   * Gives a collection's schema, loaded, checked and compiled once for the store's lifetime: null for a collection without
+   * one, or a failure with the one issue that makes it unusable, which readers refuse the collection's records with (see
+   * `loadCollectionSchema`).
+   */
+  schema(collection: Collection): Promise<Outcome<CollectionSchema> | null>;
 }
 
 /**
@@ -330,8 +337,8 @@ class BackendStore implements Store {
   readonly #read = new Map<string, Outcome<ParsedRecord> | null>();
   /** The parses of records, whatever their collections' schemas, by path. */
   readonly #parses = new Map<string, Promise<Outcome<ParsedRecord>>>();
-  /** The issue of each collection's schema, null for one that can be used, as it is first looked at. */
-  readonly #schemaIssues = new Map<Collection, Promise<Issue | null>>();
+  /** Each collection's schema, loaded once, when it is first looked at: null for a collection without one. */
+  readonly #schemas = new Map<Collection, Promise<Outcome<CollectionSchema> | null>>();
   /** The resolver of the store's references, made when references are first needed. */
   #resolver: Promise<Outcome<ReferenceResolver>> | undefined;
 
@@ -393,44 +400,23 @@ class BackendStore implements Store {
     return parsing;
   }
 
-  schemaIssue(collection: Collection): Promise<Issue | null> {
-    let issue = this.#schemaIssues.get(collection);
-    if (issue === undefined) {
-      issue = this.#readSchemaIssue(collection);
-      this.#schemaIssues.set(collection, issue);
+  schema(collection: Collection): Promise<Outcome<CollectionSchema> | null> {
+    let schema = this.#schemas.get(collection);
+    if (schema === undefined) {
+      schema = loadCollectionSchema(collection, {
+        configuration: this.#source.content,
+        configurationName: this.#source.name,
+        declared: this.configuration.declared,
+        read: (path) => this.#source.readSchema(path),
+      });
+      this.#schemas.set(collection, schema);
     }
-    return issue;
+    return schema;
   }
 
-  // TODO(#22): the schema is only read and its size checked; compiling it, and validating the records, come with schemas.
-  /** Reads a collection's schema file, and gives the issue that makes it unusable, or null when it can be used. */
-  async #readSchemaIssue(collection: Collection): Promise<Issue | null> {
-    const path = collection.schema;
-    if (path === undefined) return null;
-    const read = await this.#source.readSchema(path);
-    let problem: string | null = null;
-    // A file that is there and cannot be read is the storage's failure; a missing or oversized one is the schema's.
-    let code: "schema-invalid" | "storage-failed" = "schema-invalid";
-    let sourceHint: string | undefined;
-    if (!read.ok) {
-      if (read.issues.every((issue) => issue.code === "address-not-found")) {
-        problem = "does not exist";
-        sourceHint = read.issues.find((issue) => issue.hint !== undefined)?.hint;
-      } else {
-        code = "storage-failed";
-        problem = `cannot be read: ${read.issues.map((issue) => issue.message).join("; ")}`;
-      }
-    } else if ("oversized" in read.value || read.value.length > MAX_SCHEMA_BYTES) {
-      problem = `is larger than ${MAX_SCHEMA_BYTES} bytes`;
-    }
-    if (problem === null) return null;
-    return makeIssue({
-      code,
-      path: null,
-      at: null,
-      message: `the schema ${path} of the collection ${collection.name} ${problem}, so the collection's records cannot be read`,
-      hint: `schemas are in the schema/ directory beside ${this.#source.name}${sourceHint === undefined ? "" : `; ${sourceHint}`}`,
-    });
+  async schemaIssue(collection: Collection): Promise<Issue | null> {
+    const schema = await this.schema(collection);
+    return schema === null || schema.ok ? null : (schema.issues[0] as Issue);
   }
 
   check(options?: CheckOptions): Promise<Outcome<CheckSummary>> {

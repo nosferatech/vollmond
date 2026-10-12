@@ -3,6 +3,7 @@ import { parseJsonUnit } from "../format/json.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { childPath } from "../record/exact-path.js";
+import { readDateTime } from "../schema/logical-types.js";
 import { checkStoragePath } from "../storage/path.js";
 import { decodeSource } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
@@ -51,15 +52,12 @@ const MEMBERS = {
 /** The table of a store without an alias file. */
 export const NO_ALIASES: AliasTable = aliasTableOf([]);
 
-// Deviation from the I2 design, recorded in issue #24: `at` is checked to be a string, and not yet as a date-time, whose
-// check comes with the logical types of schemas.
 /**
  * Reads an alias file: JSON Lines, each line a JSON object, either `{"kind": "record", "from", "to", "at"}` with store paths, or
- * `{"kind": "anchor", "record", "from", "to", "at"}` with a store path and two anchor names, `at` a string, and no other member.
- * A byte order mark at the start is skipped. A line ends at LF, a CR before it included; the last line may end without one.
- * Fails with one `alias-file-invalid`, which
- * has no node, naming the first line that breaks these rules: a file that is not UTF-8, an empty line, a line that is not JSON
- * or holds a duplicate member, or an entry of another shape.
+ * `{"kind": "anchor", "record", "from", "to", "at"}` with a store path and two anchor names, `at` an RFC 3339 date-time string,
+ * and no other member. A byte order mark at the start is skipped. A line ends at LF, a CR before it included; the last line may
+ * end without one. Fails with one `alias-file-invalid`, which has no node, naming the first line that breaks these rules: a file
+ * that is not UTF-8, an empty line, a line that is not JSON or holds a duplicate member, or an entry of another shape.
  */
 export function readAliases(content: Uint8Array): Outcome<AliasTable> {
   const decoded = decodeSource(ALIASES_PATH, content);
@@ -107,6 +105,7 @@ function aliasOf(object: ValueObject): Alias | string {
   const missing = members.find((name) => typeof object[name] !== "string");
   if (missing !== undefined) return `has no string ${missing}`;
   const text = (name: string) => object[name] as string;
+  if (readDateTime(text("at")) === null) return `has an at that is not a date-time (RFC 3339): ${JSON.stringify(text("at"))}`;
   const paths = kind === "record" ? ["from", "to"] : ["record"];
   for (const name of paths) {
     const problem = checkStoragePath(text(name));

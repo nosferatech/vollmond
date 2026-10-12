@@ -255,6 +255,21 @@ describe("symbolic links", () => {
     );
   });
 
+  // Review of #97, O7: a file that a schema's $ref names is read through the backend too, so a committed link cannot read outside.
+  test.skipIf(process.platform === "win32")(
+    "refuse a file that a store's own schema refers to, reached through one",
+    async () => {
+      const { home, store } = linkedStore();
+      writeFiles(store, { ".vmd/config.yaml": CONFIG_T, ".vmd/schema/t.json": '{"$ref": "linked.json"}' });
+      symlinkSync(join(home, "outside/t.json"), join(store, ".vmd/schema/linked.json"));
+      const linked = await vmd(store, "get", "t/a.md");
+      expect(linked.exitCode).toBe(1);
+      expect(linked.stderr).toMatch(/^error schema-invalid: the schema t\.json of the collection t cannot be used/);
+      expect(linked.stderr).toContain("linked.json does not exist");
+      expect(linked.stderr).toMatch(/hint .*symbolic link/);
+    },
+  );
+
   test.skipIf(process.platform === "win32")(
     "refuse a store's own schema reached through one, and read one that is a file",
     async () => {

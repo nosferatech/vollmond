@@ -55,6 +55,9 @@ jobs:
       # The decision records are a vmd store: every record must read with no issue, and its supersessions and links must hold.
       - name: Read the decision records
         run: node scripts/check-decisions.mjs
+      # And every record must be valid against the collection's schema, keyed sections included.
+      - name: Validate the decision records
+        run: node scripts/validate-decisions.mjs
       # Any case that fails or is in error fails the job. The report is uploaded either way, to show which, unless the run was
       # cancelled.
       - name: Run the conformance suite

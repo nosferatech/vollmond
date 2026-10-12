@@ -1,8 +1,7 @@
 // Validates the decision records in docs/decisions against their collection's schema, .vmd/schema/decision.schema.yaml, with
-// @hyperjump/json-schema 1.18.0, until `vmd check` validates collections. The validator is not a dependency of the workspace, so
-// the script is run by hand, after a build, in js/:
+// @hyperjump/json-schema 1.18.0, until `vmd check` validates collections, keyed lists included. The validator is a dependency of
+// core, so CI runs the script after a build, in js/:
 //
-//   npm install --no-save @hyperjump/json-schema@1.18.0
 //   node scripts/validate-decisions.mjs [STORE]
 //
 // STORE defaults to ../docs/decisions. Besides what the validator checks, the script checks what vmd adds to JSON Schema, as the
@@ -14,15 +13,16 @@
 // - `x-vmd-list` keys `$sections` by `@key` alone, with no `unevaluatedItems` beside it, and the script evaluates it: every
 //   section's key is one the list declares, the required keys are there, and each section is valid against its key's schema.
 //
-// Formats are asserted, so `date` and `date-time` are checked. Exits with 1 and lists every problem, or prints the number of
-// records validated.
+// Formats are asserted with core's checks of the logical types, which core registers with the validator, a process-wide
+// setting, when the store first reads a record of the collection; so `date` and `date-time` are checked as vmd checks them.
+// Exits with 1 and lists every problem, or prints the number of records validated.
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createFilesystemStorage } from "../packages/cli/dist/backend/filesystem.js";
 import { decodeSource, openStore, parseYamlUnit, sliceUnitText } from "../packages/core/dist/index.js";
 
 const hyperjump = await import("@hyperjump/json-schema/draft-2020-12").catch(() => {
-  console.error("@hyperjump/json-schema is not installed: run `npm install --no-save @hyperjump/json-schema@1.18.0` in js/");
+  console.error("@hyperjump/json-schema is not installed: run `npm ci` in js/");
   process.exit(2);
 });
 const { setShouldValidateFormat } = await import("@hyperjump/json-schema");

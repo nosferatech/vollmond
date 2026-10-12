@@ -81,6 +81,28 @@ export type {
   ReferenceTarget,
 } from "./reference/reference.js";
 export { resolveReferenceUri, type UriResolution } from "./reference/uri.js";
+export { type CollectionSchema, loadCollectionSchema, type SchemaLoading } from "./schema/collection-schema.js";
+export { EXTENSION_KEYWORDS, type ListDeclaration, type RefDeclaration } from "./schema/keywords.js";
+export {
+  type DateParts,
+  type DateTimeParts,
+  type DecimalParts,
+  type DurationParts,
+  LOGICAL_TYPES,
+  type LogicalType,
+  readBigint,
+  readDate,
+  readDateTime,
+  readDecimal,
+  readDuration,
+  readInt64,
+  readLocalDateTime,
+  readTime,
+  type TimeParts,
+} from "./schema/logical-types.js";
+export { DRAFT_2020_12, type SchemaLocation, type SchemaReader } from "./schema/schema-set.js";
+export type { SchemaShape, ShapeStep } from "./schema/spine.js";
+export { closeValidatorUriSchemes } from "./schema/validator.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";
 export { compileLineTest, type LineTest } from "./storage/grep.js";
 export { createMemoryStorage, type MemoryFile, type MemoryStorageInit } from "./storage/memory.js";
