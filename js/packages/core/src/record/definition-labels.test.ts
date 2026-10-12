@@ -13,6 +13,13 @@ describe("definitionLabelsOfRecord", () => {
     expect(definitionLabelsOfRecord(record)).toEqual(["root", "s", "same", "u", "same"]);
   });
 
+  test("finds the labels of a value once, and gives the same array for it again", () => {
+    const record = { $body: "[a]: /x" };
+    const labels = definitionLabelsOfRecord(record);
+    expect(definitionLabelsOfRecord(record)).toBe(labels);
+    expect(definitionLabelsOfRecord({ $body: "[a]: /x" })).not.toBe(labels);
+  });
+
   test("skips a $body or a $sections item of the wrong type, which the shape check reports", () => {
     expect(definitionLabelsOfRecord({ $body: 1, $sections: ["x", { $title: "S", $body: "[a]: /x" }] })).toEqual(["a"]);
   });

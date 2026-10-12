@@ -549,14 +549,14 @@ function slugCounts(record: ParsedRecord): ReadonlyMap<string, number> {
   if (record.format === "md") {
     for (const entry of record.anchors.anchors) if (entry.kind === "derived" && entry.slug !== undefined) slugs.push(entry.slug);
   } else {
-    let labels: string[] | null = null;
+    let labels: readonly string[] | null = null;
     for (const section of record.nodes.sections()) {
       if (section.at === "") continue;
       const title = (valueAt(record, section.at) as ValueObject).$title;
       const text = typeof title === "string" ? title : "";
       // Only a link reference has a label to look up, and it holds a `[`.
       if (text.includes("[")) labels ??= definitionLabelsOfRecord(record.value);
-      slugs.push(titleSlugOf(text, text.includes("[") ? (labels as string[]) : []));
+      slugs.push(titleSlugOf(text, text.includes("[") ? (labels as readonly string[]) : []));
     }
   }
   const map = new Map<string, number>();

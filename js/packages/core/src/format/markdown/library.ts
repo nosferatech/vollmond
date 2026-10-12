@@ -69,6 +69,9 @@ const RUN_CHARACTERS: readonly number[] = [0x2a, 0x5f, 0x7e];
  */
 const INLINE_NESTING_TYPES: ReadonlySet<Nodes["type"]> = new Set(["emphasis", "strong", "delete", "link", "linkReference"]);
 
+/** The identifiers of the labels of each array given to {@link identifiersOf}, normalized once per array. */
+const identifiersByLabels = new WeakMap<readonly string[], ReadonlySet<string>>();
+
 /** The extension that bounds the nesting of containers, made once: it keeps its counts per parse. */
 const CONTAINER_DEPTH: MicromarkExtension = containerDepthExtension();
 
@@ -208,26 +211,73 @@ function inlineContentExtensions(labels: readonly string[]): MicromarkExtension[
 
 /**
  * An extension that puts the link reference definitions whose labels are `labels`, as written or as identifiers, in scope
- * of a parse, beside the text's own, as if the text held them. It adds them to the library's list of defined labels when
- * the parse starts its first line, before any inline content is read.
+ * of a parse, beside the text's own, as if the text held them. When the parse starts its first line, before any inline
+ * content is read, it replaces the library's list of defined labels with a {@link DefinedLabels} over the labels'
+ * identifiers, which {@link identifiersOf} normalizes once per array: a parse costs the same however many labels there are.
  */
 function labelsInScopeExtension(labels: readonly string[]): MicromarkExtension {
-  const identifiers = [...new Set(labels.map(normalizeIdentifier))];
+  const shared = identifiersOf(labels);
   const seeded = new WeakSet<ParseContext>();
   const defineLabels: Construct = {
     partial: true,
     tokenize(_effects, _ok, nok) {
-      // The library tries the construct at the start of every line, and the labels are added once.
+      // The library tries the construct at the start of every line, and the list is replaced once.
       if (!seeded.has(this.parser)) {
         seeded.add(this.parser);
-        const defined = this.parser.defined;
-        const known = new Set(defined);
-        for (const identifier of identifiers) if (!known.has(identifier)) defined.push(identifier);
+        this.parser.defined = new DefinedLabels(shared, this.parser.defined);
       }
       return nok;
     },
   };
   return { document: { null: defineLabels } };
+}
+
+/**
+ * Gives the identifiers of `labels`, normalized as the library matches them, computed on the first call for an array and
+ * kept for the next: the labels of a record's definitions are one array (see `definitionLabelsOfRecord`), so every parse of
+ * its `$body` and `$title` values shares one set. The array is not changed after the first call.
+ */
+function identifiersOf(labels: readonly string[]): ReadonlySet<string> {
+  let identifiers = identifiersByLabels.get(labels);
+  if (identifiers === undefined) {
+    identifiers = new Set(labels.map(normalizeIdentifier));
+    identifiersByLabels.set(labels, identifiers);
+  }
+  return identifiers;
+}
+
+/**
+ * The library's list of the identifiers defined in a parse, with the identifiers of a shared set defined too, without
+ * copying them in. The list holds the parse's own identifiers, those its definitions push; `includes` finds those and the
+ * shared ones, in constant time. The library uses the list only through `push` and `includes`, in micromark 4.0.3 and
+ * micromark-core-commonmark 2.0.4 (`definition.js` and `label-end.js`); any other array method sees only the parse's own
+ * identifiers, which the tests of definitions in another `$body` would show.
+ */
+class DefinedLabels extends Array<string> {
+  // Methods such as `map` and `slice` make plain arrays, not lists with a shared set.
+  static override get [Symbol.species](): ArrayConstructor {
+    return Array;
+  }
+
+  readonly #shared: ReadonlySet<string>;
+  readonly #own = new Set<string>();
+
+  /** Makes the list of a parse whose own identifiers so far are `own`, with the identifiers of `shared` defined too. */
+  constructor(shared: ReadonlySet<string>, own: readonly string[]) {
+    super();
+    this.#shared = shared;
+    this.push(...own);
+  }
+
+  override push(...identifiers: string[]): number {
+    for (const identifier of identifiers) this.#own.add(identifier);
+    return super.push(...identifiers);
+  }
+
+  override includes(identifier: string, fromIndex?: number): boolean {
+    if (fromIndex !== undefined) return super.includes(identifier, fromIndex);
+    return this.#own.has(identifier) || this.#shared.has(identifier);
+  }
 }
 
 /**

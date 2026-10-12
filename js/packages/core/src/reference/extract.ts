@@ -114,13 +114,33 @@ function proseLinks(text: string, at: string, title: boolean, labels: readonly s
     nodes = tree.root.children;
   }
   const shift = kept.shift;
+  const offsetOf = byteOffsets(text);
   return collectLinks(nodes, text, shift).map((link) => ({
     form: link.form,
     at,
-    offset: UTF8.encode(text.slice(0, shift + link.start)).length,
+    offset: offsetOf(shift + link.start),
     raw: link.destination === null ? "" : text.slice(shift + link.destination.start, shift + link.destination.end),
     uri: link.url,
   }));
+}
+
+/**
+ * Gives a function from an index into `text` to its offset in the text's UTF-8 bytes, for indexes that are not inside a
+ * surrogate pair. Called with indexes in ascending order, as the links of a text come, it encodes each character of the
+ * text at most once; an index below the last one starts again from the text's start.
+ */
+function byteOffsets(text: string): (index: number) => number {
+  let lastIndex = 0;
+  let lastOffset = 0;
+  return (index) => {
+    if (index < lastIndex) {
+      lastIndex = 0;
+      lastOffset = 0;
+    }
+    lastOffset += UTF8.encode(text.slice(lastIndex, index)).length;
+    lastIndex = index;
+    return lastOffset;
+  };
 }
 
 function isObject(value: Value): value is ValueObject {
