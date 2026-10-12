@@ -94,6 +94,18 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ $body: `| h |\n| - |\n| ${runs(4096)}_b_ |` })).toEqual([["syntax-error", ""]]);
   });
 
+  test("a U+FEFF that starts a $body is a character, not a byte order mark that the Markdown library skips", () => {
+    const quotes = `\uFEFF${">".repeat(257)} a`;
+    expect(issuesOf({ $body: quotes, $sections: [{ $title: "S", $body: quotes }] })).toEqual([]);
+    expect(issuesOf({ $body: `\uFEFF    ${"*a* ".repeat(2049)}` })).toEqual([["syntax-error", ""]]);
+    // Nor does a definition after it define anything, for its own $body or another.
+    const references = "[a][*b*] ".repeat(2049);
+    expect(issuesOf({ $body: `\uFEFF[*b*]: /x\n\n${references}` })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: "\uFEFF[*b*]: /x", $sections: [{ $title: "S", $body: references }] })).toEqual([
+      ["syntax-error", ""],
+    ]);
+  });
+
   test("near miss: a $body at the limits reads, and its runs count per paragraph, not for the whole $body", () => {
     const runs = "*a* ".repeat(2048);
     expect(issuesOf({ $body: `${">".repeat(256)} a` })).toEqual([]);

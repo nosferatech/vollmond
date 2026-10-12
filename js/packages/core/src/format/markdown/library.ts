@@ -151,14 +151,26 @@ export function parseMarkdownTree(text: string, labels: readonly string[] = []):
  * Finds a resource limit that a Markdown text passes, as {@link parseMarkdownTree} reads it: the first container nested
  * deeper than {@link MAX_NESTING}, or the first run beyond {@link MAX_EMPHASIS_RUNS} in a paragraph, table cell or heading,
  * or else the first inline node nested deeper than {@link MAX_NESTING} within its block. Returns null when it passes none,
- * which is exactly when {@link parseMarkdownTree} gives a tree for the same `labels`.
+ * which is exactly when {@link parseMarkdownTree} gives a tree for the same `labels` and the text that
+ * {@link keepingLeadingFeff} gives: a U+FEFF at index 0 is a character here, as in the `$body` of a JSON or YAML record.
  *
  * It costs what {@link parseMarkdownTree} does, without the autolink literals' tree transform, and a text past a limit
  * stops the parse where {@link parseMarkdownTree} stops.
  */
 export function markdownLimitPassedIn(text: string, labels: readonly string[] = []): LimitPassage | null {
-  const parsed = parseWithinLimits(text, labels);
-  return parsed.ok ? null : parsed.passage;
+  const kept = keepingLeadingFeff(text);
+  const parsed = parseWithinLimits(kept.text, labels);
+  return parsed.ok ? null : { ...parsed.passage, at: parsed.passage.at + kept.shift };
+}
+
+/**
+ * Gives the text to parse for a Markdown text whose U+FEFF at index 0, if it has one, is a character, as in a `$body` or a
+ * `$title` of a JSON or YAML record, where a U+FEFF is a byte order mark only at a file's first byte. The library skips one
+ * at index 0, so such a text gets a line feed in front, a blank line that changes no block and no inline content. `shift`
+ * is the index into `text` of the parse's index 0: -1 with the line feed, 0 without.
+ */
+export function keepingLeadingFeff(text: string): { readonly text: string; readonly shift: number } {
+  return text.charCodeAt(0) === 0xfeff ? { text: `\n${text}`, shift: -1 } : { text, shift: 0 };
 }
 
 /** The tree of a Markdown text before any tree transform, or the resource limit it passes. */
@@ -284,7 +296,8 @@ export function inlineLimitPassedIn(text: string, labels: () => readonly string[
 }
 
 /**
- * Finds the labels of the link reference definitions in a Markdown text, in document order, at any depth of containers, as
+ * Finds the labels of the link reference definitions in a Markdown text whose U+FEFF at index 0 is a character (see
+ * {@link keepingLeadingFeff}), in document order, at any depth of containers, as
  * the labels that the parses of this module take: each definition's identifier, which the library normalizes from the label
  * as written, escapes kept. A text whose containers nest deeper than {@link MAX_NESTING} has none; a text past an inline
  * limit has its own, since definitions elsewhere may bring it within the limit (see {@link markdownLimitPassedIn}).
@@ -296,7 +309,7 @@ export function definitionLabelsIn(text: string): string[] {
   if (!text.includes("]:")) return [];
   let root: Root;
   try {
-    root = fromMarkdown(text, DEFINITION_OPTIONS);
+    root = fromMarkdown(keepingLeadingFeff(text).text, DEFINITION_OPTIONS);
   } catch (error) {
     if (error instanceof LimitPassed) return [];
     throw error;

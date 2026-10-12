@@ -220,9 +220,18 @@ describe("references in JSON and YAML", () => {
     ]);
   });
 
-  test("give a link's offset in a $body that starts with U+FEFF, which the value holds", async () => {
+  test("give a link's offset in a $body or a $title that starts with U+FEFF, which the value holds", async () => {
     const refs = await refsOf('{"$body": "\\ufeff[x](gone.md)"}', {}, "docs/j.json");
     expect(refs.map(({ offset }) => offset)).toEqual([3]);
+    const title = await refsOf('{"$title": "\\ufeff[t](gone.md)"}', {}, "docs/j.json");
+    expect(title.map(({ at, offset }) => [at, offset])).toEqual([["/$title", 3]]);
+    const indented = await refsOf('{"$body": "\\ufeff    text [x](gone.md)"}', {}, "docs/j.json");
+    expect(indented.map(({ offset, raw }) => [offset, raw])).toEqual([[12, "gone.md"]]);
+  });
+
+  test("read no definition in a $body that starts with U+FEFF and then a definition, as Markdown after a heading does", async () => {
+    expect(await refsOf('{"$title": "T", "$body": "\\ufeff[r]: gone.md"}', {}, "docs/j.json")).toEqual([]);
+    expect(await refsOf("# T\n\n\uFEFF[r]: gone.md\n", {}, "docs/j.md")).toEqual([]);
   });
 
   test("give the references in a node and below it, not those of a node whose path only starts like it", async () => {

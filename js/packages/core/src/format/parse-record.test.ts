@@ -145,15 +145,19 @@ describe("parseRecord", () => {
     ["emphasis nested 256 levels", `${"*a ".repeat(256)}b${" a*".repeat(256)}`, true],
     ["emphasis nested 257 levels", `${"*a ".repeat(257)}b${" a*".repeat(257)}`, false],
     ["runs in the labels of references defined beside them", `[*b*]: /x\n\n${"[a][*b*] ".repeat(2049)}`, true],
+    // A U+FEFF that starts a `$body` is a character of its first line, as it is after a heading in Markdown.
+    ["block quotes nested 257 levels after a U+FEFF", `\uFEFF${">".repeat(257)} a`, true],
+    ["an indented paragraph of 4,098 runs after a U+FEFF", `\uFEFF    ${"*a* ".repeat(2049)}`, false],
+    ["a definition after a U+FEFF, which is text", `\uFEFF[*b*]: /x\n\n${"[a][*b*] ".repeat(2049)}`, false],
   ])("a JSON, YAML and Markdown record agree on a $body of %s, in the root and in a section", (_name, text, reads) => {
     const outcomes = (path: string, record: string) => {
       const outcome = parseRecord(path, bytes(record));
       return { ok: outcome.ok, issues: outcome.issues.map(({ code, at }) => `${code} ${at}`) };
     };
     const expected = reads ? { ok: true, issues: [] } : { ok: false, issues: ["syntax-error "] };
-    expect(outcomes("a.json", JSON.stringify({ $body: text }))).toEqual(expected);
-    expect(outcomes("a.yaml", `$body: ${JSON.stringify(text)}\n`)).toEqual(expected);
-    expect(outcomes("a.md", text)).toEqual(expected);
+    expect(outcomes("a.json", JSON.stringify({ $title: "T", $body: text }))).toEqual(expected);
+    expect(outcomes("a.yaml", `$title: T\n$body: ${JSON.stringify(text)}\n`)).toEqual(expected);
+    expect(outcomes("a.md", `# T\n\n${text}`)).toEqual(expected);
     expect(outcomes("b.json", JSON.stringify({ $title: "T", $sections: [{ $title: "S", $body: text }] }))).toEqual(expected);
     expect(outcomes("b.yaml", `$title: T\n$sections:\n  - $title: S\n    $body: ${JSON.stringify(text)}\n`)).toEqual(expected);
     expect(outcomes("b.md", `# T\n\n## S\n\n${text}`)).toEqual(expected);

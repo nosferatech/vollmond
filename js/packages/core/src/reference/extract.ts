@@ -1,5 +1,5 @@
 import type { Nodes } from "mdast";
-import { parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
+import { keepingLeadingFeff, parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
 import { collectLinks } from "../format/markdown/links.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { childPath } from "../record/exact-path.js";
@@ -101,18 +101,19 @@ function rawRange(record: ParsedRecord, range: ByteRange, raw: string): ByteRang
  * `$body` passes one; a text past them gives no links.
  */
 function proseLinks(text: string, at: string, title: boolean, labels: readonly string[]): ReferenceOccurrence[] {
+  // A U+FEFF that starts the string is a character of it, which the parse would skip.
+  const kept = keepingLeadingFeff(text);
   let nodes: readonly Nodes[];
   if (title) {
-    const content = parseInlineContent(text, labels);
+    const content = parseInlineContent(kept.text, labels);
     if (content === null) return [];
     nodes = content;
   } else {
-    const tree = parseMarkdownTree(text, labels);
+    const tree = parseMarkdownTree(kept.text, labels);
     if (!tree.ok) return [];
     nodes = tree.root.children;
   }
-  // The parser skips a U+FEFF that starts a document, and counts from the character after it.
-  const shift = !title && text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  const shift = kept.shift;
   return collectLinks(nodes, text, shift).map((link) => ({
     form: link.form,
     at,
