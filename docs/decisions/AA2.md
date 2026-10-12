@@ -67,5 +67,5 @@ Why (b) lost: Not recorded. The card's consequence for it: a newer schema read b
 Draft v0.14 (#105): §9.1 ("A collection whose schema cannot be used", and "Every addition is detectable"), §9.3, Appendix D
 `feature-unsupported` and `schema-invalid`; the I2 design's section 3.3; suite cases `validation/schemas/list-unknown-member`,
 `list-unknown-value`, `ref-unknown-member`, `ref-unknown-value`, their near miss `list-and-ref-known-members`, and
-`list-keys-wrong-form`. The four cases of unknown members and values are skipped in the TypeScript runner's declaration until #97
-changes the code, which makes them `schema-invalid` today.
+`list-keys-wrong-form`. The four cases of unknown members and values are skipped in the TypeScript runner's declaration until a follow-up
+to #97 (`f74bc12`) changes the code, which makes them `schema-invalid` today.

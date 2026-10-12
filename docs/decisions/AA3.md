@@ -56,5 +56,5 @@ Why (b) lost: Not recorded. The card's consequences for it: simpler to explain, 
 
 Draft v0.14 (#105): §9.2 (`$dynamicRef` allowed, and what it can land on), §9.3 ("The spine"), Appendix D `schema-invalid`; the
 I2 design's section 3.3; suite cases `validation/schemas/dynamic-ref-tree`, a recursive schema through `$dynamicRef` that
-validates a record, and `dynamic-ref-declaration`, an `x-vmd-list` reached only through it. Both are skipped in the TypeScript
-runner's declaration until #97, whose code passes them, lands.
+validates a record, and `dynamic-ref-declaration`, an `x-vmd-list` reached only through it. #97 (`f74bc12`) passes
+both.

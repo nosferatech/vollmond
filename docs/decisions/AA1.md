@@ -103,4 +103,5 @@ don't want to admit crazy, expensive, dangerous schema."
 
 Draft v0.14 (#105): §9.3 ("A bound on the check", and "Declarations that meet" for what applies together), Appendix D
 `schema-invalid`; the I2 design's section 3.3; suite cases `validation/schemas/spine-work-over-bound` and its near miss
-`spine-work-under-bound`. The case over the bound is skipped in the TypeScript runner's declaration until #97 adds the bound.
+`spine-work-under-bound`. The case over the bound is skipped in the TypeScript runner's declaration until a follow-up to #97
+(`f74bc12`) adds the bound.

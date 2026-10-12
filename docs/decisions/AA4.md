@@ -81,5 +81,4 @@ Appendix D `feature-unsupported` and `schema-invalid`; the I2 design's section 3
 `unequal-additional-properties` and `items-against-list-additional` (item 4), `identifier-in-data` and
 `identifier-not-string-in-data` (item 5), `declaration-on-and-off-spine` and `declaration-on-spine-twice` (item 6), and
 `sections-through-additional-properties` and `sections-kept-out` (item 7). The suite has no case for `storage-failed` beside
-another problem. #97's code passes every one of them; the refusals are skipped in the TypeScript runner's declaration until #97
-lands, and the near misses pass on main, which does not check schemas yet.
+another problem. #97 (`f74bc12`) passes every one of them.
