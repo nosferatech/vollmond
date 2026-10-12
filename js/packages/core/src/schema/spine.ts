@@ -145,7 +145,8 @@ export class Spine {
 
   /**
    * How many listed names the last {@link Spine.check} examined one by one while choosing the members that a pair of
-   * locations taking members of any name steps to: the work of that choice, for tests of its cost.
+   * locations taking members of any name steps to, for tests of its cost. It leaves out the rest of that choice's work: the
+   * words of the patterns' bitsets scanned, and each pattern's test against every listed name.
    */
   get nameSteps(): number {
     return this.#nameSteps;
@@ -713,8 +714,11 @@ export class Spine {
    * to everything the others do. Taking the last of each way keeps the pair walk's order: the walk takes its pairs from a
    * stack, so a step that repeats a later one pushes only pairs the later one has already visited.
    *
-   * Cost: the listed names that a pattern of either object matches, and the last few that none matches, past those `named`
-   * holds; with a scan of the patterns' matches, one bit per listed name.
+   * Cost, per call: one bit test of each pattern of either object for each listed name that a pattern of either matches,
+   * and the last few that none matches, past those `named` holds; and a scan of one word per 32 listed names for each
+   * pattern. So two objects whose patterns match most listed names still cost the listed names, for each pair. Besides,
+   * each distinct pattern is tested once against every listed name, the first time a pair needs it. `nameSteps` counts
+   * the names examined one by one, not the words scanned nor the pattern tests.
    */
   #unnamedWitnesses(first: ValueObject, second: ValueObject, named: ReadonlySet<string>): string[] {
     const names = this.#listedNames();
