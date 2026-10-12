@@ -40,31 +40,43 @@ export function parseAddress(text: string, reading: AddressReading = {}): Outcom
   const record = hash < 0 ? text : text.slice(0, hash);
   const pathIssue = checkStoragePath(record);
   if (pathIssue !== null) return fail([malformedAddress(text, null, pathIssue.message)]);
-  const fragmentText = hash < 0 ? "" : text.slice(hash + 1);
-  if (fragmentText === "") return succeed({ record, fragment: null });
-  if (!fragmentText.isWellFormed()) return fail([malformedAddress(text, record, "its fragment holds a lone surrogate")]);
+  const fragment = readFragment(hash < 0 ? "" : text.slice(hash + 1), reading);
+  if ("problem" in fragment) return fail([malformedAddress(text, record, fragment.problem)]);
+  return succeed({ record, fragment: fragment.fragment });
+}
+
+/** A fragment as {@link readFragment} read it, or why it does not read. */
+export type FragmentReading = { readonly fragment: Fragment | null } | { readonly problem: string };
+
+/**
+ * Reads the fragment of an address, the text after its `#`, as {@link parseAddress} does: an empty one is the root's, null.
+ * Gives the problem for a fragment that does not match the grammar, which `parseAddress` reports as `address-malformed`.
+ */
+export function readFragment(fragmentText: string, reading: AddressReading = {}): FragmentReading {
+  if (fragmentText === "") return { fragment: null };
+  if (!fragmentText.isWellFormed()) return { problem: "its fragment holds a lone surrogate" };
   const raw = reading.raw === true;
   if (fragmentText.startsWith("/")) {
     const decoded = percentDecode(fragmentText, raw);
-    if (typeof decoded !== "string") return fail([malformedAddress(text, record, decoded.problem)]);
+    if (typeof decoded !== "string") return decoded;
     const tokens: string[] = [];
     for (const escaped of decoded.slice(1).split("/")) {
       if (/~(?![01])/u.test(escaped)) {
-        return fail([malformedAddress(text, record, `the token ${JSON.stringify(escaped)} has a "~" that is not "~0" or "~1"`)]);
+        return { problem: `the token ${JSON.stringify(escaped)} has a "~" that is not "~0" or "~1"` };
       }
       // `~1` first, so that `~01` reads as `~1` (RFC 6901, section 4).
       tokens.push(escaped.replaceAll("~1", "/").replaceAll("~0", "~"));
     }
-    return succeed({ record, fragment: { kind: "exact", tokens } });
+    return { fragment: { kind: "exact", tokens } };
   }
   const steps: string[] = [];
   for (const encoded of fragmentText.split("/")) {
-    if (encoded === "") return fail([malformedAddress(text, record, "it has an empty step")]);
+    if (encoded === "") return { problem: "it has an empty step" };
     const decoded = percentDecode(encoded, raw);
-    if (typeof decoded !== "string") return fail([malformedAddress(text, record, decoded.problem)]);
+    if (typeof decoded !== "string") return decoded;
     steps.push(decoded);
   }
-  return succeed({ record, fragment: { kind: "semantic", steps } });
+  return { fragment: { kind: "semantic", steps } };
 }
 
 /**

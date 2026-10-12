@@ -1,0 +1,2 @@
+{"kind": "record", "from": "docs/old.md", "to": "docs/a.md", "at": "2026-10-09T08:00:00Z"}
+{"kind": "record", "from": "../outside.md", "to": "docs/a.md", "at": "2026-10-09T08:00:00Z"}

@@ -448,7 +448,9 @@ objects with these members:
 - **`targets`** is the list of resolved targets, compared in order, since a selector returns its matches in document order (§7.4,
   decision R5). A dangling reference has an empty list, and so does a
   reference declared `cardinality: many` whose selector matches nothing in a record that exists, which is valid with the status
-  `ok` (§8.5).
+  `ok` (§8.5). An `ambiguous` reference lists the nodes that its step matched, in document order, as `resolve` gives the
+  candidates of an ambiguous address (reading R8 of the I2 design, `docs/design/i2-validate.md` §11), and an asset or a
+  directory is listed by its `path` alone, a directory's without a trailing `/` and the store root's as `""`.
 
 Links that leave the store are not listed (§8.2).
 

@@ -1,0 +1,1 @@
+{"$title": "[a][b](c.md)", "$body": "Text.\n\n[b]: ../docs/target.md\n"}

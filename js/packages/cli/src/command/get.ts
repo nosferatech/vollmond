@@ -28,7 +28,7 @@ const ALL_FIELDS: readonly ComputedFieldName[] = COMPUTED_FIELD_NAMES.filter((na
  * with `--json` the value is the node's value view by default, its source text with `--source`, or its `$body` with `--body`.
  * `--body` on a node that is not a section is `usage-invalid`, since the address is fine and the option does not apply.
  * `--meta` requests computed fields by name, with or without their `@`, or `all` of them but `@nodes`: the text output prints
- * one line per field before the node, a field not computed yet as `null` with a warning (`field-not-computed`), and the JSON
+ * one line per field before the node, a field that is not a string as JSON, and the JSON
  * output's value is then `{"value": …, "meta": {…}}`. The text output stops after `--max-chars` characters (20,000 by
  * default), and the line that says so tells how much remains and suggests `vmd outline`; the JSON output is never cut, since
  * a program that asks for JSON wants all of it. On a terminal, the node's text is escaped as {@link terminalText} does; to a
@@ -158,7 +158,7 @@ function formatResult(
     const rows = options.meta.flatMap((name) => {
       const value = fields[name];
       if (value === undefined) return [];
-      // An empty string is written as JSON, so that the line shows that the field is there; a field not computed yet is null.
+      // An empty string is written as JSON, so that the line shows that the field is there.
       return [{ cells: [name, typeof value === "string" && value !== "" ? value : JSON.stringify(value)] }];
     });
     text += `${formatColumns(rows)}\n`;

@@ -201,45 +201,41 @@ describe("Store.get", () => {
     expect(all.meta?.["@anchors"]).toEqual([{ name: "step", kind: "block" }]);
   });
 
-  test("raises no field-not-computed for @collection under meta all, and leaves it out for a record in no collection", async () => {
+  test("gives every field under meta all without a warning, and leaves @collection out for a record in no collection", async () => {
     const store = await storeOf();
     const all = await store.get("data.json", { meta: "all" });
     expect(successValue(all).meta).not.toHaveProperty("@collection");
-    expect(all.issues.map((issue) => issue.message)).toEqual([expect.not.stringContaining("@collection")]);
+    expect(successValue(all).meta?.["@refs"]).toEqual([]);
+    expect(all.issues).toEqual([]);
   });
 
-  test("gives the fields not computed yet as null, with one field-not-computed warning naming them (§5.10)", async () => {
-    const store = await storeOf();
-    const one = await store.get("docs/guide.md#install", { meta: ["@address", "@refs", "@depth"] });
-    expect(successValue(one).meta).toEqual({ "@address": "#install", "@refs": null, "@depth": 1 });
-    expect(one.issues.map(({ code, severity }) => ({ code, severity }))).toEqual([
-      { code: "field-not-computed", severity: "warning" },
-    ]);
-    expect(one.issues[0]?.message).toContain("@refs");
-    expect(one.issues[0]?.message).not.toContain("@collection");
-    const all = await store.get("docs/guide.md#install", { meta: "all" });
-    expect(Object.keys(successValue(all).meta ?? {})).toEqual([
-      "@path",
-      "@at",
-      "@address",
-      "@key",
-      "@anchors",
-      "@version",
-      "@source",
-      "@issues",
-      "@refs",
-      "@depth",
-    ]);
-    expect(successValue(all).meta?.["@refs"]).toBeNull();
-    expect(all.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
-    expect(all.issues[0]?.message).toMatch(/^@refs is not computed yet/);
-    // The sections below a node, with @nodes, give them as null too, under the one warning.
-    const nodes = await store.get("docs/guide.md#install", { meta: ["@refs", "@nodes"] });
-    expect(successValue(nodes).meta).toEqual({
-      "@refs": null,
-      "@nodes": { "/$sections/0/$sections/0": { "@refs": null } },
+  test("gives @refs: the references of the node and below it, resolved against the store (§5.10)", async () => {
+    const files = {
+      ...FILES,
+      "docs/links.md": "# Links\n\nSee [the guide](guide.md#install).\n\n## More\n\n![Logo](../image.png) [gone](gone.md)\n",
+    };
+    const store = await storeOf(files);
+    const more = await store.get("docs/links.md#more", { meta: ["@refs"] });
+    expect(successValue(more).meta).toEqual({
+      "@refs": [
+        { raw: "../image.png", status: "ok", targets: [{ path: "image.png", kind: "asset" }], offset: 0 },
+        { raw: "gone.md", status: "dangling", targets: [], offset: 22 },
+      ],
     });
-    expect(nodes.issues.map((issue) => issue.code)).toEqual(["field-not-computed"]);
+    expect(more.issues).toEqual([]);
+    const root = await store.get("docs/links.md", { meta: ["@refs", "@nodes"] });
+    const meta = successValue(root).meta;
+    expect(meta?.["@refs"]?.map((reference) => reference.raw)).toEqual(["guide.md#install", "../image.png", "gone.md"]);
+    expect(meta?.["@refs"]?.[0]?.targets).toEqual([{ path: "docs/guide.md", at: "/$sections/0", address: "#install" }]);
+    expect(meta?.["@nodes"]?.["/$sections/0"]?.["@refs"]?.map((reference) => reference.raw)).toEqual(["../image.png", "gone.md"]);
+  });
+
+  test("fails a read that requests @refs on an alias file that cannot be read as one, and no other read", async () => {
+    const store = await storeOf({ ...FILES, ".vmd/aliases.jsonl": "not json\n" });
+    expect(codesOf(await store.get("docs/guide.md", { meta: ["@refs"] }))).toEqual(["alias-file-invalid"]);
+    expect(codesOf(await store.get("docs/guide.md", { meta: "all" }))).toEqual(["alias-file-invalid"]);
+    // Its near miss: a read without @refs does not read the alias file.
+    expect(successValue(await store.get("docs/guide.md", { meta: ["@path"] })).meta).toEqual({ "@path": "docs/guide.md" });
   });
 
   test("fails as resolving does: a missing record, a malformed address, an ambiguous one", async () => {

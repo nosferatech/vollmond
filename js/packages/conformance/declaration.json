@@ -104,35 +104,11 @@
       "reason": "I2.4 (#24): references follow in a later pull request"
     },
     {
-      "id": "references/targets/missing-image",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
       "id": "references/targets/no-targets-allows-any-target",
       "reason": "I2.4 (#24): references follow in a later pull request"
     },
     {
-      "id": "references/targets/reference-into-unreadable-record",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
-      "id": "references/targets/refs-unreadable-record-empty-fragment",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
-      "id": "references/targets/refs-unreadable-record-without-fragment",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
-      "id": "references/targets/refs-unreadable-status",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
       "id": "references/targets/targets-restrict",
-      "reason": "I2.4 (#24): references follow in a later pull request"
-    },
-    {
-      "id": "references/targets/unreadable-record-without-fragment-no-warning",
       "reason": "I2.4 (#24): references follow in a later pull request"
     },
     {

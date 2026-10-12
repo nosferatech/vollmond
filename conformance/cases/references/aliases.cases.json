@@ -1,0 +1,61 @@
+{
+  "defaults": {"spec": ["8.5", "13.6"], "profiles": ["validate"], "operation": "refs", "input": {"store": "aliases"}},
+  "cases": [
+    {
+      "id": "refs-aliased-record",
+      "description": "A reference to a record path that no file has resolves through a record alias, as aliased, with the alias's target, its fragment resolved in the record it moved to (§8.5, §13.6, decision C22).",
+      "input": {"record": "refs/moved.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/moved.md", "at": "/$body", "offset": 4}, "raw": "../docs/old.md", "status": "aliased", "targets": [{"path": "docs/current.md", "at": "", "address": ""}]},
+        {"from": {"path": "refs/moved.md", "at": "/$body", "offset": 28}, "raw": "../docs/old.md#room-rule", "status": "aliased", "targets": [{"path": "docs/current.md", "at": "/$sections/0", "address": "#room-rule"}]}
+      ]}
+    },
+    {
+      "id": "refs-aliased-anchor",
+      "description": "A reference whose first step names no node of a record resolves through an anchor alias of that record, as aliased (§8.5, §13.6).",
+      "input": {"record": "refs/renamed.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/renamed.md", "at": "/$body", "offset": 4}, "raw": "../docs/current.md#room", "status": "aliased", "targets": [{"path": "docs/current.md", "at": "/$sections/0", "address": "#room-rule"}]}
+      ]}
+    },
+    {
+      "id": "check-aliased",
+      "spec": ["8.5", "13.6", "D"],
+      "operation": "check",
+      "description": "A reference that resolves only through an alias is a ref-aliased warning (§8.5, Appendix D).",
+      "input": {"records": ["refs/moved.md", "refs/renamed.md"]},
+      "expect": {"issues": [
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/moved.md", "at": "/$body"},
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/moved.md", "at": "/$body"},
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/renamed.md", "at": "/$body"}
+      ]}
+    },
+    {
+      "id": "refs-live-node-wins",
+      "description": "For contrast, a record path and an anchor that exist resolve to the live nodes, although an alias has them as its old names (§13.6).",
+      "input": {"record": "refs/live.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/live.md", "at": "/$body", "offset": 4}, "raw": "../docs/live.md", "status": "ok", "targets": [{"path": "docs/live.md", "at": "", "address": ""}]},
+        {"from": {"path": "refs/live.md", "at": "/$body", "offset": 29}, "raw": "../docs/current.md#kept", "status": "ok", "targets": [{"path": "docs/current.md", "at": "/$sections/1", "address": "#kept"}]}
+      ]}
+    },
+    {
+      "id": "check-alias-shadowed",
+      "spec": ["13.6", "D"],
+      "operation": "check",
+      "description": "A live record path and a live anchor that an alias has as its old name are each an alias-shadowed warning, at the record and at the node, once for a node whose explicit and derived anchors both have the name (§13.6, Appendix D).",
+      "input": {"records": ["docs/live.md", "docs/current.md"]},
+      "expect": {"issues": [
+        {"code": "alias-shadowed", "severity": "warning", "path": "docs/current.md", "at": "/$sections/1"},
+        {"code": "alias-shadowed", "severity": "warning", "path": "docs/live.md", "at": ""}
+      ]}
+    },
+    {
+      "id": "check-not-shadowed",
+      "operation": "check",
+      "description": "For contrast, a record that no alias names raises nothing (§13.6).",
+      "input": {"records": ["docs/plain.md", "refs/live.md"]},
+      "expect": {}
+    }
+  ]
+}

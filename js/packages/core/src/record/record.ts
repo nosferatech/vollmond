@@ -1,6 +1,7 @@
 import type { AnchorTable } from "../anchor/anchor-table.js";
 import { hasStructuralError, type Issue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
+import type { ReferenceOccurrence } from "../reference/reference.js";
 import type { SourceText } from "../text/source-text.js";
 import type { ValueObject } from "../value/value.js";
 import type { NodeIndex } from "./node-index.js";
@@ -26,6 +27,11 @@ export interface ParsedRecord {
   readonly sectionKeys: ReadonlyMap<string, string>;
   /** The validation issues found while parsing, such as duplicate keys; never a structural error. */
   readonly issues: readonly Issue[];
+  /**
+   * For a Markdown record, the links, images and link reference definitions of its titles and bodies, in document order, which
+   * its parse collects. Absent for a JSON or YAML record, whose prose is parsed for them only when references are needed.
+   */
+  readonly links?: readonly ReferenceOccurrence[];
 }
 
 /**

@@ -20,22 +20,23 @@ import { MAX_RECORD_BYTES } from "../format/limits.js";
 import { parseRecord, recordTooLarge } from "../format/parse-record.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
-import {
-  COMPUTED_FIELD_NAMES,
-  type ComputedFieldName,
-  type ComputedFields,
-  computeFields,
-  NOT_COMPUTED_FIELDS,
-} from "../meta/computed-fields.js";
+import { type ComputedFieldName, type ComputedFields, computeFields } from "../meta/computed-fields.js";
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
+import { ALIASES_PATH, NO_ALIASES, readAliases } from "../reference/aliases.js";
+import type { Reference } from "../reference/reference.js";
+import { ReferenceResolver } from "../reference/resolve.js";
+import { compareUtf8 } from "../storage/path.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
 
 /** The store's configuration file, relative to its root. */
 const CONFIGURATION_PATH = ".vmd/config.yaml";
+
+/** How many paths a page of the listing that the reference resolver reads holds. */
+const REFERENCE_LIST_PAGE = 1000;
 
 /** The directory of the store's own configuration's schemas, relative to its root. */
 const SCHEMA_DIRECTORY = ".vmd/schema";
@@ -83,6 +84,16 @@ export interface UnreadableCount {
 /** A page of a store's records and assets, with the records on it that could not be read counted. */
 export interface StorePage extends CountedPage<StoreEntry> {
   readonly unreadable: UnreadableCount;
+}
+
+// Deviation from the I2 design, recorded in issue #24: references are queried by where they are made (`from`) only; the
+// references into a node (`to`) come with the commands and counts that need them.
+/** What {@link Store.references} gives the references of. */
+export interface ReferencesQuery {
+  /** The references made in the node this singular address names and below it; every record's when absent. */
+  readonly from?: string;
+  /** How `from` is read: `raw` takes characters outside a fragment's as themselves, as the command line does. */
+  readonly reading?: AddressReading;
 }
 
 /** The query of {@link Store.list}: the backend's, without the prefix and the paths to leave out, which the store sets. */
@@ -187,8 +198,8 @@ export interface Store {
    * does, and with `usage-invalid` for the body form of a node that is neither a section, a `$body` nor a block anchor, since
    * the address is fine and the form does not apply. A section without a `$body` gives the empty string. `@collection` is the
    * name of the record's collection, absent for a record that no collection, or several, claim; `@issues` has the severities
-   * the configuration gives. Requested fields that are not computed yet ({@link NOT_COMPUTED_FIELDS}) are given as `null`,
-   * with one warning `field-not-computed` that names them.
+   * the configuration gives. `@refs` resolves the node's references, so it reads the store's file list and alias file, and
+   * fails as {@link Store.references} does.
    */
   get(address: string, options?: GetOptions): Promise<Outcome<GetResult>>;
   /**
@@ -212,9 +223,16 @@ export interface Store {
   /**
    * Checks the store, or some of its records, and gives the issues found as the outcome's issues, with the severities the
    * configuration gives them (see `checkStore`). A record of a collection whose schema cannot be used is checked for
-   * everything else. Fails as the backend's `list` does.
+   * everything else. Fails as the backend's `list` does, and as {@link Store.references} does.
    */
   check(options?: CheckOptions): Promise<Outcome<CheckSummary>>;
+  /**
+   * Gives the references made in a node and below it, or in every record of the store, each resolved against the store, in
+   * document order of each record and the records in UTF-8 byte order of their paths. References that leave the store are not
+   * given. Without `from`, a record that cannot be read is left out; with it, the read fails as resolving `from` does. Fails
+   * with `alias-file-invalid` for an alias file that cannot be read as one, and as the backend's `list` and `read` do.
+   */
+  references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
 }
 
 /**
@@ -314,6 +332,8 @@ class BackendStore implements Store {
   readonly #parses = new Map<string, Promise<Outcome<ParsedRecord>>>();
   /** The issue of each collection's schema, null for one that can be used, as it is first looked at. */
   readonly #schemaIssues = new Map<Collection, Promise<Issue | null>>();
+  /** The resolver of the store's references, made when references are first needed. */
+  #resolver: Promise<Outcome<ReferenceResolver>> | undefined;
 
   constructor(backend: StorageReader, configuration: StoreConfiguration, source: ConfigurationSource) {
     this.backend = backend;
@@ -417,6 +437,82 @@ class BackendStore implements Store {
     return checkStore(this, options);
   }
 
+  /**
+   * Gives the resolver of the store's references, made once. `listing`, the store's files but the ignored ones as a check
+   * has just listed them, spares a second listing; without it, the resolver lists the store itself.
+   */
+  referenceResolver(listing?: readonly string[]): Promise<Outcome<ReferenceResolver>> {
+    this.#resolver ??= this.#readReferenceResolver(listing);
+    return this.#resolver;
+  }
+
+  /** Lists the store's files but the ignored ones, unless given them, and reads its alias file, for the resolver. */
+  async #readReferenceResolver(listing: readonly string[] | undefined): Promise<Outcome<ReferenceResolver>> {
+    const files: string[] = listing === undefined ? [] : [...listing];
+    let cursor: string | null = null;
+    while (listing === undefined) {
+      const page = await this.backend.list({
+        prefix: "",
+        exclude: this.classifier.ignoredGlobs,
+        limit: REFERENCE_LIST_PAGE,
+        ...(cursor === null ? {} : { cursor }),
+      });
+      if (!page.ok) return fail(page.issues);
+      for (const file of page.value.items) files.push(file.path);
+      // A file the backend could not read when listing it is still there, for a reference to it.
+      for (const issue of page.issues) if (issue.code === "storage-failed" && issue.path !== null) files.push(issue.path);
+      cursor = page.value.cursor;
+      if (cursor === null) break;
+    }
+    let aliases = NO_ALIASES;
+    const file = await this.backend.read(ALIASES_PATH);
+    if (file.ok) {
+      if ("oversized" in file.value) throw new Error("a read without a size bound gave an oversized file");
+      const read = readAliases(file.value.content);
+      if (!read.ok) return fail(read.issues);
+      aliases = read.value;
+    } else if (!file.issues.every((issue) => issue.code === "address-not-found")) {
+      return fail(file.issues);
+    }
+    const store = {
+      classify: (path: string) => this.classify(path),
+      record: (path: string) => this.record(path),
+      exists: (path: string, directory: boolean) => this.#exists(path, directory),
+    };
+    return succeed(new ReferenceResolver(store, files, aliases));
+  }
+
+  /** Whether a file is at `path`, or below it for `directory`, ignored paths included; a file it cannot read is there. */
+  async #exists(path: string, directory: boolean): Promise<boolean> {
+    if (directory) {
+      const below = await this.backend.list({ prefix: `${path}/`, limit: 1 });
+      return below.ok && (below.value.items.length > 0 || below.issues.some((issue) => issue.code === "storage-failed"));
+    }
+    const stat = await this.backend.stat(path);
+    return stat.ok || !stat.issues.every((issue) => issue.code === "address-not-found");
+  }
+
+  async references(query: ReferencesQuery = {}): Promise<Outcome<readonly Reference[]>> {
+    const resolver = await this.referenceResolver();
+    if (!resolver.ok) return fail(resolver.issues);
+    if (query.from === undefined) {
+      const references: Reference[] = [];
+      for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
+        const read = await this.record(path);
+        if (read?.ok === true) references.push(...(await resolver.value.referencesOf(read.value)));
+      }
+      return succeed(references);
+    }
+    const resolved = await this.resolve(query.from, "singular", query.reading);
+    if (!resolved.ok) return fail(resolved.issues);
+    const { record, targets } = resolved.value;
+    const target = targets[0] as Target;
+    const references = await resolver.value.referencesOf(record, target.at);
+    const range = target.range;
+    if (range === undefined) return succeed(references);
+    return succeed(references.filter((reference) => inBlock(reference, target.at, range)));
+  }
+
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>> {
     return resolveStoreAddress((path) => this.record(path), address, use, reading);
   }
@@ -430,13 +526,18 @@ class BackendStore implements Store {
     if (!value.ok) return fail(value.issues);
     if (options.meta === undefined) return succeed({ value: value.value });
     const collection = collectionOfRecord(this.classify(record.path));
+    let references: readonly Reference[] | undefined;
+    if (options.meta === "all" || options.meta.includes("@refs")) {
+      const resolver = await this.referenceResolver();
+      if (!resolver.ok) return fail(resolver.issues);
+      references = await resolver.value.referencesOf(record, target.at);
+    }
     const meta = await computeFields(record, target, options.meta, {
       severities: this.configuration,
       ...(collection === undefined ? {} : { collection: collection.name }),
+      ...(references === undefined ? {} : { references }),
     });
-    const requested: readonly ComputedFieldName[] = options.meta === "all" ? COMPUTED_FIELD_NAMES : options.meta;
-    const pending = NOT_COMPUTED_FIELDS.filter((name) => requested.includes(name));
-    return succeed({ value: value.value, meta }, pending.length === 0 ? [] : [notComputedWarning(pending)]);
+    return succeed({ value: value.value, meta });
   }
 
   async outline(
@@ -543,16 +644,10 @@ function formOf(record: ParsedRecord, target: Target, form: NodeForm): Outcome<V
   ]);
 }
 
-/** The warning for requested computed fields that are not computed yet, which a read gives as `null`. */
-function notComputedWarning(names: readonly ComputedFieldName[]): Issue {
-  const one = names.length === 1;
-  const listed = one ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-  return makeIssue({
-    code: "field-not-computed",
-    path: null,
-    at: null,
-    message: `${listed} ${one ? "is" : "are"} not computed yet, so ${one ? "it is" : "they are"} given as null`,
-  });
+/** Whether a reference is in the block of a `$body` at `at` that `range` gives, by its offset in the `$body`. */
+function inBlock(reference: Reference, at: string, range: ByteRange): boolean {
+  const offset = reference.offset;
+  return reference.at === at && offset !== undefined && offset >= range.start && offset < range.end;
 }
 
 /** Finds the block anchor a target names, or undefined for a target that is a node. */

@@ -1,0 +1,158 @@
+{
+  "defaults": {"spec": ["8.2", "8.5"], "profiles": ["validate"], "operation": "refs", "input": {"store": "statuses"}},
+  "cases": [
+    {
+      "id": "refs-ok-targets",
+      "spec": ["5.9", "8.1", "8.2", "8.5"],
+      "description": "Each reference that resolves is ok: a record's root, a node, a block anchor (with its range), an asset whose fragment is not looked at, a directory, and a node of the citing record itself; a link that leaves the store is not listed (§8.2, §8.5).",
+      "input": {"record": "refs/ok.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 0}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]},
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 23}, "raw": "../docs/target.md#done", "status": "ok", "targets": [{"path": "docs/target.md", "at": "/$sections/1", "address": "#done"}]},
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 51}, "raw": "../docs/target.md#step", "status": "ok", "targets": [{"path": "docs/target.md", "at": "/$sections/0/$body", "address": "#step", "range": [0, 30]}]},
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 79}, "raw": "../assets/notes.txt#x", "status": "ok", "targets": [{"path": "assets/notes.txt"}]},
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 106}, "raw": "../docs/", "status": "ok", "targets": [{"path": "docs"}]},
+        {"from": {"path": "refs/ok.md", "at": "/$body", "offset": 120}, "raw": "#here", "status": "ok", "targets": [{"path": "refs/ok.md", "at": "/$sections/0", "address": "#here"}]}
+      ]}
+    },
+    {
+      "id": "refs-dangling",
+      "spec": ["7.1", "8.2", "8.5"],
+      "description": "A reference to a file that does not exist, to a node a record does not have, with a fragment that is not an address, or with a path whose escapes are not UTF-8, is dangling, with no targets (§8.2, §8.5).",
+      "input": {"record": "refs/dangling.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/dangling.md", "at": "/$body", "offset": 0}, "raw": "../docs/missing.md", "status": "dangling", "targets": []},
+        {"from": {"path": "refs/dangling.md", "at": "/$body", "offset": 24}, "raw": "../docs/target.md#nothing", "status": "dangling", "targets": []},
+        {"from": {"path": "refs/dangling.md", "at": "/$body", "offset": 55}, "raw": "../docs/target.md#a%zz", "status": "dangling", "targets": []},
+        {"from": {"path": "refs/dangling.md", "at": "/$body", "offset": 83}, "raw": "caf%E9.md", "status": "dangling", "targets": []}
+      ]}
+    },
+    {
+      "id": "check-dangling",
+      "spec": ["8.5", "D"],
+      "operation": "check",
+      "description": "The same references are each a ref-dangling error at the $body that holds them (§8.5, Appendix D).",
+      "input": {"records": ["refs/dangling.md"]},
+      "expect": {"issues": [
+        {"code": "ref-dangling", "severity": "error", "path": "refs/dangling.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/dangling.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/dangling.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/dangling.md", "at": "/$body"}
+      ]}
+    },
+    {
+      "id": "refs-ambiguous",
+      "spec": ["7.4", "8.5"],
+      "description": "A singular reference whose step matches several nodes is ambiguous, and its targets are the nodes that step matched, in document order (§8.5).",
+      "input": {"record": "refs/ambiguous.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/ambiguous.md", "at": "/$body", "offset": 4}, "raw": "../docs/twin.md#notes", "status": "ambiguous", "targets": [{"path": "docs/twin.md", "at": "/$sections/0", "address": "#/$sections/0"}, {"path": "docs/twin.md", "at": "/$sections/1", "address": "#notes-1"}]}
+      ]}
+    },
+    {
+      "id": "check-ambiguous",
+      "spec": ["8.5", "D"],
+      "operation": "check",
+      "description": "The same reference is a ref-ambiguous error at the $body that holds it (§8.5, Appendix D).",
+      "input": {"records": ["refs/ambiguous.md"]},
+      "expect": {"issues": [{"code": "ref-ambiguous", "severity": "error", "path": "refs/ambiguous.md", "at": "/$body"}]}
+    },
+    {
+      "id": "check-exact-path-not-ambiguous",
+      "spec": ["7.2", "8.5"],
+      "operation": "check",
+      "description": "For contrast, an exact path into the same record names one node, and raises nothing (§7.2).",
+      "input": {"records": ["refs/exact.md"]},
+      "expect": {}
+    },
+    {
+      "id": "check-derived-anchor",
+      "spec": ["6.3", "D"],
+      "operation": "check",
+      "description": "A reference whose first step reaches its target only through the title, by a derived anchor or the title's key, is a ref-derived-anchor warning when no other heading of the record has its slug (§6.3).",
+      "input": {"records": ["refs/derived.md"]},
+      "expect": {"issues": [
+        {"code": "ref-derived-anchor", "severity": "warning", "path": "refs/derived.md", "at": "/$body"},
+        {"code": "ref-derived-anchor", "severity": "warning", "path": "refs/derived.md", "at": "/$body"}
+      ]}
+    },
+    {
+      "id": "check-explicit-anchors-no-warning",
+      "spec": ["6.2", "6.3"],
+      "operation": "check",
+      "description": "For contrast, references through an explicit anchor and a block anchor raise no warning, nor does a later step through a section member (§6.3).",
+      "input": {"records": ["refs/explicit.md"]},
+      "expect": {}
+    },
+    {
+      "id": "check-derived-repeat",
+      "spec": ["6.3", "D"],
+      "operation": "check",
+      "description": "A reference through a derived anchor whose slug another heading of the record has is ref-derived-repeat in place of ref-derived-anchor, the unsuffixed anchor and the suffixed one alike (§6.3).",
+      "input": {"records": ["refs/repeat.md"]},
+      "expect": {"issues": [
+        {"code": "ref-derived-repeat", "severity": "warning", "path": "refs/repeat.md", "at": "/$body"},
+        {"code": "ref-derived-repeat", "severity": "warning", "path": "refs/repeat.md", "at": "/$body"}
+      ]}
+    },
+    {
+      "id": "refs-offsets-in-markdown-titles",
+      "spec": ["5.9", "8.1"],
+      "description": "A link in a heading is at its section's $title, at its offset in the value: after an anchor element, which the value leaves out, and in a setext title of two lines, which the value joins with one line feed (§5.9, decision C21).",
+      "input": {"record": "refs/titles.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/titles.md", "at": "/$sections/0/$title", "offset": 5}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]},
+        {"from": {"path": "refs/titles.md", "at": "/$sections/1/$title", "offset": 16}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-json-prose-and-ref-objects",
+      "spec": ["5.9", "8.1"],
+      "description": "A JSON record's $title and $body are Markdown, whose links are at their offsets in UTF-8 bytes of the strings, and its $ref objects are references at the object (§5.9, §8.1, decision C21).",
+      "input": {"record": "refs/prose.json"},
+      "expect": {"result": [
+        {"from": {"path": "refs/prose.json", "at": "/$title", "offset": 6}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]},
+        {"from": {"path": "refs/prose.json", "at": "/$body", "offset": 6}, "raw": "../docs/target.md#done", "status": "ok", "targets": [{"path": "docs/target.md", "at": "/$sections/1", "address": "#done"}]},
+        {"from": {"path": "refs/prose.json", "at": "/parent"}, "raw": "../docs/target.md#done", "status": "ok", "targets": [{"path": "docs/target.md", "at": "/$sections/1", "address": "#done"}]},
+        {"from": {"path": "refs/prose.json", "at": "/missing/0"}, "raw": "../docs/missing.md", "status": "dangling", "targets": []}
+      ]}
+    },
+    {
+      "id": "check-ref-object-dangling",
+      "spec": ["8.1", "D"],
+      "operation": "check",
+      "description": "A dangling $ref object is ref-dangling at the object (§8.1, Appendix D).",
+      "input": {"records": ["refs/prose.json"]},
+      "expect": {"issues": [{"code": "ref-dangling", "severity": "error", "path": "refs/prose.json", "at": "/missing/0"}]}
+    },
+    {
+      "id": "refs-data-title-definitions-in-scope",
+      "spec": ["5.4", "8.1"],
+      "description": "A JSON $title is read as a heading's inline content with the link reference definitions of the record's $body values in scope, so [a][b](c.md) is a reference to the definition of b, followed by text, and not a link to c.md, as in a Markdown heading (§5.4, decision Q1).",
+      "input": {"record": "refs/title-definition.json"},
+      "expect": {"result": [
+        {"from": {"path": "refs/title-definition.json", "at": "/$body", "offset": 7}, "raw": "../docs/target.md", "status": "ok", "targets": [{"path": "docs/target.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-directory-targets",
+      "spec": ["8.2", "8.5"],
+      "description": "A directory target is its path without a trailing /, and the store root's is the empty path (§8.2).",
+      "input": {"record": "refs/root.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/root.md", "at": "/$body", "offset": 0}, "raw": "../", "status": "ok", "targets": [{"path": ""}]},
+        {"from": {"path": "refs/root.md", "at": "/$body", "offset": 9}, "raw": "../docs", "status": "ok", "targets": [{"path": "docs"}]}
+      ]}
+    },
+    {
+      "id": "refs-yaml-prose",
+      "spec": ["5.9", "8.1"],
+      "description": "A YAML record's $body and a section's $title are Markdown too: an image in the $body, which is missing, and a link in the title (§8.1, decisions C21 and U7).",
+      "input": {"record": "refs/prose.yaml"},
+      "expect": {"result": [
+        {"from": {"path": "refs/prose.yaml", "at": "/$body", "offset": 16}, "raw": "../assets/missing.png", "status": "dangling", "targets": []},
+        {"from": {"path": "refs/prose.yaml", "at": "/$sections/0/$title", "offset": 5}, "raw": "../docs/twin.md", "status": "ok", "targets": [{"path": "docs/twin.md", "at": "", "address": ""}]}
+      ]}
+    }
+  ]
+}

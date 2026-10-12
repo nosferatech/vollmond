@@ -1,0 +1,4 @@
+{"kind": "record", "from": "docs/old.md", "to": "docs/current.md", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "docs/current.md", "from": "room", "to": "room-rule", "at": "2026-10-09T08:00:00Z"}
+{"kind": "record", "from": "docs/live.md", "to": "docs/current.md", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "docs/current.md", "from": "kept", "to": "room-rule", "at": "2026-10-09T08:00:00Z"}

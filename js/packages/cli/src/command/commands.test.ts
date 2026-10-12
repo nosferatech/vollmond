@@ -520,14 +520,14 @@ describe("get", () => {
     });
   });
 
-  test("prints the requested computed fields before the node, those not computed yet as null, with a warning", async () => {
+  test("prints the requested computed fields before the node, each that is not a string as JSON", async () => {
     const result = await vmd("get", "docs/guide.md#use", "--meta", "@address,depth,@key,@refs,@source");
     expect(result.stdout).toBe(
-      "@address  #use\n@depth    1\n@key      use\n@refs     null\n" +
+      "@address  #use\n@depth    1\n@key      use\n@refs     []\n" +
         `@source   {"range":[${at("## Use")},${SIZE.guide}],"line":16,"col":1}\n` +
         "\n## Use\n\n",
     );
-    expect(result.stderr).toBe("warning field-not-computed: @refs is not computed yet, so it is given as null\n");
+    expect(result.stderr).toBe("");
     expect(result.exitCode).toBe(0);
     // The root's address is empty, which is written as JSON so that the line shows it.
     expect((await vmd("get", "docs/twin.md", "--meta", "address", "--max-chars", "6")).stdout).toMatch(
@@ -624,25 +624,14 @@ describe("get", () => {
     expect(outline).toEqual({ stdout: "s.json#a%20b  ~0 tok\n", stderr: "", exitCode: 0 });
   });
 
-  test("gives the fields not computed yet as null under --json, with field-not-computed, which --quiet leaves out (S5)", async () => {
+  test("gives @refs under --json, the references of the node resolved, without a warning", async () => {
     const { outcome, exitCode } = await vmdJson("get", "data.json", "--meta", "collection,refs,path");
     expect(exitCode).toBe(0);
     expect(outcome.value).toEqual({
       value: { status: "open", range: { start: 1, end: 2 } },
-      meta: { "@refs": null, "@path": "data.json" },
+      meta: { "@refs": [], "@path": "data.json" },
     });
-    expect(outcome.issues).toEqual([
-      expect.objectContaining({
-        code: "field-not-computed",
-        severity: "warning",
-        message: expect.stringMatching(/^@refs is not computed yet/),
-      }),
-    ]);
-    const quiet = await runCli(["--json", "--quiet", "get", "data.json", "--meta", "refs"], env());
-    expect(JSON.parse(quiet.stdout as string).issues).toEqual([]);
-    expect((await vmd("--quiet", "get", "data.json", "--meta", "refs")).stderr).toBe("");
-    // A read that requests neither has no warning.
-    expect((await vmdJson("get", "data.json", "--meta", "path")).outcome.issues).toEqual([]);
+    expect(outcome.issues).toEqual([]);
   });
 
   test("gives every computed field but @nodes for --meta all, and @nodes when it is named too", async () => {

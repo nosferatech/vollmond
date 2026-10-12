@@ -164,7 +164,7 @@ export function readBlockAnchors(
 }
 
 /** Converts indexes into the file's text inside a `$body`'s span to UTF-8 byte offsets into its value. */
-class BodyOffsets {
+export class BodyOffsets {
   readonly #source: SourceText;
   readonly #start: number;
   /** The index of the CR of each CRLF in the span, which the value reads as one `\n`, in order. */
