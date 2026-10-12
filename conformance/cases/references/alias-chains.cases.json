@@ -61,12 +61,12 @@
     },
     {
       "id": "refs-anchor-chain-stops-at-key",
-      "description": "A chain of anchor aliases stops at any name that a link's first step reaches, a top-level key of a JSON record included (§13.6, decision AC). In docs/keys.json, x was renamed to a and a to b, and a is a live key: #x resolves to the member a, where #a goes too, as aliased, and #a itself is ok. The near miss, #y, follows y to gone, which nothing in the record is named, and on to the live key b.",
+      "description": "A chain of anchor aliases stops at any name that a link's first step reaches, a top-level key of a JSON record included (§13.6, decision AC). In docs/keys.json, x was renamed to a and a to b, and a is a live key: #x resolves to the member a, where #a goes too, as aliased, and #a itself is ok. The near miss, docs/nested-keys.json, holds {\"n\": {\"a\": 1}, \"b\": 2} with the same aliases: its only a is a nested key, which no first step reaches, so #x follows x to a and on to the top-level key b.",
       "input": {"record": "refs/keys.md"},
       "expect": {"result": [
         {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 4}, "raw": "../docs/keys.json#x", "status": "aliased", "targets": [{"path": "docs/keys.json", "at": "/a", "address": "#a"}]},
         {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 30}, "raw": "../docs/keys.json#a", "status": "ok", "targets": [{"path": "docs/keys.json", "at": "/a", "address": "#a"}]},
-        {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 59}, "raw": "../docs/keys.json#y", "status": "aliased", "targets": [{"path": "docs/keys.json", "at": "/b", "address": "#b"}]}
+        {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 59}, "raw": "../docs/nested-keys.json#x", "status": "aliased", "targets": [{"path": "docs/nested-keys.json", "at": "/b", "address": "#b"}]}
       ]}
     },
     {

@@ -665,7 +665,7 @@ numbers refer to Draft v0.14.
 Card AA1, a bound on the work of checking where a schema's vmd keywords meet, is not in this round. The owner answered it with a
 note rather than an option, and the review of the draft's first reading of that note found that the bound it proposed, a count of
 pairs of schema objects, neither bounds the work of the check as #97 implements it nor spares harmless schemas (#109). It goes
-back to the owner with those numbers, and has no record yet.
+back to the owner with those numbers, and was asked again as card [AE](../decisions/AE.md) (Draft v0.15).
 
 - [AA2](../decisions/AA2.md) An unknown member or value inside `x-vmd-list` or `x-vmd-ref` is `feature-unsupported`
 - [AA3](../decisions/AA3.md) `$dynamicRef` is allowed in collection schemas, and its targets count as off the spine
@@ -692,8 +692,8 @@ owner to confirm. Section numbers refer to Draft v0.15.
   it is pruned
 - [AD](../decisions/AD.md) A `$` step from a section names the section's own member, so `#summary/$body` is singular wherever the
   section is
-- [AE](../decisions/AE.md) No schema is refused for its complexity; a service that validates untrusted data sets its own time
-  budget
+- [AE](../decisions/AE.md) For now, a schema is refused only by the existing rules; a service that validates untrusted data sets
+  its own time budget
 - [AF](../decisions/AF.md) A keyed list's `additional` against the array's `items` still waits for the record
 - [W5](../decisions/W5.md) The agent's readings in Draft v0.14 are confirmed
 

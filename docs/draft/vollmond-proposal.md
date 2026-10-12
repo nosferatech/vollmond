@@ -1239,11 +1239,11 @@ validator computes the keys and evaluates that list itself. Because schemas see 
 ticket and a YAML ticket with the same content.
 
 **What a schema may cost.** A schema is refused only by the rules of this chapter: the size bound (§9.1), the rules of this
-section and of 2020-12 for a valid schema, and those of the spine and of declarations that meet (§9.3). No rule bounds its
-complexity, so no schema is refused for the work it takes. A crafted schema can make loading slow, and validation slower: checking
-where a crafted schema's declarations meet (§9.3) can take minutes for one under the size bound, and a schema of 109 bytes, an
-`allOf` of two `$ref`s to the same subschema inside a recursion, makes validating a record of 146 bytes take seconds, the time
-doubling with each level of the record's nesting; patterns whose matching backtracks can do the same
+section and of 2020-12 for a valid schema, and those of the spine and of declarations that meet (§9.3). For now no other rule
+bounds its complexity. A crafted schema can make loading slow, and validation slower: checking where a crafted schema's
+declarations meet (§9.3) can take minutes for one under the size bound, and a schema of 109 bytes, an `allOf` of two `$ref`s to
+the same subschema inside a recursion, makes validating a record of 146 bytes take seconds, the time doubling with each level of
+the record's nesting; patterns whose matching backtracks can do the same
 ([#111](https://github.com/nosferatech/vollmond/issues/111)). The size bound does not prevent either. A service that validates
 untrusted schemas or records therefore needs a time budget of its own for each operation, which, as for the Markdown limits
 (§5.4), is not a rule of the format, since its outcome would depend on the machine. Telling the schemas whose cost can be proved
@@ -1935,11 +1935,13 @@ caught in one stays `dangling`.
 an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client
 that synced before the rename and pushes after it cannot be told apart from one that means the new node. So an alias holds its
 old name until it is pruned: vmd's semantic operations (§13.2) refuse to create a name that the `from` of an alias in the file
-holds, with an operation error whose message names the alias and suggests `vmd alias prune`. `mv` and `new` refuse a record path
-that a record alias has as its `from`, and `rename`, `insert`, `set` and `body` refuse to give a record a name that a first
-step reaches (above) and that one of the record's anchor aliases has as its `from`, a derived anchor that a retitle renumbers
-included (§13.4). The lock ends when `vmd alias prune` removes the alias. An anchor alias's `from` and `to` are anchor names
-(§6.2), so a section member such as `$title` is never one.
+holds, with an operation error whose message names the alias and suggests `vmd alias prune`; its issue code is named when the
+lock is implemented (I5, §21), and Appendix D gains it then. `mv` and `new` refuse a record path that a record alias has as its
+`from`, and `rename`, `insert`, `set` and `body` refuse to give a record a name that a first step reaches (above) and that one of
+the record's anchor aliases has as its `from`. Two cases wait on the project owner: a rename or a move back to an alias's old
+name, `b` to `a` while the alias `a` to `b` lasts (card AH), and a derived anchor that a retitle renumbers onto a held name, as in
+§13.4's example of two `## Notes` sections (card AI). The lock ends when `vmd alias prune` removes the alias. An anchor alias's
+`from` and `to` are anchor names (§6.2), so a section member such as `$title` is never one.
 
 Plain edits and merges can still create such a name, since vmd does not see them, so on read a live name wins. An address whose
 record path exists, or whose first step reaches a name of the record, is not resolved through an alias, and `vmd check` warns
@@ -1951,10 +1953,11 @@ on, and rewriting it to the current name would let an old name be reused safely;
 record's old path that a live record has again, whether an anchor alias recorded under it applies to that record, to the one
 that moved away, or to both.
 
-Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike;
-writing it belongs to the Refactor profile (§19.2). A file that is not valid JSONL of alias entries is an error
-(`alias-file-invalid`), and so is one larger than 16 MiB, which is refused by its size (§11.2), with a message that names the
-limit and suggests `vmd alias prune`. At about 100 bytes a line, the bound holds over 150,000 aliases.
+Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike, and
+to the Write profile, whose semantic operations refuse the names it holds; writing it belongs to the Refactor profile (§19.2). A
+file that is not valid JSONL of alias entries is an error (`alias-file-invalid`), and so is one larger than 16 MiB, which is
+refused by its size (§11.2), with a message that names the limit and suggests `vmd alias prune`. At about 100 bytes a line, the
+bound holds over 150,000 aliases.
 
 ---
 
@@ -2217,7 +2220,7 @@ An implementation or backend states which profiles it supports:
 | **Read** | the value types, parsing all three formats, the value view and its computed fields, anchors and tags, addresses, `outline` and `get`; source maps are optional, and an implementation states whether it produces them |
 | **Validate** | collections, schemas with the extension keywords, logical types, uniqueness, reference resolution, reading aliases, `check` |
 | **Query** | VQL core and the parameters of §10.5 |
-| **Write** | the storage contract with version tokens, semantic operations with span-preserving edits and the refusal of names that an alias holds (§13.6), the canonical serializer |
+| **Write** | the storage contract with version tokens, semantic operations with span-preserving edits, reading aliases to refuse the names they hold (§13.6), the canonical serializer |
 | **Refactor** | `rename` and `mv` with reference rewriting, writing aliases, `vmd alias prune` |
 | **Publish** | the portable index |
 

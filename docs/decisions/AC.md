@@ -64,7 +64,7 @@ name"), in the same direction, by widening what a live name is from anchors to e
 both. Z2's other details stand, and so do W4's other nine items.
 
 **Agent's reading, for the owner to confirm.** Six details that neither the card nor the chat settles, which Draft v0.15 states
-as follows:
+as follows; item 3 holds two cases that wait on cards AH and AI:
 
 1. The refusal is an operation error whose message names the alias and suggests `vmd alias prune`. The draft gives it no code
    yet: the code is named when the lock is implemented (I5), and then goes into Appendix D and core's table of codes together,
@@ -72,13 +72,18 @@ as follows:
    version-token mismatch (exit code 3), and `unreadable-records` is about unreadable records.
 2. "vmd's own writes" are its semantic operations (§13.2), the ones that name a node: `mv` and `new` refuse a record path that a
    record alias has as its `from`, and `rename`, `insert`, `set` (a new field) and `body` (a new block anchor) refuse to give a
-   record a name that a first step reaches and that one of its anchor aliases has as its `from`, also a derived anchor that a
-   retitle renumbers (§13.4). The brief for this draft named `rename`, `mv`, `new` and `insert`; `set` and `body` can create a name
-   as well. Storage operations (`write`, `edit`, and `apply` of them) are left out: they change bytes without naming a node, as
-   plain tools do, so `alias-shadowed` catches what they create.
-3. **A rename back is refused.** Renaming `b` back to `a`, or moving `b.md` back to `a.md`, is refused while the alias `a` → `b`
-   is in the file, until `vmd alias prune` removes it, so undoing a rename waits for the prune. The alternative not taken: let a
-   rename back to an alias's old name drop or rewrite that alias instead of refusing it.
+   record a name that a first step reaches and that one of its anchor aliases has as its `from`. The brief for this draft named
+   `rename`, `mv`, `new` and `insert`; `set` and `body` can create a name as well. Storage operations (`write`, `edit`, and
+   `apply` of them) are left out: they change bytes without naming a node, as plain tools do, so `alias-shadowed` catches what
+   they create.
+3. **Waiting on the project owner: two cases of the lock.** The independent review of Draft v0.15 found two consequences of
+   reading 2 that cost users, and they go to the owner as cards; §13.6 marks both as open and states neither rule:
+   - **Card AH, a rename back.** Read literally, the lock refuses renaming `b` back to `a`, or moving `b.md` back to `a.md`, while
+     the alias `a` → `b` lasts, so undoing a rename waits for `vmd alias prune`. The alternative: allow it and turn the alias
+     around.
+   - **Card AI, a derived anchor that a retitle renumbers onto a held name.** Read literally, the lock refuses §13.4's own
+     example: retitling the first of two `## Notes` records the alias `notes` → its new anchor, and turns the second's `#notes-1`
+     into `#notes`, a name the alias now holds. The alternative: allow it, the live name winning with `alias-shadowed`.
 4. The held names are the same set as the one that stops a chain: a record's names held by its anchor aliases, those recorded
    under its old paths included, as Z2 decided for resolution.
 5. The lock makes the Write profile read the alias file, so §19.2's Write row names the refusal; the implementation plan puts the
@@ -120,8 +125,9 @@ In chat, on the proposal:
 
 Draft v0.15: §13.6 (what stops a chain, the lock, the read-side fallback, #120, and #48's two remaining questions), §13.2 and
 §13.4 (the refusal), §19.2 (the Write profile), §20 (#120 beside #48), §21 (I5), Appendix D `alias-shadowed`. Suite case
-`references/alias-chains/refs-anchor-chain-stops-at-key`: `#x` stops at the live key `a`, `#a` is ok, and its near miss `#y`
-passes a name the record does not have and reaches the key `b`; #106's code passes it. The warning for keys is #121 (open), which
-adds the suite case `references/aliases/check-alias-shadowed-keys` and updates the I2 design's section 5.5. The lock has no suite
-case yet, since the suite has no write operations before I4 (conformance README, operations reserved for I4). #48 has a comment
-that records the lock, and #120 the cleverer scheme.
+`references/alias-chains/refs-anchor-chain-stops-at-key`: `#x` stops at the live key `a`, `#a` is ok, and its near miss, the same
+aliases in `docs/nested-keys.json`, `{"n": {"a": 1}, "b": 2}`, where `a` is only a nested key, so `#x` runs on to the key `b`;
+#106's code passes it. The warning for keys is #121 (open), which adds the suite case
+`references/aliases/check-alias-shadowed-keys` and updates the I2 design's section 5.5. The lock has no suite case yet, since the
+suite has no write operations before I4 (conformance README, operations reserved for I4). #48 has a comment that records the lock,
+and #120 the cleverer scheme.

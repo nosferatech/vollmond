@@ -1177,11 +1177,11 @@ The risk outside vmd is micromark's quadratic regression on some inputs (#13): a
 seconds to parse until its fix is released. A cache hides it after the first check, and does not remove it.
 
 **Crafted schemas.** These budgets hold for real schemas, which are small: the repository's 20 have at most 6 parts that hold or
-lead to a vmd keyword (card AE). A schema is refused only by the specification's rules (Draft v0.15 §9.2, decision AE), never for
-its complexity, and a crafted one can make loading slow and validation slower: the check of where declarations meet takes one to
+lead to a vmd keyword (card AE). For now a schema is refused only by the specification's existing rules (Draft v0.15 §9.2,
+decision AE), and a crafted one can make loading slow and validation slower: the check of where declarations meet takes one to
 three minutes on the worst crafted schemas of 1 MiB measured (#119), and a 109-byte schema makes a 146-byte record take 6.9 s to
-validate, doubling with each level of nesting (#111). The 1 MiB bound does not prevent it. A service that validates untrusted
-data runs each operation with a time budget of its own; core sets none (#111 lists the directions, none decided).
+validate, doubling with each level of nesting (#111). The 1 MiB bound does not prevent it. A service that validates untrusted data
+runs each operation with a time budget of its own; core sets none (#111 lists the directions, none decided).
 
 ---
 

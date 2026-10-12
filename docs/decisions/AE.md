@@ -1,6 +1,6 @@
 ---
 id: AE
-title: "No schema is refused for its complexity; a service that validates untrusted data sets its own time budget"
+title: "For now, a schema is refused only by the existing rules; a service that validates untrusted data sets its own time budget"
 round: "AE"
 date: "2026-10-12"
 status: accepted
@@ -54,10 +54,10 @@ for now and a ticket for the classification.
 ## Decision
 
 For now, a schema is refused only by the existing rules: the size bound of 1 MiB ([U20](U20.md)), the rules for a valid schema
-(§9.2), and those of the spine and of declarations that meet (§9.3). No complexity limit is added, so no schema is refused for
-the work it takes. A crafted schema can make loading or validation slow; a service that validates untrusted data needs its own
-time budget for each operation (#111). Classifying schemas by cost, provably cheap, plainly too expensive, and a warned grey area
-between them, is future work: #119.
+(§9.2), and those of the spine and of declarations that meet (§9.3). No complexity limit is added for now; whether "schemas where
+it's obvious they should be refused" meant a further cap is asked of the owner (the agent's reading below). A crafted schema can
+make loading or validation slow; a service that validates untrusted data needs its own time budget for each operation (#111).
+Classifying schemas by cost, provably cheap, plainly too expensive, and a warned grey area between them, is future work: #119.
 
 The size bound limits what reading a schema file costs, not what using it costs: #111's schema of 109 bytes makes validation
 exponential in a record's depth. U20's reason, "A larger schema is a mistake or an attack on a validating service", stands as
