@@ -355,9 +355,11 @@ export class Spine {
    * checks. The pairs are walked only between locations whose spine below holds what could meet: two unequal declarations,
    * or a keyed list and `unevaluatedItems`. A schema with none of them, or whose declarations are all equal, visits no pair.
    * In the worst case, two groups of co-applying locations with unequal declarations, the pairs grow with the product of the
-   * groups' sizes, so quadratically in the schema. The locations that apply beside a typed reference on every path are kept
-   * only for references whose own schema object lacks the format, and only of the locations that could give it, which in
-   * the worst case is quadratic too.
+   * groups' sizes, so quadratically in the schema. A pair takes a keyed list's item for each key it names at each index of
+   * the longest `prefixItems` and past it, so its steps, and the pairs they lead to, grow with the keys times the
+   * `prefixItems`: still at most quadratic, but reached with less schema. The locations that apply beside a typed reference
+   * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
+   * could give it, which in the worst case is quadratic too.
    *
    * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
    * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
@@ -1145,7 +1147,10 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
   return Array.isArray(type) ? !type.includes("string") : type !== "string";
 }
 
-/** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */
+/**
+ * The steps that two schema objects name, which both follow together: the members `properties` names, the items at each
+ * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes.
+ */
 function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
@@ -1159,7 +1164,8 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   }
   for (const name of names) steps.push({ kind: "member", name });
   for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
-  for (const key of keys) steps.push({ kind: "item", index: prefix, key });
+  // An item with a key can stand at any index, so its key's schema meets each prefixItems entry as well as items.
+  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 

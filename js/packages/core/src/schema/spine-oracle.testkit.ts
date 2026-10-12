@@ -1,6 +1,7 @@
 // The spine's check as it stood before its costs were reduced, kept as the oracle of the differential tests: the new check
 // must report what this one reports, over random schemas small enough for this one to finish. Only the check is kept; the
-// shapes are the spine's own.
+// shapes are the spine's own. It carries one change of behaviour made with the check, marked where it stands: a keyed
+// list's item meets the prefixItems entry of every index.
 
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
@@ -690,7 +691,8 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   }
   for (const name of names) steps.push({ kind: "member", name });
   for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
-  for (const key of keys) steps.push({ kind: "item", index: prefix, key });
+  // Changed with the check: an item with a key can stand at any index, so its key's schema meets each prefixItems entry.
+  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 
