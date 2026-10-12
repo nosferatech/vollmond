@@ -1,11 +1,11 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.12 (2026-10-11). Supersedes Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit
-`75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit
-`d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit
-`b7c8a52`). The minor version rises with each round of decisions applied to the draft. Each decision is a record in
-[`docs/decisions/`](../decisions/), with its options and reasons, and [vollmond-proposal-review.md](vollmond-proposal-review.md)
-holds the review of v0.1 and the index of the decisions by round.
+Status: Draft v0.13 (2026-10-11). Supersedes Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10
+(commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6
+(commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2
+(commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft.
+Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
+[vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -548,6 +548,11 @@ the text beyond it is parsed:
   run is a delimiter run of `*` or `_` (CommonMark 0.31.2, section 6.2), or a run of `~`.
 - **Size.** A record is at most 16 MiB.
 
+A data `$body` is Markdown text in every format, as a data `$title` is (§8.1), so the Markdown limits hold in it as in a Markdown
+file: a JSON or YAML record with a `$body` whose containers or inline elements nest deeper than 256 levels, or whose paragraph,
+table cell or heading holds more than 4,096 runs, is a `syntax-error` at its root, as one whose data `$title` passes them is. A
+reader that gave up parsing such text would otherwise miss its references without an issue.
+
 The limits bound a reader's stack, not its time. The Markdown library slows down sharply on some valid input: 20,000 `*a*` in one
 paragraph (80 KB) took 1.5 s, 10,000 nested emphasis levels 32 s, and 1,000 levels of list indentation 15 s (measured for the
 Markdown parser, #79), and the limits refuse those inputs. Inputs within the limits can still be slow, since the time goes into
@@ -881,7 +886,9 @@ change when the title changes; renaming through vmd rewrites references (§13.4)
 tools (§13.5). `vmd check` therefore warns about a reference that reaches its target through a derived anchor
 (`ref-derived-anchor`). A reference through a derived anchor whose slug is repeated in the record gets `ref-derived-repeat`
 instead. That covers the unsuffixed anchor and the suffixed ones alike (`#notes` and `#notes-1`, while two `## Notes` exist), since
-inserting, removing or retitling one of those headings renumbers the others (§13.4). A store used as a database can require
+inserting, removing or retitling one of those headings renumbers the others (§13.4). Both warnings also cover a reference whose
+first step reaches a JSON or YAML section only by its key, when the key is the slug of its `$title` (§5.5), since that key changes
+with the title as a derived anchor does. A store used as a database can require
 explicit anchors in its typed references (`x-vmd-ref` with `anchors: explicit`, §9.3).
 
 Derived anchors exist only for Markdown headings. JSON and YAML have no headings, so their objects have only explicit anchors.
@@ -1133,16 +1140,20 @@ A record in no collection is valid and unschematized; its references are still c
   does not define, such as an unknown `x-vmd-*` keyword, is `feature-unsupported` (§9.3); one whose file is missing, or that is
   not a valid schema, is `schema-invalid`; and one whose file is a file of the store that the backend cannot read, such as one
   refused by a permission error or a directory with files in it where the file is named, is `storage-failed` (§11.2), so that the
-  code says what failed. What a backend reads as no file follows the storage contract: the filesystem backend reads a symbolic
-  link, a FIFO or an empty directory in a store's `.vmd/schema/` as missing, so such a schema is `schema-invalid`, while beside a
-  `--config` file, which is not read through a backend, a FIFO or a directory is `storage-failed`. `vmd check` reports it once,
-  checks the collection's records for everything but their schema, and checks the other collections as usual. Every reader refuses
-  that collection's records, whichever code the schema got, since without its schema a reader would read them wrongly: a
-  single-record read (`get`, `outline`, `resolve`) fails with the schema's code, in one issue about the collection, with no record
-  path and no node, whose message names the schema file; a multi-record read leaves them out and counts them among the records it
-  could not read, with one issue of that code (§9.5); and a reference into one is `unreadable` (§8.5). Writing is refused alike: a
-  write into one of its records fails with the schema's code, since it could not be validated (§9.4), and `rename` and `mv` refuse
-  to run while such a collection exists (`unreadable-records`, §13.4).
+  code says what failed. What a backend reads as no file follows the storage contract (§11.2): in a store's own `.vmd/schema/`,
+  the filesystem backend reads a symbolic link or a directory where the file is named as missing, and a FIFO, a socket or a device
+  as a file it cannot read, which is `storage-failed`, as anywhere in the store. A schema the backend finds missing is
+  `schema-invalid`, unless the backend lists files below its path: then the path is a directory with files in it, which vmd
+  reports as `storage-failed`, since a file is there that cannot be read as one, while an empty directory, a symbolic link and a
+  path where nothing is stay `schema-invalid`. Beside a `--config` file, which is not read through a backend, a FIFO, a socket, a
+  device or a directory is `storage-failed`. `vmd check` reports it once, checks the collection's records for everything but their
+  schema, and checks the other collections as usual. Every reader refuses that collection's records, whichever code the schema
+  got, since without its schema a reader would read them wrongly: a single-record read (`get`, `outline`, `resolve`) fails with
+  the schema's code, in one issue about the collection, with no record path and no node, whose message names the schema file; a
+  multi-record read leaves them out and counts them among the records it could not read, with one issue of that code (§9.5); and a
+  reference into one is `unreadable` (§8.5). Writing is refused alike: a write into one of its records fails with the schema's
+  code, since it could not be validated (§9.4), and `rename` and `mv` refuse to run while such a collection exists
+  (`unreadable-records`, §13.4).
 
 - **Only `vmd` is required.** A `.vmd/config.yaml` holding only `vmd: 1` is a valid store, with strict uniqueness, compatibility
   quoting, every issue at its default severity, no `.jsonc` records, no collections and nothing ignored. A configuration without
@@ -1499,11 +1510,23 @@ that does not validate needs no knowledge of Markdown or schemas.
 A read that the backend cannot complete, such as one refused by a permission error, fails with `storage-failed`, which is not
 `address-not-found`: the file may exist.
 
+**What a file is.** A store's files are regular files. A path where nothing is, a directory, and a path that the backend does not
+follow, as the filesystem backend follows no symbolic link at any segment, name no file: `read` and `stat` fail with
+`address-not-found`, and `list` leaves such a path out without an issue, listing a directory through the files below it, so that
+an empty directory lists nothing; vmd, which lists below such a path, reports a schema named by a directory with files in it as
+`storage-failed` (§9.1). Anything else that is not a regular file, such as a FIFO, a socket or a device, does not belong in a
+store, and is a failure rather than a missing file: `read` and `stat` fail with `storage-failed`, and `list` and `grep` leave it
+out with a `storage-failed` issue of severity `error`, as they leave out a file they cannot read (below). A path that vmd ignores
+(§3.3) is neither a record nor an asset, so a listing of the store raises no issue for such a file there, while a read of one by
+name, such as a schema in `.vmd/schema/` (§9.1), still fails.
+
 **Bounded reads.** `read` takes an optional `maxBytes`. A file larger than it is refused by its size, before its content is read
 or hashed: the result says that the file is oversized and gives its size as far as the backend can tell, with no content and no
 version, since computing the version would read it. A file that grows past the bound while it is read is read no further than
 `maxBytes` and one byte, and refused too. vmd reads with the bounds of its limits, so that a file over one costs no more than the
-bound: 1 MiB for a configuration and each schema (§9.1), and 16 MiB for a record (§5.4).
+bound: 1 MiB for a configuration and each schema (§9.1), 16 MiB for a record (§5.4), and 16 MiB for the alias file,
+`.vmd/aliases.jsonl`, a larger one being `alias-file-invalid`, with a message that names the limit and suggests `vmd alias prune`
+(§13.6).
 
 **Cursors** are opaque: a client passes back what the previous page returned and makes no other use of it. `list` returns an exact
 count of the paths that remain; `grep` returns an estimate of the matches that remain, marked as one, as query totals are
@@ -1826,16 +1849,30 @@ rewrite could not see, such as a reference added on a branch opened before the m
 published URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5),
 and `vmd check --fix` rewrites such a reference to the current address.
 
+A reference that resolves to no live node is resolved through the aliases. Its record path follows the record aliases whose `from`
+is the path, from one alias to the next, until it reaches a path that exists, or one that no record alias has as its `from`. In
+the record reached, the first step of a semantic path then follows the record's anchor aliases whose `from` is the step in the
+same way, until it reaches an anchor of the record, or a name that no anchor alias has as its `from`; the remaining steps are
+kept. A record's anchor aliases are those recorded under its path and under its old paths, the paths whose record aliases lead to
+it, so an alias recorded before a move still applies after it: once `a.md`'s anchor `old` is renamed to `new` and `a.md` is then
+moved to `b.md`, `a.md#old` and `b.md#old` both resolve to `b.md#new`. After two renames, `a` to `b` and then `b` to `c`, a link
+to `#a` reaches `#c`. A chain that comes back to a name it has passed is a cycle, and it ends there, so a reference caught in one
+stays `dangling`.
+
 `vmd alias prune` removes the aliases that no open branch can still need, so the file does not grow without bound. A reference to
-an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client that
-synced before the rename and pushes after it cannot be told apart from one that means the new node. How vmd resolves such
+an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client
+that synced before the rename and pushes after it cannot be told apart from one that means the new node. How vmd resolves such
 references is open ([#48](https://github.com/nosferatech/vollmond/issues/48)), including whether an alias should reserve its old
-name until it is pruned. Until then a live node wins. An address that resolves to a live anchor or path is not resolved through an
-alias, and `vmd check` warns when a live anchor or path has the old name of an alias (`alias-shadowed`).
+name until it is pruned; a chain of aliases asks the same question at each of its steps. Which alias counts where several have the
+same old name is open there too, and so is a record's old path that a live record has again: whether an anchor alias recorded
+under it applies to that record, to the one that moved away, or to both. Until then a live node wins. An address that resolves to
+a live anchor or path is not resolved through an alias, and `vmd check` warns when a live anchor or path has the old name of an
+alias (`alias-shadowed`).
 
 Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike;
 writing it belongs to the Refactor profile (§19.2). A file that is not valid JSONL of alias entries is an error
-(`alias-file-invalid`).
+(`alias-file-invalid`), and so is one larger than 16 MiB, which is refused by its size (§11.2), with a message that names the
+limit and suggests `vmd alias prune`. At about 100 bytes a line, the bound holds over 150,000 aliases.
 
 ---
 
@@ -2085,7 +2122,9 @@ runner, which reads the fixtures and drives that implementation, lives next to t
 
 Path rules that cannot exist as files on every platform (§3.2), such as two names, or two directories, that differ only by case,
 are left out of the suite for now: the suite has no case for them, since a checkout on a filesystem that ignores case cannot hold
-them, and the TypeScript implementation tests them in unit tests.
+them, and the TypeScript implementation tests them in unit tests. Two inputs have no case either: a FIFO, a socket or a device in
+a store (§11.2), which git cannot hold, and an alias file over its bound of 16 MiB (§13.6), too large to keep in the suite.
+Implementations test them on their own.
 
 ### 19.2 Profiles
 
@@ -2428,7 +2467,7 @@ The columns:
 
 | Code | Severity | Class | Section | Raised for; at |
 |---|---|---|---|---|
-| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a record beyond a resource limit of §5.4 (nesting deeper than 256 levels within its parse unit, of Markdown containers, or of inline elements within a block or a data `$title`; more than 4,096 runs in a paragraph, table cell, heading or data `$title`; more than 16 MiB), a data block whose fence is not closed, a misplaced or second one included, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
+| `syntax-error` | error | structural | §4.1, §5.1, §5.3, §5.4 | a file that is not valid UTF-8, or a JSON or YAML file, front matter or data block that does not parse, once per such parse unit, including an empty JSON file, front matter without a closing delimiter, a `%YAML` line in front matter, a record beyond a resource limit of §5.4 (nesting deeper than 256 levels within its parse unit, of Markdown containers, or of inline elements within a block or a data `$title`; more than 4,096 runs in a paragraph, table cell, heading or data `$title`; more than 16 MiB; the Markdown limits holding in a data `$body` as in a Markdown file), a data block whose fence is not closed, a misplaced or second one included, and in YAML an undeclared tag handle, a repeated `%TAG` handle, a `%TAG` handle not starting with `!`, a directive with no `---` after it, and a raw U+FFFE or U+FFFF; the record, or the data block's section |
 | `duplicate-member` | error | structural | §4.1 | two members of one JSON object or YAML mapping with the same name; each member after the first, whose value is not looked into |
 | `unpaired-surrogate` | error | structural | §4.1 | a string holding an unpaired surrogate, once per string however many it holds; the string, or for a member name the object that holds the member, and that member's value is not looked into |
 | `number-not-representable` | error | structural | §4.2 | an integer by form (§4.2) whose double differs from it, a number too large for a double, or a non-zero number a double rounds to zero; the number |
@@ -2468,14 +2507,14 @@ The columns:
 | `yaml-ambiguous-number` | warning; off under `yaml_quoting: minimal` | validation | §4.4 | a plain YAML scalar that vmd reads as a number and that a YAML 1.1 reader reads otherwise; the number |
 | `multiple-h1` | warning | validation | §5.3 | a Markdown record with several level-1 headings outside container blocks; the root |
 | `heading-html` | warning | validation | §5.3 | HTML in a heading other than the anchor element and the supported inline elements; the section |
-| `ref-derived-anchor` | warning | validation | §6.3 | a reference that reaches its target through a derived anchor without suffixed repeats; the reference |
-| `ref-derived-repeat` | warning | validation | §6.3 | a reference through a derived anchor whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
+| `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is not repeated in the record; the reference |
+| `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
 | `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
 | `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, or is not a valid schema; it has `$id`, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` off the spine; `x-vmd-ref` on a string without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; an `x-vmd-summary` that is not a boolean. An unknown `x-vmd-*` keyword is `feature-unsupported` instead, and a file that cannot be read `storage-failed`. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
-| `alias-file-invalid` | error | operation | §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries; none |
+| `alias-file-invalid` | error | operation | §11.2, §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries, or that is larger than 16 MiB, refused by its size with a message that names the limit and suggests `vmd alias prune`; none |
 | `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
 | `format-version-older` | warning | operation | §9.1 | a client newer than the store reads a major version it does not support, with no change in between that alters meaning; none |
 | `address-malformed` | error | operation | §7.1 | an address that does not match the grammar, or whose percent-escapes do not decode as UTF-8; none |
@@ -2488,7 +2527,7 @@ The columns:
 | `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than 17.0.0, the version that derived anchors follow, so derived anchors may differ; once per command that reads a store; none |
 | `field-not-computed` | warning | operation | §5.10 | a requested computed field that the implementation does not compute yet, given as `null`; none |
 | `unreadable-records` | error | operation | §9.1, §13.4 | a `rename` or `mv` while the store has records with structural errors, or a collection whose schema cannot be used; none |
-| `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a collection's schema file that cannot be read, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
+| `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a FIFO, a socket or a device in the store, which is not a regular file, read or listed, a listing leaving it out with the issue, except at a path that vmd ignores (§3.3), which a listing leaves out without one; a collection's schema file that cannot be read, a directory with files in it where the file is named included, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
 
 For a reference in prose, "the reference" is the `$body` or `$title` that holds it, and its offset locates it (§5.9). A reference

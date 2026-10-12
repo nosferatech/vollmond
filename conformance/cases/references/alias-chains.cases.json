@@ -1,0 +1,78 @@
+{
+  "defaults": {"spec": ["8.5", "13.6"], "profiles": ["validate"], "operation": "refs", "input": {"store": "alias-chains"}},
+  "cases": [
+    {
+      "id": "refs-anchor-chain",
+      "description": "An anchor renamed twice, first to second and second to third, is followed through the chain of anchor aliases to the end, as record aliases are: a link to #first, two renames old, and one to #second, one rename old, both resolve to #third, as aliased (§13.6, decision Z2).",
+      "input": {"record": "refs/chain.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/chain.md", "at": "/$body", "offset": 4}, "raw": "../docs/chain.md#first", "status": "aliased", "targets": [{"path": "docs/chain.md", "at": "/$sections/0", "address": "#third"}]},
+        {"from": {"path": "refs/chain.md", "at": "/$body", "offset": 36}, "raw": "../docs/chain.md#second", "status": "aliased", "targets": [{"path": "docs/chain.md", "at": "/$sections/0", "address": "#third"}]}
+      ]}
+    },
+    {
+      "id": "refs-anchor-cycle",
+      "description": "Anchor aliases that lead back to a name already passed, loop-a to loop-b and loop-b to loop-a, are a cycle: the chain ends there, and the reference stays dangling (§13.6, decision Z2).",
+      "input": {"record": "refs/cycle.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/cycle.md", "at": "/$body", "offset": 4}, "raw": "../docs/cycle.md#loop-a", "status": "dangling", "targets": []}
+      ]}
+    },
+    {
+      "id": "refs-anchor-chain-short-of-cycle",
+      "description": "The cycle's near miss: a chain one step short of closing, near-a to near-b and near-b to the live anchor loop, with no alias from loop back to near-a, is followed to loop, as aliased (§13.6, decision Z2).",
+      "input": {"record": "refs/near.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/near.md", "at": "/$body", "offset": 4}, "raw": "../docs/cycle.md#near-a", "status": "aliased", "targets": [{"path": "docs/cycle.md", "at": "/$sections/0", "address": "#loop"}]}
+      ]}
+    },
+    {
+      "id": "refs-anchor-chain-live-midway",
+      "description": "This case pins an agent's reading recorded in decision Z2: an anchor chain stops at the first name that is live. mid-a was renamed to mid-b and mid-b to third, and a live anchor mid-b exists again, so a link to #mid-a resolves to #mid-b, not #third, as aliased (§13.6).",
+      "input": {"record": "refs/midway.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/midway.md", "at": "/$body", "offset": 4}, "raw": "../docs/chain.md#mid-a", "status": "aliased", "targets": [{"path": "docs/chain.md", "at": "/$sections/1", "address": "#mid-b"}]}
+      ]}
+    },
+    {
+      "id": "refs-record-chain-live-midway",
+      "description": "This case pins an agent's reading recorded in decision Z2: a chain of record aliases stops at the first path that exists. docs/r1.md moved to docs/r2.md and docs/r2.md to docs/r3.md, and docs/r2.md exists again, so a link to docs/r1.md resolves to docs/r2.md, not docs/r3.md, as aliased (§13.6).",
+      "input": {"record": "refs/records.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/records.md", "at": "/$body", "offset": 4}, "raw": "../docs/r1.md", "status": "aliased", "targets": [{"path": "docs/r2.md", "at": "", "address": ""}]}
+      ]}
+    },
+    {
+      "id": "refs-anchor-alias-under-old-path",
+      "description": "An anchor alias recorded under a record's old path still applies after the record moves: before was renamed to after in docs/old.md, which then moved to docs/moved.md, so docs/old.md#before resolves to docs/moved.md#after, as aliased (§13.6, decision Z2). The second link, docs/moved.md#before, which names the record's current path, pins an agent's reading recorded in decision Z2: the record's old paths count for it too.",
+      "input": {"record": "refs/moved.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/moved.md", "at": "/$body", "offset": 4}, "raw": "../docs/old.md#before", "status": "aliased", "targets": [{"path": "docs/moved.md", "at": "/$sections/0", "address": "#after"}]},
+        {"from": {"path": "refs/moved.md", "at": "/$body", "offset": 35}, "raw": "../docs/moved.md#before", "status": "aliased", "targets": [{"path": "docs/moved.md", "at": "/$sections/0", "address": "#after"}]}
+      ]}
+    },
+    {
+      "id": "refs-anchor-alias-of-another-record",
+      "description": "For contrast, an anchor alias recorded under a path that is not one of the record's own, docs/elsewhere.md, does not apply to it, and the reference stays dangling (§13.6, decision Z2).",
+      "input": {"record": "refs/stray.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/stray.md", "at": "/$body", "offset": 4}, "raw": "../docs/moved.md#stray", "status": "dangling", "targets": []}
+      ]}
+    },
+    {
+      "id": "check-anchor-chains",
+      "spec": ["8.5", "13.6", "D"],
+      "operation": "check",
+      "description": "check warns ref-aliased for each reference that resolves through a chain of aliases or an alias under the record's old path, and reports ref-dangling for the cycle and the alias of another record (§8.5, §13.6, Appendix D, decision Z2).",
+      "input": {"records": ["refs/chain.md", "refs/cycle.md", "refs/moved.md", "refs/stray.md"]},
+      "expect": {"issues": [
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/chain.md", "at": "/$body"},
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/chain.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/cycle.md", "at": "/$body"},
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/moved.md", "at": "/$body"},
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/moved.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/stray.md", "at": "/$body"}
+      ]}
+    }
+  ]
+}
