@@ -105,35 +105,19 @@
     },
     {
       "id": "references/alias-chains/check-anchor-chains",
-      "reason": "Draft v0.13 (Z2): anchor alias chains follow #99 in a follow-up pull request; references in check arrive with #99 (I2.4, #24)"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-alias-of-another-record",
-      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's one-step anchor aliases, and keeps passing once chains follow"
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99's check looks up one alias step"
     },
     {
       "id": "references/alias-chains/refs-anchor-alias-under-old-path",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; the refs operation arrives with #99"
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
     },
     {
       "id": "references/alias-chains/refs-anchor-chain",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; the refs operation arrives with #99"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-chain-live-midway",
-      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's one-step anchor aliases, and keeps passing once chains follow"
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
     },
     {
       "id": "references/alias-chains/refs-anchor-chain-short-of-cycle",
-      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; the refs operation arrives with #99"
-    },
-    {
-      "id": "references/alias-chains/refs-anchor-cycle",
-      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's one-step anchor aliases, and keeps passing once chains follow"
-    },
-    {
-      "id": "references/alias-chains/refs-record-chain-live-midway",
-      "reason": "Draft v0.13 (Z2): the refs operation arrives with #99 (I2.4, #24); the case passes with #99's record chains, which stop at the first path that exists"
+      "reason": "Draft v0.13 (Z2): anchor alias chains, and anchor aliases under a record's old paths, follow #99 in a follow-up pull request; #99 looks up one alias step"
     },
     {
       "id": "references/targets/many-reference-to-missing-record",
