@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"$sections": false}, "additionalProperties": {"type": "array", "x-vmd-list": {"type": "map", "keys": ["name"]}}}

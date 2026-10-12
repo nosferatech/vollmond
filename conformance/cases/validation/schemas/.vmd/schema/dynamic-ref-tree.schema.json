@@ -1,0 +1,1 @@
+{"$dynamicAnchor": "node", "type": "object", "properties": {"name": {"type": "string"}, "kids": {"type": "array", "items": {"$dynamicRef": "#node"}}}}

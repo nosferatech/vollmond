@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["a.json"]
+    schema: items-against-list-additional.schema.json

@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"a": {"$ref": "#/$defs/l"}}, "oneOf": [{"properties": {"b": {"$ref": "#/$defs/l"}}}], "$defs": {"l": {"type": "array", "x-vmd-list": {"type": "map", "keys": ["name"]}}}}

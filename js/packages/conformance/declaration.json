@@ -52,16 +52,64 @@
       "reason": "Draft v0.13 (Z1): the Markdown limits on a data $body follow #99 in a follow-up pull request"
     },
     {
+      "id": "markdown/limits/data-section-body-reference-link-nesting-256-json",
+      "reason": "Draft v0.14 (AB): a $body that uses another body's definitions follows the Markdown limits on a data $body in #103, which reads each body with its own definitions only"
+    },
+    {
+      "id": "markdown/limits/data-section-body-reference-link-nesting-256-yaml",
+      "reason": "Draft v0.14 (AB): a $body that uses another body's definitions follows the Markdown limits on a data $body in #103, which reads each body with its own definitions only"
+    },
+    {
+      "id": "references/statuses/refs-body-definition-in-other-section-json",
+      "reason": "Draft v0.14 (AB): every $body sees the definitions of all the record's bodies once #103 takes the rule; the references code of #99 reads each body with its own definitions only"
+    },
+    {
+      "id": "references/statuses/refs-body-definition-in-other-section-yaml",
+      "reason": "Draft v0.14 (AB): every $body sees the definitions of all the record's bodies once #103 takes the rule; the references code of #99 reads each body with its own definitions only"
+    },
+    {
       "id": "references/targets/many-reference-to-missing-record",
-      "reason": "I2.4 (#24): references follow in a later pull request"
+      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
     },
     {
       "id": "references/targets/no-targets-allows-any-target",
-      "reason": "I2.4 (#24): references follow in a later pull request"
+      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
     },
     {
       "id": "references/targets/targets-restrict",
-      "reason": "I2.4 (#24): references follow in a later pull request"
+      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
+    },
+    {
+      "id": "validation/schemas/additional-properties-meet-in-record",
+      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
+    },
+    {
+      "id": "validation/schemas/items-and-list-additional-meet-in-record",
+      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
+    },
+    {
+      "id": "validation/schemas/keyed-item-meets-prefix-items",
+      "reason": "Draft v0.14 (AA4, item 4): the spine check takes a keyed item only past the longest prefixItems, so it misses this conflict at load (#109)"
+    },
+    {
+      "id": "validation/schemas/list-unknown-member",
+      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
+    },
+    {
+      "id": "validation/schemas/list-unknown-value",
+      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
+    },
+    {
+      "id": "validation/schemas/patterns-meet-in-record",
+      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
+    },
+    {
+      "id": "validation/schemas/ref-unknown-member",
+      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
+    },
+    {
+      "id": "validation/schemas/ref-unknown-value",
+      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
     },
     {
       "id": "values/yaml-scalars/ambiguous-key-warned-at-its-mapping",

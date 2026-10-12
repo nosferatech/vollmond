@@ -1,0 +1,7 @@
+$title: Doc
+$body: |
+  [b]: ../docs/target.md
+$sections:
+  - $title: S
+    $body: |
+      See [a][b](../docs/twin.md).

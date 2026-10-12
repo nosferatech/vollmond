@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"l": {"type": "array", "x-vmd-list": {"type": "multimap", "keys": ["name"], "required": ["a"], "items": {"a": {"type": "object"}}, "additional": false}}, "p": {"type": "string", "format": "uri-reference", "x-vmd-ref": {"targets": ["things"], "cardinality": "many", "anchors": "explicit"}}}}

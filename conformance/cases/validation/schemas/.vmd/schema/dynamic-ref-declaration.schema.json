@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"a": {"$dynamicRef": "#l"}}, "$defs": {"l": {"$dynamicAnchor": "l", "type": "array", "x-vmd-list": {"type": "map", "keys": ["k"]}}}}

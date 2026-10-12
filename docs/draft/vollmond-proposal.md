@@ -1,9 +1,10 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.13 (2026-10-11). Supersedes Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10
-(commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6
-(commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2
-(commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft.
+Status: Draft v0.14 (2026-10-12). Supersedes Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11
+(commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7
+(commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3
+(commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
+decisions applied to the draft.
 Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
 [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
 
@@ -553,6 +554,13 @@ file: a JSON or YAML record with a `$body` whose containers or inline elements n
 table cell or heading holds more than 4,096 runs, is a `syntax-error` at its root, as one whose data `$title` passes them is. A
 reader that gave up parsing such text would otherwise miss its references without an issue.
 
+Each `$body` of a JSON or YAML record is read as a Markdown document with the link reference definitions of every `$body` of the
+record in scope, its own and the others', as the sections of one Markdown file share theirs (CommonMark 0.31.2, section 4.7), so
+that a record means the same in every format (§5.8): a reference link in one section's `$body` may use a definition in another,
+the `*` in its label are no runs, and the link is an inline level. Where two bodies define one label, the first definition in
+the order of the record's Markdown form wins, as in one Markdown file: each section's `$body` before the bodies of its
+`$sections`, whatever the order of the members in the file.
+
 The limits bound a reader's stack, not its time. The Markdown library slows down sharply on some valid input: 20,000 `*a*` in one
 paragraph (80 KB) took 1.5 s, 10,000 nested emphasis levels 32 s, and 1,000 levels of list indentation 15 s (measured for the
 Markdown parser, #79), and the limits refuse those inputs. Inputs within the limits can still be slow, since the time goes into
@@ -593,13 +601,13 @@ safe. To set a section's key, give it an `$anchor`.
 
 A section's **key** is its `$anchor` if it has one, and otherwise the slug of its `$title`, as steps 1 to 6 of §6.3 compute it,
 without the repeat suffix of step 7. A `$title` is Markdown source in every format, so the `$title` of a JSON or YAML section is
-read as a heading's inline content: with the link reference definitions of the record's `$body` values in scope, and only those, a
-line break read as a soft break (§6.3 step 1), a blank line as two line breaks, and no closing sequence stripped. Its runs count
-toward the limit of §5.4. `What *is* confirmed` gives `what-is-confirmed` in YAML as in Markdown, a title `one` and `two` on two
-lines gives `one-two`, and `[Foo][bar] baz` with `[bar]: /x` in one of the record's `$body` values gives `foo-baz`, so that a
-section keeps its key when its record changes format. A heading whose slug is empty has the empty key. The key is derived and
-never stored, and it is not a member of the value view. It is the computed field `@key` (§5.10), which a read returns on request,
-schemas name in `x-vmd-list` (§9.3) and VQL matches (§10.3).
+read as a heading's inline content: with the link reference definitions of the record's `$body` values in scope (§5.4), and only
+those, a line break read as a soft break (§6.3 step 1), a blank line as two line breaks, and no closing sequence stripped. Its
+runs count toward the limit of §5.4. `What *is* confirmed` gives `what-is-confirmed` in YAML as in Markdown, a title `one` and
+`two` on two lines gives `one-two`, and `[Foo][bar] baz` with `[bar]: /x` in one of the record's `$body` values gives `foo-baz`,
+so that a section keeps its key when its record changes format. A heading whose slug is empty has the empty key. The key is
+derived and never stored, and it is not a member of the value view. It is the computed field `@key` (§5.10), which a read returns
+on request, schemas name in `x-vmd-list` (§9.3) and VQL matches (§10.3).
 
 ### 5.6 Keyed lists
 
@@ -748,9 +756,6 @@ query are one concept.
 
 A block anchor is a node but not a section, so it has no `@key` and no `@depth`. Its `@source` is its block (§5.9), its
 `@version` hashes the block's text, and its `@issues` are the issues of its `$body` within the block's range.
-
-Until I2 computes `@refs`, a read that requests it gives it as `null`, with a warning that names it (`field-not-computed`), rather
-than leaving it out, so that an absent field and a field not computed yet cannot be confused.
 
 A read that requests computed fields returns the value and the requested fields side by side. `meta: all` requests every field
 except `@nodes`, which is requested by name on top of it. For the second section of the ticket in Appendix A, with
@@ -1046,9 +1051,10 @@ Shorthands are never written into records.
 A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`) at the object, so
 references are detectable without a schema. The object's other members are still checked, and their own issues reported, so that
 one run shows everything to fix (C2). Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is
-not a reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link brackets
-([CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore removes
-it from validation.
+not a reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link
+brackets ([CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore
+removes it from validation. A reference link in a JSON or YAML record uses the link reference definitions of every `$body` of the
+record (§5.4), so its definition, which is the reference, may stand in another section.
 
 ### 8.2 Resolving targets
 
@@ -1137,10 +1143,13 @@ A record in no collection is valid and unschematized; its references are still c
   as vampiredb's `docs/`, can have schemas without being modified (decision K3). The configuration file and each schema file are
   at most 1 MiB; a larger configuration is `config-invalid`, and a larger schema `schema-invalid`.
 - **A collection whose schema cannot be used** is reported when its schema is loaded: a schema that uses a construct this version
-  does not define, such as an unknown `x-vmd-*` keyword, is `feature-unsupported` (§9.3); one whose file is missing, or that is
-  not a valid schema, is `schema-invalid`; and one whose file is a file of the store that the backend cannot read, such as one
-  refused by a permission error or a directory with files in it where the file is named, is `storage-failed` (§11.2), so that the
-  code says what failed. What a backend reads as no file follows the storage contract (§11.2): in a store's own `.vmd/schema/`,
+  does not define, such as an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is
+  `feature-unsupported` (§9.3); one whose file is missing, or that is not a valid schema, is `schema-invalid`; and one whose file
+  is a file of the store that the backend cannot read, such as one refused by a permission error or a directory with files in it
+  where the file is named, is `storage-failed` (§11.2), so that the code says what failed. A schema with several problems gets
+  one code, whose message lists them all: `storage-failed` when a file cannot be read, else `feature-unsupported` when a
+  construct this version does not define is among them, since a newer version may explain the others too, else
+  `schema-invalid`. What a backend reads as no file follows the storage contract (§11.2): in a store's own `.vmd/schema/`,
   the filesystem backend reads a symbolic link or a directory where the file is named as missing, and a FIFO, a socket or a device
   as a file it cannot read, which is `storage-failed`, as anywhere in the store. A schema the backend finds missing is
   `schema-invalid`, unless the backend lists files below its path: then the path is a directory with files in it, which vmd
@@ -1171,7 +1180,8 @@ A record in no collection is valid and unschematized; its references are still c
     returns data that holds it. That is a structural error, which makes the record unreadable, such as an unknown `$` member on
     a section, in front matter or in a data block (§5.3, §5.4) or an unknown `data` info string (§5.3); an operation error that
     fails the operation, such as an unknown configuration member, which is `feature-unsupported`; or a schema that cannot be used,
-    such as one with an unknown `x-vmd-*` keyword (`feature-unsupported`, §9.3), whose records every reader refuses (above).
+    such as one with an unknown `x-vmd-*` keyword, or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`
+    (`feature-unsupported`, §9.3), whose records every reader refuses (above).
     Relaxing one of those refusals later, for example allowing a keyword off the schema's spine (§9.3) or `$id` in a schema
     (§9.2), is therefore an addition too. Relaxing a validation error is not, since a best-effort reader reads past validation
     errors (§9.5): if 1.1 accepted a space in a `date-time`, a 1.0 reader's `check` would report a `schema-violation`, but its
@@ -1203,12 +1213,20 @@ A record in no collection is valid and unschematized; its references are still c
 
 ### 9.2 Validation
 
-The collection's schema, a JSON Schema 2020-12 document in JSON or YAML, validates the record's value view. A schema has no
-`$id`, since a base URI of its own would change what its relative `$ref`s mean; one with `$id` is `schema-invalid`. A YAML
-schema file follows vmd's YAML rules (§4.1, §4.4, §5.1), so YAML anchors, aliases and tags in it are `schema-invalid`; `$defs`
-with `$ref` does what anchors would. The validator never adds
-members to the value. Where a schema keys sections by `@key` (§9.3), vmd's validator computes the keys and evaluates that list
-itself. Because schemas see values, not syntax, one schema covers a Markdown ticket and a YAML ticket with the same content.
+The collection's schema, a JSON Schema 2020-12 document in JSON or YAML, validates the record's value view. Each schema file holds
+an object; a file holding a boolean schema, such as `true`, is `schema-invalid`, which narrows 2020-12, where a schema document
+may be a boolean. A schema has no `$id`, since a base URI of its own would change what its relative `$ref`s mean; one with `$id`
+is `schema-invalid`. The identifiers `$id`, `$anchor`, `$dynamicAnchor` and `$schema` stand only in schema objects: one with a
+string value inside a `const`, `enum`, `default` or `examples`, or inside the value of a keyword that neither 2020-12 nor vmd
+defines, is `schema-invalid`. That narrows 2020-12 too, where such data may hold any member, but a validator takes such a member
+for an identifier wherever it stands, so it could fetch a URL, and a `const` holding one would never match. With a value that is
+not a string, such a member is data, compared as written. A `$dynamicRef` is allowed. Since no identifier stands in data, it lands
+only on a `$dynamicAnchor` of the schema files vmd has read, and reaches nothing else; where it lands depends on how validation
+reached it, so the spine counts every `$dynamicAnchor` of its name as a possible target, off the spine (§9.3). A YAML schema file
+follows vmd's YAML rules (§4.1, §4.4, §5.1), so YAML anchors, aliases and tags in it are `schema-invalid`; `$defs` with `$ref`
+does what anchors would. The validator never adds members to the value. Where a schema keys sections by `@key` (§9.3), vmd's
+validator computes the keys and evaluates that list itself. Because schemas see values, not syntax, one schema covers a Markdown
+ticket and a YAML ticket with the same content.
 
 Issues come in two classes, and Appendix D gives each code's class:
 
@@ -1247,26 +1265,51 @@ error are mostly its consequences; the other units are still parsed, and their e
 | `x-vmd-list` | an array | a keyed list (§5.6, below) |
 | `x-vmd-ref` | a `$ref` object, or a string with `format: uri-reference` | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any target is allowed: a node, a record, an asset or a directory. A `targets` entry that names a collection of the configuration is that collection, and any other entry is a glob (§11.2) |
 | `x-vmd-summary` | any property | `true` or `false`: whether the property is included in default listings and query results; another value is `schema-invalid` |
-| `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries |
+| `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries; another value is `schema-invalid` |
 
-A keyword that begins with `x-vmd-` and that this version does not define makes the schema invalid (`feature-unsupported`), so
-that a keyword a newer minor version adds is never silently ignored (§9.1).
+A keyword that begins with `x-vmd-` and that this version does not define makes the schema unusable as `feature-unsupported`,
+and so does a member or a value inside `x-vmd-list` or `x-vmd-ref` that this version does not define, such as
+`x-vmd-list: {type: map, keys: [name], sorted: true}` or `type: set`, so that what a newer minor version adds is never silently
+ignored, and the message tells the reader that the schema may need a newer version (§9.1). A member this version defines whose
+value has the wrong form, such as a `keys` that is not a list, is `schema-invalid`.
 
 **The spine.** `x-vmd-list` and `x-vmd-ref` are read only along the schema's spine: `properties`, `patternProperties`,
 `additionalProperties`, `prefixItems`, `items`, `$ref` to a fixed location, `allOf`, and `x-vmd-list`'s own `items` and
-`additional`, from the root. A declaration reached only through `oneOf`, `anyOf`, `not`, `if`, `then`,
-`else` or another keyword is `schema-invalid`; one in `$defs` that nothing on the spine references is fine. So a reference's
-meaning never depends on which branch of a `oneOf` its record satisfies, and §7.4's proof of singularity stays possible before
-anything is evaluated. When two `patternProperties` patterns bring unequal declarations to one member of the data, that member
-gets a `schema-violation`, and the rest of the collection is unaffected.
+`additional`, from the root. A declaration reached through `oneOf`, `anyOf`, `not`, `if`, `then`, `else`, `$dynamicRef` or another
+keyword is `schema-invalid`, also when the spine reaches it as well, so that it never applies at one place and silently not at
+another. A declaration that the root does not reach through any keyword, such as one in a `$defs` entry that nothing references,
+is not checked, so that a shared file's `$defs` may hold declarations that other collections use. A `$dynamicRef` may land on any
+`$dynamicAnchor` of its name (§9.2), so a declaration at any of them counts as reached through it. So a reference's meaning never
+depends on which branch of a `oneOf` its record satisfies, and §7.4's proof of singularity stays possible before anything is
+evaluated.
+
+**Declarations that meet.** Declarations that apply at one instance location must be equal. Two schema objects, each a schema at
+one location of a schema file, apply together when the spine brings both to one instance location, from the root and through what
+`allOf` and `$ref` bring at each step, by steps that the schema names: a member whose name a `properties` anywhere in the schema
+lists, where each object applies its `properties` entry, the patterns that match the name, or else its `additionalProperties`; an
+item, by its index and by a key that a keyed list's `items` names, where each applies its `prefixItems` entry or else its `items`,
+together with its keyed list's schema for that key; and, at a member whose name no `properties` lists, the objects that one
+pattern or one `additionalProperties` brings. Unequal declarations of objects that apply together are `schema-invalid`, and so is
+an `x-vmd-list` that applies together with `unevaluatedItems`. A name that some `properties` lists counts wherever the schema
+takes it, so two patterns that both match such a name are refused even where no object that applies there lists it, which is
+conservative. Where only a member name in the data brings unequal declarations together, the check waits for the record: two
+patterns that match one name, a pattern and `additionalProperties` in different branches, two `additionalProperties` of an
+`allOf`, or an array's `items` and its `x-vmd-list`'s `additional` at an item whose key the list's `items` does not name. That
+member or item of that record gets a `schema-violation` and neither declaration, and the rest of the collection is unaffected.
 
 **What else is refused.** These are `schema-invalid`:
 
-- `x-vmd-ref` on a string whose schema lacks `format: uri-reference`, since the declaration would do nothing;
-- `unevaluatedItems` beside `x-vmd-list`, since the validator does not know that `x-vmd-list` evaluates the items, and
+- `x-vmd-ref` where a string can stand without `format: uri-reference`, since the declaration would then do nothing: the
+  format, or a `type` that allows no string, must apply beside the declaration on every path that reaches it. A schema without
+  `type` allows a string, so `x-vmd-ref` without the format is refused there too, and a schema for a `$ref` object writes
+  `type: object`;
+- `unevaluatedItems` beside `x-vmd-list` (above), since the validator does not know that `x-vmd-list` evaluates the items, and
   `unevaluatedItems: false` would fail valid data;
 - a `keys` of more than one entry, and on `$sections` any `keys` other than `["@key"]`, since sections are keyed by their section
-  key by definition (§5.6).
+  key by definition (§5.6). A section's `$sections` that a pattern matching it or an `additionalProperties` taking it reaches is
+  checked as `$sections`, and as any other member that pattern or `additionalProperties` takes, so a keyed list there is refused
+  whatever its key. `properties: {$sections: false}` keeps it out, or `properties: {$sections: ...}` gives the sections' own
+  list.
 
 `x-vmd-list` has these members:
 
@@ -2485,7 +2528,7 @@ The columns:
 | `section-title-missing` | error | structural | §5.2 | an item of `$sections` without a `$title`; the item |
 | `anchor-element-invalid` | error | structural | §6.2 | an `<a>` element with an `id` or `class` that also has content or another attribute, a second anchor element in one heading or at the start of one block, or an anchor element inside emphasis or a link in a heading rather than among its direct children; the section, or the `$body` for a block |
 | `dollar-member` | error | structural | §5.3, §5.4 | `$key` on a section, in front matter or in a data block; a section member (`$title`, `$anchor`, `$tags`, `$body`, `$sections`) at the top of front matter or of a data block; or a section member out of its place (`$schema` below the root, and in a data block). Inside a field's value such a member is data; the member |
-| `feature-unsupported` | error | structural in a record; operation in a schema or a configuration | §5.3, §5.4, §9.1, §9.3 | a construct that this version does not define, which may come from a newer minor version: another `$` member on a section, in front matter or in a data block, a `data` info string other than `yaml data`, `json data` and `jsonc data` where a data block is read or misplaced, including either with a third word, a configuration member, or an unknown `x-vmd-*` keyword in a schema, which makes readers refuse the collection's records as `schema-invalid` does (§9.1). The message names the store's declared version when there is one; the member, the section, or none |
+| `feature-unsupported` | error | structural in a record; operation in a schema or a configuration | §5.3, §5.4, §9.1, §9.3 | a construct that this version does not define, which may come from a newer minor version: another `$` member on a section, in front matter or in a data block, a `data` info string other than `yaml data`, `json data` and `jsonc data` where a data block is read or misplaced, including either with a third word, a configuration member, or in a schema an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, which makes readers refuse the collection's records as `schema-invalid` does, and wins over `schema-invalid` beside other problems of the schema (§9.1). The message names the store's declared version when there is one; the member, the section, or none |
 | `ref-malformed` | error | structural | §8.1 | a `$ref` object with other members, or whose `$ref` is not a string; the object. The other members are still checked, and their issues reported |
 | `duplicate-key` | error at a level the schema declares `type: map`; elsewhere error (strict), warning (lenient) | validation | §5.7 | a field name and a section key, or two section keys, repeated in one section, or a key repeated in a keyed list; each node after the first |
 | `duplicate-anchor` | error (strict), warning (lenient) | validation | §6.1 | an anchor, explicit or derived, that names more than one node; each node after the first in document order (above), once per node even when two of its anchors collide |
@@ -2513,7 +2556,7 @@ The columns:
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
 | `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
-| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, or is not a valid schema; it has `$id`, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` off the spine; `x-vmd-ref` on a string without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; an `x-vmd-summary` that is not a boolean. An unknown `x-vmd-*` keyword is `feature-unsupported` instead, and a file that cannot be read `storage-failed`. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
+| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, does not hold an object, or is not a valid schema; it has `$id`, an identifier with a string value inside data, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` reached off the spine, `$dynamicRef` included, even where the spine reaches it too; unequal declarations that apply together; `x-vmd-ref` where a string can stand without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; a member of `x-vmd-list` or `x-vmd-ref` whose value has the wrong form; an `x-vmd-summary` that is not a boolean, or an `x-vmd-ordered` that is not `asc` or `desc`. A construct this version does not define, an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is `feature-unsupported` instead, also beside other problems, and a file that cannot be read `storage-failed`, which wins over both. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
 | `alias-file-invalid` | error | operation | §11.2, §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries, or that is larger than 16 MiB, refused by its size with a message that names the limit and suggests `vmd alias prune`; none |
 | `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
 | `format-version-older` | warning | operation | §9.1 | a client newer than the store reads a major version it does not support, with no change in between that alters meaning; none |
@@ -2525,7 +2568,7 @@ The columns:
 | `usage-invalid` | error | operation | §12.1, §12.3 | a command line the CLI cannot read: an unknown command or option, a missing or extra argument, or an option value it cannot read (exit code 2), and an option that does not apply to the node it is given, such as `get --body` on a node that is not a section; none |
 | `store-not-found` | error | operation | §3.3, §12.3 | no store: `--store` names a directory that does not exist, or, without `--config`, one that holds no `.vmd/config.yaml`; or, without `--store`, no directory at or above the working directory holds one, or the working directory cannot be read; none |
 | `unicode-runtime-older` | warning | operation | §6.3, §12.1 | the runtime's Unicode data is older than 17.0.0, the version that derived anchors follow, so derived anchors may differ; once per command that reads a store; none |
-| `field-not-computed` | warning | operation | §5.10 | a requested computed field that the implementation does not compute yet, given as `null`; none |
+| `field-not-computed` | warning | operation | §5.10 | a requested computed field that the implementation does not compute yet, given as `null`, rather than left out; every field §5.10 lists is computed in this version, and the code stays for an implementation that does not compute one yet; none |
 | `unreadable-records` | error | operation | §9.1, §13.4 | a `rename` or `mv` while the store has records with structural errors, or a collection whose schema cannot be used; none |
 | `storage-failed` | error | operation | §9.1, §11.2 | a read that the backend cannot complete, such as one refused by a permission error; a FIFO, a socket or a device in the store, which is not a regular file, read or listed, a listing leaving it out with the issue, except at a path that vmd ignores (§3.3), which a listing leaves out without one; a collection's schema file that cannot be read, a directory with files in it where the file is named included, which makes readers refuse the collection's records as `schema-invalid` does (§9.1); none |
 | `conflict` | error | operation | §11.3 | a write whose `if_version` or `if_head` no longer matches (exit code 3); the target |
