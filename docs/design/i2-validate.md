@@ -382,7 +382,11 @@ They meet in four ways:
   although the binding treats the array as a plain one, because the proof judges declarations, and the data's conflict does not
   remove the `multimap` one from the schema;
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
-  `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both.
+  `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both. This is static
+  too, so the check runs when the schema is loaded: an item of any key can stand at any index, so each per-key schema, and
+  `additional` when it is a schema, meets `items` and every `prefixItems` entry, and unequal declarations there are
+  `schema-invalid`, whether or not the data has an item with that key or with a key the list does not name (card AF,
+  project owner, 2026-10-12).
 
 `x-vmd-summary` and `x-vmd-ordered` are left to I3, whose queries read them. A schema with `unevaluatedItems` beside `x-vmd-list`
 would fail valid data, since the validator does not see the items `x-vmd-list` checks as evaluated; the design proposes to make it

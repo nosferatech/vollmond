@@ -1,7 +1,7 @@
 // The spine's check as it stood before its costs were reduced, kept as the oracle of the differential tests: the new check
 // must report what this one reports, over random schemas small enough for this one to finish. Only the check is kept; the
-// shapes are the spine's own. It carries one change of behaviour made with the check, marked where it stands: a keyed
-// list's item meets the prefixItems entry of every index.
+// shapes are the spine's own. It carries two changes of behaviour made with the check, marked where they stand: a keyed
+// list's item meets the prefixItems entry of every index, and so does the item of a key no list names.
 
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
@@ -683,16 +683,24 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   const names = new Set<string>();
   let prefix = 0;
   const keys = new Set<string>();
+  let additional = false;
   for (const schema of [first, second]) {
     if (isObject(schema.properties)) for (const name of Object.keys(schema.properties)) names.add(name);
     if (Array.isArray(schema.prefixItems)) prefix = Math.max(prefix, schema.prefixItems.length);
     const list = schema["x-vmd-list"];
     if (isObject(list) && isObject(list.items)) for (const key of Object.keys(list.items)) keys.add(key);
+    if (isObject(list) && isObject(list.additional)) additional = true;
   }
   for (const name of names) steps.push({ kind: "member", name });
   for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
   // Changed with the check: an item with a key can stand at any index, so its key's schema meets each prefixItems entry.
   for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
+  // Changed with the check: An item with a key neither list names gets each list's additional, at any index; one such key stands for all.
+  if (additional) {
+    let unlisted = "";
+    while (keys.has(unlisted)) unlisted += "_";
+    for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key: unlisted });
+  }
   return steps;
 }
 

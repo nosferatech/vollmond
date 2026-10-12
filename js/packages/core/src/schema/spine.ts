@@ -324,8 +324,9 @@ export class Spine {
    * or a keyed list and `unevaluatedItems`. A schema with none of them, or whose declarations are all equal, visits no pair.
    * In the worst case, two groups of co-applying locations with unequal declarations, the pairs grow with the product of the
    * groups' sizes, so quadratically in the schema. A pair takes a keyed list's item for each key it names at each index of
-   * the longest `prefixItems` and past it, so its steps, and the pairs they lead to, grow with the keys times the
-   * `prefixItems`: still at most quadratic, but reached with less schema. The locations that apply beside a typed reference
+   * the longest `prefixItems` and past it, and, where a list has an `additional` schema, one more for a key neither names,
+   * so its steps, and the pairs they lead to, grow with the keys plus one times the `prefixItems` plus one: still at most
+   * quadratic, but reached with less schema. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
    * could give it, which in the worst case is quadratic too.
    *
@@ -1117,23 +1118,32 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
 
 /**
  * The steps that two schema objects name, which both follow together: the members `properties` names, the items at each
- * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes.
+ * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes; and
+ * where a list has an `additional` schema, the items of a key neither list names, at each of those indexes too.
  */
 function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
   let prefix = 0;
   const keys = new Set<string>();
+  let additional = false;
   for (const schema of [first, second]) {
     if (isObject(schema.properties)) for (const name of Object.keys(schema.properties)) names.add(name);
     if (Array.isArray(schema.prefixItems)) prefix = Math.max(prefix, schema.prefixItems.length);
     const list = schema["x-vmd-list"];
     if (isObject(list) && isObject(list.items)) for (const key of Object.keys(list.items)) keys.add(key);
+    if (isObject(list) && isObject(list.additional)) additional = true;
   }
   for (const name of names) steps.push({ kind: "member", name });
   for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
   // An item with a key can stand at any index, so its key's schema meets each prefixItems entry as well as items.
   for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
+  // An item with a key neither list names gets each list's additional, at any index; one such key stands for all.
+  if (additional) {
+    let unlisted = "";
+    while (keys.has(unlisted)) unlisted += "_";
+    for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key: unlisted });
+  }
   return steps;
 }
 
