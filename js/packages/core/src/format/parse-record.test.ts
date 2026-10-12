@@ -107,16 +107,33 @@ describe("parseRecord", () => {
     ["a reference link in 255 levels of emphasis", `${"*a ".repeat(255)}[b][r]${" a*".repeat(255)}`, "[r]: /x", true],
     ["a reference link in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[r]: /x", false],
     ["an undefined reference in 256 levels of emphasis", `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`, "[s]: /x", true],
-  ])("a JSON, YAML and Markdown record agree on %s", (_name, text, definition, reads) => {
-    // The same record in each format: a root `$body` that holds the definition and the text, and a section titled the text.
-    const body = `${definition}\n\n${text}`;
-    const json = JSON.stringify({ $body: body, $sections: [{ $title: text }] });
-    const yaml = `$body: ${JSON.stringify(body)}\n$sections:\n  - $title: ${JSON.stringify(text)}\n`;
-    const markdown = `${body}\n\n# ${text}\n`;
-    expect(parseRecord("a.json", bytes(json)).ok).toBe(reads);
-    expect(parseRecord("a.yaml", bytes(yaml)).ok).toBe(reads);
-    expect(parseRecord("a.md", bytes(markdown)).ok).toBe(reads);
-  });
+  ])(
+    "a JSON, YAML and Markdown record agree on %s",
+    (_name, text, definition, reads) => {
+      // The same record in each format, with the text as a paragraph and a heading. The definition is in the root's $body
+      // and the text in another section's, and then the other way round; a Markdown file has them in one document.
+      const layouts: [string, string][] = [
+        [definition, text],
+        [text, definition],
+      ];
+      for (const [first, second] of layouts) {
+        const json = JSON.stringify({ $body: first, $sections: [{ $title: "S", $body: second }, { $title: text }] });
+        const yaml = [
+          `$body: ${JSON.stringify(first)}`,
+          "$sections:",
+          "  - $title: S",
+          `    $body: ${JSON.stringify(second)}`,
+          `  - $title: ${JSON.stringify(text)}`,
+        ].join("\n");
+        const markdown = `${first}\n\n## S\n\n${second}\n\n## ${text}\n`;
+        expect(parseRecord("a.json", bytes(json)).ok).toBe(reads);
+        expect(parseRecord("a.yaml", bytes(`${yaml}\n`)).ok).toBe(reads);
+        expect(parseRecord("a.md", bytes(markdown)).ok).toBe(reads);
+      }
+      // Six records of up to 2,049 references each, which a loaded machine can take seconds to read.
+    },
+    30_000,
+  );
 
   test.each([
     ["block quotes nested 256 levels", `${">".repeat(256)} a`, true],

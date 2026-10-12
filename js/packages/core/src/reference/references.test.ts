@@ -522,6 +522,37 @@ describe("the prose of a JSON or YAML record", () => {
     expect(await raws("docs/t.json")).toEqual(["definition d.md"]);
   });
 
+  test("reads a $body with the definitions of every $body in scope, as one Markdown file has them", async () => {
+    // `[a][b]` is a use of the definition of b, so `(gone.md)` is text and not the destination of a link `[b](gone.md)`.
+    const first = "Before [a][b](gone.md).";
+    const second = "[b]: d.md";
+    const store = await storeOf({
+      "docs/t.md": `# T\n\n## S\n\n${first}\n\n## U\n\n${second}\n`,
+      "docs/t.json": JSON.stringify({
+        $title: "T",
+        $sections: [
+          { $title: "S", $body: first },
+          { $title: "U", $body: second },
+        ],
+      }),
+      "docs/t.yaml": `$title: T\n$sections:\n  - $title: S\n    $body: ${JSON.stringify(first)}\n  - $title: U\n    $body: ${JSON.stringify(second)}\n`,
+      "docs/u.json": JSON.stringify({
+        $title: "T",
+        $sections: [
+          { $title: "U", $body: second },
+          { $title: "S", $body: first },
+        ],
+      }),
+      "docs/d.md": "# D\n",
+    });
+    const found = async (from: string) =>
+      successValue(await store.references({ from })).map((reference) => `${reference.form} ${reference.raw} ${reference.status}`);
+    for (const path of ["docs/t.md", "docs/t.json", "docs/t.yaml", "docs/u.json"]) {
+      expect(await found(path)).toEqual(["definition d.md ok"]);
+      expect((await store.check({ records: [path] })).issues).toEqual([]);
+    }
+  });
+
   test("a $body beyond the Markdown limits makes its record a syntax-error, so that no link in it goes unread", async () => {
     const deep = `${"> ".repeat(300)}[x](gone.md)`;
     const store = await storeOf({ "docs/d.json": JSON.stringify({ $body: deep }) });

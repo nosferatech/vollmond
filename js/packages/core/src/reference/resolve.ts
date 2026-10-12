@@ -4,11 +4,12 @@ import { titleSlugOf } from "../anchor/title-slug.js";
 import type { PathClass } from "../config/classify.js";
 import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
+import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { ValueObject } from "../value/value.js";
 import type { AliasTable } from "./aliases.js";
-import { definitionLabelsOf, occurrencesOf } from "./extract.js";
+import { occurrencesOf } from "./extract.js";
 import type { Reference, ReferenceOccurrence, ReferenceStatus, ReferenceTarget } from "./reference.js";
 import { resolveReferenceUri } from "./uri.js";
 
@@ -554,7 +555,7 @@ function slugCounts(record: ParsedRecord): ReadonlyMap<string, number> {
       const title = (valueAt(record, section.at) as ValueObject).$title;
       const text = typeof title === "string" ? title : "";
       // Only a link reference has a label to look up, and it holds a `[`.
-      if (text.includes("[")) labels ??= definitionLabelsOf(record);
+      if (text.includes("[")) labels ??= definitionLabelsOfRecord(record.value);
       slugs.push(titleSlugOf(text, text.includes("[") ? (labels as string[]) : []));
     }
   }

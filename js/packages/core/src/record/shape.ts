@@ -34,11 +34,11 @@ const SECTION_MEMBERS = new Set(["$title", "$anchor", "$tags", "$body", "$sectio
  *
  * - on a section, a `$title` that passes a resource limit of inline content, which is more runs of emphasis than a text may
  *   hold, or inline elements nested deeper than it may, or a `$body` that passes a resource limit of Markdown, read as a
- *   Markdown file with its own link reference definitions in scope (`syntax-error`, at the root, positioned at the member,
- *   one for the record however many pass); a `$title`, `$body` or `$anchor` that is not a string, `$tags` that is not an
- *   array of strings, or `$sections` that is not an array of objects (`reserved-member-type`, at the member); an item of
- *   `$sections` without a `$title` (`section-title-missing`, at the item); `$key`, or `$schema` below the root
- *   (`dollar-member`); and any other member whose name begins with `$` (`feature-unsupported`);
+ *   Markdown file; each with the link reference definitions of every `$body` of the record in scope (`syntax-error`, at the
+ *   root, positioned at the member, one for the record however many pass); a `$title`, `$body` or `$anchor` that is not a
+ *   string, `$tags` that is not an array of strings, or `$sections` that is not an array of objects (`reserved-member-type`,
+ *   at the member); an item of `$sections` without a `$title` (`section-title-missing`, at the item); `$key`, or `$schema`
+ *   below the root (`dollar-member`); and any other member whose name begins with `$` (`feature-unsupported`);
  * - at the top of front matter or of a data block, `$key` and the section members (`dollar-member`), `$schema` in a data block
  *   (`dollar-member`), and any other `$` member except front matter's `$schema` (`feature-unsupported`);
  * - inside a field's value, where other `$` members are data: an object with a `$ref` member that has other members or a `$ref`
@@ -110,7 +110,7 @@ class ShapeChecker {
           if (typeof member !== "string") {
             this.#raise("reserved-member-type", memberAt, `${name} must be a string`);
           } else if (!this.#limitPassed) {
-            this.#raiseLimitPassage(name, markdownLimitPassedIn(member), memberAt);
+            this.#raiseLimitPassage(name, markdownLimitPassedIn(member, member.includes("[") ? this.#labels() : []), memberAt);
           }
           break;
         case "$anchor":

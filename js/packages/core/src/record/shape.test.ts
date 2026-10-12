@@ -114,12 +114,34 @@ describe("sections in a JSON or YAML record", () => {
     expect(issuesOf({ $body: `[b]: /x\n\n${references}` })).toEqual([["syntax-error", ""]]);
   });
 
-  test("a $body is read on its own, as references read it: the definitions of another $body are not in scope for it", () => {
+  test("every $body has the definitions of all the record's $body values in scope, as one Markdown file has", () => {
     const references = "[a][*b*] ".repeat(2049);
-    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: "S", $body: references }] })).toEqual([["syntax-error", ""]]);
-    const around = `${"*a ".repeat(256)}[b][r]${" a*".repeat(256)}`;
-    expect(issuesOf({ $body: `[r]: /x\n\n${around}` })).toEqual([["syntax-error", ""]]);
-    expect(issuesOf({ $body: "[r]: /x", $sections: [{ $title: "S", $body: around }] })).toEqual([]);
+    // The definition before the text, after it, and in a section that is neither its parent nor its child.
+    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: "S", $body: references }] })).toEqual([]);
+    expect(issuesOf({ $body: references, $sections: [{ $title: "S", $body: "[*b*]: /x" }] })).toEqual([]);
+    const siblings = [
+      { $title: "S", $sections: [{ $title: "U", $body: references }] },
+      { $title: "V", $body: "[*b*]: /x" },
+    ];
+    expect(issuesOf({ $sections: siblings })).toEqual([]);
+    // A definition of another label leaves them runs.
+    expect(issuesOf({ $body: "[b]: /x", $sections: [{ $title: "S", $body: references }] })).toEqual([["syntax-error", ""]]);
+    // A reference link that another $body defines is an inline level, as in Markdown.
+    const around = (levels: number) => `${"*a ".repeat(levels)}[b][r]${" a*".repeat(levels)}`;
+    expect(issuesOf({ $body: "[r]: /x", $sections: [{ $title: "S", $body: around(255) }] })).toEqual([]);
+    expect(issuesOf({ $body: "[r]: /x", $sections: [{ $title: "S", $body: around(256) }] })).toEqual([["syntax-error", ""]]);
+    expect(issuesOf({ $body: "[s]: /x", $sections: [{ $title: "S", $body: around(256) }] })).toEqual([]);
+  });
+
+  test("a $body whose own text passes a limit only without the record's definitions still defines its labels", () => {
+    // The section's $body holds 4,098 runs unless the root's definition is in scope, and defines `c`, which makes the
+    // title's `[t][c]` a reference link, a 257th inline level.
+    const body = `[c]: /y\n\n${"[a][*b*] ".repeat(2049)}`;
+    const title = `${"*a ".repeat(256)}[t][c]${" a*".repeat(256)}`;
+    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: "S", $body: body }] })).toEqual([]);
+    expect(issuesOf({ $body: "[*b*]: /x", $sections: [{ $title: "S", $body: body }, { $title: title }] })).toEqual([
+      ["syntax-error", ""],
+    ]);
   });
 
   test("a record with several $body values or titles past a limit has one syntax-error, at the first", () => {

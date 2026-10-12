@@ -1,15 +1,54 @@
 import { describe, expect, test } from "vitest";
 import { MAX_EMPHASIS_RUNS, MAX_NESTING } from "../limits.js";
-import { definitionLabelsIn, inlineLimitPassedIn, parseInlineContent, parseMarkdownTree } from "./library.js";
+import {
+  definitionLabelsIn,
+  inlineLimitPassedIn,
+  markdownLimitPassedIn,
+  parseInlineContent,
+  parseMarkdownTree,
+} from "./library.js";
 
 describe("definitionLabelsIn", () => {
-  test("finds the labels of definitions at any depth, as written", () => {
-    expect(definitionLabelsIn("[A b]: /x\n\n> - [c]: /y\n")).toEqual(["A b", "c"]);
+  test("finds the labels of definitions at any depth, as their identifiers", () => {
+    expect(definitionLabelsIn("[A  b]: /x\n\n> - [c]: /y\n")).toEqual(["a b", "c"]);
   });
 
   test("finds none in a text beyond a resource limit, and near miss, finds one at the deepest level allowed", () => {
     expect(definitionLabelsIn(`${">".repeat(MAX_NESTING + 1)} [a]: /x\n`)).toEqual([]);
     expect(definitionLabelsIn(`${">".repeat(MAX_NESTING)} [a]: /x\n`)).toEqual(["a"]);
+  });
+
+  test("finds them in a text past an inline limit, which definitions elsewhere in its record may bring within it", () => {
+    const runs = "*a* ".repeat(20000);
+    const nested = `${"*a ".repeat(10000)}b${" a*".repeat(10000)}`;
+    const strikethrough = "~a~ ".repeat(20000);
+    expect(definitionLabelsIn(`[a]: /x\n\n${runs}\n\n${nested}\n\n${strikethrough}\n\n[b]: /y\n`)).toEqual(["a", "b"]);
+    expect(definitionLabelsIn(`${"[".repeat(20000)}\n\n[a]: /x\n`)).toEqual(["a"]);
+  });
+
+  test("finds none without a `]:`, which every definition holds, and one whose label holds an escaped bracket", () => {
+    expect(definitionLabelsIn("[a] : /x\n")).toEqual([]);
+    expect(definitionLabelsIn("[a\\]]: /x\n")).toEqual(["a\\]"]);
+  });
+});
+
+describe("the record's definitions in a Markdown parse", () => {
+  test("are in scope beside the text's own, for the runs, the inline nesting and the tree", () => {
+    const references = "[a][*b*] ".repeat(2049);
+    expect(markdownLimitPassedIn(references)?.message).toBe(`more than ${MAX_EMPHASIS_RUNS} runs`);
+    expect(markdownLimitPassedIn(references, ["*b*"])).toBeNull();
+    expect(markdownLimitPassedIn(`[*b*]: /x\n\n${references}`, ["c"])).toBeNull();
+    const around = `${"*a ".repeat(MAX_NESTING)}[b][r]${" a*".repeat(MAX_NESTING)}`;
+    expect(markdownLimitPassedIn(around)).toBeNull();
+    expect(markdownLimitPassedIn(around, ["R"])?.message).toBe(`inline nodes nest more than ${MAX_NESTING} deep`);
+    const tree = parseMarkdownTree("[a][b](c.md) on\none line\nand more", ["b"]);
+    const paragraph = tree.ok ? tree.root.children[0] : undefined;
+    const kinds = paragraph?.type === "paragraph" ? paragraph.children.map((node) => node.type) : [];
+    expect(kinds).toEqual(["linkReference", "text"]);
+    const alone = parseMarkdownTree("[a][b](c.md)");
+    expect(
+      alone.ok && alone.root.children[0]?.type === "paragraph" && alone.root.children[0].children.map((n) => n.type),
+    ).toEqual(["text", "link"]);
   });
 });
 

@@ -3,8 +3,10 @@ import type { Value, ValueObject } from "../value/value.js";
 
 /**
  * Finds the labels of the link reference definitions in the `$body` of every section of a JSON or YAML record's value, as
- * written: the labels that are in scope when a section's `$title` is read as a heading's inline content. The order is not
- * specified. A `$body` beyond a resource limit has none.
+ * {@link definitionLabelsIn} gives them: the labels that are in scope in each `$title` and each `$body` of the record, as
+ * they are in its Markdown form, one document. They come in that document's order, each section's `$body` before its
+ * `$sections`, so that where two definitions share a label, the one that CommonMark takes, the first, comes first. A
+ * `$body` whose containers nest too deep has none.
  */
 export function definitionLabelsOfRecord(root: ValueObject): string[] {
   const labels: string[] = [];
@@ -12,7 +14,8 @@ export function definitionLabelsOfRecord(root: ValueObject): string[] {
   for (let section = pending.pop(); section !== undefined; section = pending.pop()) {
     if (!isObject(section)) continue;
     if (typeof section.$body === "string") labels.push(...definitionLabelsIn(section.$body));
-    if (Array.isArray(section.$sections)) pending.push(...section.$sections);
+    // The last item first, so that the walk visits the sections in document order.
+    if (Array.isArray(section.$sections)) pending.push(...[...section.$sections].reverse());
   }
   return labels;
 }
