@@ -53,7 +53,7 @@ Schema 2020-12 allows, so you should see them."
 that it narrows 2020-12; items 2, 4, 6 and 7 in §9.3, item 6 saying that a declaration the spine also reaches is refused; and
 Appendix D's `feature-unsupported` and `schema-invalid` rows.
 
-**Agent's reading, for the owner to confirm.** Three details the card leaves to the draft:
+**Agent's reading, confirmed by the owner on [W5](W5.md) (2026-10-12).** Three details the card leaves to the draft:
 
 - Items 4 and 6 amend [U2](U2.md)'s applied rule in the same direction: U2 refused a declaration "reached only off" the spine and
   named one overlap that waits for the record, two patterns at one member; item 6 refuses a declaration the spine reaches as well,
@@ -88,3 +88,7 @@ declaration: `patterns-meet-in-record`, `additional-properties-meet-in-record` a
 record that brings the waiting declarations together and gets its `schema-violation`, until the binding of keyed lists and typed
 references (#23, #24) reports what #97 records as a conflict of the shape; and `keyed-item-meets-prefix-items`, until the code
 follows #109.
+
+Draft v0.15: card [AF](AF.md) asked item 4's case of a keyed list's `additional` against the array's `items` again, after #118
+refused it at load, and the owner kept item 4: the meeting waits for the record. §9.3 now names a `prefixItems` entry beside
+`items` there, as the I2 design's section 3.3 did; the rule does not change.

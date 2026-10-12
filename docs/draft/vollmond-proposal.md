@@ -1,10 +1,10 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.14 (2026-10-12). Supersedes Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11
-(commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7
-(commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3
-(commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of
-decisions applied to the draft.
+Status: Draft v0.15 (2026-10-12). Supersedes Draft v0.14 (commit `796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit
+`3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit
+`26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
+`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
+rises with each round of decisions applied to the draft.
 Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
 [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
 
@@ -974,14 +974,23 @@ An address is **singular** when it must resolve to exactly one node: every refer
 only if each of its steps crosses a level whose keys are unique, by declaration (`type: map`) or by the strict default. The checker
 proves this from the schema before evaluating anything, for the levels the address crosses (`address-not-singular` otherwise).
 
+A step from a section that begins with `$`, such as `$body` or `$title`, names the section's own member (§7.3) and crosses no
+level, since no section key of a valid record begins with `$`: a heading's slug drops it (§6.3, step 5), and an anchor begins
+with a letter (§6.2). So `#summary/$body` is singular wherever the section `summary` is, also where its child sections are
+declared `multimap`, while `#log/entry/$body` is not where `entry` crosses such a level. `$sections` is the section's own member
+too, but the step after it is a key of the child sections and crosses their level. A `$` step into a keyed list of data is a key
+like any other, since a key member may hold any string. The proof still works from the schema alone.
+
 The proof cannot cover three cases, so a singular address can still fail as ambiguous when it is evaluated, in exactly these:
 
 - in `lenient` mode, where a level the schema does not declare may hold duplicates (§5.7);
 - when its first step matches both a root member and the anchor of a different node (§7.3);
-- when the data breaks a uniqueness the proof relies on: repeated sibling keys that the strict default forbids, a duplicate at
-  a level declared `type: map`, or an anchor that names more than one node (§6.1). Such a record still reads, with a
-  `duplicate-key` or `duplicate-anchor` validation error, in either uniqueness mode (§5.7), and an address through the
-  duplicate is ambiguous.
+- when the data breaks a rule the proof relies on: repeated sibling keys that the strict default forbids, a duplicate at a level
+  declared `type: map`, an anchor that names more than one node (§6.1), or an invalid explicit anchor that begins with `$`, such
+  as `"$anchor": "$body"` in JSON or YAML or `<a id="$body"></a>` in a heading, which still becomes its section's key (§5.5), so
+  that `#a/$body` matches both the text of `a` and that child section. Such a record still reads, with a `duplicate-key`,
+  `duplicate-anchor` or `anchor-invalid` validation error, in either uniqueness mode (§5.7), and an address through the
+  duplicate or the invalid key is ambiguous.
 
 A **selector** may resolve to several nodes: a semantic path through a `multimap` level, or a query. Selectors are used by
 queries and by references declared `cardinality: many`, and never as write targets. A selector returns every match, also in the
@@ -1009,9 +1018,9 @@ ambiguous.
    is `#status` whatever the title heading carries.
 3. The node's derived anchor (§6.3), such as `#notes-1`. It is reached when the path of form 2 is not singular (§7.4: a level that
    allows repeats by `multimap`, a duplicate that evaluation meets in `lenient` mode, a first step that also matches another
-   node's anchor, or data that breaks a uniqueness the proof relies on: repeated sibling keys, a duplicate at a `type: map` level,
-   or an anchor that names more than one node). It identifies the node today, but a reference written with it gets
-   `ref-derived-repeat` or `ref-derived-anchor` (§6.3).
+   node's anchor, or data that breaks a rule the proof relies on: repeated sibling keys, a duplicate at a `type: map` level, an
+   anchor that names more than one node, or an invalid explicit anchor that begins with `$`). It identifies the node today, but a
+   reference written with it gets `ref-derived-repeat` or `ref-derived-anchor` (§6.3).
 4. The exact path (§7.2), such as `#/$sections/2`. It is also the canonical address of a node that no step can name, such as a
    member whose name is empty or a section whose key is empty (§5.5).
 
@@ -1141,7 +1150,8 @@ A record in no collection is valid and unschematized; its references are still c
 - **Schemas are files in `schema/` beside the configuration file**: `.vmd/schema/` for a store's own `.vmd/config.yaml`, and for a
   configuration given with `--config` the `schema/` directory beside that file (§12.1), so that a store read with `--config`, such
   as vampiredb's `docs/`, can have schemas without being modified (decision K3). The configuration file and each schema file are
-  at most 1 MiB; a larger configuration is `config-invalid`, and a larger schema `schema-invalid`.
+  at most 1 MiB; a larger configuration is `config-invalid`, and a larger schema `schema-invalid`. The bound limits what reading
+  a file costs, not what using a schema costs (§9.2).
 - **A collection whose schema cannot be used** is reported when its schema is loaded: a schema that uses a construct this version
   does not define, such as an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is
   `feature-unsupported` (§9.3); one whose file is missing, or that is not a valid schema, is `schema-invalid`; and one whose file
@@ -1228,6 +1238,18 @@ does what anchors would. The validator never adds members to the value. Where a 
 validator computes the keys and evaluates that list itself. Because schemas see values, not syntax, one schema covers a Markdown
 ticket and a YAML ticket with the same content.
 
+**What a schema may cost.** A schema is refused only by the rules of this chapter: the size bound (§9.1), the rules of this
+section and of 2020-12 for a valid schema, and those of the spine and of declarations that meet (§9.3). No rule bounds its
+complexity, so no schema is refused for the work it takes. A crafted schema can make loading slow, and validation slower: checking
+where a crafted schema's declarations meet (§9.3) can take minutes for one under the size bound, and a schema of 109 bytes, an
+`allOf` of two `$ref`s to the same subschema inside a recursion, makes validating a record of 146 bytes take seconds, the time
+doubling with each level of the record's nesting; patterns whose matching backtracks can do the same
+([#111](https://github.com/nosferatech/vollmond/issues/111)). The size bound does not prevent either. A service that validates
+untrusted schemas or records therefore needs a time budget of its own for each operation, which, as for the Markdown limits
+(§5.4), is not a rule of the format, since its outcome would depend on the machine. Telling the schemas whose cost can be proved
+small from those too costly to accept, and warning about the rest, is future work
+([#119](https://github.com/nosferatech/vollmond/issues/119)).
+
 Issues come in two classes, and Appendix D gives each code's class:
 
 - **Structural errors** make a record unreadable. It has no value view, so `get`, `query` and the other readers cannot use it
@@ -1294,8 +1316,9 @@ an `x-vmd-list` that applies together with `unevaluatedItems`. A name that some 
 takes it, so two patterns that both match such a name are refused even where no object that applies there lists it, which is
 conservative. Where only a member name in the data brings unequal declarations together, the check waits for the record: two
 patterns that match one name, a pattern and `additionalProperties` in different branches, two `additionalProperties` of an
-`allOf`, or an array's `items` and its `x-vmd-list`'s `additional` at an item whose key the list's `items` does not name. That
-member or item of that record gets a `schema-violation` and neither declaration, and the rest of the collection is unaffected.
+`allOf`, or an array's `items` or `prefixItems` entry and its `x-vmd-list`'s `additional` at an item whose key the list's `items`
+does not name. That member or item of that record gets a `schema-violation` and neither declaration, and the rest of the
+collection is unaffected.
 
 **What else is refused.** These are `schema-invalid`:
 
@@ -1828,7 +1851,8 @@ Every target is a singular address (§7.4), and each operation carries the node 
 list of them, mixed with storage operations if needed. A value given to an operation holds stored data only, as a plain read
 returns it (§5.10); a `$key` member in it is an error (§5.4), and computed fields cannot be written. Every operation returns the
 new node versions of its target and of the target's ancestors, which contain it (§11.3), and the file's new version, so a client
-can make its next edit without reading again.
+can make its next edit without reading again. An operation that would create a record path or a name that an alias still holds
+as its old name is refused (§13.6).
 
 ### 13.3 Format fidelity
 
@@ -1851,7 +1875,8 @@ These rules apply where a backend stores the original file. They keep diffs smal
 
 `rename` and `mv`:
 
-1. resolve the target and check the new anchor, title or path against the rules,
+1. resolve the target and check the new anchor, title or path against the rules, a name that an alias holds being refused
+   (§13.6),
 2. find every reference to the target through the index, by its resolved exact path, whatever form the reference uses,
 3. build edits: the anchor or title itself, the target part of each reference, with the relative path recomputed for each
    citing file, and an alias for the old address (§13.6),
@@ -1895,22 +1920,36 @@ and `vmd check --fix` rewrites such a reference to the current address.
 A reference that resolves to no live node is resolved through the aliases. Its record path follows the record aliases whose `from`
 is the path, from one alias to the next, until it reaches a path that exists, or one that no record alias has as its `from`. In
 the record reached, the first step of a semantic path then follows the record's anchor aliases whose `from` is the step in the
-same way, until it reaches an anchor of the record, or a name that no anchor alias has as its `from`; the remaining steps are
-kept. A record's anchor aliases are those recorded under its path and under its old paths, the paths whose record aliases lead to
-it, so an alias recorded before a move still applies after it: once `a.md`'s anchor `old` is renamed to `new` and `a.md` is then
-moved to `b.md`, `a.md#old` and `b.md#old` both resolve to `b.md#new`. After two renames, `a` to `b` and then `b` to `c`, a link
-to `#a` reaches `#c`. A chain that comes back to a name it has passed is a cycle, and it ends there, so a reference caught in one
-stays `dangling`.
+same way, until it reaches a name that a first step reaches in the record (§7.3), or a name that no anchor alias has as its
+`from`; the remaining steps are kept. The names a first step reaches are the record's anchors, explicit and derived, the keys of
+its root, which are a JSON or YAML record's top-level keys and a Markdown record's front matter keys, and the root's child
+sections, by their keys (§5.5), but not a key of another section's data block. A key counts as an anchor does: in `data/k.json`,
+holding `{"a": 1, "b": 2}`, with the aliases `x` to `a` and `a` to `b`, `#x` stops at the live key `a` and reaches the member `a`,
+where `#a` goes too. A record's anchor aliases are those recorded under its path and under its old paths, the paths whose record
+aliases lead to it, so an alias recorded before a move still applies after it: once `a.md`'s anchor `old` is renamed to `new` and
+`a.md` is then moved to `b.md`, `a.md#old` and `b.md#old` both resolve to `b.md#new`. After two renames, `a` to `b` and then `b`
+to `c`, a link to `#a` reaches `#c`. A chain that comes back to a name it has passed is a cycle, and it ends there, so a reference
+caught in one stays `dangling`.
 
 `vmd alias prune` removes the aliases that no open branch can still need, so the file does not grow without bound. A reference to
 an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client
-that synced before the rename and pushes after it cannot be told apart from one that means the new node. How vmd resolves such
-references is open ([#48](https://github.com/nosferatech/vollmond/issues/48)), including whether an alias should reserve its old
-name until it is pruned; a chain of aliases asks the same question at each of its steps. Which alias counts where several have the
-same old name is open there too, and so is a record's old path that a live record has again: whether an anchor alias recorded
-under it applies to that record, to the one that moved away, or to both. Until then a live node wins. An address that resolves to
-a live anchor or path is not resolved through an alias, and `vmd check` warns when a live anchor or path has the old name of an
-alias (`alias-shadowed`).
+that synced before the rename and pushes after it cannot be told apart from one that means the new node. So an alias holds its
+old name until it is pruned: vmd's semantic operations (§13.2) refuse to create a name that the `from` of an alias in the file
+holds, with an operation error whose message names the alias and suggests `vmd alias prune`. `mv` and `new` refuse a record path
+that a record alias has as its `from`, and `rename`, `insert`, `set` and `body` refuse to give a record a name that a first
+step reaches (above) and that one of the record's anchor aliases has as its `from`, a derived anchor that a retitle renumbers
+included (§13.4). The lock ends when `vmd alias prune` removes the alias. An anchor alias's `from` and `to` are anchor names
+(§6.2), so a section member such as `$title` is never one.
+
+Plain edits and merges can still create such a name, since vmd does not see them, so on read a live name wins. An address whose
+record path exists, or whose first step reaches a name of the record, is not resolved through an alias, and `vmd check` warns
+about each live record path, and each name that a first step reaches, that has the old name of an alias (`alias-shadowed`),
+keys of JSON and YAML records and of front matter included. Resolving a new reference once, at the version its change was based
+on, and rewriting it to the current name would let an old name be reused safely; it is left to
+[#120](https://github.com/nosferatech/vollmond/issues/120). Two questions stay open in the design of renames
+([#48](https://github.com/nosferatech/vollmond/issues/48)): which alias counts where several have the same old name, and a
+record's old path that a live record has again, whether an anchor alias recorded under it applies to that record, to the one
+that moved away, or to both.
 
 Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike;
 writing it belongs to the Refactor profile (§19.2). A file that is not valid JSONL of alias entries is an error
@@ -2178,7 +2217,7 @@ An implementation or backend states which profiles it supports:
 | **Read** | the value types, parsing all three formats, the value view and its computed fields, anchors and tags, addresses, `outline` and `get`; source maps are optional, and an implementation states whether it produces them |
 | **Validate** | collections, schemas with the extension keywords, logical types, uniqueness, reference resolution, reading aliases, `check` |
 | **Query** | VQL core and the parameters of §10.5 |
-| **Write** | the storage contract with version tokens, semantic operations with span-preserving edits, the canonical serializer |
+| **Write** | the storage contract with version tokens, semantic operations with span-preserving edits and the refusal of names that an alias holds (§13.6), the canonical serializer |
 | **Refactor** | `rename` and `mv` with reference rewriting, writing aliases, `vmd alias prune` |
 | **Publish** | the portable index |
 
@@ -2211,8 +2250,9 @@ A backend conforms to the storage contract (§11) separately, and states whether
 
 Larger design topics are tracked as issues instead: format and protocol versioning
 ([#46](https://github.com/nosferatech/vollmond/issues/46)), a selector language for addresses
-([#47](https://github.com/nosferatech/vollmond/issues/47), §6.4), and renames, aliases and concurrent changes
-([#48](https://github.com/nosferatech/vollmond/issues/48), §13.6).
+([#47](https://github.com/nosferatech/vollmond/issues/47), §6.4), renames, aliases and concurrent changes
+([#48](https://github.com/nosferatech/vollmond/issues/48), §13.6), and resolving a new reference at the version its change was
+based on, so that a renamed name can be reused ([#120](https://github.com/nosferatech/vollmond/issues/120), §13.6).
 
 Versioning starts from the rule of §9.1 (minor versions only add, every addition is detectable, a reader decides from the
 features the data uses, and a client refuses a major version it does not support, except that a newer client reads an older
@@ -2261,7 +2301,7 @@ Each phase ends with its part of the conformance suite passing and a demonstrati
 | **I2** Validate and refs | config and collections; schemas, `x-vmd-list` evaluated natively, logical types; uniqueness modes; the strict read mode; reference extraction and resolution; the local index cache; `check`, `refs`, `schema`, `index` | `vmd check` over vampiredb's docs reports every broken link that `docs.sh` reports |
 | **I3** Query | the VQL parser and scanning evaluator; both targets; projection, sort, paging; full text | the queries vampiredb's `+index.md` and `index.html` answer today run as `vmd query` |
 | **I4** Write | the storage write operations with version tokens on the local and git backends; semantic operations; the span-preserving writer; the canonical serializer with round-trip property tests | an agent can create and update tickets with `vmd new` / `vmd set` and with plain edits, and both pass `vmd check` |
-| **I5** Refactor | `rename`, `mv`, relative-path rewriting, aliases, retitle and move detection, `check --fix` | an anchor in Minimal_Log.md is renamed with every reference rewritten, in one commit |
+| **I5** Refactor | `rename`, `mv`, relative-path rewriting, aliases and the lock on their old names in every semantic operation (§13.6), retitle and move detection, `check --fix` | an anchor in Minimal_Log.md is renamed with every reference rewritten, in one commit |
 | **I6** Remote | the GitHub backend; the HTTP binding with an in-memory reference server; `sync` and `push`; automatic rebase | an agent without a clone edits a ticket through the GitHub backend, and two agents edit different sections of one ticket without conflict |
 | **I7** Publish | the portable index; the GitHub App with its receiver, queue, worker and reconciler, publishing the index and posting pattern A statuses (§16.3); the static site with browser-side VQL; the create-ticket endpoint | a push is visible on the site, and has its `vmd/check` status, within the target latency; a ticket created on the site appears in the repository |
 | **I8** Later | validation patterns B and C (§16.3); MCP server if justified; label templates; views; reference extractors; the query-engine interface with a GraphQL engine; semantic diff; merge driver; the SQL profile; a Python implementation | |
@@ -2554,7 +2594,7 @@ The columns:
 | `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
-| `alias-shadowed` | warning | validation | §13.6 | a live anchor or record path that has the old name of an alias; the node, or the record |
+| `alias-shadowed` | warning | validation | §13.6 | a live record path, or a live name that an address's first step reaches (§7.3), that has the old name of an alias: an anchor, a key of the root (a JSON or YAML record's top-level key, or a Markdown record's front matter key), or a child section of the root by its key; the node, or the record |
 | `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
 | `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, does not hold an object, or is not a valid schema; it has `$id`, an identifier with a string value inside data, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` reached off the spine, `$dynamicRef` included, even where the spine reaches it too; unequal declarations that apply together; `x-vmd-ref` where a string can stand without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; a member of `x-vmd-list` or `x-vmd-ref` whose value has the wrong form; an `x-vmd-summary` that is not a boolean, or an `x-vmd-ordered` that is not `asc` or `desc`. A construct this version does not define, an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is `feature-unsupported` instead, also beside other problems, and a file that cannot be read `storage-failed`, which wins over both. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
 | `alias-file-invalid` | error | operation | §11.2, §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries, or that is larger than 16 MiB, refused by its size with a message that names the limit and suggests `vmd alias prune`; none |

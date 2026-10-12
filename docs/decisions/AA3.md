@@ -34,7 +34,7 @@ cross-file case and it behaves correctly." Should collection schemas allow `$dyn
 Its possible targets are only the anchors vmd found and registered, and every possible target counts as off the spine, so an
 `x-vmd-list` or `x-vmd-ref` reached only through it is `schema-invalid`.
 
-**Agent's reading, for the owner to confirm.** Three details, which Draft v0.14 states as follows:
+**Agent's reading, confirmed by the owner on [W5](W5.md) (2026-10-12).** Three details, which Draft v0.14 states as follows:
 
 - With [AA4](AA4.md)'s item 6, a declaration at such a `$dynamicAnchor` is refused also when the spine reaches it another way,
   not only when the `$dynamicRef` is the only way, which the card's "reached only through it" leaves open. #97 does so, since its

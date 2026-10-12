@@ -37,7 +37,7 @@ define… is `feature-unsupported`", and the treatment of unknown configuration 
 `feature-unsupported`, as an unknown `x-vmd-*` keyword does, and its message says that the schema may need a newer version. §9.1,
 §9.3 and Appendix D state members and values beside keywords.
 
-**Agent's reading, for the owner to confirm.** Three details the card leaves open, which Draft v0.14 states as follows:
+**Agent's reading, confirmed by the owner on [W5](W5.md) (2026-10-12).** Three details the card leaves open, which Draft v0.14 states as follows:
 
 - This departs from the literal wording of W1's item 5, as the card says, by moving unknown members and values from its "every
   other unusable schema" to its first half, an unknown construct being `feature-unsupported`. It amends that reading in the
