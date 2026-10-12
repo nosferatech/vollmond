@@ -166,20 +166,75 @@ describe("the proof that a singular address names one node", () => {
     const binding = await bound("journal/week-41.md", text, schema);
     expect(singular(binding, "#log/entry")).toBe("address-not-singular journal/week-41.md null");
     expect(singular(binding, "#log/entry-1")).toBe("address-not-singular journal/week-41.md null");
-    // A field step and a section member's step cross that level too, since a section may have that key there.
-    expect(singular(binding, "#log/$body")).toBe("address-not-singular journal/week-41.md null");
     expect(singular(binding, "#log")).toBe("/$sections/0 #log");
     expect(singular(binding, "#entry")).toBe("/$sections/0/$sections/0 #entry");
     expect(singular(binding, "#summary")).toBe("/$sections/1 #summary");
     expect(selected(binding, "#log/entry")).toEqual(["/$sections/0/$sections/0", "/$sections/0/$sections/1"]);
-    // The schema alone cannot tell that no root section is keyed summary, or entry-1, beside the one the data has, and every
-    // root section's children are declared multimap: so a second step after either crosses such a level too.
-    expect(singular(binding, "#summary/$body")).toBe("address-not-singular journal/week-41.md null");
-    expect(singular(binding, "#entry-1/$body")).toBe("address-not-singular journal/week-41.md null");
-    expect(canonicalAddress(binding, "/$sections/1/$body")).toBe("#/$sections/1/$body");
-    // Below a level the schema leaves undeclared, the same steps are singular.
-    const plain = bindRecord(binding.record, await usable({ type: "object" }));
-    expect(singular(plain, "#summary/$body")).toBe("/$sections/1/$body #summary/$body");
+    // The schema alone cannot tell that no root section is keyed summary beside the one the data has, and every root
+    // section's children are declared multimap: so a name step after it crosses such a level.
+    expect(singular(binding, "#summary/notes")).toBe("address-not-singular journal/week-41.md null");
+  });
+
+  // Card AD (project owner, 2026-10-12): no section key begins with `$`, so a `$` step from a section names the section's own
+  // member and crosses no level of its child sections.
+  test("a $ step from a section names the section's own member, below a level declared multimap too", async () => {
+    const schema = {
+      properties: {
+        $sections: { items: { properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } } } },
+      },
+    };
+    const text = "# Week 41\n\n## Log\n\n### Entry\n\nMonday.\n\n### Entry\n\nTuesday.\n\n## Summary\n\nQuiet week.\n";
+    const binding = await bound("journal/week-41.md", text, schema);
+    expect(singular(binding, "#summary/$body")).toBe("/$sections/1/$body #summary/$body");
+    expect(singular(binding, "#summary/$title")).toBe("/$sections/1/$title #summary/$title");
+    expect(singular(binding, "#log/$title")).toBe("/$sections/0/$title #log/$title");
+    expect(canonicalAddress(binding, "/$sections/1/$body")).toBe("#summary/$body");
+    // A section reached by its anchor is the section itself, wherever its level sits. Its $body's canonical address is still
+    // the exact path: form 2 starts at an explicit anchor or the root, and goes through the level declared multimap.
+    expect(singular(binding, "#entry-1/$body")).toBe("/$sections/0/$sections/1/$body #/$sections/0/$sections/1/$body");
+    // $sections is the section's own member too, but a step into it is a key of the level declared multimap.
+    expect(singular(binding, "#log/$sections")).toBe("/$sections/0/$sections #log/$sections");
+    expect(singular(binding, "#log/$sections/entry")).toBe("address-not-singular journal/week-41.md null");
+    expect(singular(binding, "#log/$sections/0")).toBe("address-not-singular journal/week-41.md null");
+    // A section reached through the level declared multimap is not singular, nor are its members.
+    expect(singular(binding, "#log/entry/$body")).toBe("address-not-singular journal/week-41.md null");
+    expect(singular(binding, "#log/entry/$title")).toBe("address-not-singular journal/week-41.md null");
+  });
+
+  test("a $ step leads to the section's member only, never to a child section that a later step could cross from", async () => {
+    // The grandchildren of every root section are declared multimap, so a child section keyed $title would be refused below.
+    const schema = {
+      properties: {
+        $sections: {
+          items: {
+            properties: {
+              $sections: { items: { properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } } } },
+            },
+          },
+        },
+      },
+    };
+    const binding = await bound("r.md", "# W\n\n## Summary\n\nQuiet.\n", schema);
+    expect(singular(binding, "#summary/$title/x")).toBe("address-not-found r.md null");
+    expect(singular(binding, "#summary/notes/x")).toBe("address-not-singular r.md null");
+  });
+
+  test("a $ step into a data list declared multimap is a key like any other, and stays refused", async () => {
+    // Only section keys never begin with $; a data list's key member may hold any string.
+    const text = JSON.stringify({ benchmarks: [{ name: "$x" }, { name: "$x" }] });
+    const binding = await bound("r.json", text, keyedBy("multimap"));
+    expect(singular(binding, "#benchmarks/$x")).toBe("address-not-singular r.json null");
+    expect(selected(binding, "#benchmarks/$x")).toEqual(["/benchmarks/0", "/benchmarks/1"]);
+  });
+
+  test("a $ step from a root whose sections are declared multimap names the root's own member", async () => {
+    const schema = { properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } } };
+    const text = JSON.stringify({ $title: "R", status: "x", $sections: [{ $title: "Done" }] });
+    const binding = await bound("r.json", text, schema);
+    expect(singular(binding, "#$title")).toBe("/$title #$title");
+    expect(singular(binding, "#$sections")).toBe("/$sections #$sections");
+    expect(singular(binding, "#$sections/done")).toBe("address-not-singular r.json null");
+    expect(singular(binding, "#status")).toBe("address-not-singular r.json null");
   });
 
   // Review of #108, B1: prefixItems and items bring unequal keyed lists to one member of an item at an unknown position. Their

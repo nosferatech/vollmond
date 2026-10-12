@@ -266,6 +266,8 @@ function instance(root: SectionNode, pick: Pick): { value: unknown; paths: Path[
       const repeated = sections.list === "multimap" && keys.filter((each) => each === key).length > 1;
       const child = [...steps, key];
       paths.push({ steps: child, repeats: repeats || repeated });
+      // The section's own member, which a step beginning with $ names wherever the section's level sits (card AD).
+      paths.push({ steps: [...child, "$title"], repeats: repeats || repeated });
       return { $title: key, ...section(sections.prefix[index] ?? sections.item, child, repeats || repeated) };
     });
     return value;
@@ -287,7 +289,8 @@ const positions = <T>(of: { readonly prefix: readonly T[]; readonly item: T }): 
 
 /**
  * Whether the rule of §4.4, applied to the tree, refuses these steps. A step crosses a multimap when it leaves a group in
- * which a section's child sections, or a list's items, are declared multimap; a declaration anywhere in the group decides.
+ * which a section's child sections, or a list's items, are declared multimap; a declaration anywhere in the group decides. A
+ * step from a section that begins with `$` names the section's own member, which no tree node stands for, and crosses nothing.
  * From a group of sections it reaches the group of their members of that name, and the group of every position's child
  * section. From a group of values it reaches the group of their members of that name; where a list of the group is keyed,
  * the group of every position's item of every list in it, since a step there may be a key; and otherwise, for an index, the
@@ -299,6 +302,8 @@ function oracleRefuses(root: SectionNode, steps: readonly string[]): boolean {
     const next: Group[] = [];
     for (const group of groups) {
       if (group.kind === "section") {
+        // No section key begins with $, so such a step names the section's own member and crosses no level (card AD).
+        if (step.startsWith("$")) continue;
         if (group.nodes.some((node) => node.sections?.list === "multimap")) return true;
         next.push({ kind: "value", nodes: group.nodes.flatMap((node) => node.members[step] ?? []) });
         next.push({

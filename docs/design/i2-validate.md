@@ -594,6 +594,12 @@ The modes change severities only (I1 §4.2, section 2.5), and the declarations c
   under `items`: `{type: array, x-vmd-list: {type: map, keys: [name]}, items: {properties: {runs: {type: array, x-vmd-list: {type:
   multimap, keys: [id]}}}}}` makes `#benchmarks/append-4k/runs/r1` not singular, and a rule that read only
   `x-vmd-list.items[append-4k]` would have accepted it. A unit test holds this case.
+- A step from a section that begins with `$` names the section's own member (`$title`, `$body`, `$sections`, `$anchor`,
+  `$tags`, and `$schema` at the root), and crosses no level: it is singular wherever the section itself is, so `#summary/$body`
+  is singular even where every root section's child sections are declared `multimap` (card AD). No section key can begin with
+  `$`: a heading's slug drops it, and an anchor must start with a letter. `$sections` is the section's own member too, but a
+  step into it is a key of the section's child sections, and crosses their level. A `$` step into a data list is a key like any
+  other, since a key member may hold any string. The proof still works from the schema alone.
 - A location the schema does not constrain has no declarations below it, so nothing there is rejected. Lenient mode and duplicate
   data are not rejected either: they are §7.4's cases that fail at evaluation.
 
