@@ -43,4 +43,26 @@ describe("the cost of a record's link reference definitions", () => {
       encode.mockRestore();
     }
   });
+
+  test("sorts the occurrences by looking each one's node up once", () => {
+    const outcome = parseRecord("a.md", bytes(`# T\n\n${"[a](b) ".repeat(2000)}\n`));
+    if (!outcome.ok) throw new Error("the record does not read");
+    const lookups = vi.spyOn(outcome.value.nodes, "node");
+    try {
+      expect(occurrencesOf(outcome.value)).toHaveLength(2000);
+      expect(lookups.mock.calls.length).toBeLessThanOrEqual(2000);
+    } finally {
+      lookups.mockRestore();
+    }
+  });
+});
+
+describe("a record with more occurrences than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call. The links are in paragraphs of their own, since the Markdown library
+  // takes time that grows faster than the links of one paragraph.
+  test("gives every link of a $body of 150,000 links", () => {
+    const outcome = parseRecord("a.json", bytes(JSON.stringify({ $body: "[a](b)\n\n".repeat(150_000) })));
+    if (!outcome.ok) throw new Error("the record does not read");
+    expect(occurrencesOf(outcome.value)).toHaveLength(150_000);
+  }, 120_000);
 });

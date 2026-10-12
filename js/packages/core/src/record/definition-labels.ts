@@ -23,8 +23,11 @@ export function definitionLabelsOfRecord(root: ValueObject): readonly string[] {
   for (let section = pending.pop(); section !== undefined; section = pending.pop()) {
     if (!isObject(section)) continue;
     if (typeof section.$body === "string") for (const label of definitionLabelsIn(section.$body)) labels.push(label);
-    // The last item first, so that the walk visits the sections in document order.
-    if (Array.isArray(section.$sections)) pending.push(...[...section.$sections].reverse());
+    // The last item first, so that the walk visits the sections in document order; one by one, since a record may have
+    // more sections than a call takes arguments.
+    if (Array.isArray(section.$sections)) {
+      for (let i = section.$sections.length - 1; i >= 0; i--) pending.push(section.$sections[i] as Value);
+    }
   }
   labelsByRecord.set(root, labels);
   return labels;

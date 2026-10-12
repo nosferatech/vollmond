@@ -187,3 +187,11 @@ describe("parseInlineContent", () => {
     expect(parseInlineContent(`${quarter}\n\n${quarter}\n\n${quarter}\n\n${quarter}*`, [])).toBeNull();
   });
 });
+
+describe("a title with more inline nodes than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call; each line gives a text node and a hard line break.
+  test("gives every node of a title of 150,000 lines", () => {
+    const content = parseInlineContent("a\\\n".repeat(150_000), []);
+    expect(content?.filter((node) => node.type === "break")).toHaveLength(149_999);
+  }, 120_000);
+});

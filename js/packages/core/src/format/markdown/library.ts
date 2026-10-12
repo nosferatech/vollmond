@@ -266,7 +266,7 @@ class DefinedLabels extends Array<string> {
   constructor(shared: ReadonlySet<string>, own: readonly string[]) {
     super();
     this.#shared = shared;
-    this.push(...own);
+    for (const identifier of own) this.push(identifier);
   }
 
   override push(...identifiers: string[]): number {
@@ -302,7 +302,8 @@ export function parseInlineContent(text: string, labels: readonly string[]): rea
   for (const block of transformed.children) {
     if (block.type !== "paragraph") throw new Error(`a heading's content parsed as a ${block.type}`);
     if (content.length > 0) content.push({ type: "text", value: "\n\n" });
-    content.push(...block.children);
+    // One by one, since a title may hold more nodes than a call takes arguments.
+    for (const child of block.children) content.push(child);
   }
   return content;
 }

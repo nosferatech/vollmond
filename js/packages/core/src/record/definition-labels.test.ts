@@ -23,4 +23,9 @@ describe("definitionLabelsOfRecord", () => {
   test("skips a $body or a $sections item of the wrong type, which the shape check reports", () => {
     expect(definitionLabelsOfRecord({ $body: 1, $sections: ["x", { $title: "S", $body: "[a]: /x" }] })).toEqual(["a"]);
   });
+
+  test("walks a record of 300,000 sections", () => {
+    const sections = Array.from({ length: 300_000 }, (_, i) => ({ $title: `[s${i}]`, $body: i === 299_999 ? "[z]: /x" : "a" }));
+    expect(definitionLabelsOfRecord({ $sections: sections })).toEqual(["z"]);
+  });
 });

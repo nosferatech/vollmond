@@ -60,15 +60,22 @@ export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurr
         });
       } else if (section && (name === "$body" || name === "$title")) {
         if (record.format !== "md" && typeof member === "string" && inside(memberAt)) {
-          found.push(...proseLinks(member, memberAt, name === "$title", labelsFor(member)));
+          // One by one, since a text may hold more links than a call takes arguments.
+          for (const link of proseLinks(member, memberAt, name === "$title", labelsFor(member))) found.push(link);
         }
       } else if (!section || !name.startsWith("$")) {
         pending.push({ value: member, at: memberAt, section: false });
       }
     }
   }
-  const start = (occurrence: ReferenceOccurrence) => record.nodes.node(occurrence.at)?.range.start ?? 0;
-  return found.sort((a, b) => start(a) - start(b) || (a.offset ?? 0) - (b.offset ?? 0));
+  // Each occurrence's node is looked up once, not at every comparison.
+  const keyed = found.map((occurrence) => ({
+    occurrence,
+    start: record.nodes.node(occurrence.at)?.range.start ?? 0,
+    offset: occurrence.offset ?? 0,
+  }));
+  keyed.sort((a, b) => a.start - b.start || a.offset - b.offset);
+  return keyed.map(({ occurrence }) => occurrence);
 }
 
 /** The occurrence of a `$ref` object, with its destination where the `$ref` string's bytes in the file are the string. */
