@@ -677,16 +677,18 @@ One more change is applied without a decision: §5.10's interim sentence on `fie
 `@refs` as `null` until I2 computes it, is gone, since the references pull request (#99) computes `@refs`, as #99 noted for this
 draft. Appendix D keeps the code, which core still lists.
 
-## Decisions from cards AC to AF and W5 (Draft v0.15)
+## Decisions from cards AC to AI and W5 (Draft v0.15)
 
-Recorded 2026-10-12, and applied to Draft v0.15. Card AC comes from the pull request that follows chains of anchor aliases
-(#106): what stops a chain, and, with the engineering manager's proposal in chat, the lock on an alias's old name. Card AD comes
-from the keyed-lists pull request (#108): a `$` step from a section. Card AE is the bound on a schema's cost, card AA1 asked
-again. Card AF asked again whether a keyed list's `additional` against the array's `items` waits for the record. Card W5 confirms
-the agent's readings that the Draft v0.14 round marked for the owner. The project owner chose (a) on AC, (b) on AD, (a) on W5
-("Confirm all ten") and, on AF, the recommendation to keep [AA4](../decisions/AA4.md)'s item 4; AE was answered with a note
-rather than an option. Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the
-owner to confirm. Section numbers refer to Draft v0.15.
+Recorded 2026-10-12, and applied to Draft v0.15. Card AC comes from the pull request that follows chains of anchor aliases (#106):
+what stops a chain, and, with the engineering manager's proposal in chat, the lock on an alias's old name. Card AD comes from the
+keyed-lists pull request (#108): a `$` step from a section. Card AE is the bound on a schema's cost, card AA1 asked again. Card AF
+asked again whether a keyed list's `additional` against the array's `items` waits for the record. Card AG asks about a link whose
+first name is live but whose rest is missing. Cards AH and AI come from the independent review of the draft (#122): renaming back
+to an old name, and a retitle that renumbers a heading onto a locked name. Card W5 confirms the agent's readings that the Draft
+v0.14 round marked for the owner. The project owner chose (a) on AC, (b) on AD, (a) on W5 ("Confirm all ten"), (a) on AG, AH and
+AI, and, on AF, the recommendation to keep [AA4](../decisions/AA4.md)'s item 4; AE was answered with a note rather than an option.
+Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section
+numbers refer to Draft v0.15.
 
 - [AC](../decisions/AC.md) An alias chain stops at any name a link reaches, keys included, and an alias holds its old name until
   it is pruned
@@ -695,6 +697,9 @@ owner to confirm. Section numbers refer to Draft v0.15.
 - [AE](../decisions/AE.md) For now, a schema is refused only by the existing rules; a service that validates untrusted data sets
   its own time budget
 - [AF](../decisions/AF.md) A keyed list's `additional` against the array's `items` still waits for the record
+- [AG](../decisions/AG.md) A live first step keeps a link from following an alias, even when the rest of the link is missing
+- [AH](../decisions/AH.md) Renaming back to an alias's old name is allowed, and turns the alias around
+- [AI](../decisions/AI.md) A retitle may renumber another heading onto a locked name; the live name wins, with the warning
 - [W5](../decisions/W5.md) The agent's readings in Draft v0.14 are confirmed
 
 ## Decisions given in conversation

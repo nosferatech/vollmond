@@ -91,4 +91,5 @@ follows #109.
 
 Draft v0.15: card [AF](AF.md) asked item 4's case of a keyed list's `additional` against the array's `items` again, after #118
 refused it at load, and the owner kept item 4: the meeting waits for the record. §9.3 now names a `prefixItems` entry beside
-`items` there, as the I2 design's section 3.3 did; the rule does not change.
+`items` there, as the I2 design's section 3.3 did; the rule does not change. #115 (`31fe634`) made the code follow #109, so the
+case `keyed-item-meets-prefix-items` is no longer skipped.

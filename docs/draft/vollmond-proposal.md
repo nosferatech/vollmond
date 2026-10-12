@@ -1851,8 +1851,8 @@ Every target is a singular address (§7.4), and each operation carries the node 
 list of them, mixed with storage operations if needed. A value given to an operation holds stored data only, as a plain read
 returns it (§5.10); a `$key` member in it is an error (§5.4), and computed fields cannot be written. Every operation returns the
 new node versions of its target and of the target's ancestors, which contain it (§11.3), and the file's new version, so a client
-can make its next edit without reading again. An operation that would create a record path or a name that an alias still holds
-as its old name is refused (§13.6).
+can make its next edit without reading again. An operation that would give a node a record path or a name that an alias still
+holds as its old name is refused, except a rename or a move back to it and a derived anchor that a retitle renumbers (§13.6).
 
 ### 13.3 Format fidelity
 
@@ -1884,8 +1884,9 @@ These rules apply where a backend stores the original file. They keep diffs smal
 5. re-check, and roll back the batch if any reference no longer resolves.
 
 A retitle can change the derived anchors of other headings too, through the repeat numbering of §6.3. Retitling the first of two
-`## Notes` sections turns the second one's `#notes-1` into `#notes`. `rename` therefore rewrites the references to every node
-whose derived anchor changes, not only to the renamed one.
+`## Notes` sections turns the second one's `#notes-1` into `#notes`, a name that the alias from the first one's old anchor then
+holds, which the lock allows (§13.6). `rename` therefore rewrites the references to every node whose derived anchor changes, not
+only to the renamed one.
 
 `rename` and `mv` refuse to run (`unreadable-records`) while the store has records with structural errors, or a collection whose
 schema cannot be used (§9.1), since references in those records cannot be found or rewritten: a typed reference, an `x-vmd-ref`
@@ -1917,41 +1918,47 @@ rewrite could not see, such as a reference added on a branch opened before the m
 published URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5),
 and `vmd check --fix` rewrites such a reference to the current address.
 
-A reference that resolves to no live node is resolved through the aliases. Its record path follows the record aliases whose `from`
-is the path, from one alias to the next, until it reaches a path that exists, or one that no record alias has as its `from`. In
-the record reached, the first step of a semantic path then follows the record's anchor aliases whose `from` is the step in the
-same way, until it reaches a name that a first step reaches in the record (§7.3), or a name that no anchor alias has as its
-`from`; the remaining steps are kept. The names a first step reaches are the record's anchors, explicit and derived, the keys of
-its root, which are a JSON or YAML record's top-level keys and a Markdown record's front matter keys, and the root's child
-sections, by their keys (§5.5), but not a key of another section's data block. A key counts as an anchor does: in `data/k.json`,
-holding `{"a": 1, "b": 2}`, with the aliases `x` to `a` and `a` to `b`, `#x` stops at the live key `a` and reaches the member `a`,
-where `#a` goes too. A record's anchor aliases are those recorded under its path and under its old paths, the paths whose record
-aliases lead to it, so an alias recorded before a move still applies after it: once `a.md`'s anchor `old` is renamed to `new` and
-`a.md` is then moved to `b.md`, `a.md#old` and `b.md#old` both resolve to `b.md#new`. After two renames, `a` to `b` and then `b`
-to `c`, a link to `#a` reaches `#c`. A chain that comes back to a name it has passed is a cycle, and it ends there, so a reference
-caught in one stays `dangling`.
+A reference that resolves to no live node is resolved through the aliases. Its record path, when no record is at it, follows the
+record aliases whose `from` is the path, from one alias to the next, until it reaches a path that exists, or one that no record
+alias has as its `from`. In the record reached, the first step of a semantic path, when it reaches no name of the record, then
+follows the record's anchor aliases whose `from` is the step in the same way, until it reaches a name that a first step reaches in
+the record (§7.3), or a name that no anchor alias has as its `from`; the remaining steps are kept. The names a first step reaches
+are the record's anchors, explicit and derived, the keys of its root, which are a JSON or YAML record's top-level keys and a
+Markdown record's front matter keys, and the root's child sections, by their keys (§5.5), but not a key of another section's data
+block. A key counts as an anchor does: in `data/k.json`, holding `{"a": 1, "b": 2}`, with the aliases `x` to `a` and `a` to `b`,
+`#x` stops at the live key `a` and reaches the member `a`, where `#a` goes too. A record's anchor aliases are those recorded under
+its path and under its old paths, the paths whose record aliases lead to it, so an alias recorded before a move still applies
+after it: once `a.md`'s anchor `old` is renamed to `new` and `a.md` is then moved to `b.md`, `a.md#old` and `b.md#old` both
+resolve to `b.md#new`. After two renames, `a` to `b` and then `b` to `c`, a link to `#a` reaches `#c`. A chain that comes back to
+a name it has passed is a cycle, and it ends there, so a reference caught in one stays `dangling`.
 
 `vmd alias prune` removes the aliases that no open branch can still need, so the file does not grow without bound. A reference to
 an old name that was added after the rename may mean a new node that reuses the name rather than the renamed one, and a client
-that synced before the rename and pushes after it cannot be told apart from one that means the new node. So an alias holds its
-old name until it is pruned: vmd's semantic operations (§13.2) refuse to create a name that the `from` of an alias in the file
-holds, with an operation error whose message names the alias and suggests `vmd alias prune`; its issue code is named when the
-lock is implemented (I5, §21), and Appendix D gains it then. `mv` and `new` refuse a record path that a record alias has as its
-`from`, and `rename`, `insert`, `set` and `body` refuse to give a record a name that a first step reaches (above) and that one of
-the record's anchor aliases has as its `from`. Two cases wait on the project owner: a rename or a move back to an alias's old
-name, `b` to `a` while the alias `a` to `b` lasts (card AH), and a derived anchor that a retitle renumbers onto a held name, as in
-§13.4's example of two `## Notes` sections (card AI). The lock ends when `vmd alias prune` removes the alias. An anchor alias's
-`from` and `to` are anchor names (§6.2), so a section member such as `$title` is never one.
+that synced before the rename and pushes after it cannot be told apart from one that means the new node. So an alias holds its old
+name until it is pruned: vmd's semantic operations (§13.2) refuse to create a name that the `from` of an alias in the file holds,
+with an operation error whose message names the alias and suggests `vmd alias prune`; its issue code is named when the lock is
+implemented (I5, §21), and Appendix D gains it then. `mv` and `new` refuse a record path that a record alias has as its `from`,
+and `rename`, `insert`, `set` and `body` refuse to give a record a name that a first step reaches (above) and that one of the
+record's anchor aliases has as its `from`. The lock covers the names a writer chooses, a new title, anchor, key or path, and keeps
+a different node from taking an old name. A rename or a move back is allowed and turns the alias around: renaming `b` back to `a`
+while the alias `a` to `b` lasts drops that alias and records `b` to `a`, so links written with either name reach the node. A
+derived anchor that a retitle renumbers onto a held name is allowed too: retitling the first of two `## Notes` sections records an
+alias from its old anchor `notes` and turns the second one's `#notes-1` into `#notes` (§13.4), and the retitle goes through; a
+link from outside the store to `#notes` then reaches the second section, the live name winning, and `vmd check` warns about it
+(`alias-shadowed`). A heading meant to be linked from outside should have an explicit anchor, which never renumbers. The lock ends
+when `vmd alias prune` removes the alias. An anchor alias's `from` and `to` are anchor names (§6.2), so a section member such as
+`$title` is never one.
 
 Plain edits and merges can still create such a name, since vmd does not see them, so on read a live name wins. An address whose
-record path exists, or whose first step reaches a name of the record, is not resolved through an alias, and `vmd check` warns
-about each live record path, and each name that a first step reaches, that has the old name of an alias (`alias-shadowed`),
-keys of JSON and YAML records and of front matter included. Resolving a new reference once, at the version its change was based
-on, and rewriting it to the current name would let an old name be reused safely; it is left to
-[#120](https://github.com/nosferatech/vollmond/issues/120). Two questions stay open in the design of renames
-([#48](https://github.com/nosferatech/vollmond/issues/48)): which alias counts where several have the same old name, and a
-record's old path that a live record has again, whether an anchor alias recorded under it applies to that record, to the one
-that moved away, or to both.
+record path exists, or whose first step reaches a name of the record, is not resolved through an alias, even where a later step
+matches nothing, so where a link goes never depends on its later steps: in `data/k.json`, holding
+`{"a": {"n": 1}, "b": {"x": 2}}`, with the alias `a` to `b`, `#a/x` is `dangling`. `vmd check` warns about each live record path,
+and each name that a first step reaches, that has the old name of an alias (`alias-shadowed`), keys of JSON and YAML records and
+of front matter included. Resolving a new reference once, at the version its change was based on, and rewriting it to the current
+name would let an old name be reused safely; it is left to [#120](https://github.com/nosferatech/vollmond/issues/120). Two
+questions stay open in the design of renames ([#48](https://github.com/nosferatech/vollmond/issues/48)): which alias counts where
+several have the same old name, and a record's old path that a live record has again, whether an anchor alias recorded under it
+applies to that record, to the one that moved away, or to both.
 
 Reading `.vmd/aliases.jsonl` belongs to the Validate profile, so that every validating implementation reports `aliased` alike, and
 to the Write profile, whose semantic operations refuse the names it holds; writing it belongs to the Refactor profile (§19.2). A

@@ -15,3 +15,5 @@
 {"kind": "anchor", "record": "docs/keys.json", "from": "a", "to": "b", "at": "2026-10-10T08:00:00Z"}
 {"kind": "anchor", "record": "docs/nested-keys.json", "from": "x", "to": "a", "at": "2026-10-09T08:00:00Z"}
 {"kind": "anchor", "record": "docs/nested-keys.json", "from": "a", "to": "b", "at": "2026-10-10T08:00:00Z"}
+{"kind": "anchor", "record": "docs/live-first.json", "from": "a", "to": "b", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "docs/live-first.json", "from": "old", "to": "b", "at": "2026-10-09T08:00:00Z"}
