@@ -8,7 +8,7 @@ import { computeFields } from "../meta/computed-fields.js";
 import type { ParsedRecord } from "../record/record.js";
 import { usable } from "../schema/schema.testkit.js";
 import { parseAddress } from "./address.js";
-import { canonicalAddress, resolveAddress, resolveAddressSteps } from "./resolve.js";
+import { canonicalAddress, resolveAddress, resolveAddressSteps, semanticMatchCount } from "./resolve.js";
 
 /** A record that must parse. */
 function parsed(path: string, text: string): ParsedRecord {
@@ -73,6 +73,23 @@ describe("a step into a keyed list", () => {
     const outcome = resolveAddressSteps(binding, fragmentOf("#benchmarks/read-4k/p99_us"), "singular");
     if (!outcome.ok) expect.fail(JSON.stringify(outcome.issues));
     expect(outcome.value.steps).toEqual([["member"], ["list-key"], ["member"]]);
+  });
+
+  // Review of #108, N2: each candidate's canonical address evaluated the ambiguous step again, finding every match each time.
+  test("the candidates of an ambiguous step find their matches once, not once per candidate", async () => {
+    for (const m of [1000, 4000]) {
+      const text = JSON.stringify({ benchmarks: Array.from({ length: m }, () => ({ name: "x" })) });
+      const binding = await bound("r.json", text, keyedBy("map"));
+      const before = semanticMatchCount();
+      const outcome = resolveAddress(binding, fragmentOf("#benchmarks/x"), "singular");
+      expect(outcome.ok ? [] : outcome.issues[0]?.candidates?.map((target) => target.address).slice(0, 2)).toEqual([
+        "#/benchmarks/0",
+        "#/benchmarks/1",
+      ]);
+      // The step's own evaluation and the one of form 2 that every candidate shares, each finding the m matches: 2m, and
+      // the first step's match each time; not m times m.
+      expect(semanticMatchCount() - before).toBeLessThanOrEqual(2 * m + 4);
+    }
   });
 
   test("a key repeated in a map is ambiguous where it is evaluated, the proof having accepted it", async () => {

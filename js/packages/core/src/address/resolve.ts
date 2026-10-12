@@ -255,6 +255,17 @@ function grouped(finds: readonly StepFind[]): Map<Match, StepMatch[]> {
   return byMatch;
 }
 
+/** How many matches the steps of semantic paths have found in this process, for {@link semanticMatchCount}. */
+let semanticMatches = 0;
+
+/**
+ * Gives how many matches the steps of semantic paths have found in this process, for tests that count the work resolution
+ * does: an ambiguous step's candidates must not each find every match again.
+ */
+export function semanticMatchCount(): number {
+  return semanticMatches;
+}
+
 const resolvers = new WeakMap<ResolutionSubject, RecordResolver>();
 
 /** Gives the resolver of a record or a binding, made once for each. */
@@ -302,6 +313,7 @@ class RecordResolver {
     }
     const [first, ...rest] = fragment.steps;
     let found = this.#inDocumentOrder(grouped(this.#firstStep(first as string)));
+    semanticMatches += found.size;
     const ways: (readonly StepMatch[])[] = [];
     let steps = 1;
     for (const step of rest) {
@@ -310,6 +322,7 @@ class RecordResolver {
       const next = grouped([...found.keys()].flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
       // One match's results can come after a later match's, when the later one is its descendant.
       found = this.#inDocumentOrder(next);
+      semanticMatches += found.size;
       steps++;
     }
     if (found.size === 1 && ways.length === steps - 1) ways.push([...found.values()][0] as StepMatch[]);

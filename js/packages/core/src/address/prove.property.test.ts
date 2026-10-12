@@ -30,6 +30,8 @@ interface ListNode {
   readonly list: ListType;
   /** Whether a map requires the key `x`, which makes two declarations unequal. */
   readonly requiresX: boolean;
+  /** The member that keys the items; two lists keyed by different members are unequal declarations too. */
+  readonly keyMember: "k" | "j";
   readonly prefix: readonly ObjectNode[];
   readonly item: ObjectNode;
 }
@@ -48,9 +50,11 @@ interface SectionsNode {
 
 type Node = ObjectNode | ListNode | { readonly kind: "leaf" };
 
-/** Field and member names, and keys: two alphabets, so that a field never shares a name with a section. */
+/** Field and member names, and keys: two alphabets, so that a field never shares a name with a section or a key member. */
 const MEMBERS = ["m", "n"] as const;
 const KEYS = ["x", "y", "z"] as const;
+/** A step that names no member, no key and no index anywhere. */
+const MISSING = "w";
 
 const listType = fc.constantFrom<ListType>("map", "multimap", "none");
 
@@ -64,13 +68,15 @@ const trees = fc.letrec<{ node: Node; object: ObjectNode; section: SectionNode; 
         kind: fc.constant("list" as const),
         list: listType,
         requiresX: fc.boolean(),
+        keyMember: fc.constantFrom<"k" | "j">("k", "j"),
         prefix: fc.array(tie("object"), { maxLength: 2 }),
         item: tie("object"),
-        // A first position like the others but for the required keys of its lists: unequal declarations that meet only in a
-        // step whose position is not known, the case the review of #108 found the proof missed.
-        twin: fc.boolean(),
+        // A first position like the others but for the required keys, or the key members, of its lists: unequal
+        // declarations that meet only in a step whose position is not known, the case the review of #108 found the proof
+        // missed.
+        twin: fc.constantFrom<Flip | null>(null, "required", "key"),
       })
-      .map(({ twin, ...list }): ListNode => (twin ? { ...list, prefix: [flipped(list.item)] } : list)),
+      .map(({ twin, ...list }): ListNode => (twin === null ? list : { ...list, prefix: [flipped(list.item, twin)] })),
   ),
   object: fc.record({
     kind: fc.constant("object" as const),
@@ -82,21 +88,37 @@ const trees = fc.letrec<{ node: Node; object: ObjectNode; section: SectionNode; 
     sections: fc.option(tie("sections"), { depthSize: "small" }),
   }),
   sections: fc
-    .record({ list: listType, prefix: fc.array(tie("section"), { maxLength: 2 }), item: tie("section"), twin: fc.boolean() })
-    .map(({ twin, ...sections }): SectionsNode => (twin ? { ...sections, prefix: [flipped(sections.item)] } : sections)),
+    .record({
+      list: listType,
+      prefix: fc.array(tie("section"), { maxLength: 2 }),
+      item: tie("section"),
+      twin: fc.constantFrom<Flip | null>(null, "required", "key"),
+    })
+    .map(
+      ({ twin, ...sections }): SectionsNode =>
+        twin === null ? sections : { ...sections, prefix: [flipped(sections.item, twin)] },
+    ),
 }));
 
-/** A copy of a node whose lists below require x where the original's do not, and the other way round. */
-function flipped<T extends Node | SectionNode>(node: T): T {
+/** What a twin position changes in the lists below it: whether they require x, or the member that keys them. */
+type Flip = "required" | "key";
+
+/** A copy of a node whose lists below differ from the original's as `flip` says. */
+function flipped<T extends Node | SectionNode>(node: T, flip: Flip): T {
   const members = (of: Readonly<Record<string, Node>>) =>
-    Object.fromEntries(Object.entries(of).map(([name, member]) => [name, flipped(member)]));
+    Object.fromEntries(Object.entries(of).map(([name, member]) => [name, flipped(member, flip)]));
   switch (node.kind) {
     case "leaf":
       return node;
     case "object":
       return { ...node, members: members(node.members) };
     case "list":
-      return { ...node, requiresX: !node.requiresX, prefix: node.prefix.map(flipped), item: flipped(node.item) };
+      return {
+        ...node,
+        ...(flip === "required" ? { requiresX: !node.requiresX } : { keyMember: node.keyMember === "k" ? "j" : "k" }),
+        prefix: node.prefix.map((each) => flipped(each, flip)),
+        item: flipped(node.item, flip),
+      };
     case "section":
       return {
         ...node,
@@ -104,7 +126,11 @@ function flipped<T extends Node | SectionNode>(node: T): T {
         sections:
           node.sections === null
             ? null
-            : { ...node.sections, prefix: node.sections.prefix.map(flipped), item: flipped(node.sections.item) },
+            : {
+                ...node.sections,
+                prefix: node.sections.prefix.map((each) => flipped(each, flip)),
+                item: flipped(node.sections.item, flip),
+              },
       };
   }
 }
@@ -151,7 +177,7 @@ class Renderer {
         return this.#list(
           tree.list,
           tree.requiresX,
-          ["k"],
+          [tree.keyMember],
           tree.prefix.map((each) => this.node(each)),
           this.node(tree.item),
         );
@@ -223,7 +249,7 @@ function instance(root: SectionNode, pick: Pick): { value: unknown; paths: Path[
           const step = at.list === "none" ? String(index) : key;
           const repeated = at.list === "multimap" && keys.filter((each) => each === key).length > 1;
           const item = build(at.prefix[index] ?? at.item, [...steps, step], repeats || repeated) as object;
-          return { k: key, ...item };
+          return { [at.keyMember]: key, ...item };
         });
       }
     }
@@ -291,6 +317,8 @@ describe("the proof against evaluation (property 6)", () => {
   }, async () => {
     let refused = 0;
     let accepted = 0;
+    let missingRefused = 0;
+    let missingNotFound = 0;
     await fc.assert(
       fc.asyncProperty(trees.section, fc.array(fc.nat(), { minLength: 97, maxLength: 97 }), async (tree, choices) => {
         let next = 0;
@@ -310,11 +338,26 @@ describe("the proof against evaluation (property 6)", () => {
           if (repeats) expect(code).toBe("address-not-singular");
           if (expected) refused += 1;
           else accepted += 1;
+          // The same path with one step naming nothing: refused by the same rule, and otherwise not found, never resolved.
+          for (const [index] of steps.entries()) {
+            const missing = steps.map((step, at) => (at === index ? MISSING : step));
+            const missed = resolveAddress(binding, { kind: "semantic", steps: missing }, "singular");
+            const missedCode = missed.ok ? "resolved" : missed.issues[0]?.code;
+            const refuses = oracleRefuses(tree, missing);
+            expect({ missing, code: missedCode }).toEqual({
+              missing,
+              code: refuses ? "address-not-singular" : "address-not-found",
+            });
+            if (refuses) missingRefused += 1;
+            else missingNotFound += 1;
+          }
         }
       }),
       { numRuns: 300 },
     );
     expect(refused).toBeGreaterThan(50);
     expect(accepted).toBeGreaterThan(50);
+    expect(missingRefused).toBeGreaterThan(50);
+    expect(missingNotFound).toBeGreaterThan(50);
   });
 });
