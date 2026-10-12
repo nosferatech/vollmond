@@ -4,9 +4,12 @@
 // and off them, directories, an asset (`p3`, which has no record extension) and old paths meet often, and the links are most
 // of the store's in a random order, some twice.
 //
-// The store's resolver resolves the record's references together. Each reference alone gets a resolver of its own, made from
-// what a store gives its resolver: the files it lists, its aliases and its records, each read once for all the references. A
-// store per reference would list the files, read the aliases and parse the records again for each, which is most of the work.
+// The store's resolver resolves the record's references together. Alone, each reference has a resolver of its own over a
+// store of its own, which parses again the records the reference resolves into, so that nothing kept while resolving another
+// reference is used: not the resolver's alias walks, nor the store's records, nor what is kept for a record, such as its
+// address resolver. What the references alone share is data, read once: the file listing, the alias table and the citing
+// record `docs/r.md`, which no link resolves into. Parsing the citing record for each reference, or listing the files and
+// reading the alias file through the store for each, took most of the test's time.
 
 import fc from "fast-check";
 import { expect, test } from "vitest";
@@ -92,22 +95,29 @@ async function referencesTogether(files: Record<string, string>): Promise<readon
   return successValue(await opened.references({ from: "docs/r.md" }));
 }
 
-/** The references of `docs/r.md` in a store of these files, each resolved by a resolver that resolves nothing else. */
+/**
+ * The references of `docs/r.md` in a store of these files, each resolved alone: by a resolver of its own, over a store of its
+ * own that reads and parses the records it resolves into again, so that none of them, and nothing kept for one, is shared with
+ * another reference. Only data is shared: the file listing, the alias table and the citing record, which no link resolves into.
+ */
 async function referencesAlone(files: Record<string, string>): Promise<Reference[]> {
-  // A store of its own, so that nothing kept while resolving the references together is used here.
-  const opened = successValue(await openStore(createMemoryStorage({ files })));
+  const storage = createMemoryStorage({ files });
   const paths = Object.keys(files);
-  const reading: ReferenceStore = {
-    classify: (path) => opened.classify(path),
-    record: (path) => opened.record(path),
-    exists: async (path, directory) => (directory ? paths.some((file) => file.startsWith(`${path}/`)) : path in files),
-  };
-  const listed = paths.filter((path) => opened.classify(path).kind !== "ignored");
+  const exists = async (path: string, directory: boolean) =>
+    directory ? paths.some((file) => file.startsWith(`${path}/`)) : path in files;
+  // A store of its own for the citing record, apart from the store that resolved the references together.
+  const citingStore = successValue(await openStore(storage));
+  const citing = successValue((await citingStore.record("docs/r.md")) ?? expect.fail("docs/r.md is not a record"));
+  const listed = paths.filter((path) => citingStore.classify(path).kind !== "ignored");
   const aliases = successValue(readAliases(new TextEncoder().encode(files[".vmd/aliases.jsonl"])));
-  const record = (await opened.record("docs/r.md")) ?? expect.fail("docs/r.md is not a record");
-  const citing = successValue(record);
   const references: Reference[] = [];
   for (const occurrence of occurrencesOf(citing)) {
+    const opened = successValue(await openStore(storage));
+    const reading: ReferenceStore = {
+      classify: (path) => opened.classify(path),
+      record: (path) => opened.record(path),
+      exists,
+    };
     const reference = await new ReferenceResolver(reading, listed, aliases).resolve(citing, occurrence);
     if (reference !== null) references.push(reference);
   }
@@ -127,5 +137,5 @@ test("resolves each reference through the aliases as it is resolved alone, whate
     }),
     { numRuns: 1500 },
   );
-  // About 4 seconds alone, more under a parallel run.
+  // About 6.5 seconds, as Vitest times the test with its file run alone; more under a parallel run.
 }, 60_000);
