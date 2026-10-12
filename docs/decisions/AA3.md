@@ -30,15 +30,22 @@ cross-file case and it behaves correctly." Should collection schemas allow `$dyn
 
 ## Decision
 
-(a), with the owner's note that it can be disabled before 1.0 if it causes trouble: `$dynamicRef` is allowed; it lands only on a
-`$dynamicAnchor` of the schema files vmd has read; and every `$dynamicAnchor` of its name counts as a possible target, off the
-spine, so an `x-vmd-list` or `x-vmd-ref` at one is `schema-invalid`.
+(a), with the owner's note that it can be disabled before 1.0 if it causes trouble: `$dynamicRef` is allowed, as #97 allows it.
+Its possible targets are only the anchors vmd found and registered, and every possible target counts as off the spine, so an
+`x-vmd-list` or `x-vmd-ref` reached only through it is `schema-invalid`.
 
-**Agent's reading, for the owner to confirm.** Two details, which Draft v0.14 states as follows:
+**Agent's reading, for the owner to confirm.** Three details, which Draft v0.14 states as follows:
 
 - With [AA4](AA4.md)'s item 6, a declaration at such a `$dynamicAnchor` is refused also when the spine reaches it another way,
   not only when the `$dynamicRef` is the only way, which the card's "reached only through it" leaves open. #97 does so, since its
   off-spine walk refuses every declaration reached off the spine.
+- A consequence the card does not show: in the standard shape of an extensible recursive schema, a `$dynamicAnchor` on the
+  schema's root and a `$dynamicRef` to it for the children, the root is a possible target, so every `x-vmd-list` or `x-vmd-ref`
+  the root's spine reaches is reached through the `$dynamicRef` too, and the schema is `schema-invalid`. The review of Draft
+  v0.14 found it: a tree whose root has `$dynamicAnchor: node`, a `kids` array of `$dynamicRef: "#node"` and one typed
+  reference `owner` is refused, on #97's code. With the tree in `$defs` and the root referencing it, the root's own declarations
+  can be used, but the tree's node still cannot carry one. So, today, a schema that uses `$dynamicRef` for its recursion
+  cannot declare a keyed list or a typed reference in the recursive part.
 - Why `$dynamicRef` lands on nothing else is stated in §9.2 beside the rule that keeps identifiers out of data (AA4's item 5),
   since that rule is what keeps its targets to the anchors vmd found.
 

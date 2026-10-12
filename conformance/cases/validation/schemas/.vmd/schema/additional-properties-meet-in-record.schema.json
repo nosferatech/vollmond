@@ -1,0 +1,1 @@
+{"type": "object", "allOf": [{"additionalProperties": {"type": "object", "x-vmd-ref": {}}}, {"additionalProperties": {"type": "object", "x-vmd-ref": {"cardinality": "many"}}}]}

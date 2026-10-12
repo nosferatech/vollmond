@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["list-item.json"]
+    schema: items-and-list-additional-meet-in-record.schema.json

@@ -654,15 +654,18 @@ W4 records the confirmation.
 
 ## Decisions from cards AA, AB and W4 (Draft v0.14)
 
-Recorded 2026-10-12, and applied to Draft v0.14. Cards AA1 to AA4 come from the schemas pull request (#97): a bound on the work
-of checking where a schema's vmd keywords meet, the code for an unknown member or value inside `x-vmd-list` or `x-vmd-ref`,
-`$dynamicRef`, and seven readings of schema checking. Card AB comes from the pull request that holds a data `$body` to the
-Markdown limits (#103): which link reference definitions a `$body` sees. Card W4 confirms the agent's readings that the Draft v0.13
-round marked for the owner. The project owner accepted the recommended option on AA2, AA3, AA4 ("Confirm all seven"), AB and W4
-("Confirm all ten"), and answered AA1 with a note instead of an option. Where the records fill in a detail the cards left open,
-they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.14.
+Recorded 2026-10-12, and applied to Draft v0.14. Cards AA2 to AA4 come from the schemas pull request (#97): the code for an
+unknown member or value inside `x-vmd-list` or `x-vmd-ref`, `$dynamicRef`, and seven readings of schema checking. Card AB comes
+from the pull request that holds a data `$body` to the Markdown limits (#103): which link reference definitions a `$body` sees.
+Card W4 confirms the agent's readings that the Draft v0.13 round marked for the owner. The project owner accepted the recommended
+option on AA2, AA3, AA4 ("Confirm all seven"), AB and W4 ("Confirm all ten"). Where the records fill in a detail the cards left
+open, they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.14.
 
-- [AA1](../decisions/AA1.md) Checking where a schema's vmd keywords meet is bounded by a count of its work
+Card AA1, a bound on the work of checking where a schema's vmd keywords meet, is not in this round. The owner answered it with a
+note rather than an option, and the review of the draft's first reading of that note found that the bound it proposed, a count of
+pairs of schema objects, neither bounds the work of the check as #97 implements it nor spares harmless schemas (#109). It goes
+back to the owner with those numbers, and has no record yet.
+
 - [AA2](../decisions/AA2.md) An unknown member or value inside `x-vmd-list` or `x-vmd-ref` is `feature-unsupported`
 - [AA3](../decisions/AA3.md) `$dynamicRef` is allowed in collection schemas, and its targets count as off the spine
 - [AA4](../decisions/AA4.md) Seven readings of schema checking from the schemas pull request are confirmed

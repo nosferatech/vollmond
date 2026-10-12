@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["member-m.json"]
+    schema: additional-properties-meet-in-record.schema.json

@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["a.json"]
+    schema: keyed-item-meets-prefix-items.schema.json

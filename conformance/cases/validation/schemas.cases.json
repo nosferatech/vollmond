@@ -2,20 +2,6 @@
   "defaults": {"spec": ["9.3"], "profiles": ["validate"], "operation": "check", "input": {"store": "schemas"}},
   "cases": [
     {
-      "id": "spine-work-over-bound",
-      "spec": ["9.3", "D"],
-      "description": "A schema whose check of the spine counts more than 1,000,000 pairs is schema-invalid, too complex to check (§9.3, decision AA1). An allOf of 1,010 branches giving one typed reference at member a and 1,010 giving another at member b counts (1,010 + 2)² = 1,024,144 pairs of schema objects that apply together at the root and whose declarations below could disagree: the branches and $defs/a against the branches and $defs/b, and the root with every one of them and with itself. Without the bound the schema is valid, as its near miss shows. The count and the bound are an agent's reading recorded in decision AA1.",
-      "input": {"config": "config-spine-work-over-bound.yaml"},
-      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
-    },
-    {
-      "id": "spine-work-under-bound",
-      "spec": ["9.3"],
-      "description": "The near miss of spine-work-over-bound: the same schema with 990 branches in each group counts (990 + 2)² = 984,064 pairs, within the bound of 1,000,000, so it can be used, and the record is valid (§9.3, decision AA1).",
-      "input": {"config": "config-spine-work-under-bound.yaml"},
-      "expect": {"issues": []}
-    },
-    {
       "id": "list-unknown-member",
       "spec": ["9.1", "9.3", "D"],
       "description": "A member that x-vmd-list does not define, sorted, may come from a newer minor version, so the schema is feature-unsupported, not schema-invalid (§9.1, §9.3, decision AA2).",
@@ -168,6 +154,34 @@
       "description": "The near miss of sections-through-additional-properties: properties: {$sections: false} keeps $sections out of the additionalProperties, and the schema can be used (§9.3, decision AA4, item 7).",
       "input": {"config": "config-sections-kept-out.yaml"},
       "expect": {"issues": []}
+    },
+    {
+      "id": "patterns-meet-in-record",
+      "spec": ["9.3", "D"],
+      "description": "The record of patterns-meet-only-in-data's schema with a root member rx, which both patterns match: that member gets a schema-violation and neither declaration, and the record stays readable (§9.3, decisions U2 and AA4, item 4).",
+      "input": {"config": "config-patterns-meet-in-record.yaml"},
+      "expect": {"issues": [{"code": "schema-violation", "severity": "error", "path": "member-rx.json", "at": "/rx"}]}
+    },
+    {
+      "id": "additional-properties-meet-in-record",
+      "spec": ["9.3", "D"],
+      "description": "The record of unequal-additional-properties' schema with a member m, which both additionalProperties take: that member gets a schema-violation and neither declaration (§9.3, decision AA4, item 4).",
+      "input": {"config": "config-additional-properties-meet-in-record.yaml"},
+      "expect": {"issues": [{"code": "schema-violation", "severity": "error", "path": "member-m.json", "at": "/m"}]}
+    },
+    {
+      "id": "items-and-list-additional-meet-in-record",
+      "spec": ["9.3", "D"],
+      "description": "The record of items-against-list-additional's schema with an item whose key, k, the list's items does not name, so the array's items and the list's additional both apply, and their unequal declarations meet at r: that member gets a schema-violation and neither declaration (§9.3, decision AA4, item 4).",
+      "input": {"config": "config-items-and-list-additional-meet-in-record.yaml"},
+      "expect": {"issues": [{"code": "schema-violation", "severity": "error", "path": "list-item.json", "at": "/l/0/r"}]}
+    },
+    {
+      "id": "keyed-item-meets-prefix-items",
+      "spec": ["9.3", "D"],
+      "description": "At an item of a keyed list, each schema object applies its prefixItems entry or else its items, together with its keyed list's schema for the item's key, so the first item, under prefixItems, and the per-key schema of foo bring unequal declarations together, and the schema is schema-invalid (§9.3, decision AA4, item 4).",
+      "input": {"config": "config-keyed-item-meets-prefix-items.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
     }
   ]
 }

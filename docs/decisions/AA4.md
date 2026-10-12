@@ -61,7 +61,9 @@ Appendix D's `feature-unsupported` and `schema-invalid` rows.
   [W3](W3.md) superseded [X1](X1.md); U2's decision and its reason, that a reference's meaning never depends on a branch, stand.
 - What "applies together" means, which §9.3's new paragraph "Declarations that meet" states, is the spec agent's wording of #97's
   rule: the four ways of the I2 design's section 3.3, and #97's pair walk, which steps over every member name that some
-  `properties` of the schema lists. [AA1](AA1.md)'s bound counts pairs by the same definition.
+  `properties` of the schema lists. At a keyed item, each object applies its `prefixItems` entry or else its `items`, together
+  with its keyed list's schema for the key; #97 takes a keyed item only past the longest `prefixItems`, which misses such a
+  conflict at load (#109), so the suite's case `keyed-item-meets-prefix-items` is skipped until the code follows.
 - Item 2's rule is stated as #97 implements it: the format, or a `type` that allows no string, must apply beside the declaration
   on every path that reaches it. #97 says this narrows nothing beyond the card's wording.
 
@@ -81,4 +83,8 @@ Appendix D `feature-unsupported` and `schema-invalid`; the I2 design's section 3
 `unequal-additional-properties` and `items-against-list-additional` (item 4), `identifier-in-data` and
 `identifier-not-string-in-data` (item 5), `declaration-on-and-off-spine` and `declaration-on-spine-twice` (item 6), and
 `sections-through-additional-properties` and `sections-kept-out` (item 7). The suite has no case for `storage-failed` beside
-another problem. #97 (`f74bc12`) passes every one of them.
+another problem. #97 (`f74bc12`) passes every one of them. Four more cases of item 4 are skipped in the TypeScript runner's
+declaration: `patterns-meet-in-record`, `additional-properties-meet-in-record` and `items-and-list-additional-meet-in-record`, a
+record that brings the waiting declarations together and gets its `schema-violation`, until the binding of keyed lists and typed
+references (#23, #24) reports what #97 records as a conflict of the shape; and `keyed-item-meets-prefix-items`, until the code
+follows #109.

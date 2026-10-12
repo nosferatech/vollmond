@@ -49,8 +49,8 @@ define… is `feature-unsupported`", and the treatment of unknown configuration 
   form an older reader can recognise, and stays `schema-invalid`; the suite's case `validation/schemas/list-keys-wrong-form`
   pins it.
 - The card covers `x-vmd-list` and `x-vmd-ref`. A value of `x-vmd-summary` other than a boolean stays `schema-invalid`, as
-  [U19](U19.md) decided, and so does an `x-vmd-ordered` other than `asc` or `desc`, which #97 refuses and Draft v0.14 does not
-  change.
+  [U19](U19.md) decided, and so does an `x-vmd-ordered` other than `asc` or `desc`, which #97 refuses; §9.3's table and
+  Appendix D's `schema-invalid` row say so.
 
 When an unknown member or value stands beside other problems, `feature-unsupported` wins, as [AA4](AA4.md) (item 1) confirms.
 

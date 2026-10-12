@@ -370,7 +370,8 @@ spine. Reached means through any keyword, so the walk that finds the off-spine d
 They meet in four ways:
 
 - `allOf`, and `$ref` beside other keywords (D: 2020-12 Core, section 8.2.3.1): both are static, so the check runs when the schema
-  is loaded;
+  is loaded, except for two `additionalProperties` of an `allOf`, which meet only at a member the data names and so wait for the
+  record (decision AA4, item 4, Draft v0.14 §9.3);
 - a member named in `properties` whose name a `patternProperties` pattern also matches: static too, since the name is in the
   schema; patterns are ECMA-262 expressions, run with the `u` flag (D: 2020-12 Core, section 10.3.2.2, which names ECMA-262);
 - two patterns that both match one member name: only a name in the data can tell, so the check runs when a record is bound
@@ -387,11 +388,9 @@ They meet in four ways:
   although the binding treats the array as a plain one, because the proof judges declarations, and the data's conflict does not
   remove the `multimap` one from the schema;
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
-  `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both.
-
-The check of where declarations meet is bounded: a schema whose count, the pairs of schema objects that apply together and could
-disagree, with the pairs of a typed reference lacking the format and an object beside it, is more than 1,000,000 is
-`schema-invalid`, too complex to check (decision AA1, Draft v0.14 §9.3).
+  `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both. A per-key schema meets
+  the `items` or `prefixItems` entry when the schema is loaded; `additional` meets them only at an item whose key the list's
+  `items` does not name, which the data decides, so that waits for the record (decision AA4, item 4, Draft v0.14 §9.3).
 
 `x-vmd-summary` and `x-vmd-ordered` are left to I3, whose queries read them. A schema with `unevaluatedItems` beside `x-vmd-list`
 would fail valid data, since the validator does not see the items `x-vmd-list` checks as evaluated; the design proposes to make it

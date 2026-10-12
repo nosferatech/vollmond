@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["member-rx.json"]
+    schema: patterns-meet-in-record.schema.json
