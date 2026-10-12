@@ -625,6 +625,20 @@ describe("the spine", () => {
     expect(both.conflicts.map((location) => location.pointer)).toEqual(["/patternProperties/^a", "/patternProperties/b$"]);
     expect(schema.root.child({ member: "ax" }).ref).toEqual({ targets: null, cardinality: "one", anchors: "any" });
   });
+
+  // Issue #110: the spine's check kept a problem for every unequal pair, which the issue counts but lists ten of.
+  test("unequal declarations of many pairs: the issue lists the first ten by location and counts the others", async () => {
+    const one = Array.from({ length: 4 }, () => ({ "x-vmd-ref": {} }));
+    const many = Array.from({ length: 4 }, () => ({ "x-vmd-ref": { cardinality: "many" } }));
+    const issue = await unusable(file({ type: "object", format: "uri-reference", allOf: [...one, ...many] }));
+    expect(issue.code).toBe("schema-invalid");
+    expect(issue.message.match(/unequal x-vmd-ref declarations/g)).toHaveLength(10);
+    expect(issue.message).toContain("s.json:1:");
+    expect(issue.message).toContain(
+      "unequal x-vmd-ref declarations apply to one instance location, from s.json#/allOf/0, s.json#/allOf/4",
+    );
+    expect(issue.message).toMatch(/; and 6 more$/);
+  });
 });
 
 describe("validating records", () => {

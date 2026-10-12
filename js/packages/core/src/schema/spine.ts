@@ -61,19 +61,54 @@ export interface SpineProblem {
   readonly message: string;
 }
 
+/** What {@link Spine.check} found: the first problems, by location and then message, and how many others it found. */
+export interface SpineCheck {
+  readonly problems: readonly SpineProblem[];
+  readonly unlisted: number;
+}
+
 /** The two extension keywords that the spine carries. */
 const DECLARATIONS = ["x-vmd-list", "x-vmd-ref"] as const;
 
+/** How many locations a set that applies together holds before the pair walk takes its pairs one first member at a time. */
+const LARGE_SET = 16;
+
+/** How many locations the memo of closures holds at most before it is emptied. */
+const MAX_CLOSURE_ENTRIES = 1 << 22;
+
+/** Unequal values of one declaration keyword. */
+const SEVERAL = Symbol("several");
+
+/** The values of one declaration keyword below a location: none, the one value as JCS text, or several unequal ones. */
+type DeclaredValues = undefined | string | typeof SEVERAL;
+
 /**
- * What a schema location's spine below it holds, for the checks that need two locations together or every path: the
- * declarations by their value, whether a keyed list or `unevaluatedItems` is there, and whether a location that gives
+ * What a schema location's spine below it holds, for the checks that need two locations together or every path: the values
+ * of each declaration keyword, whether a keyed list or `unevaluatedItems` is there, and whether a location that gives
  * `format: uri-reference` or a `type` without strings is.
  */
 interface SubtreeMarks {
-  readonly classes: Set<string>;
+  /** By the keyword's index in `DECLARATIONS`. */
+  readonly declared: DeclaredValues[];
   hasList: boolean;
   hasUnevaluated: boolean;
   hasRefGuard: boolean;
+}
+
+/** The values of a declaration keyword below two locations together. */
+function joinValues(one: DeclaredValues, other: DeclaredValues): DeclaredValues {
+  if (one === other || other === undefined) return one;
+  return one === undefined ? other : SEVERAL;
+}
+
+/** Whether the spine below a location holds a declaration or `unevaluatedItems`, so that it may show a problem with another. */
+function declaresAny(marks: SubtreeMarks): boolean {
+  return marks.hasUnevaluated || marks.declared.some((values) => values !== undefined);
+}
+
+/** Whether the spine below a location holds an `x-vmd-ref`. */
+function declaresRef(marks: SubtreeMarks): boolean {
+  return marks.declared[DECLARATIONS.indexOf("x-vmd-ref")] !== undefined;
 }
 
 /** How a location is reached from its parent on the spine, for the locations that apply beside it on every path. */
@@ -102,6 +137,8 @@ export class Spine {
   readonly #set: SchemaSet;
   readonly #shapes = new Map<string, Shape>();
   readonly #closures = new Map<string, readonly SchemaLocation[]>();
+  #closureEntries = 0;
+  readonly #maxClosureEntries: number;
   readonly #patterns = new Map<string, RegExp | null>();
   readonly #marks = new Map<string, SubtreeMarks>();
   readonly #matchesBySource = new Map<string, Uint32Array>();
@@ -109,12 +146,26 @@ export class Spine {
   #mustSteps = 0;
   #stepsComputed = 0;
   #nameSteps = 0;
+  #markSteps = 0;
+  #placeSteps = 0;
   #names: readonly string[] | undefined;
   readonly root: SchemaShape;
 
-  constructor(set: SchemaSet) {
+  /**
+   * The spine of `set`. `maxClosureEntries` is how many locations the memo of closures holds before it is emptied, for
+   * tests of that bound; a positive integer.
+   */
+  constructor(set: SchemaSet, options: { readonly maxClosureEntries?: number } = {}) {
     this.#set = set;
+    this.#maxClosureEntries = options.maxClosureEntries ?? MAX_CLOSURE_ENTRIES;
     this.root = this.shape([{ file: set.root, pointer: "" }]);
+  }
+
+  /** How many locations the memo of closures holds now, for tests of its bound. */
+  get memoizedLocations(): number {
+    let count = 0;
+    for (const closed of this.#closures.values()) count += closed.length;
+    return count;
   }
 
   /** How many pairs of locations the last {@link Spine.check} visited: the work its pair walk did, for tests of its cost. */
@@ -152,6 +203,22 @@ export class Spine {
     return this.#nameSteps;
   }
 
+  /**
+   * How many parent entries and mark values the last {@link Spine.check} wrote or compared while marking what the spine below
+   * each location holds: the work of that marking, for tests of its cost.
+   */
+  get markSteps(): number {
+    return this.#markSteps;
+  }
+
+  /**
+   * How many locations the last {@link Spine.check} took up in its walk of single locations, for the keyed lists' places:
+   * the work of that walk, for tests of its cost.
+   */
+  get placeSteps(): number {
+    return this.#placeSteps;
+  }
+
   /** The schema object or boolean schema at a location, or undefined where there is none. */
   schemaAt(location: SchemaLocation): ValueObject | boolean | undefined {
     return this.#set.schemas.get(locationKey(location))?.value;
@@ -165,8 +232,8 @@ export class Spine {
     const closed: SchemaLocation[] = [];
     const seen = new Set<string>();
     const pending = [...locations];
-    while (pending.length > 0) {
-      const location = pending.shift() as SchemaLocation;
+    for (let next = 0; next < pending.length; next++) {
+      const location = pending[next] as SchemaLocation;
       const key = locationKey(location);
       if (seen.has(key)) continue;
       const schema = this.schemaAt(location);
@@ -182,7 +249,14 @@ export class Spine {
       const reference = this.#set.references.get(referenceKey(location, "$ref"));
       if (reference !== undefined && reference.target !== null) pending.push(reference.target);
     }
+    // The closures of a long chain of references add up to the square of its length, so the memo is emptied before it holds
+    // more than a bounded number of locations; what it held is computed again when asked for.
+    if (this.#closureEntries + closed.length > this.#maxClosureEntries) {
+      this.#closures.clear();
+      this.#closureEntries = 0;
+    }
     this.#closures.set(id, closed);
+    this.#closureEntries += closed.length;
     return closed;
   }
 
@@ -217,6 +291,11 @@ export class Spine {
    * match, else its `additionalProperties`; with what their `allOf` and `$ref` bring.
    */
   memberLocations(location: SchemaLocation, name: string): readonly SchemaLocation[] {
+    return this.closure(this.#memberSchemas(location, name));
+  }
+
+  /** The subschemas that apply to a member of this name from one schema object, without what their `allOf` and `$ref` bring. */
+  #memberSchemas(location: SchemaLocation, name: string): SchemaLocation[] {
     const schema = this.schemaAt(location);
     if (!isObject(schema)) return [];
     const found: SchemaLocation[] = [];
@@ -227,7 +306,7 @@ export class Spine {
       }
     }
     if (found.length === 0 && isSchemaValue(schema.additionalProperties)) found.push(at(location, "additionalProperties"));
-    return this.closure(found);
+    return found;
   }
 
   /**
@@ -235,6 +314,11 @@ export class Spine {
    * list the key's schema or `additional`; with what their `allOf` and `$ref` bring.
    */
   itemLocations(location: SchemaLocation, index: number, key: string | undefined): readonly SchemaLocation[] {
+    return this.closure(this.#itemSchemas(location, index, key));
+  }
+
+  /** The subschemas that apply to an item from one schema object, without what their `allOf` and `$ref` bring. */
+  #itemSchemas(location: SchemaLocation, index: number, key: string | undefined): SchemaLocation[] {
     const schema = this.schemaAt(location);
     if (!isObject(schema)) return [];
     const found: SchemaLocation[] = [];
@@ -246,7 +330,7 @@ export class Spine {
       if (isObject(list.items) && Object.hasOwn(list.items, key)) found.push(at(listAt, "items", key));
       else if (isObject(list.additional)) found.push(at(listAt, "additional"));
     }
-    return this.closure(found);
+    return found;
   }
 
   /**
@@ -264,6 +348,9 @@ export class Spine {
    *
    * What the root does not reach is not checked: a shared file's `$defs` may hold declarations other collections use.
    *
+   * Gives the first `listed` problems by location and then message, all of them when `listed` is not given, and counts the
+   * others: unequal declarations give a problem per pair of locations, which can be as many as the square of the schema.
+   *
    * Cost: one walk of the locations the spine reaches, with the members, patterns and items of each, for the single-location
    * checks. The pairs are walked only between locations whose spine below holds what could meet: two unequal declarations,
    * or a keyed list and `unevaluatedItems`. A schema with none of them, or whose declarations are all equal, visits no pair.
@@ -271,24 +358,48 @@ export class Spine {
    * groups' sizes, so quadratically in the schema. The locations that apply beside a typed reference on every path are kept
    * only for references whose own schema object lacks the format, and only of the locations that could give it, which in
    * the worst case is quadratic too.
+   *
+   * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
+   * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
+   * pairs waiting take two integers each, at most eight bytes for each pair met. The fixed point for the format keeps two
+   * bitsets for each location above a reference that lacks the format: what applies beside it on every path, and what its
+   * own `allOf` and `$ref` give, each a bit for each location that could give the format. Each of these takes at most the
+   * square of the locations over eight bytes, the fixed point's twice that.
+   *
+   * @throws RangeError when `listed` is neither a non-negative integer nor infinite.
    */
   // Deviation from the I2 design, recorded in issue #22: the check walks pairs of locations rather than every set a path
   // reaches, which was exponential; a declaration reached off the spine is refused even where the spine reaches it too.
-  check(): SpineProblem[] {
-    const problems: SpineProblem[] = [];
+  check(listed = Number.POSITIVE_INFINITY): SpineCheck {
+    // Unequal declarations give a problem per pair, as many as the square of the schema, so only the first `listed` by
+    // location and message are kept, and the others counted.
+    if (listed !== Number.POSITIVE_INFINITY && !(Number.isInteger(listed) && listed >= 0)) {
+      throw new RangeError(`the problems to list must be a non-negative integer or Infinity, not ${listed}`);
+    }
+    let kept: SpineProblem[] = [];
+    let found = 0;
+    const keep = (location: SchemaLocation, message: string) => {
+      found += 1;
+      kept.push({ location, message });
+      // Trimming when the kept problems reach twice those listed, plus a margin for a small `listed`, sorts each problem
+      // a bounded number of times, so the trims cost O(problems × log listed) in all and hold O(listed) problems.
+      if (kept.length > 2 * listed + 1024) kept = kept.sort(problemOrder).slice(0, listed);
+    };
+    // A pair is visited once, so its unequal declarations are reported once; the other problems can be met again.
     const reported = new Set<string>();
     const report = (location: SchemaLocation, message: string) => {
       const key = `${locationKey(location)}\n${message}`;
       if (reported.has(key)) return;
       reported.add(key);
-      problems.push({ location, message });
+      keep(location, message);
     };
     this.#checkOffSpine(report);
     this.#computeMarks();
     this.#checkPlaces(report);
     this.#checkRefFormats(report);
-    this.#checkPairs(report);
-    return problems;
+    this.#checkPairs(report, keep);
+    const problems = kept.sort(problemOrder).slice(0, listed);
+    return { problems, unlisted: found - problems.length };
   }
 
   /** Reports each declaration that the root reaches through a keyword off the spine, on the spine too or not. */
@@ -337,15 +448,18 @@ export class Spine {
 
   /**
    * Walks the single locations the spine reaches, each with whether it applies to a section and to a section's `$sections`,
-   * and reports the keyed lists out of their place and the typed references without their format.
+   * and reports the keyed lists out of their place and the typed references without their format. What a location's
+   * `allOf` and `$ref` bring is walked as a step of its own, so that the walk holds each location once per state rather
+   * than once per closure that holds it.
    */
   #checkPlaces(report: (location: SchemaLocation, message: string) => void): void {
     // `sections` is how a section's $sections was reached: through `properties`, or through a pattern or
     // `additionalProperties` that takes it; null for a location that is not on a section's $sections.
     type Sections = "properties" | "other" | null;
-    const pending: { readonly location: SchemaLocation; readonly section: boolean; readonly sections: Sections }[] = [];
-    for (const location of this.closure([{ file: this.#set.root, pointer: "" }]))
-      pending.push({ location, section: true, sections: null });
+    this.#placeSteps = 0;
+    const pending: { readonly location: SchemaLocation; readonly section: boolean; readonly sections: Sections }[] = [
+      { location: { file: this.#set.root, pointer: "" }, section: true, sections: null },
+    ];
     const seen = new Set<string>();
     while (pending.length > 0) {
       const { location, section, sections } = pending.pop() as (typeof pending)[number];
@@ -356,35 +470,44 @@ export class Spine {
       if (!isObject(schema)) continue;
       this.#checkPlacement(location, schema, sections, report);
       const push = (locations: readonly SchemaLocation[], childSection: boolean, childSections: Sections) => {
+        this.#placeSteps += locations.length;
         for (const child of locations) pending.push({ location: child, section: childSection, sections: childSections });
       };
+      // What allOf and $ref bring applies where this location does.
+      if (Array.isArray(schema.allOf)) {
+        schema.allOf.forEach((item, index) => {
+          if (isSchemaValue(item)) push([at(location, "allOf", index)], section, sections);
+        });
+      }
+      const reference = this.#set.references.get(referenceKey(location, "$ref"));
+      if (reference !== undefined && reference.target !== null) push([reference.target], section, sections);
       const named = isObject(schema.properties) ? Object.keys(schema.properties) : [];
       for (const name of named) {
-        push(this.memberLocations(location, name), false, section && name === "$sections" ? "properties" : null);
+        push(this.#memberSchemas(location, name), false, section && name === "$sections" ? "properties" : null);
       }
       let patternTakesSections = false;
       if (isObject(schema.patternProperties)) {
         for (const source of Object.keys(schema.patternProperties)) {
           const matchesSections = this.pattern(source)?.test("$sections") === true;
           patternTakesSections ||= matchesSections;
-          const closed = this.closure([at(location, "patternProperties", source)]);
-          push(closed, false, null);
-          if (section && matchesSections && !named.includes("$sections")) push(closed, false, "other");
+          const taken = [at(location, "patternProperties", source)];
+          push(taken, false, null);
+          if (section && matchesSections && !named.includes("$sections")) push(taken, false, "other");
         }
       }
       if (isSchemaValue(schema.additionalProperties)) {
-        const closed = this.closure([at(location, "additionalProperties")]);
-        push(closed, false, null);
-        if (section && !named.includes("$sections") && !patternTakesSections) push(closed, false, "other");
+        const taken = [at(location, "additionalProperties")];
+        push(taken, false, null);
+        if (section && !named.includes("$sections") && !patternTakesSections) push(taken, false, "other");
       }
       const items = sections !== null;
       const prefix = Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
-      for (let index = 0; index <= prefix; index++) push(this.itemLocations(location, index, undefined), items, null);
+      for (let index = 0; index <= prefix; index++) push(this.#itemSchemas(location, index, undefined), items, null);
       const list = schema["x-vmd-list"];
       if (isObject(list)) {
         for (const key of isObject(list.items) ? Object.keys(list.items) : [])
-          push(this.itemLocations(location, prefix, key), items, null);
-        if (isObject(list.additional)) push(this.closure([at(at(location, "x-vmd-list"), "additional")]), items, null);
+          push(this.#itemSchemas(location, prefix, key), items, null);
+        if (isObject(list.additional)) push([at(at(location, "x-vmd-list"), "additional")], items, null);
       }
     }
   }
@@ -449,10 +572,12 @@ export class Spine {
   }
 
   /**
-   * Marks each location the spine reaches with what its spine below holds, by propagating each location's own marks to the
-   * locations above it until nothing changes; each mark moves up each edge once.
+   * Marks each location the spine reaches with what its spine below holds, by joining each location's marks into the
+   * locations above it until nothing changes. A location's marks grow at most a few times (a keyword's values go from none
+   * to one to several, and each flag is set once), and each growth moves up each edge once, so the work is linear.
    */
   #computeMarks(): void {
+    this.#markSteps = 0;
     const parents = new Map<string, SchemaLocation[]>();
     const reached: SchemaLocation[] = [];
     const pending: SchemaLocation[] = [{ file: this.#set.root, pointer: "" }];
@@ -461,10 +586,16 @@ export class Spine {
       const key = locationKey(location);
       if (this.#marks.has(key)) continue;
       const schema = this.schemaAt(location);
-      const marks: SubtreeMarks = { classes: new Set(), hasList: false, hasUnevaluated: false, hasRefGuard: false };
+      const marks: SubtreeMarks = {
+        declared: DECLARATIONS.map(() => undefined),
+        hasList: false,
+        hasUnevaluated: false,
+        hasRefGuard: false,
+      };
       if (isObject(schema)) {
-        for (const keyword of DECLARATIONS)
-          if (Object.hasOwn(schema, keyword)) marks.classes.add(`${keyword} ${jcs(schema[keyword] as Value)}`);
+        DECLARATIONS.forEach((keyword, index) => {
+          if (Object.hasOwn(schema, keyword)) marks.declared[index] = jcs(schema[keyword] as Value);
+        });
         marks.hasList = Object.hasOwn(schema, "x-vmd-list");
         marks.hasUnevaluated = Object.hasOwn(schema, "unevaluatedItems");
         marks.hasRefGuard = guardsRefs(schema);
@@ -473,7 +604,10 @@ export class Spine {
       reached.push(location);
       for (const { child } of this.#spineEdges(location)) {
         const childKey = locationKey(child);
-        parents.set(childKey, [...(parents.get(childKey) ?? []), location]);
+        const above = parents.get(childKey);
+        if (above === undefined) parents.set(childKey, [location]);
+        else above.push(location);
+        this.#markSteps += 1;
         pending.push(child);
       }
     }
@@ -482,11 +616,13 @@ export class Spine {
       const location = work.pop() as SchemaLocation;
       const marks = this.#marks.get(locationKey(location)) as SubtreeMarks;
       for (const parent of parents.get(locationKey(location)) ?? []) {
+        this.#markSteps += 1;
         const above = this.#marks.get(locationKey(parent)) as SubtreeMarks;
         let grew = false;
-        for (const mark of marks.classes) {
-          if (!above.classes.has(mark)) {
-            above.classes.add(mark);
+        for (let index = 0; index < DECLARATIONS.length; index++) {
+          const joined = joinValues(above.declared[index], marks.declared[index]);
+          if (joined !== above.declared[index]) {
+            above.declared[index] = joined;
             grew = true;
           }
         }
@@ -511,14 +647,15 @@ export class Spine {
    * beside it. What applies beside a location L on every path, Must(L), is the greatest fixed point of: L's own `allOf`
    * and `$ref` closure, and the intersection over each way L is reached from a parent P of what P's Must gives the same
    * step. Only the references whose own closure lacks the format need it, so Must is computed for the locations above them,
-   * and holds only the locations whose spine below gives the format or such a type.
+   * and holds only the locations whose spine below gives the format or such a type, as a bitset over those.
    */
   #checkRefFormats(report: (location: SchemaLocation, message: string) => void): void {
     this.#mustSteps = 0;
+    const locationOf = (key: string) => (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
     const needy: SchemaLocation[] = [];
     for (const [key, marks] of this.#marks) {
-      if (![...marks.classes].some((mark) => mark.startsWith("x-vmd-ref "))) continue;
-      const location = (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
+      if (!declaresRef(marks)) continue;
+      const location = locationOf(key);
       const schema = this.schemaAt(location);
       if (!isObject(schema) || !Object.hasOwn(schema, "x-vmd-ref")) continue;
       if (this.closure([location]).some((closed) => guardsRefs(this.schemaAt(closed)))) continue;
@@ -531,50 +668,69 @@ export class Spine {
     const root = { file: this.#set.root, pointer: "" };
     const pending = [root];
     const visited = new Set<string>();
-    while (pending.length > 0) {
-      const location = pending.shift() as SchemaLocation;
+    for (let next = 0; next < pending.length; next++) {
+      const location = pending[next] as SchemaLocation;
       const key = locationKey(location);
       if (visited.has(key)) continue;
       visited.add(key);
       order.push(location);
       for (const { child, edge } of this.#spineEdges(location)) {
         const marks = this.#marksOf(child);
-        if (marks === undefined || ![...marks.classes].some((mark) => mark.startsWith("x-vmd-ref "))) continue;
+        if (marks === undefined || !declaresRef(marks)) continue;
         const childKey = locationKey(child);
-        reasons.set(childKey, [...(reasons.get(childKey) ?? []), { parent: location, edge }]);
+        const known = reasons.get(childKey);
+        if (known === undefined) reasons.set(childKey, [{ parent: location, edge }]);
+        else known.push({ parent: location, edge });
         pending.push(child);
       }
     }
-    const useful = (location: SchemaLocation) => this.#marksOf(location)?.hasRefGuard === true;
-    const own = (location: SchemaLocation) => new Set(this.closure([location]).filter(useful).map(locationKey));
-    const locationOf = (key: string) => (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
+    // The locations that could give the format, numbered for the bitsets.
+    const usefulIds = new Map<string, number>();
+    const usefulLocations: SchemaLocation[] = [];
+    for (const [key, marks] of this.#marks) {
+      if (!marks.hasRefGuard) continue;
+      usefulIds.set(key, usefulLocations.length);
+      usefulLocations.push(locationOf(key));
+    }
+    const words = (usefulLocations.length + 31) >>> 5;
+    const add = (found: Uint32Array, location: SchemaLocation) => {
+      const id = usefulIds.get(locationKey(location));
+      if (id !== undefined) found[id >>> 5] = (found[id >>> 5] as number) | (1 << (id & 31));
+    };
+    const owns = new Map<string, Uint32Array>();
+    const own = (location: SchemaLocation) => {
+      const key = locationKey(location);
+      let found = owns.get(key);
+      if (found === undefined) {
+        found = new Uint32Array(words);
+        for (const closed of this.closure([location])) add(found, closed);
+        owns.set(key, found);
+      }
+      return found;
+    };
     // Must, by location key; undefined stands for every location, the fixed point's start.
-    const must = new Map<string, Set<string> | undefined>();
+    const must = new Map<string, Uint32Array | undefined>();
     for (const location of order) must.set(locationKey(location), undefined);
     const prefixOf = (location: SchemaLocation) => {
       const schema = this.schemaAt(location);
       return isObject(schema) && Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
     };
-    const given = (parent: SchemaLocation, edge: SpineEdge): Set<string> | undefined => {
+    const given = (parent: SchemaLocation, edge: SpineEdge): Uint32Array | undefined => {
       const above = must.get(locationKey(parent));
       if (above === undefined) return undefined;
       if (edge.kind === "same") return above;
-      const found = new Set<string>();
+      const found = new Uint32Array(words);
       if (edge.kind === "unnamed") return found;
-      // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
-      if (edge.kind === "keyed") {
-        for (const key of above) {
-          this.#mustSteps += 1;
-          const beside = locationOf(key);
-          const schema = this.schemaAt(beside);
-          if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) continue;
-          for (const location of this.closure([at(beside, "items")])) if (useful(location)) found.add(locationKey(location));
-        }
-        return found;
-      }
-      for (const key of above) {
+      forEachBit(above, (id) => {
         this.#mustSteps += 1;
-        const beside = locationOf(key);
+        const beside = usefulLocations[id] as SchemaLocation;
+        // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
+        if (edge.kind === "keyed") {
+          const schema = this.schemaAt(beside);
+          if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) return;
+          for (const location of this.closure([at(beside, "items")])) add(found, location);
+          return;
+        }
         const locations =
           edge.kind === "member"
             ? this.memberLocations(beside, edge.name)
@@ -583,27 +739,31 @@ export class Spine {
               : prefixOf(beside) <= prefixOf(parent)
                 ? this.itemLocations(beside, prefixOf(parent), undefined)
                 : [];
-        for (const location of locations) if (useful(location)) found.add(locationKey(location));
-      }
+        for (const location of locations) add(found, location);
+      });
       return found;
     };
     for (let changed = true; changed; ) {
       changed = false;
       for (const location of order) {
         const key = locationKey(location);
-        let next: Set<string> | undefined;
+        let next: Uint32Array | undefined;
         if (key === locationKey(root)) {
           next = own(location);
         } else {
           for (const reason of reasons.get(key) ?? []) {
             const g = given(reason.parent, reason.edge);
             if (g === undefined) continue;
-            next = next === undefined ? new Set(g) : new Set([...next].filter((item) => g.has(item)));
+            if (next === undefined) next = g.slice();
+            else for (let word = 0; word < words; word++) next[word] = (next[word] as number) & (g[word] as number);
           }
-          if (next !== undefined) for (const item of own(location)) next.add(item);
+          if (next !== undefined) {
+            const mine = own(location);
+            for (let word = 0; word < words; word++) next[word] = (next[word] as number) | (mine[word] as number);
+          }
         }
         const previous = must.get(key);
-        if (next !== undefined && (previous === undefined || next.size !== previous.size)) {
+        if (next !== undefined && (previous === undefined || bitCount(next) !== bitCount(previous))) {
           must.set(key, next);
           changed = true;
         }
@@ -611,7 +771,13 @@ export class Spine {
     }
     for (const location of needy) {
       const beside = must.get(locationKey(location));
-      if (beside !== undefined && [...beside].some((key) => guardsRefs(this.schemaAt(locationOf(key))))) continue;
+      let guarded = false;
+      if (beside !== undefined) {
+        forEachBit(beside, (id) => {
+          guarded ||= guardsRefs(this.schemaAt(usefulLocations[id] as SchemaLocation));
+        });
+      }
+      if (guarded) continue;
       report(
         at(location, "x-vmd-ref"),
         "x-vmd-ref stands where a path lets a string stand without format: uri-reference, so a string there would be no reference; give the format, or a type without strings, beside it on every path",
@@ -624,46 +790,93 @@ export class Spine {
    * declarations and `unevaluatedItems` beside a keyed list. A pair steps to the pairs of what each of its locations gives
    * the same step. A member of a name the schema does not give is followed from each location alone, since only a name in
    * the data brings two such locations together.
+   *
+   * The pairs met are kept as a bitset per location, over the locations that could show a problem, and the pairs waiting
+   * in a stack of integers; the pairs of a large set of locations that apply together are taken from it one at a time. So
+   * the walk holds no collection that grows with the pairs other than those, which take a bit and at most two integers each.
    */
-  #checkPairs(report: (location: SchemaLocation, message: string) => void): void {
+  #checkPairs(
+    report: (location: SchemaLocation, message: string) => void,
+    reportPair: (location: SchemaLocation, message: string) => void,
+  ): void {
     this.#pairsVisited = 0;
     this.#nameSteps = 0;
-    const pending: (readonly [SchemaLocation, SchemaLocation])[] = [];
-    const seen = new Set<string>();
     // Only locations whose spine below could show a problem with another are paired, and only with a location that could
     // show it with them: an unequal declaration, or a keyed list against unevaluatedItems.
-    const addAll = (locations: readonly SchemaLocation[]) => {
-      const candidates = locations.filter((location) => {
-        const marks = this.#marksOf(location);
-        return marks !== undefined && (marks.classes.size > 0 || marks.hasUnevaluated);
-      });
-      if (!couldMeet(candidates.map((location) => this.#marksOf(location) as SubtreeMarks))) return;
-      for (let first = 0; first < candidates.length; first++) {
-        for (let second = first; second < candidates.length; second++) {
-          const one = candidates[first] as SchemaLocation;
-          const other = candidates[second] as SchemaLocation;
-          if (couldMeet([this.#marksOf(one) as SubtreeMarks, this.#marksOf(other) as SubtreeMarks])) pending.push([one, other]);
-        }
+    const ids = new Map<string, number>();
+    const candidates: SchemaLocation[] = [];
+    const candidateMarks: SubtreeMarks[] = [];
+    for (const [key, marks] of this.#marks) {
+      if (!declaresAny(marks)) continue;
+      ids.set(key, candidates.length);
+      candidates.push((this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location);
+      candidateMarks.push(marks);
+    }
+    const words = (candidates.length + 31) >>> 5;
+    const met: (Uint32Array | undefined)[] = [];
+    // Records the pair of these candidates, the smaller first, and says whether it is new.
+    const meet = (one: number, other: number): boolean => {
+      let row = met[one];
+      if (row === undefined) {
+        row = new Uint32Array(words);
+        met[one] = row;
+      }
+      const word = row[other >>> 5] as number;
+      const bit = 1 << (other & 31);
+      if ((word & bit) !== 0) return false;
+      row[other >>> 5] = word | bit;
+      return true;
+    };
+    const waiting = new IntegerStack();
+    // Sets of candidates too large to pair at once, each with the index of the next first member to pair.
+    const large: { readonly members: readonly number[]; first: number }[] = [];
+    const pairUp = (members: readonly number[], first: number) => {
+      const one = members[first] as number;
+      for (let second = first; second < members.length; second++) {
+        const other = members[second] as number;
+        const [low, high] = one <= other ? [one, other] : [other, one];
+        if (!couldMeet([candidateMarks[low] as SubtreeMarks, candidateMarks[high] as SubtreeMarks])) continue;
+        if (meet(low, high)) waiting.push(low, high);
       }
     };
+    const addAll = (locations: readonly SchemaLocation[]) => {
+      const members: number[] = [];
+      const known = new Set<number>();
+      for (const location of locations) {
+        const id = ids.get(locationKey(location));
+        if (id === undefined || known.has(id)) continue;
+        known.add(id);
+        members.push(id);
+      }
+      if (!couldMeet(members.map((id) => candidateMarks[id] as SubtreeMarks))) return;
+      if (members.length > LARGE_SET) large.push({ members, first: 0 });
+      else for (let first = 0; first < members.length; first++) pairUp(members, first);
+    };
     addAll(this.closure([{ file: this.#set.root, pointer: "" }]));
-    while (pending.length > 0) {
-      const [one, other] = pending.pop() as readonly [SchemaLocation, SchemaLocation];
-      const keys = [locationKey(one), locationKey(other)].sort();
-      const pairKey = keys.join("\n\n");
-      if (seen.has(pairKey)) continue;
-      seen.add(pairKey);
+    for (;;) {
+      if (waiting.length === 0) {
+        const set = large.at(-1);
+        if (set === undefined) break;
+        pairUp(set.members, set.first);
+        set.first += 1;
+        if (set.first === set.members.length) large.pop();
+        continue;
+      }
+      const high = waiting.pop();
+      const low = waiting.pop();
       this.#pairsVisited += 1;
+      const one = candidates[low] as SchemaLocation;
+      const other = candidates[high] as SchemaLocation;
       const first = this.schemaAt(one);
       const second = this.schemaAt(other);
       if (!isObject(first) || !isObject(second)) continue;
-      this.#checkPair(one, first, other, second, report);
+      this.#checkPair(one, first, other, second, report, reportPair);
       for (const step of this.#checkSteps(one, first, other, second)) {
         const applying =
           step.kind === "member"
             ? [...this.memberLocations(one, step.name), ...this.memberLocations(other, step.name)]
             : [...this.itemLocations(one, step.index, step.key), ...this.itemLocations(other, step.index, step.key)];
-        addAll(unique(applying));
+        addAll(applying);
       }
       for (const [location, schema] of [
         [one, first],
@@ -783,19 +996,23 @@ export class Spine {
     return this.#names;
   }
 
-  /** Reports what two locations that apply together, or one with itself, show. */
+  /**
+   * Reports what two locations that apply together, or one with itself, show: unequal declarations through `reportPair`,
+   * since they name the pair, which is visited once, and `unevaluatedItems` beside a keyed list through `report`.
+   */
   #checkPair(
     one: SchemaLocation,
     first: ValueObject,
     other: SchemaLocation,
     second: ValueObject,
     report: (location: SchemaLocation, message: string) => void,
+    reportPair: (location: SchemaLocation, message: string) => void,
   ): void {
     for (const keyword of DECLARATIONS) {
       if (!Object.hasOwn(first, keyword) || !Object.hasOwn(second, keyword)) continue;
       if (valuesEqual(first[keyword] as Value, second[keyword] as Value)) continue;
       const [a, b] = [locationKey(one), locationKey(other)].sort();
-      report(
+      reportPair(
         at(locationKey(one) === a ? one : other, keyword),
         `unequal ${keyword} declarations apply to one instance location, from ${a}, ${b}; declarations that meet must be equal`,
       );
@@ -817,20 +1034,106 @@ export class Spine {
  * keyed list and `unevaluatedItems`. For a single location, whether its spine below could show one by itself.
  */
 function couldMeet(marks: readonly SubtreeMarks[]): boolean {
-  const values = new Map<string, string>();
   let list = false;
   let unevaluated = false;
+  for (let index = 0; index < DECLARATIONS.length; index++) {
+    let values: DeclaredValues;
+    for (const mark of marks) {
+      values = joinValues(values, mark.declared[index]);
+      if (values === SEVERAL) return true;
+    }
+  }
   for (const mark of marks) {
     list ||= mark.hasList;
     unevaluated ||= mark.hasUnevaluated;
-    for (const declaration of mark.classes) {
-      const keyword = declaration.slice(0, declaration.indexOf(" "));
-      const known = values.get(keyword);
-      if (known !== undefined && known !== declaration) return true;
-      values.set(keyword, declaration);
-    }
   }
   return list && unevaluated;
+}
+
+/** Calls `visit` with the index of each bit set in a bitset, in increasing order. */
+function forEachBit(bits: Uint32Array, visit: (index: number) => void): void {
+  bits.forEach((word, at) => {
+    for (let rest = word; rest !== 0; rest &= rest - 1) visit(at * 32 + (31 - Math.clz32(rest & -rest)));
+  });
+}
+
+/** The number of bits set in a bitset. */
+function bitCount(bits: Uint32Array): number {
+  let count = 0;
+  bits.forEach((word) => {
+    for (let rest = word; rest !== 0; rest &= rest - 1) count += 1;
+  });
+  return count;
+}
+
+/** A stack of integers below 2^31, in typed arrays that grow by doubling, so that it can hold more than an array can. */
+class IntegerStack {
+  #items = new Int32Array(16);
+  #length = 0;
+
+  get length(): number {
+    return this.#length;
+  }
+
+  push(...values: number[]): void {
+    for (const value of values) {
+      if (this.#length === this.#items.length) {
+        const grown = new Int32Array(this.#items.length * 2);
+        grown.set(this.#items);
+        this.#items = grown;
+      }
+      this.#items[this.#length] = value;
+      this.#length += 1;
+    }
+  }
+
+  /** Removes and gives the top integer; the stack must not be empty. */
+  pop(): number {
+    this.#length -= 1;
+    return this.#items[this.#length] as number;
+  }
+}
+
+/**
+ * The order of the problems the check gives: by their location's file, then its pointer one reference token at a time, then
+ * by message; tokens and messages compare their runs of digits as numbers, so `/allOf/2` comes before `/allOf/10`.
+ */
+function problemOrder(one: SpineProblem, other: SpineProblem): number {
+  const byFile = naturalOrder(one.location.file, other.location.file);
+  if (byFile !== 0) return byFile;
+  const a = one.location.pointer.split("/");
+  const b = other.location.pointer.split("/");
+  for (let index = 0; index < Math.min(a.length, b.length); index++) {
+    const byToken = naturalOrder(a[index] as string, b[index] as string);
+    if (byToken !== 0) return byToken;
+  }
+  if (a.length !== b.length) return a.length - b.length;
+  return naturalOrder(one.message, other.message);
+}
+
+/** Compares two strings by their runs of digits, as numbers, and of other characters, as text; then as text alone. */
+function naturalOrder(one: string, other: string): number {
+  const a = one.match(/[0-9]+|[^0-9]+/g) ?? [];
+  const b = other.match(/[0-9]+|[^0-9]+/g) ?? [];
+  for (let index = 0; index < Math.min(a.length, b.length); index++) {
+    const [x, y] = [a[index] as string, b[index] as string];
+    if (x === y) continue;
+    const digits = /^[0-9]/;
+    if (digits.test(x) && digits.test(y)) {
+      const byValue = compareDigits(x, y);
+      if (byValue !== 0) return byValue;
+    }
+    return x < y ? -1 : 1;
+  }
+  if (a.length !== b.length) return a.length - b.length;
+  return one < other ? -1 : one > other ? 1 : 0;
+}
+
+/** Compares two runs of decimal digits by their value, whatever their length. */
+function compareDigits(one: string, other: string): number {
+  const [a, b] = [one.replace(/^0+/, ""), other.replace(/^0+/, "")];
+  if (a.length !== b.length) return a.length - b.length;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** Whether a schema object keeps a string from standing without the URI format: it gives the format, or a type without strings. */
