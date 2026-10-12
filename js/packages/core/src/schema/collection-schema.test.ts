@@ -408,6 +408,51 @@ describe("the spine", () => {
     expect(issue.message).toContain("unequal x-vmd-ref declarations");
   });
 
+  // Issue #109, its second finding: a keyed list's item was taken only at the index past the longest prefixItems, so a key's
+  // schema never met a prefixItems entry, although the item with that key can stand at that entry's index.
+  describe("a keyed list's item meets the prefixItems entry of its index", () => {
+    const item = (cardinality: string) => ({ type: "object", "x-vmd-ref": { cardinality } });
+    const list = (entry: unknown, extra: object = {}) => ({
+      type: "object",
+      properties: {
+        l: {
+          type: "array",
+          ...extra,
+          "x-vmd-list": { type: "map", keys: ["name"], items: { foo: entry } },
+        },
+      },
+    });
+
+    test("so unequal declarations there are schema-invalid", async () => {
+      const issue = await unusable(file(list(item("many"), { prefixItems: [item("one")] })));
+      expect(issue.message).toContain("unequal x-vmd-ref declarations");
+      expect(issue.message).toContain("s.json#/properties/l/prefixItems/0, s.json#/properties/l/x-vmd-list/items/foo");
+    });
+
+    test("at every index the prefixItems give, and in a sibling's prefixItems too", async () => {
+      const second = list(item("many"), { prefixItems: [item("many"), item("one")] });
+      expect((await unusable(file(second))).message).toContain("prefixItems/1, s.json#/properties/l/x-vmd-list/items/foo");
+      const sibling = {
+        type: "object",
+        properties: { l: { allOf: [list(item("many")).properties.l, { prefixItems: [true, item("one")] }] } },
+      };
+      expect((await unusable(file(sibling))).message).toContain("unequal x-vmd-ref declarations");
+    });
+
+    test("and meets items past the prefixItems, or at every index without them", async () => {
+      expect((await unusable(file(list(item("many"), { items: item("one") })))).message).toContain(
+        "items, s.json#/properties/l/x-vmd-list/items/foo",
+      );
+      const past = list(item("many"), { prefixItems: [item("many")], items: item("one") });
+      expect((await unusable(file(past))).message).toContain("unequal x-vmd-ref declarations");
+    });
+
+    test("and equal declarations there are valid, as are unequal ones past the prefixItems that items does not give", async () => {
+      await usable(list(item("many"), { prefixItems: [item("many"), item("many")] }));
+      await usable(list(item("many"), { prefixItems: [{ type: "object" }], items: { type: "object" } }));
+    });
+  });
+
   test("a member named in properties that a pattern also matches gets both declarations, so unequal ones are schema-invalid", async () => {
     const issue = await unusable(
       file({ properties: { list: keyed }, patternProperties: { "^li": { "x-vmd-list": { type: "multimap", keys: ["name"] } } } }),
