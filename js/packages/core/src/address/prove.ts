@@ -43,7 +43,8 @@ export function proveSingular(binding: RecordBinding, fragment: Fragment | null)
  * and continues from: where an anchored node sits cannot be known from the schema alone. Each step crosses the level of every
  * place the previous step can reach, and a declaration anywhere among them decides: a section's fields and child sections,
  * whose level is its `$sections` declaration; a keyed list's items, by key at any position; an object's members; an array's
- * items by index. A level the schema leaves undeclared is unique by the strict default; lenient mode and duplicates in the
+ * items by index. A section's step that begins with `$` names the section's own member, such as `$body` or `$sections`, and
+ * crosses no level: no section key of a valid record begins with `$`. A level the schema leaves undeclared is unique by the strict default; lenient mode and duplicates in the
  * data are the cases §7.4 leaves to evaluation.
  *
  * Cost: a few memoized shape steps per step of the path.
@@ -54,7 +55,7 @@ export function unprovableStep(binding: RecordBinding, fragment: Fragment | null
   if (root === null) return null;
   let positions: Position[] = [{ shape: root, place: "section" }];
   for (const [index, step] of fragment.steps.entries()) {
-    if (positions.some(crossesMultimap)) return index + 1;
+    if (positions.some((position) => crossesMultimap(position, step))) return index + 1;
     const next = positions.flatMap((position) => stepFrom(position, step));
     if (index === 0) {
       for (const entry of binding.record.anchors.named(step)) {
@@ -70,20 +71,30 @@ export function unprovableStep(binding: RecordBinding, fragment: Fragment | null
   return null;
 }
 
-/** Whether a step from this place crosses a level declared `multimap`. */
-function crossesMultimap(position: Position): boolean {
-  return position.place === "section" ? position.shape.child({ member: "$sections" }).multimap : position.shape.multimap;
+/**
+ * Whether a section's step names only the section's own member, such as `$body` or `$sections`: a step that begins with `$`.
+ * No section key of a valid record begins with `$`, since a heading's slug drops it and an anchor begins with a letter, so such a step matches
+ * no child section and crosses no level of them.
+ */
+function namesOwnMember(step: string): boolean {
+  return step.startsWith("$");
+}
+
+/** Whether this step from this place crosses a level declared `multimap`. */
+function crossesMultimap(position: Position, step: string): boolean {
+  if (position.place !== "section") return position.shape.multimap;
+  return !namesOwnMember(step) && position.shape.child({ member: "$sections" }).multimap;
 }
 
 /** The places a step may reach from a place. */
 function stepFrom(position: Position, step: string): Position[] {
   const { shape, place } = position;
   switch (place) {
-    case "section":
-      return [
-        { shape: shape.child({ member: step }), place: step === "$sections" ? "sections" : "value" },
-        { shape: shape.child({ member: "$sections" }).anyItem(step), place: "section" },
-      ];
+    case "section": {
+      const member: Position = { shape: shape.child({ member: step }), place: step === "$sections" ? "sections" : "value" };
+      if (namesOwnMember(step)) return [member];
+      return [member, { shape: shape.child({ member: "$sections" }).anyItem(step), place: "section" }];
+    }
     case "sections":
       return [{ shape: shape.anyItem(step), place: "section" }];
     case "value": {
