@@ -71,7 +71,14 @@ export {
 export { blockText, valueAt } from "./record/node-value.js";
 export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
-export { type Alias, type AliasTable, type AnchorAlias, type RecordAlias, readAliases } from "./reference/aliases.js";
+export {
+  type Alias,
+  type AliasTable,
+  type AnchorAlias,
+  MAX_ALIAS_FILE_BYTES,
+  type RecordAlias,
+  readAliases,
+} from "./reference/aliases.js";
 export { occurrencesOf } from "./reference/extract.js";
 export type {
   Reference,

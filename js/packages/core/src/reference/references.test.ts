@@ -8,6 +8,7 @@ import { fail, succeed } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
 import { openStore, type Store } from "../store/store.js";
+import { MAX_ALIAS_FILE_BYTES } from "./aliases.js";
 import type { Reference } from "./reference.js";
 
 type Files = Readonly<Record<string, string | Uint8Array | MemoryFile>>;
@@ -344,6 +345,46 @@ describe("the alias file", () => {
       /line 2 is empty/,
     );
   });
+
+  test("is refused by its size when larger than 16 MiB, the backend asked for no more, and read at exactly that", async () => {
+    /** An alias file of exactly `size` bytes: one record alias, padded with white space inside its object. */
+    const ofSize = (size: number) => `${valid.slice(0, -1)}${" ".repeat(size - valid.length - 1)}}\n`;
+    expect(ofSize(MAX_ALIAS_FILE_BYTES)).toHaveLength(MAX_ALIAS_FILE_BYTES);
+    /** Opens a store whose alias file is `size` bytes, recording how each read of that file was bounded and what it gave. */
+    const storeWithAliasFile = async (size: number) => {
+      const reads: { maxBytes: number | undefined; oversized: boolean }[] = [];
+      const files = { ".vmd/config.yaml": "vmd: 1\n", ".vmd/aliases.jsonl": ofSize(size), "docs/a.md": "# A\n" };
+      const inner = createMemoryStorage({ files });
+      const backend: StorageReader = {
+        list: (query) => inner.list(query),
+        stat: (path) => inner.stat(path),
+        read: (async (path: string, options?: { maxBytes?: number }) => {
+          const read = await inner.read(path, options as never);
+          if (path === ".vmd/aliases.jsonl") {
+            reads.push({ maxBytes: options?.maxBytes, oversized: read.ok && "oversized" in read.value });
+          }
+          return read;
+        }) as StorageReader["read"],
+        grep: (query) => inner.grep(query),
+        head: () => inner.head(),
+        history: inner.history,
+      };
+      return { store: successValue(await openStore(backend)), reads };
+    };
+    const larger = await storeWithAliasFile(MAX_ALIAS_FILE_BYTES + 1);
+    const checked = await larger.store.check();
+    expect(checked.issues.map((issue) => `${issue.code} ${issue.path} ${issue.at}`)).toEqual(["alias-file-invalid null null"]);
+    expect(checked.issues[0]?.message).toContain(`larger than ${MAX_ALIAS_FILE_BYTES} bytes`);
+    expect(checked.issues[0]?.message).toContain("vmd alias prune");
+    expect((await larger.store.references()).ok).toBe(false);
+    // The backend refused the file by its size, without giving its content.
+    expect(larger.reads).toEqual([{ maxBytes: MAX_ALIAS_FILE_BYTES, oversized: true }]);
+    // Its near miss: a file of exactly the bound is read whole.
+    const fits = await storeWithAliasFile(MAX_ALIAS_FILE_BYTES);
+    expect((await fits.store.check()).ok).toBe(true);
+    expect(fits.reads).toEqual([{ maxBytes: MAX_ALIAS_FILE_BYTES, oversized: false }]);
+    // Reading 16 MiB of alias file takes seconds, more under a parallel run.
+  }, 60_000);
 
   test("reads LF and CRLF lines, with or without a final line break, and an empty file", async () => {
     const anchor = `{"kind": "anchor", "record": "a.md", "from": "x", "to": "y-1", "at": "${at}"}`;

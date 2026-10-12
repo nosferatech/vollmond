@@ -1,8 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { readAliases } from "./aliases.js";
+import { MAX_ALIAS_FILE_BYTES, readAliases } from "./aliases.js";
 
 const at = "2026-10-09T08:00:00Z";
 const encode = (text: string) => new TextEncoder().encode(text);
+
+/** An alias file of exactly `size` bytes: one record alias, padded with white space inside its object. */
+function aliasFileOfSize(size: number): string {
+  const entry = JSON.stringify({ kind: "record", from: "a.md", to: "b.md", at });
+  return `${entry.slice(0, -1)}${" ".repeat(size - entry.length - 1)}}\n`;
+}
 
 describe("readAliases", () => {
   test("skips a byte order mark at the start, as every file vmd reads, and refuses one elsewhere", () => {
@@ -40,4 +46,18 @@ describe("readAliases", () => {
       expect(read.ok && read.value.entries[0]?.at).toBe(valid);
     }
   });
+
+  test("refuses a file larger than 16 MiB without parsing it, with a message naming the bound and the prune, and reads one of exactly that", () => {
+    expect(MAX_ALIAS_FILE_BYTES).toBe(16 * 1024 * 1024);
+    expect(aliasFileOfSize(MAX_ALIAS_FILE_BYTES)).toHaveLength(MAX_ALIAS_FILE_BYTES);
+    const larger = readAliases(encode(aliasFileOfSize(MAX_ALIAS_FILE_BYTES + 1)));
+    expect(larger.ok).toBe(false);
+    expect(larger.issues.map((issue) => `${issue.code} ${issue.path} ${issue.at}`)).toEqual(["alias-file-invalid null null"]);
+    expect(larger.issues[0]?.message).toContain(`larger than ${MAX_ALIAS_FILE_BYTES} bytes`);
+    expect(larger.issues[0]?.message).toContain("vmd alias prune");
+    // Its near miss: a file of exactly the bound is read.
+    const fits = readAliases(encode(aliasFileOfSize(MAX_ALIAS_FILE_BYTES)));
+    expect(fits.ok && fits.value.recordMove("a.md")).toBe("b.md");
+    // Reading 16 MiB of alias file takes seconds, more under a parallel run.
+  }, 60_000);
 });
