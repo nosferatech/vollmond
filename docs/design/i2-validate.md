@@ -738,7 +738,9 @@ be reported as dangling that are not (reading R9). A reference that resolves thr
 2. then, in the record found, an anchor alias whose `from` is the fragment's first step, the remaining steps unchanged, followed
    through chains in the same way, to the first name a first step reaches, a cycle ending as `dangling`; the anchor aliases
    recorded under the record's old paths, the paths whose record aliases lead to it, count as its own (decision Z2, Draft v0.13
-   §13.6). This design first followed an anchor alias one step only, and looked only under the record's final path.
+   §13.6). This design first followed an anchor alias one step only, and looked only under the record's final path. A first
+   step that reaches something in the record is live and is not followed through its aliases, so `#a/x` is `dangling` when `a`
+   is live and `a/x` matches nothing, beside the `alias-shadowed` warning of `a` (the project owner's answer on card AG).
 
 A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`. `alias-shadowed` warns for
 each live record path that equals a record alias's `from`, and for each node that a first step named by an anchor alias's `from`
