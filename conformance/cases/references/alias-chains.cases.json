@@ -60,6 +60,32 @@
       ]}
     },
     {
+      "id": "refs-anchor-chain-stops-at-key",
+      "description": "A chain of anchor aliases stops at any name that a link's first step reaches, a top-level key of a JSON record included (§13.6, decision AC). In docs/keys.json, x was renamed to a and a to b, and a is a live key: #x resolves to the member a, where #a goes too, as aliased, and #a itself is ok. The near miss, docs/nested-keys.json, holds {\"n\": {\"a\": 1}, \"b\": 2} with the same aliases: its only a is a nested key, which no first step reaches, so #x follows x to a and on to the top-level key b.",
+      "input": {"record": "refs/keys.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 4}, "raw": "../docs/keys.json#x", "status": "aliased", "targets": [{"path": "docs/keys.json", "at": "/a", "address": "#a"}]},
+        {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 30}, "raw": "../docs/keys.json#a", "status": "ok", "targets": [{"path": "docs/keys.json", "at": "/a", "address": "#a"}]},
+        {"from": {"path": "refs/keys.md", "at": "/$body", "offset": 59}, "raw": "../docs/nested-keys.json#x", "status": "aliased", "targets": [{"path": "docs/nested-keys.json", "at": "/b", "address": "#b"}]}
+      ]}
+    },
+    {
+      "id": "refs-live-first-step-dangling",
+      "description": "A first step that reaches a live name is not resolved through an alias, even when a later step matches nothing (§13.6, decision AG): docs/live-first.json holds a and b, a is the old name of the alias a to b, and only b has a member x, so #a/x is dangling rather than reaching b/x.",
+      "input": {"record": "refs/live-first.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/live-first.md", "at": "/$body", "offset": 4}, "raw": "../docs/live-first.json#a/x", "status": "dangling", "targets": []}
+      ]}
+    },
+    {
+      "id": "refs-old-first-step-aliased",
+      "description": "The near miss of refs-live-first-step-dangling: in the same record, old is not a live name, so #old/x follows the alias old to b and reaches b/x, as aliased (§13.6, decision AG).",
+      "input": {"record": "refs/old-first.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/old-first.md", "at": "/$body", "offset": 4}, "raw": "../docs/live-first.json#old/x", "status": "aliased", "targets": [{"path": "docs/live-first.json", "at": "/b/x", "address": "#b/x"}]}
+      ]}
+    },
+    {
       "id": "check-anchor-chains",
       "spec": ["8.5", "13.6", "D"],
       "operation": "check",

@@ -390,7 +390,8 @@ They meet in four ways:
 - an array item, which gets the array's `items` (or a `prefixItems` entry) together with `x-vmd-list`'s per-key schema or its
   `additional`, never one in place of the other (2020-12 applies every applicator); section 4.4 reads both. A per-key schema meets
   the `items` or `prefixItems` entry when the schema is loaded; `additional` meets them only at an item whose key the list's
-  `items` does not name, which the data decides, so that waits for the record (decision AA4, item 4, Draft v0.14 §9.3).
+  `items` does not name, which the data decides, so that waits for the record (decision AA4, item 4, Draft v0.14 §9.3, kept on
+  card AF, Draft v0.15).
 
 `x-vmd-summary` and `x-vmd-ordered` are left to I3, whose queries read them. A schema with `unevaluatedItems` beside `x-vmd-list`
 would fail valid data, since the validator does not see the items `x-vmd-list` checks as evaluated; the design proposes to make it
@@ -1174,6 +1175,13 @@ matters, a cache that stops hitting.
 
 The risk outside vmd is micromark's quadratic regression on some inputs (#13): a record of a few tens of kilobytes can take
 seconds to parse until its fix is released. A cache hides it after the first check, and does not remove it.
+
+**Crafted schemas.** These budgets hold for real schemas, which are small: the repository's 20 have at most 6 parts that hold or
+lead to a vmd keyword (card AE). For now a schema is refused only by the specification's existing rules (Draft v0.15 §9.2,
+decision AE), and a crafted one can make loading slow and validation slower: the check of where declarations meet takes one to
+three minutes on the worst crafted schemas of 1 MiB measured (#119), and a 109-byte schema makes a 146-byte record take 6.9 s to
+validate, doubling with each level of nesting (#111). The 1 MiB bound does not prevent it. A service that validates untrusted data
+runs each operation with a time budget of its own; core sets none (#111 lists the directions, none decided).
 
 ---
 

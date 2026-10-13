@@ -36,7 +36,7 @@ as one Markdown file is. Where two bodies define one label, the first definition
 file: the owner decided this in chat after an example where the root's `$body` and a section's `$body` both define `[log]` with
 different targets.
 
-**Agent's reading, for the owner to confirm.** Two details, which Draft v0.14 states as follows:
+**Agent's reading, confirmed by the owner on [W5](W5.md) (2026-10-12).** Two details, which Draft v0.14 states as follows:
 
 - "Document order" for the definitions is the order of the record's Markdown form: each section's `$body` before the bodies of its
   `$sections`, in their order, whatever the order of the members in a JSON or YAML file. Appendix D defines document order as the

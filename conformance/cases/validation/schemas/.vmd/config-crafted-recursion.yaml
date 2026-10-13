@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  things:
+    match: ["nested-*.json"]
+    schema: crafted-recursion.schema.json

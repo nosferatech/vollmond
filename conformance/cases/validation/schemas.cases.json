@@ -39,7 +39,7 @@
     {
       "id": "list-keys-wrong-form",
       "spec": ["9.3", "D"],
-      "description": "A member that x-vmd-list defines, keys, with a value of the wrong form, a string where a list stands, is schema-invalid, not feature-unsupported (§9.3). That a wrong form is not an unknown value is an agent's reading recorded in decision AA2.",
+      "description": "A member that x-vmd-list defines, keys, with a value of the wrong form, a string where a list stands, is schema-invalid, not feature-unsupported (§9.3). That a wrong form is not an unknown value is an agent's reading recorded in decision AA2 and confirmed by the owner on W5.",
       "input": {"config": "config-list-keys-wrong-form.yaml"},
       "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
     },
@@ -56,6 +56,13 @@
       "description": "Every $dynamicAnchor that a $dynamicRef may land on counts as off the spine, so an x-vmd-list reached only through it is schema-invalid (§9.2, §9.3, decision AA3). dynamic-ref-tree is the near miss: a $dynamicRef that reaches no declaration.",
       "input": {"config": "config-dynamic-ref-declaration.yaml"},
       "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "crafted-recursion-not-refused",
+      "spec": ["9.2"],
+      "description": "For now a schema is refused only by the existing rules of §9.1 to §9.3, with no rule on its complexity (§9.2, decision AE). This one makes validation take time that doubles with each level of a record's nesting, since each level applies the same subschema twice (#111), and it is still used: of two records nested three levels deep, the one whose innermost x is a number is a schema violation there, and its near miss, whose innermost x is an object, is valid.",
+      "input": {"config": "config-crafted-recursion.yaml"},
+      "expect": {"issues": [{"code": "schema-violation", "severity": "error", "path": "nested-number.json", "at": "/x/x/x"}]}
     },
     {
       "id": "unknown-keyword-beside-id",

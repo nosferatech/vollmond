@@ -641,7 +641,7 @@ Where the records fill in a detail the cards left open, they marked it as the ag
 
 - [W3](../decisions/W3.md) The agent's readings in Draft v0.12 are confirmed, and a FIFO in the store is a failure
 - [Z1](../decisions/Z1.md) The Markdown limits apply to a data `$body`
-- [Z2](../decisions/Z2.md) Anchor aliases are followed through chains, and under a record's old paths
+- [Z2](../decisions/Z2.md) Anchor aliases are followed through chains, and under a record's old paths (superseded by AC)
 - [Z3](../decisions/Z3.md) The alias file is read with a bound of 16 MiB
 
 One more change is applied without a decision of its own. It was an agent's reading, for the owner to confirm, and the owner
@@ -659,22 +659,48 @@ unknown member or value inside `x-vmd-list` or `x-vmd-ref`, `$dynamicRef`, and s
 from the pull request that holds a data `$body` to the Markdown limits (#103): which link reference definitions a `$body` sees.
 Card W4 confirms the agent's readings that the Draft v0.13 round marked for the owner. The project owner accepted the recommended
 option on AA2, AA3, AA4 ("Confirm all seven"), AB and W4 ("Confirm all ten"). Where the records fill in a detail the cards left
-open, they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.14.
+open, they mark it as the agent's reading, for the owner to confirm; card W5 (Draft v0.15) confirmed those readings. Section
+numbers refer to Draft v0.14.
 
 Card AA1, a bound on the work of checking where a schema's vmd keywords meet, is not in this round. The owner answered it with a
 note rather than an option, and the review of the draft's first reading of that note found that the bound it proposed, a count of
 pairs of schema objects, neither bounds the work of the check as #97 implements it nor spares harmless schemas (#109). It goes
-back to the owner with those numbers, and has no record yet.
+back to the owner with those numbers, and was asked again as card [AE](../decisions/AE.md) (Draft v0.15).
 
 - [AA2](../decisions/AA2.md) An unknown member or value inside `x-vmd-list` or `x-vmd-ref` is `feature-unsupported`
 - [AA3](../decisions/AA3.md) `$dynamicRef` is allowed in collection schemas, and its targets count as off the spine
 - [AA4](../decisions/AA4.md) Seven readings of schema checking from the schemas pull request are confirmed
 - [AB](../decisions/AB.md) Every `$body` of a JSON or YAML record sees the link reference definitions of all its bodies
-- [W4](../decisions/W4.md) The agent's readings in Draft v0.13 are confirmed
+- [W4](../decisions/W4.md) The agent's readings in Draft v0.13 are confirmed (superseded by AC)
 
 One more change is applied without a decision: §5.10's interim sentence on `field-not-computed`, which said that a read gives
 `@refs` as `null` until I2 computes it, is gone, since the references pull request (#99) computes `@refs`, as #99 noted for this
 draft. Appendix D keeps the code, which core still lists.
+
+## Decisions from cards AC to AI and W5 (Draft v0.15)
+
+Recorded 2026-10-12, and applied to Draft v0.15. Card AC comes from the pull request that follows chains of anchor aliases (#106):
+what stops a chain, and, with the engineering manager's proposal in chat, the lock on an alias's old name. Card AD comes from the
+keyed-lists pull request (#108): a `$` step from a section. Card AE is the bound on a schema's cost, card AA1 asked again. Card AF
+asked again whether a keyed list's `additional` against the array's `items` waits for the record. Card AG asks about a link whose
+first name is live but whose rest is missing. Cards AH and AI come from the independent review of the draft (#122): renaming back
+to an old name, and a retitle that renumbers a heading onto a locked name. Card W5 confirms the agent's readings that the Draft
+v0.14 round marked for the owner. The project owner chose (a) on AC, (b) on AD, (a) on W5 ("Confirm all ten"), (a) on AG, AH and
+AI, and, on AF, the recommendation to keep [AA4](../decisions/AA4.md)'s item 4; AE was answered with a note rather than an option.
+Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section
+numbers refer to Draft v0.15.
+
+- [AC](../decisions/AC.md) An alias chain stops at any name a link reaches, keys included, and an alias holds its old name until
+  it is pruned
+- [AD](../decisions/AD.md) A `$` step from a section names the section's own member, so `#summary/$body` is singular wherever the
+  section is
+- [AE](../decisions/AE.md) For now, a schema is refused only by the existing rules; a service that validates untrusted data sets
+  its own time budget
+- [AF](../decisions/AF.md) A keyed list's `additional` against the array's `items` still waits for the record
+- [AG](../decisions/AG.md) A live first step keeps a link from following an alias, even when the rest of the link is missing
+- [AH](../decisions/AH.md) Renaming back to an alias's old name is allowed, and turns the alias around
+- [AI](../decisions/AI.md) A retitle may renumber another heading onto a locked name; the live name wins, with the warning
+- [W5](../decisions/W5.md) The agent's readings in Draft v0.14 are confirmed
 
 ## Decisions given in conversation
 

@@ -1,0 +1,1 @@
+{"$title": "Dollar anchor", "$sections": [{"$title": "A", "$body": "Text.", "$sections": [{"$title": "X", "$anchor": "$body"}]}]}

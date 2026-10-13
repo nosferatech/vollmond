@@ -396,6 +396,81 @@
         "fails": true,
         "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/week-43.md", "at": null }]
       }
+    },
+    {
+      "id": "multimap-section-body-singular",
+      "description": "A step from a section that begins with $ names the section's own member and crosses no level (§7.4, decision AD): every root section's child sections are declared multimap, yet summary/$body is singular, since no section key of a valid record begins with $, and it is the body's canonical address (§7.5 form 2).",
+      "spec": ["7.4", "7.5"],
+      "input": { "address": "journal/week-41.md#summary/$body", "as": "singular" },
+      "expect": { "result": [{ "path": "journal/week-41.md", "at": "/$sections/1/$body", "address": "#summary/$body" }] }
+    },
+    {
+      "id": "multimap-section-title-singular",
+      "description": "The same for $title, from a section whose own child sections are declared multimap and repeat: log/$title is singular (§7.4, decision AD).",
+      "spec": ["7.4", "7.5"],
+      "input": { "address": "journal/week-41.md#log/$title", "as": "singular" },
+      "expect": { "result": [{ "path": "journal/week-41.md", "at": "/$sections/0/$title", "address": "#log/$title" }] }
+    },
+    {
+      "id": "multimap-name-step-after-section-not-singular",
+      "description": "The near miss of multimap-section-body-singular: a name step from the same section crosses its level declared multimap, so summary/notes cannot be proved singular, whether or not such a child exists (§7.4, decision AD).",
+      "spec": ["7.4", "D"],
+      "input": { "address": "journal/week-41.md#summary/notes", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "journal/week-41.md", "at": null }]
+      }
+    },
+    {
+      "id": "multimap-repeated-section-body-not-singular",
+      "description": "The near miss of multimap-section-title-singular: the $body of a section reached through the level declared multimap is not singular, since the section itself is not (§7.4, decision AD).",
+      "spec": ["7.4", "D"],
+      "input": { "address": "journal/week-41.md#log/entry/$body", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "journal/week-41.md", "at": null }]
+      }
+    },
+    {
+      "id": "dollar-anchor-ambiguous-json",
+      "description": "An invalid explicit anchor that begins with $, \"$anchor\": \"$body\", still becomes its section's key, with anchor-invalid, so a/$body matches both the section's text and that child section, and the singular address fails as ambiguous, one of the cases the proof cannot cover (§7.4).",
+      "spec": ["5.5", "6.2", "7.4", "D"],
+      "profiles": ["read"],
+      "input": { "address": "notes/dollar-anchor.json#a/$body", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/dollar-anchor.json", "at": null }]
+      }
+    },
+    {
+      "id": "dollar-anchor-ambiguous-md",
+      "description": "The same in Markdown: a heading's anchor element with id=\"$body\" makes the child section's key $body, and a/$body fails as ambiguous (§7.4).",
+      "spec": ["5.5", "6.2", "7.4", "D"],
+      "profiles": ["read"],
+      "input": { "address": "notes/dollar-anchor.md#a/$body", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-ambiguous", "severity": "error", "path": "notes/dollar-anchor.md", "at": null }]
+      }
+    },
+    {
+      "id": "dollar-anchor-check",
+      "description": "The invalid anchor of dollar-anchor-ambiguous-json is an anchor-invalid validation error, and the record reads (§6.2, §7.4).",
+      "spec": ["6.2", "7.4", "D"],
+      "profiles": ["validate"],
+      "operation": "check",
+      "input": { "records": ["notes/dollar-anchor.json"] },
+      "expect": {
+        "issues": [{ "code": "anchor-invalid", "severity": "error", "path": "notes/dollar-anchor.json", "at": "/$sections/0/$sections/0" }]
+      }
+    },
+    {
+      "id": "valid-anchor-body-singular",
+      "description": "The near miss of dollar-anchor-ambiguous-json: with the valid anchor body on the child section, a/$body names only the section's text (§7.4).",
+      "spec": ["7.3", "7.4", "7.5"],
+      "profiles": ["read"],
+      "input": { "address": "notes/body-anchor.json#a/$body", "as": "singular" },
+      "expect": { "result": [{ "path": "notes/body-anchor.json", "at": "/$sections/0/$body", "address": "#a/$body" }] }
     }
   ]
 }
