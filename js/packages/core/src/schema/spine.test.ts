@@ -17,7 +17,10 @@ async function checked(schema: unknown): Promise<{ readonly spine: Spine; readon
 }
 
 /** The spine of a schema held in `s.json`, unchecked. */
-async function spineOf(schema: unknown, options: { readonly maxClosureEntries?: number } = {}): Promise<Spine> {
+async function spineOf(
+  schema: unknown,
+  options: { readonly maxClosureEntries?: number; readonly maxGroupedNames?: number } = {},
+): Promise<Spine> {
   const text = new TextEncoder().encode(JSON.stringify(schema));
   const set = await readSchemaSet("s.json", async () => succeed(text));
   expect(set.problems).toEqual([]);
@@ -395,5 +398,78 @@ describe("the memo of closures", () => {
     expect(bounded.check()).toEqual(all);
     expect(bounded.memoizedLocations).toBeLessThanOrEqual(1000);
     expect(bounded.memoizedLocations).toBeGreaterThan(0);
+  });
+});
+
+/** `count` patterns that match no listed name, each taking any member. */
+const unmatching = (count: number) => Object.fromEntries(Array.from({ length: count }, (_, index) => [`^z${index}`, {}]));
+
+// Review of #113: each pair grouped the listed names by which of its patterns match them, a scan of a word per 32 names for
+// each pattern, though the grouping depends only on the two pattern sets.
+describe("the groupings of listed names the spine's check computes", () => {
+  test("one for pairs whose locations all have one pattern set, however many pairs there are", async () => {
+    const { spine, problems } = await checked(takers(20, 7000, { patternProperties: unmatching(50) }));
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeGreaterThan(400);
+    expect(spine.nameGroupings).toBe(1);
+  });
+
+  test("one per pair of distinct pattern sets", async () => {
+    // The first group takes members through `^a`, the second through `^b`: at most the four ordered pairs of the two sets.
+    const allOf = [];
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { "^a": {} }, $ref: "#/$defs/one" });
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { "^b": {} }, $ref: "#/$defs/many" });
+    const listed = Object.fromEntries(["a1", "a2", "b1", "c1"].map((name) => [name, {}]));
+    const { spine, problems } = await checked({
+      allOf,
+      $defs: { one: ref("one"), many: ref("many"), unused: { properties: listed } },
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeGreaterThan(400);
+    expect(spine.nameGroupings).toBeGreaterThanOrEqual(1);
+    expect(spine.nameGroupings).toBeLessThanOrEqual(4);
+  });
+
+  // Review of #125: a grouping visited every listed name, so pairs that each have their own pattern list, whose groupings
+  // the memo never shares, paid for every listed name again.
+  test("the names some pattern matches, not every listed name, when every pair has its own pattern list", async () => {
+    const allOf = [];
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { [`^z${branch}$`]: {} }, $ref: "#/$defs/one" });
+    for (let branch = 0; branch < 20; branch++) allOf.push({ patternProperties: { [`^y${branch}$`]: {} }, $ref: "#/$defs/many" });
+    const listed = Object.fromEntries(Array.from({ length: 7000 }, (_, index) => [`name${index}`, {}]));
+    const { spine, problems } = await checked({
+      allOf,
+      $defs: { one: ref("one"), many: ref("many"), unused: { properties: listed } },
+    });
+    expect(problems.some((message) => message.startsWith("unequal x-vmd-ref declarations"))).toBe(true);
+    expect(spine.pairsVisited).toBeGreaterThan(400);
+    expect(spine.nameGroupings).toBeGreaterThan(300);
+    // No pattern matches a listed name, so a grouping holds no name, only its entry, and each pair examines one name: the
+    // first that none matches.
+    expect(spine.groupedNames).toBeLessThanOrEqual(spine.nameGroupings);
+    expect(spine.nameSteps).toBeLessThanOrEqual(spine.pairsVisited);
+  });
+});
+
+describe("the memo of the listed names' groupings", () => {
+  test("is emptied when it would hold more than its bound, to the same problems", async () => {
+    // Four groups of branches with four pattern lists: a grouping for each pair of groups that meets, of the 50 names one
+    // of the two lists matches, counted with one for the grouping itself.
+    const allOf = [];
+    for (const [group, source] of ["^a", "^b", "^c", "^d"].entries()) {
+      for (let branch = 0; branch < 5; branch++) {
+        allOf.push({ patternProperties: { [source]: {} }, $ref: group % 2 === 0 ? "#/$defs/one" : "#/$defs/many" });
+      }
+    }
+    const listed = Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`${"abcd"[index % 4]}${index}`, {}]));
+    const schema = { allOf, $defs: { one: ref("one"), many: ref("many"), unused: { properties: listed } } };
+    const unbounded = await spineOf(schema);
+    const all = unbounded.check();
+    expect(all.problems.length).toBeGreaterThan(0);
+    expect(unbounded.groupedNames).toBeGreaterThan(150);
+    const bounded = await spineOf(schema, { maxGroupedNames: 100 });
+    expect(bounded.check()).toEqual(all);
+    expect(bounded.groupedNames).toBeLessThanOrEqual(100);
+    expect(bounded.groupedNames).toBeGreaterThan(0);
   });
 });

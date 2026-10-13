@@ -76,6 +76,26 @@ const LARGE_SET = 16;
 /** How many locations the memo of closures holds at most before it is emptied. */
 const MAX_CLOSURE_ENTRIES = 1 << 22;
 
+/** How many name indexes the memo of the listed names' groupings holds at most before it is emptied: 32 MiB of them. */
+const MAX_GROUPED_NAMES = 1 << 23;
+
+/** The listed names grouped by how two lists of patterns take them, from {@link Spine.#nameGroups}. */
+interface NameGroups {
+  /** For each way of matching, the indexes of its names, in order. */
+  readonly ways: readonly Int32Array[];
+  /** The names each pattern of either list matches, as {@link Spine.#matches} gives them; shared, not copied. */
+  readonly patterns: readonly Uint32Array[];
+  /** How many listed names no pattern of either list matches. */
+  readonly unmatched: number;
+}
+
+/** The union of one word of several bitsets. */
+function unionAt(bitsets: readonly Uint32Array[], word: number): number {
+  let union = 0;
+  for (let index = 0; index < bitsets.length; index++) union |= (bitsets[index] as Uint32Array)[word] as number;
+  return union;
+}
+
 /** Unequal values of one declaration keyword. */
 const SEVERAL = Symbol("several");
 
@@ -146,19 +166,32 @@ export class Spine {
   #mustSteps = 0;
   #stepsComputed = 0;
   #nameSteps = 0;
+  #nameGroupings = 0;
+  readonly #groupsByPatterns = new Map<string, NameGroups>();
+  #groupedNames = 0;
+  readonly #maxGroupedNames: number;
   #markSteps = 0;
   #placeSteps = 0;
   #names: readonly string[] | undefined;
   readonly root: SchemaShape;
 
   /**
-   * The spine of `set`. `maxClosureEntries` is how many locations the memo of closures holds before it is emptied, for
-   * tests of that bound; a positive integer.
+   * The spine of `set`. `maxClosureEntries` is how many locations the memo of closures holds before it is emptied, and
+   * `maxGroupedNames` how many name indexes the memo of the listed names' groupings holds, for tests of those bounds;
+   * positive integers.
    */
-  constructor(set: SchemaSet, options: { readonly maxClosureEntries?: number } = {}) {
+  constructor(set: SchemaSet, options: { readonly maxClosureEntries?: number; readonly maxGroupedNames?: number } = {}) {
     this.#set = set;
     this.#maxClosureEntries = options.maxClosureEntries ?? MAX_CLOSURE_ENTRIES;
+    this.#maxGroupedNames = options.maxGroupedNames ?? MAX_GROUPED_NAMES;
     this.root = this.shape([{ file: set.root, pointer: "" }]);
+  }
+
+  /** How many name indexes the memo of the listed names' groupings holds now, one at least per grouping, for its tests. */
+  get groupedNames(): number {
+    let count = 0;
+    for (const { ways } of this.#groupsByPatterns.values()) count += 1 + ways.reduce((sum, way) => sum + way.length, 0);
+    return count;
   }
 
   /** How many locations the memo of closures holds now, for tests of its bound. */
@@ -196,11 +229,21 @@ export class Spine {
 
   /**
    * How many listed names the last {@link Spine.check} examined one by one while choosing the members that a pair of
-   * locations taking members of any name steps to, for tests of its cost. It leaves out the rest of that choice's work: the
-   * words of the patterns' bitsets scanned, and each pattern's test against every listed name.
+   * locations taking members of any name steps to, for tests of its cost: for each pair, the names it skips because its own
+   * `properties` name them; and for each grouping of the names by a pair of pattern lists, computed once (see
+   * {@link Spine.nameGroupings}), the names some pattern matches. It leaves out the rest of that work: the words of the
+   * patterns' bitsets that a grouping scans, and each pattern's test against every listed name.
    */
   get nameSteps(): number {
     return this.#nameSteps;
+  }
+
+  /**
+   * How many times the last {@link Spine.check} grouped the listed names by the patterns of a pair of locations that take
+   * members of any name: the work of those groupings, for tests of their cost.
+   */
+  get nameGroupings(): number {
+    return this.#nameGroupings;
   }
 
   /**
@@ -803,6 +846,7 @@ export class Spine {
   ): void {
     this.#pairsVisited = 0;
     this.#nameSteps = 0;
+    this.#nameGroupings = 0;
     // Only locations whose spine below could show a problem with another are paired, and only with a location that could
     // show it with them: an unequal declaration, or a keyed list against unevaluatedItems.
     const ids = new Map<string, number>();
@@ -922,53 +966,102 @@ export class Spine {
 
   /**
    * One listed name for each way that two schema objects take the listed names `named` leaves out: by the patterns of each
-   * that match the name, or by its `additionalProperties` where none does. Each is the last listed name taken that way, and
-   * they come in the order of the listed names.
-   *
+   * that match the name, or by its `additionalProperties` where none does. Each is the first listed name taken that way.
    * A member of a name neither object's `properties` names gets, below each object, what that way gives, so these names step
-   * to everything the others do. Taking the last of each way keeps the pair walk's order: the walk takes its pairs from a
-   * stack, so a step that repeats a later one pushes only pairs the later one has already visited.
+   * to everything the others do.
    *
-   * Cost, per call: one bit test of each pattern of either object for each listed name that a pattern of either matches,
-   * and the last few that none matches, past those `named` holds; and a scan of one word per 32 listed names for each
-   * pattern. So two objects whose patterns match most listed names still cost the listed names, for each pair. Besides,
-   * each distinct pattern is tested once against every listed name, the first time a pair needs it. `nameSteps` counts
-   * the names examined one by one, not the words scanned nor the pattern tests.
+   * Cost, per call: for each way that some pattern gives, the names of that way that `named` holds, from the first, and one
+   * more; and for the names no pattern matches, a scan of a word per 32 listed names for each pattern, until one that
+   * `named` does not hold. So a pair costs the ways of its patterns, which can be as many as the names they match. The ways
+   * come from
+   * {@link Spine.#nameGroups}, computed once for each pair of pattern lists. `nameSteps` counts the names examined here and
+   * in the groupings, not the words scanned.
    */
   #unnamedWitnesses(first: ValueObject, second: ValueObject, named: ReadonlySet<string>): string[] {
     const names = this.#listedNames();
+    const { ways, patterns, unmatched } = this.#nameGroups(first, second);
+    const witnesses: string[] = [];
+    for (const way of ways) {
+      for (const index of way) {
+        this.#nameSteps += 1;
+        const name = names[index] as string;
+        if (named.has(name)) continue;
+        witnesses.push(name);
+        break;
+      }
+    }
+    if (unmatched === 0) return witnesses;
+    const words = (names.length + 31) >>> 5;
+    unmatchedNames: for (let word = 0; word < words; word++) {
+      const valid = word === words - 1 && names.length % 32 !== 0 ? 2 ** (names.length % 32) - 1 : 0xffffffff;
+      const matched = unionAt(patterns, word);
+      for (let bits = ~matched & valid; bits !== 0; bits &= bits - 1) {
+        const index = word * 32 + (31 - Math.clz32(bits & -bits));
+        this.#nameSteps += 1;
+        const name = names[index] as string;
+        if (named.has(name)) continue;
+        witnesses.push(name);
+        break unmatchedNames;
+      }
+    }
+    return witnesses;
+  }
+
+  /**
+   * The listed names grouped by how two schema objects' patterns take them: for each way of matching (which of each object's
+   * patterns match the name), the indexes of its names in order; the patterns' matches; and how many names no pattern
+   * matches. It depends only on the two lists of patterns, so it is memoized by them. A grouping holds the indexes of the
+   * names its patterns match, and shares the patterns' bitsets; the memo is emptied before it would hold more than its
+   * bound of indexes, or than one grouping when that alone is larger, and what it held is computed again when asked for.
+   *
+   * Cost, per pair of pattern lists: a scan of a word per 32 listed names for each pattern, and for each name a pattern
+   * matches, a test of each pattern's bit. Besides, each distinct pattern is tested once against every listed name, the
+   * first time a grouping needs it (see {@link Spine.#matches}).
+   */
+  #nameGroups(first: ValueObject, second: ValueObject): NameGroups {
     const sources = (schema: ValueObject) => (isObject(schema.patternProperties) ? Object.keys(schema.patternProperties) : []);
-    const firstMatches = sources(first).map((source) => this.#matches(source));
-    const secondMatches = sources(second).map((source) => this.#matches(source));
+    const [firstSources, secondSources] = [sources(first), sources(second)];
+    const id = JSON.stringify([firstSources, secondSources]);
+    const known = this.#groupsByPatterns.get(id);
+    if (known !== undefined) return known;
+    this.#nameGroupings += 1;
+    const names = this.#listedNames();
+    const firstMatches = firstSources.map((source) => this.#matches(source));
+    const secondMatches = secondSources.map((source) => this.#matches(source));
     const all = [...firstMatches, ...secondMatches];
     const way = (index: number) => {
       const bit = (matches: Uint32Array) => (((matches[index >>> 5] as number) >>> (index & 31)) & 1 ? "1" : "0");
       return `${firstMatches.map(bit).join("")} ${secondMatches.map(bit).join("")}`;
     };
-    // The last listed name of each way, by its index; null keys the names that no pattern of either matches.
-    const last = new Map<string | null, number>();
+    const byWay = new Map<string, number[]>();
     const words = (names.length + 31) >>> 5;
-    const matchedAt = (word: number) => all.reduce((union, matches) => union | (matches[word] as number), 0);
+    let count = 0;
     for (let word = 0; word < words; word++) {
-      for (let bits = matchedAt(word); bits !== 0; bits &= bits - 1) {
+      const union = unionAt(all, word);
+      for (let bits = union; bits !== 0; bits &= bits - 1) {
         const index = word * 32 + (31 - Math.clz32(bits & -bits));
         this.#nameSteps += 1;
-        if (!named.has(names[index] as string)) last.set(way(index), index);
+        count += 1;
+        const key = way(index);
+        const found = byWay.get(key);
+        if (found === undefined) byWay.set(key, [index]);
+        else found.push(index);
       }
     }
-    unmatched: for (let word = words - 1; word >= 0; word--) {
-      const valid = word === words - 1 && names.length % 32 !== 0 ? 2 ** (names.length % 32) - 1 : 0xffffffff;
-      const bits = ~matchedAt(word) & valid;
-      for (let bit = 31; bit >= 0; bit--) {
-        if (((bits >>> bit) & 1) === 0) continue;
-        const index = word * 32 + bit;
-        this.#nameSteps += 1;
-        if (named.has(names[index] as string)) continue;
-        last.set(null, index);
-        break unmatched;
-      }
+    const groups: NameGroups = {
+      ways: [...byWay.values()].map((group) => Int32Array.from(group)),
+      patterns: all,
+      unmatched: names.length - count,
+    };
+    // A grouping without matched names still takes an entry, counted as one index.
+    const size = count + 1;
+    if (this.#groupedNames + size > this.#maxGroupedNames) {
+      this.#groupsByPatterns.clear();
+      this.#groupedNames = 0;
     }
-    return [...last.values()].sort((a, b) => a - b).map((index) => names[index] as string);
+    this.#groupsByPatterns.set(id, groups);
+    this.#groupedNames += size;
+    return groups;
   }
 
   /** The listed names a `patternProperties` pattern matches: bit `i` for the `i`th, none for a pattern that does not compile. */
