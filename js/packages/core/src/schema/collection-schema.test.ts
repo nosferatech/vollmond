@@ -629,8 +629,9 @@ describe("the spine", () => {
           expect((await unusable(file(keyedArray({ prefixItems: lastLacking, items: false })))).message).toContain(formatAt);
         });
 
-        // Conservative: only the item's own instance location is read index by index. A reference below a key's schema takes
-        // only what applies at every index, so entries that each give the format at a member do not give it there.
+        // Conservative, pinned until issue #142: only the item's own instance location is read index by index. A reference
+        // below a key's schema takes only what applies at every index, so entries that each give the format at a member do
+        // not give it there. The schema is valid, and refusing it is a false refusal.
         test("while a reference below a key's schema still takes only what every index shares", async () => {
           const member = { properties: { a: uri } };
           const deep = {
