@@ -35,30 +35,56 @@ const encoder = new TextEncoder();
  *
  * The issues come in the byte order of their paths, a path's `path-invalid` before its `path-case-conflict`.
  */
-export function pathRuleIssues(paths: readonly ListedPath[]): Issue[] {
+export function pathRuleIssues(paths: readonly ListedPath[], options: PathRuleOptions = {}): Issue[] {
   const sorted = [...paths].sort((a, b) => compareUtf8(a.path, b.path));
   const firstByLowerCase = new Map<string, string>();
+  const involving = options.involving;
+  // The lower case of every prefix of the paths that issues must involve, which a case conflict's prefix may equal.
+  const involvedPrefixes = new Set<string>();
+  for (const path of involving ?? []) for (const prefix of prefixesOf(path)) involvedPrefixes.add(lowerCase(prefix));
   const issues: Issue[] = [];
   for (const listed of sorted) {
+    const own = involving === undefined || involving.has(listed.path);
     const broken = brokenRules(listed.path);
-    if (broken.length > 0) {
+    if (broken.length > 0 && own) {
       issues.push(pathIssue("path-invalid", listed, `${listed.path} breaks the path rules: ${broken.join("; ")}`));
     }
     const conflict = caseConflict(listed.path, firstByLowerCase);
-    if (conflict !== null) issues.push(pathIssue("path-case-conflict", listed, conflict));
+    if (conflict !== null && (own || involvedPrefixes.has(lowerCase(conflict.prefix)))) {
+      issues.push(pathIssue("path-case-conflict", listed, conflict.message));
+    }
   }
   return issues;
 }
 
+/** What {@link pathRuleIssues} gives. */
+export interface PathRuleOptions {
+  /**
+   * Only the issues that involve one of these paths, which need not be listed: a path's own issues, and a case conflict whose
+   * clashing prefix one of them has, under the lower-case mapping, so that a path added beside an unchanged one, or removed
+   * from beside it, brings the unchanged one's conflict along. Every issue when absent.
+   */
+  readonly involving?: ReadonlySet<string>;
+}
+
+/** The prefixes of a path that end at a segment, the path itself included. */
+function prefixesOf(path: string): string[] {
+  const segments = path.split("/");
+  return segments.map((_, index) => segments.slice(0, index + 1).join("/"));
+}
+
 /**
  * Compares each prefix of a path that ends at a segment, the path itself included, with the prefixes of the paths before it,
- * which `firstByLowerCase` holds by their lower case, and adds the path's own. Gives the message for the shortest prefix that
- * an earlier path spells otherwise in letter case, so that two directories that differ only by case, which a filesystem that
- * ignores case would merge, conflict whatever the files below them are called; or null when none does.
+ * which `firstByLowerCase` holds by their lower case, and adds the path's own. Gives the shortest prefix that an earlier path
+ * spells otherwise in letter case, with the message that says so, so that two directories that differ only by case, which a
+ * filesystem that ignores case would merge, conflict whatever the files below them are called; or null when none does.
  */
-function caseConflict(path: string, firstByLowerCase: Map<string, string>): string | null {
+function caseConflict(
+  path: string,
+  firstByLowerCase: Map<string, string>,
+): { readonly prefix: string; readonly message: string } | null {
   const segments = path.split("/");
-  let conflict: string | null = null;
+  let conflict: { readonly prefix: string; readonly message: string } | null = null;
   for (let length = 1; length <= segments.length; length++) {
     const prefix = segments.slice(0, length).join("/");
     const lower = lowerCase(prefix);
@@ -66,8 +92,9 @@ function caseConflict(path: string, firstByLowerCase: Map<string, string>): stri
     if (first === undefined) {
       firstByLowerCase.set(lower, prefix);
     } else if (first !== prefix && conflict === null) {
-      conflict =
+      const message =
         prefix === path ? `${path} differs from ${first} only by case` : `${path}: ${prefix} differs from ${first} only by case`;
+      conflict = { prefix, message };
     }
   }
   return conflict;

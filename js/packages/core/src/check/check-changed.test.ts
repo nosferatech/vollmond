@@ -102,20 +102,24 @@ describe("a check of what changed", () => {
     expect(successValue(outcome).records).toBe(2);
   });
 
-  test("selects a record whose reference reaches a changed record through an alias, by the target it resolved to", async () => {
+  test("checks the whole store when a path that an alias names changes, since any route through an alias may", async () => {
     const alias = `${JSON.stringify({ kind: "record", from: "old.md", to: "new.md", at: "2026-10-09T08:00:00Z" })}\n`;
     const files = {
       ...CONFIG,
       ".vmd/aliases.jsonl": alias,
       "new.md": "# New\n\n## Intro\n",
       "c.md": "# C\n\n[x](old.md#intro)\n",
+      "d.md": "# D\n",
     };
     const cache = createMemoryIndexCache();
     await (await storeOf(files, cache)).check();
     const after = { ...files, "new.md": "# New\n\n## Other\n" };
     const outcome = await (await storeOf(after, cache)).check({ changed: ["new.md"] });
-    expect(reported(outcome)).toEqual(["c.md ref-dangling"]);
-    expect(successValue(outcome).records).toBe(2);
+    expect(reported(outcome)).toEqual(["c.md ref-dangling", "z.md ref-dangling"]);
+    expect(successValue(outcome).records).toBe(4);
+    // The near miss: a change to a path no alias names checks what it reaches only.
+    const other = { ...files, "d.md": "# D\n\nMore.\n" };
+    expect(successValue(await (await storeOf(other, cache)).check({ changed: ["d.md"] })).records).toBe(1);
   });
 
   test("selects a record that links to a directory below which a path changed", async () => {
@@ -168,5 +172,92 @@ describe("a check of what changed", () => {
   test("refuses records and changed together", async () => {
     const store = await storeOf({ ...CONFIG, "a.md": "# A\n" });
     await expect(store.check({ records: ["a.md"], changed: ["a.md"] })).rejects.toThrow(RangeError);
+  });
+});
+
+const at = "2026-10-09T08:00:00Z";
+/** An alias file's line for an entry. */
+const line = (entry: object) => `${JSON.stringify({ ...entry, at })}\n`;
+
+describe("a check of what changed, against a full check (the review's cases)", () => {
+  test("leaves out the path issues of unchanged paths that involve no changed one", async () => {
+    const files = { ...CONFIG, "bad name.md": "# B\n", "a.md": "# A\n" };
+    const outcome = await (await storeOf(files)).check({ changed: ["a.md"] });
+    expect(reported(outcome)).toEqual([]);
+    // The near miss: the full check reports it.
+    expect(reported(await (await storeOf(files)).check())).toContain("bad name.md path-invalid");
+  });
+
+  test("a new path whose case conflicts with an unchanged record's", async () => {
+    const before = { ".vmd/config.yaml": "vmd: 1\n", "notes.md": "# N\n" };
+    const after = { ...before, "Notes.md": "# M\n" };
+    const full = await (await storeOf(after)).check();
+    const inc = await (await storeOf(after)).check({ changed: ["Notes.md"] });
+    expect(reported(inc)).toEqual(reported(full));
+  });
+
+  test("an added asset whose path breaks the path rules", async () => {
+    const before = { ".vmd/config.yaml": "vmd: 1\n", "a.md": "# A\n" };
+    const after = { ...before, "img/bad name.png": "x" };
+    const full = await (await storeOf(after)).check();
+    const inc = await (await storeOf(after)).check({ changed: ["img/bad name.png"] });
+    expect(reported(inc)).toEqual(reported(full));
+  });
+
+  test("a file created at an old path whose anchor aliases a reference went through", async () => {
+    const aliases =
+      line({ kind: "record", from: "old.md", to: "new.md" }) + line({ kind: "anchor", record: "old.md", from: "a", to: "b" });
+    const before = {
+      ".vmd/config.yaml": "vmd: 1\n",
+      ".vmd/aliases.jsonl": aliases,
+      "new.md": "# New\n\n## B\n",
+      "r.md": "# R\n\n[x](new.md#a)\n",
+    };
+    const after = { ...before, "old.md": "# Old again\n" };
+    // The new file changes what the reference reaches, so a check that misses it reports the old result.
+    const fullBefore = await (await storeOf(before)).check();
+    expect(reported(fullBefore)).not.toEqual(reported(await (await storeOf(after)).check()));
+    for (const cache of [undefined, createMemoryIndexCache()]) {
+      if (cache !== undefined) await (await storeOf(before, cache)).check();
+      const full = await (await storeOf(after)).check();
+      const inc = await (await storeOf(after, cache)).check({ changed: ["old.md"] });
+      expect(reported(inc)).toEqual(reported(full));
+    }
+  });
+
+  test("a stale snapshot whose target was the old path, then the old path removed before REV", async () => {
+    const aliases = line({ kind: "record", from: "old.md", to: "new.md" });
+    const s0 = {
+      ".vmd/config.yaml": "vmd: 1\n",
+      ".vmd/aliases.jsonl": aliases,
+      "old.md": "# Old\n\n## X\n",
+      "new.md": "# New\n\n## X\n",
+      "r.md": "# R\n\n[x](old.md#x)\n",
+    };
+    const cache = createMemoryIndexCache();
+    await (await storeOf(s0, cache)).check();
+    const { "old.md": _gone, ...rev } = s0;
+    const now = { ...rev, "new.md": "# New\n\n## Y\n" };
+    const full = await (await storeOf(now)).check();
+    const inc = await (await storeOf(now, cache)).check({ changed: ["new.md"] });
+    expect(reported(inc)).toEqual(reported(full));
+  });
+
+  test("a file created midway along a record alias chain, with a current snapshot", async () => {
+    const aliases =
+      line({ kind: "record", from: "old.md", to: "mid.md" }) + line({ kind: "record", from: "mid.md", to: "new.md" });
+    const before = {
+      ".vmd/config.yaml": "vmd: 1\n",
+      ".vmd/aliases.jsonl": aliases,
+      "new.md": "# New\n\n## X\n",
+      "r.md": "# R\n\n[x](old.md#x)\n",
+    };
+    const after = { ...before, "mid.md": "# Mid\n" };
+    for (const cache of [undefined, createMemoryIndexCache()]) {
+      if (cache !== undefined) await (await storeOf(before, cache)).check();
+      const full = await (await storeOf(after)).check();
+      const inc = await (await storeOf(after, cache)).check({ changed: ["mid.md"] });
+      expect(reported(inc)).toEqual(reported(full));
+    }
   });
 });

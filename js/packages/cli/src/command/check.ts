@@ -1,11 +1,12 @@
 // `vmd check [PATHS.. | --changed REV] [-n N | --all]`: validates the store, or some of its records, and prints the issues
 // found, capped, then a summary.
 
-import { realpath } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   type CheckSummary,
   fail,
+  gitBlobId,
   type Issue,
   makeIssue,
   type Outcome,
@@ -13,7 +14,7 @@ import {
   type Store,
   succeed,
 } from "@vollmond/core";
-import { changedSince } from "../backend/git-changes.js";
+import { revisionTree } from "../backend/git-changes.js";
 import { DEFAULT_ISSUE_LIMIT, type IssueDetails, type IssueDetailsSource } from "../output/issues.js";
 import { readLimit, shellWord } from "../output/paging.js";
 import { formatCount } from "../output/sizes.js";
@@ -36,12 +37,13 @@ const GLOB_PAGE = 1000;
  * A PATH that is not a store path, such as `./a.md`, fails with `address-malformed`, as `get` says of it. A PATH or glob that
  * matches no record fails the check with `address-not-found`, naming each one, and for a path that is a directory, with or
  * without its slash, with the glob that checks the records below it (reading R23 of the I2 design, for the project owner to confirm).
- * `--changed REV` checks what changed since a git revision instead: the records that differ from REV in the working tree,
- * untracked ones included, and every record that cites a path that differs, deleted or moved ones included (see `Store.check`'s
- * `changed`). A change to the configuration in use, to a file of its `schema/` directory or to the alias file makes it a check
- * of the whole store. Only the git repository around the store root is asked, so a configuration in another repository is not
- * compared with REV. It fails with `storage-failed` outside a git repository and for a revision git does not know; a REV that
- * starts with `-` is refused, so that git never reads it as an option, and so is `--changed` with PATHS.
+ * `--changed REV` checks what changed since a git revision instead: the records whose file differs from REV's, by blob id,
+ * those REV does not have included, whether git tracks, ignores or does not see them, and every record that cites a path that
+ * differs, deleted or moved ones included (see `Store.check`'s `changed`). A difference in the configuration in use, in a file
+ * of its `schema/` directory, in the alias file or at a path an alias names makes it a check of the whole store. Only the git
+ * repository around the store root is asked, so a configuration in another repository is not compared with REV. Git reads
+ * REV's tree and runs nothing of the working tree's. It fails with `storage-failed` without git, outside a git repository and
+ * for a revision git does not have; a REV that starts with `-` or is a range is refused, and so is `--changed` with PATHS.
  *
  * `--fix` is refused: it comes with phase I5's rewrites.
  */
@@ -77,6 +79,7 @@ export const CHECK_COMMAND: Command = {
       if (revision === "" || revision.startsWith("-")) {
         return usagePlan(`--changed takes a revision, such as HEAD or main, not ${JSON.stringify(revision)}`);
       }
+      if (revision.includes("..")) return usagePlan(`--changed takes one revision, not the range ${JSON.stringify(revision)}`);
     }
     return {
       kind: "run",
@@ -102,25 +105,100 @@ export const CHECK_COMMAND: Command = {
 };
 
 /**
- * Checks what changed since a revision: the whole store when the configuration in use or a file of its schema directory
- * changed, and otherwise the changed store paths, through `Store.check`'s `changed`.
+ * Checks what changed since a revision: the store paths whose file differs from the revision's, by the blob id the listing
+ * gives each file and the one the revision's tree holds, added and removed ones included; or the whole store when the
+ * configuration in use or a file of its schema directory differs too, as `Store.check`'s `changed` cannot see them.
  */
 async function checkChanged(opened: OpenedStore, revision: string): Promise<Outcome<CheckSummary>> {
   const { store, location } = opened;
-  const changed = await changedSince(location.root, revision);
-  if (!changed.ok) return fail(changed.issues);
+  const tree = await revisionTree(location.root, revision);
+  if (!tree.ok) return fail(tree.issues);
+  const { top, blobs } = tree.value;
   const root = await realpath(location.root);
-  const configuration = await configurationPaths(location);
-  const below = (path: string, directory: string) => {
-    const inside = relative(directory, path);
-    return inside !== "" && !inside.startsWith("..") && !isAbsolute(inside);
-  };
-  const paths: string[] = [];
-  for (const path of changed.value) {
-    if (path === configuration.file || below(path, configuration.schemas)) return store.check();
-    if (below(path, root)) paths.push(relative(root, path).split(sep).join("/"));
+  const storePrefix = repositoryPath(top, root);
+  const listing = await fileVersions(store);
+  if (!listing.ok) return fail(listing.issues);
+  const changed = new Set<string>();
+  if (storePrefix !== null) {
+    const below = storePrefix === "" ? "" : `${storePrefix}/`;
+    for (const [path, version] of listing.value)
+      if (version === null || blobs.get(`${below}${path}`) !== version) changed.add(path);
+    for (const path of blobs.keys()) {
+      if (path.startsWith(below) && !listing.value.has(path.slice(below.length))) changed.add(path.slice(below.length));
+    }
   }
-  return store.check({ changed: paths });
+  const configuration = await configurationPaths(location);
+  const differs = (file: string) => {
+    const inStore = repositoryPath(root, file);
+    return inStore === null ? null : changed.has(inStore);
+  };
+  if (await configurationDiffers(configuration, top, blobs, differs)) return store.check();
+  return store.check({ changed: [...changed] });
+}
+
+/** Gives the `/`-separated path of `path` below `directory`, `""` for the directory itself, or null for a path outside it. */
+function repositoryPath(directory: string, path: string): string | null {
+  const inside = relative(directory, path);
+  if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside)) return null;
+  return inside.split(sep).join("/");
+}
+
+/** Gives the version of every file of the store's listing, ignored ones included, by store path; null for one not read. */
+async function fileVersions(store: Store): Promise<Outcome<ReadonlyMap<string, string | null>>> {
+  const versions = new Map<string, string | null>();
+  let cursor: string | null = null;
+  do {
+    const page = await store.backend.list({ prefix: "", limit: GLOB_PAGE, ...(cursor === null ? {} : { cursor }) });
+    if (!page.ok) return fail(page.issues);
+    for (const file of page.value.items) versions.set(file.path, file.version);
+    for (const issue of page.issues) if (issue.code === "storage-failed" && issue.path !== null) versions.set(issue.path, null);
+    cursor = page.value.cursor;
+  } while (cursor !== null);
+  return succeed(versions);
+}
+
+/**
+ * Whether the configuration file in use, or a file of its schema directory, differs from the revision's tree. A file in the
+ * store is looked up among the changed store paths (`differs`); one elsewhere in the repository is hashed and compared with
+ * the tree; one outside the repository is not compared.
+ */
+async function configurationDiffers(
+  configuration: { readonly file: string; readonly schemas: string },
+  top: string,
+  blobs: ReadonlyMap<string, string>,
+  differs: (file: string) => boolean | null,
+): Promise<boolean> {
+  const differsFromTree = async (file: string): Promise<boolean> => {
+    const inStore = differs(file);
+    if (inStore !== null) return inStore;
+    const path = repositoryPath(top, file);
+    if (path === null) return false;
+    const bytes = await readFile(file).catch(() => null);
+    return bytes === null ? blobs.has(path) : blobs.get(path) !== (await gitBlobId(bytes));
+  };
+  if (await differsFromTree(configuration.file)) return true;
+  const onDisk = await filesBelow(configuration.schemas);
+  for (const file of onDisk) if (await differsFromTree(file)) return true;
+  // A schema file that the revision has and the directory no longer holds.
+  const schemas = repositoryPath(top, configuration.schemas);
+  if (schemas === null) return false;
+  const kept = new Set(onDisk.map((file) => repositoryPath(top, file)));
+  for (const path of blobs.keys()) if (path.startsWith(`${schemas}/`) && !kept.has(path)) return true;
+  return false;
+}
+
+/** Every regular file below a directory, at any depth, by absolute path; none for a directory that cannot be read. */
+async function filesBelow(directory: string): Promise<string[]> {
+  const found: string[] = [];
+  const pending = [directory];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    for (const entry of await readdir(next, { withFileTypes: true }).catch(() => [])) {
+      const path = join(next, entry.name);
+      if (entry.isDirectory()) pending.push(path);
+      else if (entry.isFile()) found.push(path);
+    }
+  }
+  return found;
 }
 
 /** The configuration file in use and its schema directory, as real paths, git's paths being real. */

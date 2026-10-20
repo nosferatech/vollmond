@@ -27,7 +27,10 @@ export interface CheckOptions {
    * The store paths that changed, such as since a revision, deleted ones included: the check reports the issues of the records
    * among them that are there now, and of every record with a reference that names one of them, or reaches one, or names or
    * reaches a directory above one. A change to the alias file makes it a check of the whole store, since any reference may
-   * depend on it; the caller widens it the same way for a change to the configuration or its schemas, which only it can see.
+   * depend on it, and so does a file created, changed or removed at a path an alias names, an old or a new path of a record
+   * alias or the record of an anchor alias; the caller widens it the same way for a change to the configuration or its
+   * schemas, which only it can see. The path rules' issues that involve a changed path are reported wherever they land, such
+   * as an unchanged path's case conflict with an added one.
    * Without a current snapshot of the last full check, every record's references are resolved to find them.
    */
   readonly changed?: readonly string[];
@@ -129,16 +132,23 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     paths.push({ path: file.path, kind: found.kind });
     if (found.kind === "record") records.push({ path: file.path, collections: found.collections });
   }
-  for (const issue of pathRuleIssues(paths)) issues.push(issue);
+  // A check of what changed reports the path rules' issues that involve a changed path, wherever they land; another check, those
+  // of the paths in its scope, through the filter below.
+  const changedPaths = options.changed === undefined ? null : new Set(options.changed);
+  const pathIssues = pathRuleIssues(paths, changedPaths === null ? {} : { involving: changedPaths });
+  if (changedPaths === null) for (const issue of pathIssues) issues.push(issue);
 
   // A file the backend could not read when listing it is still there, for a reference to it.
   const unread = listed.issues.flatMap((issue) => (issue.code === "storage-failed" && issue.path !== null ? [issue.path] : []));
   const resolver = await store.referenceResolver([...listed.value.map((file) => file.path), ...unread]);
   if (!resolver.ok) return fail(resolver.issues);
   let scope: ReadonlySet<string> | null = options.records === undefined ? null : new Set(options.records);
-  if (options.changed !== undefined && !options.changed.includes(ALIASES_PATH)) {
+  // Deviation from the I2 design, recorded in issue #26: a change to the alias file, or a file created, changed or removed at a
+  // path an alias names, can change where any reference through an alias leads, so it makes the check one of the whole store.
+  const aliasPaths = resolver.value.aliasPaths();
+  if (changedPaths !== null && !changedPaths.has(ALIASES_PATH) && ![...changedPaths].some((path) => aliasPaths.has(path))) {
     const versions = new Map(listed.value.map((file) => [file.path, file.version]));
-    scope = await changedScope(store, resolver.value, records, versions, options.changed);
+    scope = await changedScope(store, resolver.value, records, versions, changedPaths);
   }
   const inScope = (path: string) => scope === null || scope.has(path);
   const collectionsInScope = new Set<Collection>(scope === null ? store.configuration.collections : []);
@@ -182,10 +192,10 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     const schemaIssue = await store.schemaIssue(collection);
     if (schemaIssue !== null) issues.push(schemaIssue);
   }
-  const reported = applySeverities(
-    issues.filter((issue) => issue.path === null || inScope(issue.path)),
-    store.configuration,
-  );
+  const inScopeIssues = issues.filter((issue) => issue.path === null || inScope(issue.path));
+  // In a check of the whole store the path issues are among the others; in a part of it, those that involve a changed path.
+  const pathIssuesShown = changedPaths === null ? [] : scope === null ? pathRuleIssues(paths) : pathIssues;
+  const reported = applySeverities([...inScopeIssues, ...pathIssuesShown], store.configuration);
   const summary: CheckSummary = {
     records: checked,
     unreadable,
@@ -220,10 +230,12 @@ interface CitingReference {
 }
 
 /**
- * Gives the records a check of what changed reports: the changed paths that are records now, and the records with a reference
- * that cites a changed path. It loops over the records listed now, never over the snapshot's: a record whose version is the
- * one the snapshot lists is looked at through the snapshot's rows, and any other, changed since or added, through its own
- * references, resolved now; without a current snapshot, every record is. So a stale snapshot costs work, and never hides a
+ * Gives the paths whose issues a check of what changed reports: every changed path, and the records with a reference that
+ * cites a changed path. It loops over the records listed now, never over the snapshot's: a record whose version is the one the
+ * snapshot lists is looked at through the snapshot's rows, and any other, changed since or added, through its own references,
+ * resolved now; without a current snapshot, every record is. A record unchanged since the snapshot makes the same references,
+ * and each one's route passes through the path its URI names, the directories above it, its targets, and the paths its aliases
+ * name; a change at an alias's path makes the check one of the whole store, so a stale snapshot costs work and never hides a
  * record.
  */
 async function changedScope(
@@ -231,9 +243,8 @@ async function changedScope(
   resolver: ReferenceResolver,
   records: readonly { readonly path: string; readonly collections: readonly Collection[] }[],
   versions: ReadonlyMap<string, string>,
-  changed: readonly string[],
+  paths: ReadonlySet<string>,
 ): Promise<ReadonlySet<string>> {
-  const paths = new Set(changed);
   const snapshot = await store.previousCheck();
   const rows = new Map<string, CitingReference[]>();
   for (const reference of snapshot?.references ?? []) {
@@ -244,12 +255,10 @@ async function changedScope(
     }
     held.push(reference);
   }
-  const scope = new Set<string>();
+  // Every changed path, a record the backend could not read when listing it included, which a check reports.
+  const scope = new Set<string>(paths);
   for (const record of records) {
-    if (paths.has(record.path)) {
-      scope.add(record.path);
-      continue;
-    }
+    if (paths.has(record.path)) continue;
     const version = versions.get(record.path);
     let references: readonly CitingReference[];
     if (snapshot !== null && version !== undefined && snapshot.files.get(record.path) === version) {

@@ -1,39 +1,16 @@
 // `vmd check --changed REV` in temporary git repositories: the records that changed since REV and those that cite a changed
 // path, a move with `git mv` among them, and the changes that make it a check of the whole store.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { type CliEnvironment, runCli } from "../cli.js";
 import { makeDirectories, temporaryDirectory, writeFiles } from "../directories.testkit.js";
+import { git, isolateGit, repository } from "../git.testkit.js";
 
 const IMPLEMENTATION = "0".repeat(64);
 
-/** This process's environment without the variables that point git at another repository than the one around a directory. */
-function gitEnvironment(): NodeJS.ProcessEnv {
-  const environment = { ...process.env };
-  for (const name of Object.keys(environment)) if (name.startsWith("GIT_")) delete environment[name];
-  return environment;
-}
-
-/** Runs git in `directory`, with an identity for commits and no signing, and gives its output. */
-function git(directory: string, ...args: string[]): string {
-  return execFileSync(
-    "git",
-    ["-C", directory, "-c", "user.name=vmd", "-c", "user.email=vmd@example.invalid", "-c", "commit.gpgsign=false", ...args],
-    { encoding: "utf8", env: gitEnvironment() },
-  );
-}
-
-/** Creates a repository holding `files`, committed, and returns its root. */
-function repository(files: Readonly<Record<string, string>>): string {
-  const root = writeFiles(temporaryDirectory(), files);
-  git(root, "init", "-q");
-  git(root, "add", "-A");
-  git(root, "commit", "-q", "-m", "base");
-  return root;
-}
+isolateGit();
 
 /** A record that no test changes or cites, with a dangling link: only a check of the whole store reports it. */
 const BYSTANDER = { "z.md": "# Z\n\n[z](nowhere.md)\n" };
@@ -156,7 +133,7 @@ describe("check --changed's failures and guards", () => {
     expect(outside.exitCode).toBe(1);
     const root = repository({ ".vmd/config.yaml": "vmd: 1\n", "a.md": "# A\n" });
     const unknown = await vmd(root, null, "check", "--changed", "no-such-revision");
-    expect(unknown.stderr).toMatch(/^error storage-failed: git cannot compare the store with no-such-revision: /);
+    expect(unknown.stderr).toMatch(/^error storage-failed: git has no revision no-such-revision in the store's repository\n/);
     expect(unknown.exitCode).toBe(1);
   });
 
@@ -176,6 +153,108 @@ describe("check --changed's failures and guards", () => {
     const result = await vmd(root, null, "check", "a.md", "--changed", "HEAD");
     expect(result.stderr).toMatch(/^error usage-invalid: PATHS and --changed cannot be given together/);
     expect(result.exitCode).toBe(2);
+  });
+
+  test("runs no command from the repository's configuration: no fsmonitor, no clean filter, no external diff", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", ...BYSTANDER, "a.md": "# A\n" });
+    const marker = join(temporaryDirectory(), "ran");
+    git(root, "config", "core.fsmonitor", `touch ${marker}-fsmonitor; false`);
+    git(root, "config", "filter.evil.clean", `sh -c 'touch ${marker}-clean; cat'`);
+    git(root, "config", "diff.external", `sh -c 'touch ${marker}-diff'`);
+    mkdirSync(join(root, ".git", "info"), { recursive: true });
+    writeFileSync(join(root, ".git", "info", "attributes"), "*.md filter=evil\n");
+    writeFiles(root, { "a.md": "# A\n\n[x](x.md)\n" });
+    const result = await vmd(root, null, "check", "--changed", "HEAD");
+    expect(reported(result.stdout)).toEqual(["a.md ref-dangling"]);
+    for (const kind of ["fsmonitor", "clean", "diff"]) expect(existsSync(`${marker}-${kind}`)).toBe(false);
+  });
+
+  test("checks records that git ignores or that a nested repository holds, which differ from REV by not being there", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", ...BYSTANDER, ".gitignore": "drafts/\n", "a.md": "# A\n" });
+    writeFiles(root, { "drafts/d.md": "# D\n\n[x](x.md)\n" });
+    const nested = writeFiles(join(root, "sub"), { "n.md": "# N\n\n[y](y.md)\n" });
+    git(nested, "init", "-q");
+    git(nested, "add", "-A");
+    git(nested, "commit", "-q", "-m", "nested");
+    const result = await vmd(root, null, "check", "--changed", "HEAD");
+    expect(reported(result.stdout)).toEqual(["drafts/d.md ref-dangling", "sub/n.md ref-dangling"]);
+  });
+
+  test("selects a record that links to an ignored file that was removed, whatever its name starts with", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", ...BYSTANDER, "..x.md": "x", "c.md": "# C\n\n[x](..x.md)\n" });
+    rmSync(join(root, "..x.md"));
+    expect(reported((await vmd(root, null, "check", "--changed", "HEAD")).stdout)).toEqual(["c.md ref-dangling"]);
+  });
+
+  test("finds the changes of a store reached through a symbolic link, and of a configuration named through one", async () => {
+    const top = repository({
+      "conf/config.yaml": "vmd: 1\n",
+      "docs/.vmd/config.yaml": "vmd: 1\n",
+      "docs/z.md": BYSTANDER["z.md"],
+      "docs/a.md": "# A\n",
+    });
+    const links = temporaryDirectory();
+    symlinkSync(join(top, "docs"), join(links, "docs"));
+    symlinkSync(join(top, "conf"), join(links, "conf"));
+    writeFiles(top, { "docs/a.md": "# A\n\n[x](x.md)\n" });
+    expect(reported((await vmd(join(links, "docs"), null, "check", "--changed", "HEAD")).stdout)).toEqual(["a.md ref-dangling"]);
+    const args = ["--store", join(links, "docs"), "--config", join(links, "conf", "config.yaml"), "check", "--changed", "HEAD"];
+    expect(reported((await vmd(links, null, ...args)).stdout)).toEqual(["a.md ref-dangling"]);
+    writeFiles(top, { "conf/config.yaml": "vmd: 1\nignore: ['x/**']\n" });
+    expect(reported((await vmd(links, null, ...args)).stdout)).toEqual(["a.md ref-dangling", "z.md ref-dangling"]);
+  });
+
+  test("checks a file the backend cannot read, whose version it cannot know", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", ...BYSTANDER, "a.md": "# A\n" });
+    const file = join(root, "a.md");
+    chmodSync(file, 0o000);
+    try {
+      expect(reported((await vmd(root, null, "check", "--changed", "HEAD")).stdout)).toEqual(["a.md storage-failed"]);
+    } finally {
+      chmodSync(file, 0o644);
+    }
+  });
+
+  test("counts a configuration file whose name starts with two dots, and a schema file removed", async () => {
+    const files = {
+      ".vmd/config.yaml": "vmd: 1\n",
+      "..c.yaml": "vmd: 1\n",
+      ...BYSTANDER,
+      "conf/config.yaml": 'vmd: 1\ncollections:\n  notes:\n    match: ["n/*.json"]\n    schema: note.schema.json\n',
+      "conf/schema/note.schema.json": "{}",
+      "conf/schema/extra.schema.json": "{}",
+    };
+    const root = repository(files);
+    const dotted = ["--config", "..c.yaml", "check", "--changed", "HEAD"];
+    expect(reported((await vmd(root, null, ...dotted)).stdout)).toEqual([]);
+    writeFiles(root, { "..c.yaml": "vmd: 1\nignore: ['x/**']\n" });
+    expect(reported((await vmd(root, null, ...dotted)).stdout)).toEqual(["z.md ref-dangling"]);
+    const conf = ["--config", "conf/config.yaml", "check", "--changed", "HEAD"];
+    expect(reported((await vmd(root, null, ...conf)).stdout)).toEqual([]);
+    rmSync(join(root, "conf/schema/extra.schema.json"));
+    expect(reported((await vmd(root, null, ...conf)).stdout)).toEqual(["z.md ref-dangling"]);
+  });
+
+  test("refuses a range of revisions, which names no one tree", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", "a.md": "# A\n" });
+    for (const range of ["HEAD~1..HEAD", "main...HEAD"]) {
+      const result = await vmd(root, null, "check", "--changed", range);
+      expect(result.stderr).toMatch(/^error usage-invalid: --changed takes one revision, not the range /);
+      expect(result.exitCode).toBe(2);
+    }
+  });
+
+  test("says so plainly when git cannot be run", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", "a.md": "# A\n" });
+    const saved = process.env.PATH;
+    process.env.PATH = temporaryDirectory();
+    try {
+      const result = await vmd(root, null, "check", "--changed", "HEAD");
+      expect(result.stderr).toMatch(/^error storage-failed: --changed needs git, which cannot be run here: it is not on PATH\n/);
+      expect(result.exitCode).toBe(1);
+    } finally {
+      process.env.PATH = saved;
+    }
   });
 
   test("ignores GIT_DIR, which would name another repository than the store's", async () => {

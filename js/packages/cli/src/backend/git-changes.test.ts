@@ -1,55 +1,52 @@
-// The files that differ from a revision in a git working tree, read with git in temporary repositories.
+// The tree of a git revision, read with git's plumbing in temporary repositories.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { gitBlobId } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
-import { temporaryDirectory, writeFiles } from "../directories.testkit.js";
-import { changedSince } from "./git-changes.js";
+import { writeFiles } from "../directories.testkit.js";
+import { git, isolateGit, repository } from "../git.testkit.js";
+import { revisionTree } from "./git-changes.js";
 
-function git(directory: string, ...args: string[]): void {
-  const env = { ...process.env };
-  for (const name of Object.keys(env)) if (name.startsWith("GIT_")) delete env[name];
-  execFileSync(
-    "git",
-    ["-C", directory, "-c", "user.name=vmd", "-c", "user.email=vmd@example.invalid", "-c", "commit.gpgsign=false", ...args],
-    { env },
-  );
-}
+isolateGit();
 
-function repository(files: Readonly<Record<string, string>>): string {
-  const root = writeFiles(temporaryDirectory(), files);
-  git(root, "init", "-q");
-  git(root, "add", "-A");
-  git(root, "commit", "-q", "-m", "base");
-  return root;
-}
-
-describe("changedSince", () => {
-  test("gives both sides of a move, deleted and modified files, and untracked files git does not ignore", async () => {
-    const root = repository({ "a.md": "a", "b.md": "b", "c.md": "c", ".gitignore": "*.log\n" });
-    git(root, "mv", "a.md", "moved.md");
-    rmSync(join(root, "b.md"));
-    writeFiles(root, { "c.md": "changed", "new.md": "n", "noise.log": "x" });
-    const changed = await changedSince(root, "HEAD");
-    expect(changed.ok && [...changed.value].sort()).toEqual(
-      ["a.md", "b.md", "c.md", "moved.md", "new.md"].map((path) => join(root, path)),
-    );
+describe("revisionTree", () => {
+  test("gives each regular file's blob id by its path from the top level, wherever below it it is asked", async () => {
+    const root = repository({ "docs/a.md": "a", "other/b.md": "b" });
+    symlinkSync("a.md", join(root, "docs", "link.md"));
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "link");
+    writeFiles(root, { "other/b.md": "changed", "other/new.md": "n" });
+    const tree = await revisionTree(join(root, "docs"), "HEAD");
+    if (!tree.ok) expect.fail(JSON.stringify(tree.issues));
+    expect(tree.value.top).toBe(root);
+    expect([...tree.value.blobs]).toEqual([
+      ["docs/a.md", await gitBlobId(new TextEncoder().encode("a"))],
+      ["other/b.md", await gitBlobId(new TextEncoder().encode("b"))],
+    ]);
   });
 
-  test("names the paths from the repository's top level, wherever below it it is asked", async () => {
-    const root = repository({ "docs/a.md": "a", "other/b.md": "b" });
-    writeFiles(root, { "other/b.md": "changed", "other/new.md": "n" });
-    const changed = await changedSince(join(root, "docs"), "HEAD");
-    expect(changed.ok && changed.value).toEqual([join(root, "other/b.md"), join(root, "other/new.md")]);
+  test("gives an earlier revision's tree, not the working tree's", async () => {
+    const root = repository({ "a.md": "one" });
+    writeFiles(root, { "a.md": "two" });
+    git(root, "commit", "-q", "-am", "two");
+    const tree = await revisionTree(root, "HEAD~1");
+    expect(tree.ok && tree.value.blobs.get("a.md")).toBe(await gitBlobId(new TextEncoder().encode("one")));
+  });
+
+  test("fails with storage-failed for a revision the repository does not have", async () => {
+    const root = repository({ "a.md": "a" });
+    const tree = await revisionTree(root, "nope");
+    expect(tree.ok).toBe(false);
+    expect(tree.issues[0]?.message).toBe("git has no revision nope in the store's repository");
   });
 
   test("never lets git read the revision as an option, which could write a file", async () => {
     const root = repository({ "a.md": "a" });
     const target = join(root, "written.txt");
-    const changed = await changedSince(root, `--output=${target}`);
-    expect(changed.ok).toBe(false);
-    expect(changed.issues[0]?.code).toBe("storage-failed");
+    const tree = await revisionTree(root, `--output=${target}`);
+    expect(tree.ok).toBe(false);
+    expect(tree.issues[0]?.code).toBe("storage-failed");
     expect(existsSync(target)).toBe(false);
   });
 });
