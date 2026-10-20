@@ -437,7 +437,7 @@ tasks are written "task I1.4" here.
 Recorded 2026-10-10, and applied to Draft v0.7. The review of Draft v0.6 sent its open readings and follow-ups to the project
 owner, who accepted every recommendation on card J. Section numbers refer to Draft v0.7.
 
-- [J1](../decisions/J1.md) Leap seconds: `:60` only at 23:59 UTC
+- [J1](../decisions/J1.md) Leap seconds: `:60` only at 23:59 UTC (superseded by AV)
 - [J2](../decisions/J2.md) A list item inside a block quote carries no block anchor
 - [J3](../decisions/J3.md) `refs` gives the status `unreadable` for a reference into an unreadable record (superseded by U12)
 - [J4](../decisions/J4.md) A U+FEFF in YAML away from byte 0 is a syntax error
@@ -771,6 +771,25 @@ confirm. Section numbers refer to Draft v0.18.
   default always is
 - [AU](../decisions/AU.md) A many-valued reference that a record alias leads to no match is `ok` with no targets, as for an old
   section name
+
+## Decisions from cards AV and W10 to W12 (Draft v0.19)
+
+Recorded 2026-10-20, and applied to Draft v0.19. Card AV comes from the owner's note on card W12's item 4: whether a local
+date-time, which has no time zone, accepts a leap second outside 23:59. Cards W10, W11 and W12 confirm the agent's readings of
+links and the strict read mode (Drafts v0.17 and v0.18), of the local index (#153 and Draft v0.18), and four older readings from
+rounds H, J and O. The project owner chose (c) on AV, as recommended, with no note; (a) on W10 ("Confirm all nine") and W11
+("Confirm all eleven"), with no note; and (b) on W12, with a note that turned its item 4 into card AV. Where the records fill in a
+detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.19.
+
+- [AV](../decisions/AV.md) A local date-time accepts a leap second, `:60`, in any minute, as the grammar allows
+- [W10](../decisions/W10.md) The agent's readings of links and the strict read mode in Drafts v0.17 and v0.18 are confirmed
+- [W11](../decisions/W11.md) The agent's readings of the local index are confirmed
+- [W12](../decisions/W12.md) Three older readings are confirmed, and the fourth became card AV
+
+The draft also takes the commands of phase I2's task I2.6 as built (#160, #162, #163 and #164): their options in §12.1,
+`check --changed` in §12.1 and §13.5, and a failed `check` or `refs` printing its issues on stderr in §12.3, a deviation recorded
+on the task's issue (#26) and marked for the owner to confirm. These follow decisions already taken (U4 and U11, and the I2
+design's section 7); the readings the pull requests added are in the I2 design's table (R23 to R28), for the owner to confirm.
 
 ## Decisions given in conversation
 

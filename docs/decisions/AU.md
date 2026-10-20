@@ -40,17 +40,17 @@ which has no `nothing`."
 with no targets, as one that an anchor alias leads to no match is; where its fragment matches there, it is `aliased`. It gets no
 `ref-aliased`, so `vmd check` gives no hint to update it.
 
-**Agent's reading, for the owner to confirm.** Since such a reference is not `aliased`, `vmd check --fix`, which rewrites a
-reference resolved through an alias to the current address (§13.6), leaves it as written. The card says only that `vmd check`
-gives no hint; §13.6 states the `--fix` half as this reading.
+**Agent's reading, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 4.** Since such a reference is not `aliased`,
+`vmd check --fix`, which rewrites a reference resolved through an alias to the current address (§13.6), leaves it as written. The
+card says only that `vmd check` gives no hint; §13.6 states the `--fix` half as this reading.
 
 This settles a case W9 left open: W9 confirmed R19's anchor-alias half and left its record-alias half labelled, which Draft v0.17
 stated as `aliased` with no targets. AU decides it the other way, mirroring W9's confirmed rule for an anchor alias, so it does
 not supersede W9, as [AH](AH.md) did not supersede [AC](AC.md) and [AR](AR.md) did not supersede [AN](AN.md).
 
-**Context from the engineering manager.** The engineering manager's notes for this draft name a consequence for the owner: once
-`vmd alias prune` removes the record alias, such a reference goes from a silent `ok` to `ref-dangling`, with no warning before.
-Draft v0.18 states it in §8.5.
+**Context from the engineering manager, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 5.** The engineering
+manager's notes for this draft name a consequence for the owner: once `vmd alias prune` removes the record alias, such a reference
+goes from a silent `ok` to `ref-dangling`, with no warning before. Draft v0.18 states it in §8.5.
 
 ## Why
 
@@ -71,3 +71,6 @@ The project owner chose (b) on the review desk on 2026-10-20, with no note.
 consequence of a prune), §8.2 and Appendix D `ref-dangling` (a record alias leads on), §13.6 and Appendix D `ref-aliased` (only a
 reference that reaches a node through an alias is `aliased`); the I2 design's table of reference outcomes in section 5.3; W9's
 record, which notes that AU decided the half it left open.
+
+Draft v0.19: card [W10](W10.md) confirmed the reading and the consequence above (items 4 and 5); the draft's text keeps
+them as written.

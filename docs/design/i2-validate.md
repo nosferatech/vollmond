@@ -648,13 +648,12 @@ whose name is not singular keeps core's fallback to its `$body`'s address, which
 ### 4.6 The strict read mode
 
 §9.5's strict read mode (G7) was deferred to I3 because its codes come from schemas (I1 §5). With the binding of section 4.1,
-every input it needs exists in I2: a strict store refuses a record with a structural error or with `schema-violation`, a
-declared `duplicate-key` or `filename-mismatch`, and a refused record is an error, not a result. It does not refuse a record for
+every input it needs exists in I2: a strict store refuses a record with a structural error or with `schema-violation`, a declared
+`duplicate-key` or `filename-mismatch`, and a refused record is an error, not a result. It does not refuse a record for
 `ref-target-not-allowed`: the project owner's answer on card AS leaves that to the implementation, and vmd's choice, which Draft
-v0.17 §9.5 states for the owner to confirm, is to return the record while `check` reports the reference, so a strict read
-resolves no typed references.
-`openStore(…, {readMode: "strict"})` gives it in core; `ls` counts refused records with the unreadable ones. Whether the CLI gets
-a global `--strict` now, which §12.1 does not list, is question 11.
+v0.17 §9.5 states and the owner confirmed on card W10, is to return the record while `check` reports the reference, so a strict
+read resolves no typed references. `openStore(…, {readMode: "strict"})` gives it in core; `ls` counts refused records with the
+unreadable ones. Whether the CLI gets a global `--strict` now, which §12.1 does not list, is question 11.
 
 The refusal is the readers', not the store's shared read path (the project owner's answer on card AJ): a strict `get`, `outline`
 or `resolve` fails on a refused record, but `Store.binding`, which the reference resolver and `check` read, binds the record in
@@ -1024,6 +1023,15 @@ does not.
   with every issue (O4).
 - **Exit codes.** 4 with any issue of severity `error`, 0 otherwise (§12.3, M4); 1 for `config-invalid`, `alias-file-invalid` and
   any other failure of the operation; 2 for usage.
+- **As built** (#162, the deviations recorded on #26). `--changed REV` reads REV's tree with git's plumbing alone,
+  `git rev-parse --show-toplevel`, `git rev-parse --verify --end-of-options REV^{tree}` and `git ls-tree -r -z --full-tree`, each
+  with `-c core.fsmonitor=false`, without a shell and without the variables that point git at another repository or configuration,
+  in place of the `git diff` and `git ls-files` above, which run the repository's fsmonitor, clean filters and external diff and
+  miss ignored files and nested repositories. It compares each listed store file's blob id with the tree's. It needs git 2.30 or
+  later, since git 2.30.0's release notes say ""git rev-parse" learned the "--end-of-options"" ([github.com/git/git,
+  `Documentation/RelNotes/2.30.0.adoc`](https://github.com/git/git/blob/master/Documentation/RelNotes/2.30.0.adoc), read on
+  2026-10-20); an older git fails with a message naming the minimum. Which records cite a changed path comes from the snapshot, as
+  section 6.2.1 says. `--fix` is a usage error until I5, and `ref-retargeted` is not yet reported (#161).
 
 ```
 $ vmd --store ~/vampiredb/docs --config examples/vampiredb/config.yaml check
@@ -1355,7 +1363,7 @@ refuses what the specification allows or changes what it states; the design's ch
 | R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets (confirmed by the project owner on card W9). A record alias that leads a `many` reference to a record where its fragment matches nothing leaves it `ok` with no targets too, as for an old section name, a single reference through it staying `dangling` (the project owner's answer on card AU, 2026-10-20); one whose fragment matches there is `aliased` | §8.5, §13.6 |
 | R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…`; confirmed by the project owner on card W9 | §8.2, §9.3 |
 | R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ, the rule card AR keeps (question 22); confirmed by the project owner on card W9 | §9.3 |
-| R22 | Agent's reading, for the owner to confirm: a node's refs-in count counts the references whose status is `ok` or `aliased` and that have a target at the node or below it, each reference once per node however many of its targets are there; an `ambiguous` reference's candidates do not count (I2.5) | §12.1, §12.2 |
+| R22 | Agent's reading, confirmed by the project owner on card W10: a node's refs-in count counts the references whose status is `ok` or `aliased` and that have a target at the node or below it, each reference once per node however many of its targets are there; an `ambiguous` reference's candidates do not count (I2.5) | §12.1, §12.2 |
 | R23 | Agent's reading, for the owner to confirm: a `PATHS` argument of `vmd check`, a store path or a glob, that matches no record fails the check with `address-not-found`, naming every such argument, and for a path that is a directory, with a hint giving the glob that checks the records below it, as `ls` gives one; an asset is no record. A check that says "0 records, 0 errors" for a mistyped path would read as a pass (I2.6) | §12.1 |
 | R24 | Agent's reading, for the owner to confirm: `vmd refs --to ADDR` lists every reference with a target at the node ADDR names or below it, whatever its status, so an `ambiguous` reference with a candidate there is listed, marked `ambiguous`; for a block anchor, those whose target is that block. ADDR's fragment is resolved as a link to it is, through a record alias from an old path or an anchor alias. For ADDR a path without a fragment, or with `#` alone, it lists every reference whose URI names that path, or with a target there, whatever its status, so dangling and unreadable references into a record are listed too, and `--to` works for an asset, a directory or a path where nothing is. One predicate decides what is at or below a node for this listing and for the refs-in counts of R22, which stay narrower by status only (I2.6) | §12.1, §9.5 |
 | R25 | Agent's reading, for the owner to confirm: `vmd index --no-cache` is `usage-invalid`, since the command's purpose is to write the local index that the option turns off; `vmd index` where the cache cannot be used (no build id, or a cache directory refused inside the store or a working tree around it) still checks the whole store, prints its counts and a line saying why nothing was kept, and exits 0. Draft v0.18 §14.3 says a cache that is not used is as if `--no-cache` were given; for `index` that would make an unusable cache a usage error the user did not cause, so `index` reports it instead, as Appendix D has no code for a cache (I2.6) | §12.1, §14.3 |

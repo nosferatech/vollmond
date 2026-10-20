@@ -54,11 +54,11 @@ breaks its declaration is the implementation's choice, and vmd chooses "the simp
 Which behaviour that is, the note does not say; the engineering manager's reading below is what Draft v0.17 states. #151, which
 added the refusal, was closed unmerged.
 
-**Agent's reading, for the owner to confirm: the engineering manager's.** In the engineering manager's comment closing #151: "The
-simplest and most consistent behaviour for this implementation is not to refuse `ref-target-not-allowed` in the strict read mode:
-it keeps decision G7's "a change elsewhere never hides a record", needs no code, and `vmd check` still reports every such link."
-Draft v0.17 states it in §9.5: a strict reader need not refuse such a record, nor return it, since that is the implementation's
-choice, and vmd returns it while `vmd check` reports the reference.
+**Agent's reading, the engineering manager's, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 3.** In the
+engineering manager's comment closing #151: "The simplest and most consistent behaviour for this implementation is not to refuse
+`ref-target-not-allowed` in the strict read mode: it keeps decision G7's "a change elsewhere never hides a record", needs no code,
+and `vmd check` still reports every such link." Draft v0.17 states it in §9.5: a strict reader need not refuse such a record, nor
+return it, since that is the implementation's choice, and vmd returns it while `vmd check` reports the reference.
 
 This amends [G7](G7.md) in the same direction, as [AA4](AA4.md) amended [U2](U2.md) and [AO](AO.md) amended [AD](AD.md): G7's
 option, "A strict reader gets only records whose data conforms to the schema", no longer holds for `x-vmd-ref`, since §9.5's list
@@ -87,3 +87,6 @@ Draft v0.17 (#155): §9.5, item 4 (`ref-target-not-allowed` leaves the codes the
 such a record), Appendix D `ref-target-not-allowed`; [G7](G7.md)'s record, now superseded. The strict read mode's code (#146)
 already leaves the code out; its comment `TODO(#24)` in `js/packages/core/src/store/store.ts`, which says the mode refuses it too,
 stays until a code change removes it.
+
+Draft v0.19: card [W10](W10.md) confirmed the engineering manager's reading (item 3); the draft's text keeps it as
+written.
