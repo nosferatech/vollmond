@@ -2,7 +2,7 @@ import { fromMarkdown as libraryFromMarkdown } from "mdast-util-from-markdown";
 import { describe, expect, test, vi } from "vitest";
 import { createMemoryStorage } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
-import { openStore } from "./store.js";
+import { openStore, type Store } from "./store.js";
 
 // The Markdown library's parse, counted.
 vi.mock("mdast-util-from-markdown", async (importOriginal) => {
@@ -18,6 +18,16 @@ const SECTIONS = 12;
 const SUBSECTIONS = 3;
 /** The anchored list items in each section and subsection; each also has one anchored paragraph. */
 const ANCHORED_ITEMS = 4;
+/** How many times smaller the document whose outline gives the baseline time is. */
+const SCALE = 8;
+/** How many times each document is outlined; the least time of each is compared. */
+const RUNS = 2;
+/**
+ * The most that outlining the document may cost, as a multiple of outlining the one {@link SCALE} times smaller. The multiple
+ * is about {@link SCALE} when the cost is linear in the text, and grows toward its square when a step is quadratic: 7 to 8
+ * on a laptop, at a load average of 3 to 40, and 26 to 29 with a loop over the whole text for each line.
+ */
+const MAX_RATIO = 2 * SCALE;
 
 /**
  * Generates a Markdown document shaped like a long design document: a title heading and a table, sections and subsections
@@ -58,45 +68,49 @@ function designDocument(bytes: number): string {
   return head + heads.map((h, n) => `${h}\n\n${bodies[n]}${fill[n]}`).join("");
 }
 
+/** Opens a store over one Markdown file, `design.md` holding `content`, whose backend counts its reads. */
+async function storeOf(content: Uint8Array): Promise<{ readonly store: Store; readonly reads: { count: number } }> {
+  const inner = createMemoryStorage({ files: { ".vmd/config.yaml": "vmd: 1\n", "design.md": content } });
+  const reads = { count: 0 };
+  const backend: StorageReader = {
+    list: (query) => inner.list(query),
+    stat: (path) => inner.stat(path),
+    read: (path, options) => {
+      reads.count += 1;
+      return inner.read(path, options);
+    },
+    grep: (query) => inner.grep(query),
+    head: () => inner.head(),
+    history: inner.history,
+  };
+  const opened = await openStore(backend);
+  if (!opened.ok) throw new Error(JSON.stringify(opened.issues));
+  reads.count = 0;
+  return { store: opened.value, reads };
+}
+
+/** Outlines `design.md` in a new store over `content`, and gives the time the outline took, in milliseconds. */
+async function outlineTime(content: Uint8Array): Promise<number> {
+  const { store } = await storeOf(content);
+  const started = performance.now();
+  const outline = await store.outline("design.md");
+  const elapsed = performance.now() - started;
+  if (!outline.ok) throw new Error(JSON.stringify(outline.issues));
+  return elapsed;
+}
+
 describe("the outline of a large document", () => {
-  test("parses and outlines 673 KB in time far from quadratic", async () => {
-    const text = designDocument(DOCUMENT_BYTES);
-    const content = new TextEncoder().encode(text);
-    const inner = createMemoryStorage({ files: { ".vmd/config.yaml": "vmd: 1\n", "design.md": content } });
-    let reads = 0;
-    const backend: StorageReader = {
-      list: (query) => inner.list(query),
-      stat: (path) => inner.stat(path),
-      read: (path, options) => {
-        reads += 1;
-        return inner.read(path, options);
-      },
-      grep: (query) => inner.grep(query),
-      head: () => inner.head(),
-      history: inner.history,
-    };
-    const opened = await openStore(backend);
-    if (!opened.ok) throw new Error(JSON.stringify(opened.issues));
-    reads = 0;
+  test("parses and outlines 673 KB with one read and one parse", async () => {
+    const content = new TextEncoder().encode(designDocument(DOCUMENT_BYTES));
+    const { store, reads } = await storeOf(content);
     fromMarkdown.mockClear();
+    const outline = await store.outline("design.md");
 
-    const started = performance.now();
-    const outline = await opened.value.outline("design.md");
-    const elapsed = performance.now() - started;
-
-    // What can be counted exactly is: one read of the file, and one Markdown parse of its body, shared by the outline, the
-    // keys and the canonical addresses.
-    expect(reads).toBe(1);
+    // One read of the file, and one Markdown parse of its body, shared by the outline, the keys and the canonical addresses.
+    expect(reads.count).toBe(1);
     expect(fromMarkdown).toHaveBeenCalledTimes(1);
-    // The time cannot be counted. The library's parse is most of it: this test file took 1.26 s on CI (and about 0.4 s on a
-    // laptop), so the bound leaves CI a margin of about four times. It catches only a gross step of vmd's own: a loop over
-    // the whole text for each line takes the test to about 6 s on the laptop, while encoding the text before each line
-    // again adds only about 0.6 s and passes.
-    // Deviation from the I1 design, recorded in issue #20: the design's bound is 1.5 s, close to the 1.26 s CI takes, and
-    // it would not catch the second step either.
-    expect(elapsed).toBeLessThan(5000);
 
-    const parsed = opened.value.recordRead("design.md");
+    const parsed = store.recordRead("design.md");
     expect(content.length).toBeGreaterThanOrEqual(DOCUMENT_BYTES);
     if (!outline.ok || !parsed?.ok) throw new Error("the generated document does not parse");
     const sections = SECTIONS * (SUBSECTIONS + 1);
@@ -106,5 +120,25 @@ describe("the outline of a large document", () => {
     expect(kinds.filter((kind) => kind === "explicit")).toHaveLength(sections);
     expect(kinds.filter((kind) => kind === "block")).toHaveLength(sections * (ANCHORED_ITEMS + 1));
     expect(parsed.value.issues).toEqual([]);
+  }, 60_000);
+
+  test("outlines 673 KB in time far from quadratic", async () => {
+    // The time is compared with that of a document SCALE times smaller, measured in the same run, so that neither the
+    // machine's speed nor a steady load decides the outcome; only a load that changes between the two sizes does. The runs
+    // alternate between the sizes, and the least of each leaves out a pause for the garbage collector or another process.
+    // It catches a step of vmd's own whose cost grows with the square of the text, such as a loop over the whole text for
+    // each line.
+    // Deviation from the I1 design, recorded in issue #20: the design bounds the time at 1.5 s, which is close to what CI
+    // takes, and a fixed bound fails on a busy machine.
+    const large = new TextEncoder().encode(designDocument(DOCUMENT_BYTES));
+    const small = new TextEncoder().encode(designDocument(DOCUMENT_BYTES / SCALE));
+    await outlineTime(small);
+    let largeTime = Number.POSITIVE_INFINITY;
+    let smallTime = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < RUNS; run++) {
+      smallTime = Math.min(smallTime, await outlineTime(small));
+      largeTime = Math.min(largeTime, await outlineTime(large));
+    }
+    expect(largeTime / smallTime).toBeLessThan(MAX_RATIO);
   }, 60_000);
 });

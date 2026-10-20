@@ -576,9 +576,11 @@ average of 10 to 15 on the same machine, a cold run took 0.70 to 0.79 s. The bud
 
 The guard as built, `core`'s `store/outline-time.test.ts`, departs from the one above (recorded in #20). It generates a 673 KB
 document shaped like `Minimal_Log.md` rather than repeating the proposal. It counts what can be counted exactly: one read of the
-file and one Markdown parse. Its time bound is 5 s, the style of the suite's other timing tests: a step that loops over the
-whole text for each line takes it to about 6 s. 1.5 s would be close to the 1.26 s the test file took on CI, and would still
-pass a step that adds 0.6 s.
+file and one Markdown parse. Its time is not compared with a fixed bound: 1.5 s would be close to the 1.26 s the test file took
+on CI, and the 5 s it first had failed under load. It compares the outline's time with that of a document 8 times smaller,
+measured in the same run, the least of two runs each, and fails when the ratio reaches 16: it is 7 to 8 on a laptop at a load
+average of 3 to 40, and 26 to 29 with a step that loops over the whole text for each line. A step that encodes the text before
+each line again gave about 16, on the bound.
 
 ---
 
