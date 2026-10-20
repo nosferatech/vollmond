@@ -1818,25 +1818,23 @@ Global options:
 `get --body` on a node that is not a section is `usage-invalid`, with a hint, since the address is fine and the option does not
 apply to it. `get --source` prints the node's source text (§5.10), also under `--json`, where `get` otherwise returns the value.
 
-**`check`** prints at most 20 issues, or `-n N`, or all of them with `--all`, then the counts per code when some were not
-printed, and a line counting the records, references, errors and warnings (§12.3). `PATHS` are store paths or globs: only their
-records' issues are reported, and their references still resolve into the whole store. A path or glob that matches no record, an
-asset included, fails with `address-not-found`, naming each one, and a directory gets a hint with the glob that checks the records
-below it, since "0 records, 0 errors" for a mistyped path would read as a pass. `--fix` is a usage error until phase I5 (§21).
+**`check`** prints at most 20 issues, or `-n N`, or all of them with `--all`, then the counts per code when some were not printed,
+and a line counting the records, references, errors and warnings (§12.3). `PATHS` are store paths or globs: only their records'
+issues are reported, and their references still resolve into the whole store. A path or glob that matches no record, an asset
+included, fails with `address-not-found`, naming each one, and a directory gets a hint with the glob that checks the records below
+it, since "0 records, 0 errors" for a mistyped path would read as a pass.
 
 **`check --changed REV`** checks what changed since a git revision: every store file whose git blob id differs from the one in
 REV's tree, files REV does not have included, and every record that cites a path that differs, so a link into a file deleted or
 moved with `git mv` is reported as dangling. A record cites a path when the path its reference's URI names is that path, or one of
-its targets is there, or either is a directory above it. Which records cite a changed path comes from the snapshot of the last
-full check (§14.3), for each record still at the version the snapshot lists, and from the record itself otherwise. A change to the
-configuration in use, a file of its `schema/` directory, `.vmd/aliases.jsonl`, or a path that an alias names makes it a check of
-the whole store, since any reference may depend on it; so a stale snapshot costs work and never hides a record. vmd reads REV's
-tree with git's plumbing alone, so nothing of the working tree runs: no fsmonitor, clean filter or external diff, and files git
-ignores or cannot see are compared too. It needs git 2.30 or later, whose `git rev-parse` has `--end-of-options` (the release
-notes of git 2.30.0: ""git rev-parse" learned the "--end-of-options"", [github.com/git/git,
-`Documentation/RelNotes/2.30.0.adoc`](https://github.com/git/git/blob/master/Documentation/RelNotes/2.30.0.adoc), read on
-2026-10-20). `PATHS` with `--changed`, a REV that begins with `-`, and a range (`..`, `...`) are usage errors; a store outside a
-git repository, a revision git does not have, and a missing git fail with `storage-failed`.
+its targets is there, or either is a directory above it. A change to the configuration in use or a file of its `schema/`
+directory, when they are in the store's repository, to `.vmd/aliases.jsonl`, or to a path that an alias names makes it a check of
+the whole store, since any reference may depend on it; a configuration in another repository is not compared with REV. Which
+records cite a changed path may come from the previous full check (§13.5), but a stale one never hides a record. Nothing of the
+working tree runs to find the changes, and files git ignores or cannot see are compared too. `PATHS` with `--changed`, a REV that
+begins with `-`, and a range (`..`, `...`) are usage errors; a store outside a git repository, a revision git does not have, and a
+missing git fail with `storage-failed`. How the reference implementation reads REV's tree, and the git version it needs, are in
+the I2 design (section 7.1).
 
 **`refs`** groups the references by the record that makes them, 50 to a page unless `-n N`, then the `--cursor` to resume after
 the page's last reference; `--context N` prints N lines of the citing file around each one. The listed references' issues follow
@@ -1845,13 +1843,13 @@ default, lists every reference with a target at the node or below it; for a path
 names that path or with a target there, dangling ones included, so it also works for an asset or a deleted file.
 
 **`schema`** without a collection lists the collections, each with its globs, its schema file and its number of records, and the
-records in no collection; it loads no schema, so an unusable one does not fail the listing. `schema NAME` prints at most 40 lines
-unless `--all`; a schema that cannot be used fails with its issue, and a name the configuration does not have with
+records in no collection; it loads no schema, so an unusable one does not fail the listing. `schema NAME` prints a summary cut to
+one screen unless `--all`; a schema that cannot be used fails with its issue, and a name the configuration does not have with
 `address-not-found`.
 
 **`index`** checks the whole store over the local index, writes each record's entries and the snapshot, and evicts at once. It
-reports only the files it could not read, never validation issues. `--publish` is a usage error until phase I7, and so is
-`--no-cache`, since the command exists to write the local index the option turns off.
+reports only the files it could not read, never validation issues. `--no-cache` is a usage error with it, since the command exists
+to write the local index the option turns off.
 
 ### 12.2 Output
 
@@ -2026,9 +2024,7 @@ new one appeared at the same exact path with the same node version apart from it
 `vmd check --fix` applies it. A file moved with `git mv` is detected the same way, by an unchanged file version at a new path.
 `vmd check` also reports every reference whose resolved exact path differs from the one in the previous index (`ref-retargeted`),
 since such a reference still resolves but may now mean another node. The previous index is the snapshot of the last full check
-(§14.3); `vmd check --changed REV` uses it to find the records that cite a changed path (§12.1). The rename suggestions and
-`--fix` come with phase I5 (§21), and `ref-retargeted` is not yet reported
-([#161](https://github.com/nosferatech/vollmond/issues/161)).
+(§14.3); `vmd check --changed REV` uses it to find the records that cite a changed path (§12.1).
 
 ### 13.6 Aliases
 
@@ -2299,7 +2295,7 @@ one tarball download of the repository gives a full validation.
 | `.vmd/base`, `.vmd/journal/` | no; add to `.gitignore` |
 
 - **Validation on GitHub** runs in the vmd GitHub App, one of the patterns of §16.3. Elsewhere, any CI can run
-  `vmd check --changed <base>`. Hooks (`pre-commit` running `vmd check --staged`) are a local convenience, not a guarantee: a clone
+  `vmd check --changed <base>`. Hooks (a `pre-commit` hook running `vmd check`) are a local convenience, not a guarantee: a clone
   does not install them, and API commits do not run them.
 - **`git mv`** works. `vmd check` detects the move and suggests the reference rewrite (§13.5). `vmd mv` does both in one step.
 - **Merge drivers and semantic diff** are deferred. Custom merge drivers run only in local git, never in GitHub's merge button or

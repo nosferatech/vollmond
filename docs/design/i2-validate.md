@@ -1023,6 +1023,15 @@ does not.
   with every issue (O4).
 - **Exit codes.** 4 with any issue of severity `error`, 0 otherwise (§12.3, M4); 1 for `config-invalid`, `alias-file-invalid` and
   any other failure of the operation; 2 for usage.
+- **As built** (#162, the deviations recorded on #26). `--changed REV` reads REV's tree with git's plumbing alone,
+  `git rev-parse --show-toplevel`, `git rev-parse --verify --end-of-options REV^{tree}` and `git ls-tree -r -z --full-tree`, each
+  with `-c core.fsmonitor=false`, without a shell and without the variables that point git at another repository or configuration,
+  in place of the `git diff` and `git ls-files` above, which run the repository's fsmonitor, clean filters and external diff and
+  miss ignored files and nested repositories. It compares each listed store file's blob id with the tree's. It needs git 2.30 or
+  later, since git 2.30.0's release notes say ""git rev-parse" learned the "--end-of-options"" ([github.com/git/git,
+  `Documentation/RelNotes/2.30.0.adoc`](https://github.com/git/git/blob/master/Documentation/RelNotes/2.30.0.adoc), read on
+  2026-10-20); an older git fails with a message naming the minimum. Which records cite a changed path comes from the snapshot, as
+  section 6.2.1 says. `--fix` is a usage error until I5, and `ref-retargeted` is not yet reported (#161).
 
 ```
 $ vmd --store ~/vampiredb/docs --config examples/vampiredb/config.yaml check

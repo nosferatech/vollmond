@@ -61,8 +61,10 @@ states the nuance in §7.4, where it was already the rule for later steps.
 
 **Agent's reading, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 1.** A first step that names no node makes the
 whole address proved, whatever steps follow: nothing in the record is there to prove them from, and evaluation finds nothing at
-the first step, so `#tpyo/later` is `dangling` like `#tpyo`. An alias on `tpyo` applies to it, and the address it leads to is
-proved again from its first step. This is #154's reading 1, and Draft v0.17 states it in §7.4.
+the first step, so `#tpyo/later` is `dangling` like `#tpyo`. This is #154's reading 1, and Draft v0.17 states it in §7.4.
+
+**Agent's reading, for the owner to confirm.** Card W10's item 1 did not state the rest of #154's reading: an anchor alias on
+`tpyo` applies to such an address, and the address it leads to is proved again from its first step. Draft v0.17 states it in §7.4.
 
 ## Why
 
