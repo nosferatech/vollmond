@@ -64,6 +64,7 @@ The project owner chose (b) on the review desk on 2026-10-20, with no note.
 ## Applied in
 
 #157 (`0f54783`): the code, the I2 design's section 5.5 and reading R19, and the suite cases in `references/aliases`, among them
-`refs-many-record-alias-no-match`. Draft v0.18: §8.5 (a record alias and an empty many-valued reference, and the consequence of a
-prune), §8.2 and Appendix D `ref-dangling` (a record alias leads on), §13.6 and Appendix D `ref-aliased` (only a reference that
-reaches a node through an alias is `aliased`); the I2 design's table of reference outcomes in section 5.3; W9's record.
+`refs-many-record-alias-no-match`. Draft v0.18 (#159): §8.5 (a record alias and an empty many-valued reference, and the
+consequence of a prune), §8.2 and Appendix D `ref-dangling` (a record alias leads on), §13.6 and Appendix D `ref-aliased` (only a
+reference that reaches a node through an alias is `aliased`); the I2 design's table of reference outcomes in section 5.3; W9's
+record.

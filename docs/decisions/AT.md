@@ -75,5 +75,5 @@ The project owner chose (c) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-#153 (`02044ed`): the I2 design's section 6.2.1 and `js/packages/cli/src/cache/cache-directory.ts`. Draft v0.18: §14.3 (the
+#153 (`02044ed`): the I2 design's section 6.2.1 and `js/packages/cli/src/cache/cache-directory.ts`. Draft v0.18 (#159): §14.3 (the
 cache's location, `XDG_CACHE_HOME`, and the guard).
