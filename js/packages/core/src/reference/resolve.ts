@@ -1,6 +1,7 @@
 import { type Fragment, formatFragment, readFragment } from "../address/address.js";
 import {
   type AddressUse,
+  canonicalAddress,
   type ResolutionSubject,
   resolveAddress,
   resolveAddressSteps,
@@ -13,7 +14,7 @@ import { titleSlugOf } from "../anchor/title-slug.js";
 import type { RecordBinding } from "../binding/binding.js";
 import { collectionOfRecord, type PathClass } from "../config/classify.js";
 import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
-import type { Outcome } from "../issue/outcome.js";
+import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { valueAt } from "../record/node-value.js";
 import { isParsedRecord, isRestoredRecord, type RecordStructure } from "../record/record.js";
@@ -152,6 +153,42 @@ export class ReferenceResolver {
       }
     }
     return paths;
+  }
+
+  /**
+   * Resolves an address as a singular link to it resolves, through the aliases included, and gives the node or block anchor
+   * it reaches. Fails with `address-not-found` when it reaches nothing, `address-ambiguous` when it matches several nodes,
+   * and with the record's issues when the record cannot be read.
+   */
+  async targetOf(path: string, fragmentText: string): Promise<Outcome<Target>> {
+    const live = await this.#resolveTarget(path, false, fragmentText, "singular");
+    let final = live;
+    if (live.status === "dangling" || (live.status === "ok" && live.inRecord !== undefined)) {
+      final = (await this.#throughAliases(path, fragmentText, live, "singular")) ?? live;
+    }
+    const shown = `${path}#${fragmentText}`;
+    switch (final.status) {
+      case "ok": {
+        const target = final.targets[0];
+        if (target !== undefined && "at" in target) return succeed(target);
+        break;
+      }
+      case "ambiguous":
+        return fail([
+          makeIssue({
+            code: "address-ambiguous",
+            path,
+            at: null,
+            message: `${shown} matches several nodes`,
+            candidates: final.targets,
+          }),
+        ]);
+      case "unreadable":
+        return fail(final.issues);
+      case "dangling":
+        break;
+    }
+    return fail([makeIssue({ code: "address-not-found", path, at: null, message: `${shown} matches no node` })]);
   }
 
   /** The store paths of every record among the store's files, in the order given. */
@@ -446,6 +483,7 @@ export class ReferenceResolver {
       at: occurrence.at,
       ...(occurrence.offset === undefined ? {} : { offset: occurrence.offset }),
     };
+    const fromAddress = canonicalAddress(citing, occurrence.at);
     const position = positionOf(citing, occurrence);
     const issue = (init: Omit<IssueInit, "path" | "at" | "offset" | "position">) => makeIssue({ ...init, ...from, ...position });
     const shown = JSON.stringify(occurrence.raw);
@@ -506,7 +544,7 @@ export class ReferenceResolver {
     if (refusal !== null) issues.push(issue({ ...refusal, message: `${shown} ${refusal.message}` }));
     return Object.freeze({
       ...occurrence,
-      from: Object.freeze(from),
+      from: Object.freeze({ ...from, address: fromAddress }),
       status,
       ...position,
       targets: Object.freeze([...targets]),

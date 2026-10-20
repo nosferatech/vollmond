@@ -119,7 +119,7 @@ describe("computed fields", () => {
       offset,
       raw,
       uri: raw,
-      from: { path: "r.md", at, offset },
+      from: { path: "r.md", at, address: "", offset },
       status: "dangling",
       targets: [],
       issues: [],

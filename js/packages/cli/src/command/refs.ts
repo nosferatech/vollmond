@@ -5,13 +5,16 @@ import {
   compareUtf8,
   type Outcome,
   type Reference,
+  type ReferenceListing,
   type ReferenceTarget,
   type Store,
   succeed,
 } from "@vollmond/core";
+import { DEFAULT_ISSUE_LIMIT } from "../output/issues.js";
 import { type ColumnRow, formatColumns, oneLine, oneLineWithTabs } from "../output/lines.js";
 import { formatPageRemainder, MAX_LIMIT, readLimit } from "../output/paging.js";
-import { counted } from "./check.js";
+import { formatCount } from "../output/sizes.js";
+import { checkIssueDetails, counted } from "./check.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
 import { argumentCountProblem, rangeJson, readWholeNumber, storeIssueDetails } from "./options.js";
 
@@ -25,6 +28,20 @@ export interface ReferencePage {
   /** The cursor that continues after the page, or null when nothing remains. */
   readonly cursor: string | null;
   readonly remaining: { readonly count: number; readonly exact: true };
+  /** The records the listing could not read, and those of each collection whose schema cannot be used. */
+  readonly unreadable: ReferenceListing["unreadable"];
+}
+
+/**
+ * Writes the line that counts the records the listing could not read, naming each collection whose schema cannot be used
+ * with its records' count; the empty string for none.
+ */
+function formatUnreadable(unreadable: ReferenceListing["unreadable"]): string {
+  if (unreadable.count === 0) return "";
+  const schemas = unreadable.schemas.map(
+    (schema) => `${formatCount(schema.count)} of the collection ${schema.collection}, whose schema cannot be used`,
+  );
+  return `${counted(unreadable.count, "record")} could not be read${schemas.length === 0 ? "" : `: ${schemas.join("; ")}`}\n`;
 }
 
 /**
@@ -35,11 +52,15 @@ export interface ReferencePage {
  * `--from` the address it resolves to. `--context N` adds N lines of the citing file before and after each. At most `-n` of
  * them (50 by default) are printed, then, when more remain, how many and the cursor that continues.
  *
- * `--to` with a path alone lists every reference whose URI names that path, a record's, an asset's, or one where nothing is,
- * whatever its status; with a fragment, those with a target at the node or below it (reading R24 of the I2 design, for the
- * project owner to confirm). The listed references' issues follow the listing, with the severities the configuration gives
- * them, so exit code 4 when one is an error. In the strict read mode, a record the mode refuses is left out and reported, and
- * `--from` it fails, as `get` does.
+ * `--to` with a path alone, or with `#` alone, lists every reference whose URI names that path, a record's, an asset's, a
+ * directory's or one where nothing is, whatever its status, but not those to the files below a directory; with a fragment,
+ * resolved as a link to it is, through aliases, those with a target at the node or below it (readings R24 and R27 of the I2
+ * design, for the project owner to confirm). The records the listing could not read are counted on a line of their own, so
+ * that none vanishes silently, naming each collection whose schema cannot be used. The issues of every listed reference
+ * follow the listing, on every page, with the severities the configuration gives them, capped at 20, so exit code 4 when one
+ * is an error. In the strict read mode, a record the mode refuses is left out and reported, and `--from` it fails, as `get`
+ * does. A cursor resumes after the citing record and the ordinal it names, and is not bound to its query, as `grep`'s is not
+ * (reading R26).
  */
 export const REFS_COMMAND: Command = {
   name: "refs",
@@ -77,25 +98,30 @@ export const REFS_COMMAND: Command = {
       run: async (opened) => {
         const { store } = opened as OpenedStore;
         const reading = { raw: true } as const;
-        const listed = await store.references(outgoing ? { from: address, reading } : { to: address, reading });
+        const listed = await store.referenceListing(outgoing ? { from: address, reading } : { to: address, reading });
         if (!listed.ok) return outcomeOutput(listed, () => "", storeIssueDetails(store));
-        const all = listed.value;
+        const all = listed.value.references;
+        const unreadable = listed.value.unreadable;
         const start = after === null ? 0 : startAfter(all, after);
         const shown = all.slice(start, start + limit.limit);
         const rest = all.length - start - shown.length;
         const last = shown.at(-1);
         const cursor = rest > 0 && last !== undefined ? writeCursor(last, all) : null;
-        const issues = applySeverities(
-          [...listed.issues, ...shown.flatMap((reference) => reference.issues)],
-          store.configuration,
-        );
-        const page: ReferencePage = { items: shown.map(referenceJson), cursor, remaining: { count: rest, exact: true } };
+        // The issues of every reference listed, not only the page's, so that the exit code is the whole result's, as for
+        // `check -n`; they are printed capped, the references being resolved already.
+        const issues = applySeverities([...all.flatMap((reference) => reference.issues), ...listed.issues], store.configuration);
+        const page: ReferencePage = {
+          items: shown.map(referenceJson),
+          cursor,
+          remaining: { count: rest, exact: true },
+          unreadable,
+        };
         const lines = await referenceLines(store, shown, outgoing, context.value);
         const text = () =>
-          `${oneLine(address)}  ${counted(all.length, "reference")}\n${lines}` +
+          `${oneLine(address)}  ${counted(all.length, "reference")}\n${lines}${formatUnreadable(unreadable)}` +
           (cursor === null ? "" : formatPageRemainder({ remaining: rest, cursor }));
         const outcome: Outcome<ReferencePage> = succeed(page, issues);
-        return outcomeOutput(outcome, text, storeIssueDetails(store));
+        return outcomeOutput(outcome, text, await checkIssueDetails(store, issues, DEFAULT_ISSUE_LIMIT));
       },
     };
   },
@@ -160,7 +186,7 @@ async function referenceLines(
     const group = references.slice(start, end);
     const rows: ColumnRow[] = [];
     for (const reference of group) {
-      const address = (await store.nodeAddress(path, reference.from.at)) ?? `#${reference.from.at}`;
+      const address = reference.from.address;
       const where = reference.position === undefined ? "" : `:${reference.position.line}:${reference.position.col}`;
       const resolved = outgoing && reference.targets.length > 0 ? [`-> ${reference.targets.map(targetText).join(", ")}`] : [];
       rows.push({ cells: [`${address === "" ? "#" : address}${where}`, reference.status, reference.raw, ...resolved], depth: 1 });
@@ -185,7 +211,8 @@ async function referenceLines(
 async function linesOf(store: Store, path: string): Promise<readonly string[]> {
   const file = await store.backend.read(path);
   if (!file.ok || "oversized" in file.value) return [];
-  const text = new TextDecoder("utf-8").decode(file.value.content).replace(/^﻿/, "");
+  // The decoder drops a byte order mark, which no line shows.
+  const text = new TextDecoder("utf-8").decode(file.value.content);
   const lines = text.split(/\r\n|\n|\r/);
   if (lines.at(-1) === "") lines.pop();
   return lines;

@@ -46,8 +46,11 @@ export type ReferenceTarget = Target | { readonly path: string; readonly kind: "
 
 /** A reference of a record, resolved in its store. */
 export interface Reference extends ReferenceOccurrence {
-  /** Where the reference is: the citing record's path, the node of {@link ReferenceOccurrence.at}, and a link's offset. */
-  readonly from: { readonly path: string; readonly at: string; readonly offset?: number };
+  /**
+   * Where the reference is: the citing record's path, the node of {@link ReferenceOccurrence.at} and its canonical address,
+   * and a link's offset.
+   */
+  readonly from: { readonly path: string; readonly at: string; readonly address: string; readonly offset?: number };
   readonly status: ReferenceStatus;
   /**
    * Where the reference is in its file, by line and column, as its issues report it: where its destination starts for a

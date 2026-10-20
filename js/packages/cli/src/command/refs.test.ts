@@ -142,6 +142,8 @@ describe("refs in the strict read mode", () => {
     expect(from.exitCode).toBe(1);
     // The references into the refused record are listed, none here; the record is still reported as one the listing left out.
     const into = await vmd(root, "--strict", "refs", "--to", "tasks/t.json");
-    expect(into.stdout).toMatch(/^tasks\/t\.json {2}0 references\ntasks\/t\.json:1:2 error schema-violation: /);
+    expect(into.stdout).toMatch(
+      /^tasks\/t\.json {2}0 references\n1 record could not be read\ntasks\/t\.json:1:2 error schema-violation: /,
+    );
   });
 });
