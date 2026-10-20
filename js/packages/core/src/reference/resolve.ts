@@ -360,14 +360,10 @@ export class ReferenceResolver {
         );
         break;
       case "unreadable": {
-        // The storage's message names the record, which this one names already; a structural error's is kept whole.
+        // The storage's message names the record, which this one names already. Only that message starts with
+        // `cannot read <path>: `, so a structural error's, or a schema's, is kept whole.
         const inner = resolution.issues[0];
-        const why =
-          inner === undefined
-            ? ""
-            : inner.code === "storage-failed"
-              ? storageFailureReason(inner.message, resolution.path)
-              : inner.message;
+        const why = inner === undefined ? "" : storageFailureReason(inner.message, resolution.path);
         issues.push(
           issue({
             code: "ref-target-unreadable",

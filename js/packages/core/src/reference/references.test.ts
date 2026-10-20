@@ -156,8 +156,8 @@ describe("a reference's status and targets", () => {
     expect(reference.issues[0]?.message).toBe(
       '"/notes/a.md#part" points into notes/a.md, which cannot be read, so its target cannot be resolved: permission denied',
     );
-    // Its near misses keep their whole message: a structural error, and a storage failure that is not the record's own, of a
-    // collection whose schema cannot be read.
+    // Its near misses keep their whole message, since it does not start with `cannot read <path>: `: a structural error, and a
+    // storage failure that is not the record's own, of a collection whose schema cannot be read.
     expect((await one("/data/broken.json#a")).issues[0]?.message).toBe(
       '"/data/broken.json#a" points into data/broken.json, which cannot be read, so its target cannot be resolved: the member "a" is repeated',
     );
