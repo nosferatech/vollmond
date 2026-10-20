@@ -259,7 +259,6 @@ describe("the proof that a singular address names one node", () => {
     expect(singular(binding, "#$title")).toBe("/$title #$title");
     expect(singular(binding, "#$sections")).toBe("/$sections #$sections");
     expect(singular(binding, "#$sections/done")).toBe("address-not-singular r.json null");
-    expect(singular(binding, "#status")).toBe("address-not-singular r.json null");
   });
 
   // Review of #108, B1: prefixItems and items bring unequal keyed lists to one member of an item at an unknown position. Their
@@ -337,14 +336,133 @@ describe("the proof that a singular address names one node", () => {
     expect(singular(binding, "#g/runs")).toBe("/groups/0/runs #g/runs");
   });
 
-  test("a root whose sections are declared multimap leaves no first step singular, explicit anchors included", async () => {
+  // Card AO (project owner, 2026-10-20): where the schema cannot prove the first step, the proof looks it up in the record, and
+  // the step is singular when it names exactly one node there; the steps after it are still proved from the schema.
+  describe("through a root whose sections are declared multimap", () => {
+    const repeating = { "x-vmd-list": { type: "multimap", keys: ["@key"] } };
+    // Every level of sections may repeat its keys.
+    const journal = { properties: { $sections: { ...repeating, items: { properties: { $sections: repeating } } } } };
+    const text = [
+      "# J",
+      '## Done <a id="done"></a>',
+      "Finished.",
+      "### Later",
+      "Soon.",
+      "## Monday",
+      "One.",
+      "## Monday",
+      "Two.",
+      '### Errand <a id="errand"></a>',
+      "Milk.",
+      "",
+    ].join("\n\n");
+
+    test("a first step that names one node in the record is singular: an explicit anchor, at the top level or below", async () => {
+      const binding = await bound("j.md", text, journal);
+      expect(singular(binding, "#done")).toBe("/$sections/0 #done");
+      expect(singular(binding, "#done/$body")).toBe("/$sections/0/$body #done/$body");
+      expect(singular(binding, "#errand")).toBe("/$sections/2/$sections/0 #errand");
+      expect(singular(binding, "#errand/$title")).toBe("/$sections/2/$sections/0/$title #errand/$title");
+      // A derived anchor that names one node is a first step like any other.
+      expect(singular(binding, "#monday-1")).toBe("/$sections/2 #monday-1");
+      // The canonical addresses follow: the explicit anchor is form 1, and a repeated section's unique derived anchor form 3.
+      expect(canonicalAddress(binding, "/$sections/0")).toBe("#done");
+      expect(canonicalAddress(binding, "/$sections/2")).toBe("#monday-1");
+    });
+
+    test("a first step that names several nodes in the record, or none, stays unprovable", async () => {
+      const binding = await bound("j.md", text, journal);
+      expect(singular(binding, "#monday")).toBe("address-not-singular j.md null");
+      expect(singular(binding, "#monday/$body")).toBe("address-not-singular j.md null");
+      expect(singular(binding, "#nothing")).toBe("address-not-singular j.md null");
+      expect(selected(binding, "#monday")).toEqual(["/$sections/1", "/$sections/2"]);
+      // The first Monday's derived anchor is also the key of both, so its canonical address is its exact path.
+      expect(canonicalAddress(binding, "/$sections/1")).toBe("#/$sections/1");
+    });
+
+    test("the steps after the first are still proved from the schema", async () => {
+      const binding = await bound("j.md", text, journal);
+      // One Later exists, but done's child sections are declared multimap.
+      expect(singular(binding, "#done/later")).toBe("address-not-singular j.md null");
+      // Errand's own child sections are not declared, so the step after it is unique by the strict default, and matches nothing.
+      expect(singular(binding, "#errand/nothing")).toBe("address-not-found j.md null");
+      // The near miss: where done's child sections are not declared, the same step is unique by the strict default.
+      const rootOnly = { properties: { $sections: repeating } };
+      expect(singular(await bound("j.md", text, rootOnly), "#done/later")).toBe("/$sections/0/$sections/0 #done/later");
+    });
+
+    test("an explicit anchor that a top-level key repeats names two nodes, and stays unprovable", async () => {
+      const both = '# J\n\n## Done\n\nA.\n\n## Week\n\n### Finished <a id="done"></a>\n\nB.\n';
+      const binding = await bound("j.md", both, journal);
+      expect(singular(binding, "#done")).toBe("address-not-singular j.md null");
+      // The near miss: with no level declared, the proof accepts the step, and evaluation finds it ambiguous (§7.3).
+      expect(singular(await bound("j.md", both, {}), "#done")).toBe("address-ambiguous j.md null");
+    });
+
+    // Review of #147, M9: a block anchor is one of the first step's matches, and dropping it from the count passed every test.
+    test("a block anchor counts among the first step's matches, alone or beside a top-level key", async () => {
+      const blocks =
+        '---\nroom: 1\n---\n# J\n\n## Log\n\nA.\n\n## Monday\n\n<a id="room"></a>B.\n\n## Monday\n\n<a id="desk"></a>C.\n';
+      const binding = await bound("j.md", blocks, { properties: { $sections: repeating } });
+      expect(binding.issues).toEqual([]);
+      // The field room and the block anchor room are two matches.
+      expect(singular(binding, "#room")).toBe("address-not-singular j.md null");
+      const desk = resolveAddress(binding, fragmentOf("#desk"), "singular");
+      if (!desk.ok) expect.fail(JSON.stringify(desk.issues));
+      expect(desk.value).toEqual([{ path: "j.md", at: "/$sections/2/$body", address: "#desk", range: expect.anything() }]);
+    });
+
+    test("a unique top-level key is singular, a field's and a section's", async () => {
+      const json = JSON.stringify({ $title: "R", status: "x", $sections: [{ $title: "Done" }, { $title: "Log" }] });
+      const binding = await bound("r.json", json, journal);
+      expect(singular(binding, "#status")).toBe("/status #status");
+      expect(singular(binding, "#log")).toBe("/$sections/1 #log");
+      expect(singular(binding, "#log/$title")).toBe("/$sections/1/$title #log/$title");
+      expect(singular(binding, "#log/entry")).toBe("address-not-singular r.json null");
+      const markdown = await bound("j.md", "# J\n\n## Summary\n\nQuiet.\n\n## Monday\n\n## Monday\n", journal);
+      expect(singular(markdown, "#summary")).toBe("/$sections/0 #summary");
+    });
+  });
+
+  // Review of Draft v0.16 against #147: the record decided the first step only at a root declared multimap, so declaring more
+  // repeats made #notes/a provable.
+  test("the record decides the first step wherever the schema cannot prove the address, at any root", async () => {
+    const repeating = { "x-vmd-list": { type: "multimap", keys: ["@key"] } };
+    const below = { items: { properties: { $sections: repeating } } };
+    const text = JSON.stringify({ $title: "R", notes: { a: 1 }, $sections: [{ $title: "Log" }] });
+    for (const root of [{ "x-vmd-list": { type: "map", keys: ["@key"] } }, {}, repeating]) {
+      const binding = await bound("r.json", text, { properties: { $sections: { ...root, ...below } } });
+      // The schema alone cannot tell the field notes from a root section notes, whose child sections may repeat.
+      expect(singular(binding, "#notes/a")).toBe("/notes/a #notes/a");
+      // Log is the one root section keyed log, and its child sections are declared multimap all the same.
+      expect(singular(binding, "#log/a")).toBe("address-not-singular r.json null");
+      expect(singular(binding, "#nothing/a")).toBe("address-not-singular r.json null");
+    }
+  });
+
+  // Re-review of #147: removing either guard below failed no test, and each leaves the proof unsound.
+  test("a first step that the record decides keeps its place: a $ step is not looked up, and a section stays a section", async () => {
+    const repeating = { "x-vmd-list": { type: "multimap", keys: ["@key"] } };
+    const schema = { properties: { $sections: { items: { properties: { $sections: repeating } } } } };
+    const binding = await bound("j.md", "# J\n\n## Done\n\n### Later\n\nA.\n\n### Later\n\nB.\n", schema);
+    expect(binding.issues).toEqual([]);
+    // $sections is the root's own member, which the schema reads as the root's child sections, whose children may repeat.
+    expect(singular(binding, "#$sections/done/later")).toBe("address-not-singular j.md null");
+    // Done is the one root section keyed done, and the step after it crosses its child sections, declared multimap.
+    expect(singular(binding, "#done/later")).toBe("address-not-singular j.md null");
+  });
+
+  test("an unprovable address says how many nodes its first step names in the record, and which", async () => {
     const schema = { properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } } };
-    const text = JSON.stringify({ $title: "R", status: "x", $sections: [{ $title: "Done", $anchor: "done" }] });
-    const binding = await bound("r.json", text, schema);
-    expect(singular(binding, "#done")).toBe("address-not-singular r.json null");
-    expect(singular(binding, "#status")).toBe("address-not-singular r.json null");
-    expect(canonicalAddress(binding, "/$sections/0")).toBe("#/$sections/0");
-    expect(canonicalAddress(binding.record, "/$sections/0")).toBe("#done");
+    const both = '# J\n\n## Done\n\nA.\n\n## Week\n\n### Finished <a id="done"></a>\n\nB.\n';
+    const message = (outcome: ReturnType<typeof proveSingular>) => (outcome.ok ? "proved" : outcome.issues[0]?.message);
+    const binding = await bound("j.md", both, schema);
+    expect(message(proveSingular(binding, fragmentOf("#done")))).toBe(
+      'j.md#done: its step 1, "done", crosses a level its schema declares multimap, where keys may repeat, and it names 2 nodes in the record, /$sections/0 and /$sections/1/$sections/0, so it cannot be proved to name one node',
+    );
+    expect(message(proveSingular(binding, fragmentOf("#nothing")))).toBe(
+      'j.md#nothing: its step 1, "nothing", crosses a level its schema declares multimap, where keys may repeat, and it names no node in the record, so it cannot be proved to name one node',
+    );
   });
 
   test("two patterns that bring a multimap and a map to one member make a step through it unprovable", async () => {

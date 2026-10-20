@@ -382,8 +382,8 @@ class RecordResolver {
   }
 
   // Deviation from the I2 design, recorded in issue #23: the proof applies to every form of a canonical address, the explicit
-  // anchor included, since a form must be singular as an address and a first step is not provable through a root whose
-  // sections are declared multimap.
+  // anchor included, since a form must be singular as an address, and where the schema alone cannot prove a form it is
+  // provable only where its first step names one node in the record.
   /** Whether `steps`, as a singular address, are proved singular and resolve to `match` and nothing else. */
   #namesOnly(steps: readonly string[], match: Match): boolean {
     // The candidates of one ambiguous step share their forms, so each form is proved and evaluated once, not once each.
