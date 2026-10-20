@@ -265,11 +265,10 @@ export interface Store {
    * Gives the references made in a node and below it, or in every record of the store, each resolved against the store, in
    * document order of each record and the records in UTF-8 byte order of their paths. References that leave the store are not
    * given. Without `from`, a record that cannot be read is left out: in the strict read mode, a record the mode refuses too,
-   * and the issues of each record left out are the outcome's, unless a collection's schema cannot be used, which fails the
-   * read with that schema's issue. With `from`, the read fails as resolving `from` does. A reference's status does not depend
-   * on the read mode. Fails
-   * with `alias-file-invalid` for an alias file that cannot be read as one, or one larger than `MAX_ALIAS_FILE_BYTES`, which is
-   * refused by its size before it is read, and as the backend's `list` and `read` do.
+   * and the issues of each record left out are the outcome's, unless some collections' schemas cannot be used, which fails the
+   * read with each such schema's issue, once. With `from`, the read fails as resolving `from` does. A reference's status does
+   * not depend on the read mode. Fails with `alias-file-invalid` for an alias file that cannot be read as one, or one larger
+   * than `MAX_ALIAS_FILE_BYTES`, which is refused by its size before it is read, and as the backend's `list` and `read` do.
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
   /**
@@ -566,18 +565,21 @@ class BackendStore implements Store {
     if (query.from === undefined) {
       const references: Reference[] = [];
       const refusals: Issue[] = [];
+      // The issues of the collections whose schemas cannot be used, once each: they have no record path.
+      const schemaIssues: Issue[] = [];
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
         const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.record(path);
         if (read === null) continue;
         if (read.ok) {
           for (const reference of await resolver.value.referencesOf(subjectRecord(read.value))) references.push(reference);
         } else if (this.readMode === "strict") {
-          // The issue of a collection whose schema cannot be used has no record path, and fails the whole read.
-          if (read.issues.some((issue) => issue.path === null)) return fail(read.issues);
-          for (const issue of read.issues) refusals.push(issue);
+          for (const issue of read.issues) {
+            if (issue.path !== null) refusals.push(issue);
+            else if (!schemaIssues.includes(issue)) schemaIssues.push(issue);
+          }
         }
       }
-      return succeed(references, refusals);
+      return schemaIssues.length > 0 ? fail(schemaIssues) : succeed(references, refusals);
     }
     const resolved = await this.resolve(query.from, "singular", query.reading);
     if (!resolved.ok) return fail(resolved.issues);

@@ -628,15 +628,19 @@ a global `--strict` now, which §12.1 does not list, is question 11. `ref-target
 strict `get` of one record resolves that record's typed references.
 
 The refusal is the readers', not the store's shared read path (the project owner's answer on card AJ): a strict `get`, `outline`
-or `resolve` fails with the record's refusing issues, those only, but `Store.binding`, which the reference resolver and `check`
-read, binds the record in either mode. So a reference into a refused record has the status a best-effort store gives it, and
-`check` reports the same issues in both modes, as §9.5's validator reports every issue whatever the mode. §8.5's `unreadable` stays
-the status of a reference into a record every reader refuses.
+or `resolve` fails on a refused record, but `Store.binding`, which the reference resolver and `check` read, binds the record in
+either mode. So a reference into a refused record has the status a best-effort store gives it, and `check` reports the same issues
+in both modes, as §9.5's validator reports every issue whatever the mode. §8.5's `unreadable` stays the status of a reference into
+a record every reader refuses. A refused read fails with the record's refusing issues only, not its other errors, as a read of a
+record with a structural error fails with its structural errors (the implementing agent's reading, for the project owner to
+confirm, in #146).
 
 `references()` over every record (`refs` without `from`) reads as a query does (the project owner's answer on card AK): in the
-strict mode it returns the references of the records it can read, gives each refused record's refusing issues as errors of the
-outcome, and fails as a whole over a collection whose schema cannot be used. A best-effort store leaves both out silently, as
-before.
+strict mode it returns the references of the records it can read, reports each refused record as an error of the outcome, and
+fails as a whole over a collection whose schema cannot be used. A best-effort store leaves both out silently, as before. The
+implementing agent's readings, for the project owner to confirm (in #146): a refused record is reported by every issue it is
+refused for, not by one error per record; a record with a structural error, and one the backend cannot read (`storage-failed`),
+are reported as well; and the failure gives the issue of each collection whose schema cannot be used, once each.
 
 The first pull request of the mode refuses the codes that exist then; `ref-target-not-allowed` comes with typed references
 (I2.4's second pull request, section 13), and with it the resolution of a strict read's typed references, recorded as a deviation

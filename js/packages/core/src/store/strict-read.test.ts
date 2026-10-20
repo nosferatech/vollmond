@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "vitest";
 import type { Outcome } from "../issue/outcome.js";
-import { createMemoryStorage } from "../storage/memory.js";
+import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import { openStore, type ReadMode, type Store } from "./store.js";
 
 const config = (uniqueness: "strict" | "lenient") =>
@@ -73,7 +73,7 @@ function successValue<T>(outcome: Outcome<T>): T {
 async function store(
   readMode?: ReadMode,
   uniqueness: "strict" | "lenient" = "strict",
-  extra: Readonly<Record<string, string>> = {},
+  extra: Readonly<Record<string, string | MemoryFile>> = {},
 ): Promise<Store> {
   const options = readMode === undefined ? {} : { readMode };
   return successValue(await openStore(createMemoryStorage({ files: { ...files(uniqueness), ...extra } }), options));
@@ -185,6 +185,30 @@ describe("the strict read mode", () => {
     const lenient = await (await store("best-effort", "strict", UNUSABLE_SCHEMA)).references();
     expect(lenient.ok).toBe(true);
     expect(shown(lenient)).toEqual([]);
+  });
+
+  test("references of every record report a record the backend cannot read in a strict store only", async () => {
+    const locked = { "runs/locked.json": { content: "{}", unreadable: true } };
+    const strict = await (await store("strict", "strict", locked)).references();
+    expect(strict.ok).toBe(true);
+    expect(shown(strict)).toContain("error storage-failed runs/locked.json null");
+    const lenient = await (await store("best-effort", "strict", locked)).references();
+    expect(shown(lenient)).toEqual([]);
+  });
+
+  test("references of every record fail with the issue of each collection whose schema cannot be used", async () => {
+    const twoUnusable = {
+      ...UNUSABLE_SCHEMA,
+      ".vmd/config.yaml": `${UNUSABLE_SCHEMA[".vmd/config.yaml"]}  worse:\n    match: ["worse/*.md"]\n    schema: gone.schema.json\n`,
+      "bad/y.md": "# Y\n",
+      "worse/z.md": "# Z\n",
+    };
+    const strict = await (await store("strict", "strict", twoUnusable)).references();
+    expect(strict.ok).toBe(false);
+    const issues = strict.issues.map((issue) => `${issue.code} ${issue.path} ${issue.message}`);
+    expect(issues).toHaveLength(2);
+    expect(issues[0]).toMatch(/^schema-invalid null .*missing\.schema\.json/);
+    expect(issues[1]).toMatch(/^schema-invalid null .*gone\.schema\.json/);
   });
 
   test("a strict listing counts refused records as unreadable, without reporting their issues", async () => {
