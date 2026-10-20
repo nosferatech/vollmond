@@ -57,9 +57,12 @@ interface State {
   readonly aliases: readonly string[];
 }
 
+/** The names a link may name: a record's, or an old name that an alias may lead from. */
+const LINKED_NAMES = [...NAMES, "a-old", "b-old"] as const;
+
 const target = fc.record({
   kind: fc.constantFrom("d", "r"),
-  name: fc.constantFrom(...NAMES),
+  name: fc.constantFrom(...LINKED_NAMES),
   fragment: fc.constantFrom(...FRAGMENTS),
 });
 type Target = typeof target extends fc.Arbitrary<infer T> ? T : never;
@@ -229,6 +232,61 @@ describe("a check over the local index", () => {
         }
       }),
       { numRuns: 300 },
+    );
+  });
+});
+
+/** A check's issues with a path, by that path, each written whole, so that two checks' issues for a record compare. */
+function issuesByPath(outcome: Outcome<CheckSummary>): Map<string, string[]> {
+  const byPath = new Map<string, string[]>();
+  for (const issue of outcome.issues) {
+    if (issue.path === null) continue;
+    byPath.set(issue.path, [...(byPath.get(issue.path) ?? []), JSON.stringify(issue)]);
+  }
+  return byPath;
+}
+
+describe("a check of what changed", () => {
+  // About 3 s alone; the bound leaves room for a loaded machine running every test file at once.
+  test("reports, for each record it reports, what a full check reports, and reports every record whose issues changed", {
+    timeout: 120_000,
+  }, async () => {
+    const step = fc.record({ change: operation, snapshot: fc.boolean() });
+    await fc.assert(
+      fc.asyncProperty(fc.array(step, { minLength: 1, maxLength: 8 }), async (steps) => {
+        const cache = createMemoryIndexCache();
+        let state: State = {
+          files: { "d/a.md": "# A\n\n## Intro\n", "r/a.json": '{"steps": []}' },
+          schema: 0,
+          settings: 0,
+          aliases: [],
+        };
+        await (await storeOf(state, cache)).check();
+        for (const { change, snapshot } of steps) {
+          const before = storeFiles(state);
+          const issuesBefore = issuesByPath(await (await storeOf(state)).check());
+          // Sometimes the snapshot is brought up to date, and sometimes it stays as an older full check left it.
+          if (snapshot) await (await storeOf(state, cache)).check();
+          state = apply(state, change);
+          const after = storeFiles(state);
+          const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+            (path) => before[path] !== after[path],
+          );
+          // A change to the configuration or a schema is the caller's to widen to the whole store.
+          if (changed.some((path) => path === ".vmd/config.yaml" || path.startsWith(".vmd/schema/"))) continue;
+          const full = await (await storeOf(state)).check();
+          const incremental = await (await storeOf(state, cache)).check({ changed });
+          expect(incremental.ok).toBe(full.ok);
+          const issuesAfter = issuesByPath(full);
+          const reported = issuesByPath(incremental);
+          for (const [path, issues] of reported) expect({ path, issues }).toEqual({ path, issues: issuesAfter.get(path) });
+          for (const [path, issues] of issuesAfter) {
+            if (JSON.stringify(issues) === JSON.stringify(issuesBefore.get(path))) continue;
+            expect({ path, issues: reported.get(path) }).toEqual({ path, issues });
+          }
+        }
+      }),
+      { numRuns: 200 },
     );
   });
 });
