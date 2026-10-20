@@ -72,11 +72,12 @@ obvious they should be refused" means:
   `schema-invalid` or `feature-unsupported`, and no other schema is. "Otherwise we can pretend that problem doesn't exist, and
   shift responsibility on the user" is §9.2's sentence that a service validating untrusted data needs a time budget of its own,
   which the draft does not define, as §5.4 does not for records.
-- Alternatives considered and not taken, since each adds a refusal that no answer agreed to: the card's (c), a cap on the parts
-  that hold or lead to a vmd keyword, which refuses legitimate generated schemas; the card's (a), whose refusals above the floor
-  depend on each implementation's budget; the card's (d), a count the spec defines; and a size bound smaller than 1 MiB, which
-  #111 shows would not bound the time either. Which schemas are "obviously" too expensive is the "just bad" class of the owner's
-  first note, which #119 is to define.
+- Not part of W6's item 6, which confirms the first bullet only, and still the agent's reasoning for it: alternatives considered
+  and not taken, since each adds a refusal that no answer agreed to: the card's (c), a cap on the parts that hold or lead to a vmd
+  keyword, which refuses legitimate generated schemas; the card's (a), whose refusals above the floor depend on each
+  implementation's budget; the card's (d), a count the spec defines; and a size bound smaller than 1 MiB, which #111 shows would
+  not bound the time either. Which schemas are "obviously" too expensive is the "just bad" class of the owner's first note, which
+  #119 is to define.
 
 ## Why
 

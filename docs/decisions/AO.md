@@ -59,17 +59,24 @@ AD's rule for a `$` step from a section stands, and is still proved from the sch
 
 1. A first step that names no node of the record, or several, is proved from the schema as before, so `#monday` is not singular
    in the card's journal, and in a store whose root level is a `type: map`, a first step that matches a root member and another
-   node's anchor still passes the proof and is ambiguous when evaluated (§7.4's second case the proof cannot cover). #147 reads
-   it the same way (its reading 1) and names a cost: in such a journal a first step that names no node, `#typo`, is `ambiguous`
-   rather than `dangling`, so an anchor alias never applies to it; after `done` is renamed to `finished`, `#done` stays
-   `ambiguous` instead of following the alias, as before this decision.
+   node's anchor still passes the proof and is ambiguous when evaluated (§7.4's second case the proof cannot cover).
+   **Open, asked as card AP.** This has a cost, which #147 also names (its reading 1): in a journal whose top-level sections may
+   repeat, a first step that names no node, `#typo`, is `ambiguous` rather than `dangling`, so an anchor alias never applies to
+   it; after `done` is renamed to `finished`, `#done` stays `ambiguous` instead of following the alias, as before this decision.
+   That meets §13.6's rule that a first step that "reaches no name of the record, then follows the record's anchor aliases". For
+   now the proof's result comes first: an address the proof does not accept is `ambiguous` and is not resolved through an
+   alias. Draft v0.16 says so in §7.4 and §13.6, so that the two rules do not read as contradicting each other. The other
+   reading, under which a first step that names no node counts as proved, so that evaluation finds it `dangling` and the aliases
+   apply, is the card's to decide.
 2. "Names exactly one node" counts every name a first step reaches (§7.3): root members, the root's child sections by key,
    section members, and anchors, explicit and derived. The card's parenthesis gives two examples; a derived anchor that names
    one node, such as `#monday-1`, is singular by the same rule.
 3. AO supersedes AD rather than leaving it standing as [AH](AH.md) left [AC](AC.md): AD's decision says the proof works from the
    schema alone, which AO changes, as [AC](AC.md) superseded [W4](W4.md) for one of its items. It does not supersede [U3](U3.md),
-   whose rule, that a reference the proof cannot make singular through a `multimap` level is `ambiguous`, stands; AO changes what
-   the proof can make singular.
+   whose decision, "a reference through a `multimap` level has the status `ambiguous` and the issue `ref-ambiguous`", is read as
+   still holding for every step that the proof does not accept; a first step that names exactly one node is accepted, so a
+   reference whose only `multimap` level is the root's, crossed by such a step, is not "through" it in U3's sense. U3's record
+   notes that AO is partly its rejected option (c) for the first step.
 
 ## Why
 
@@ -86,7 +93,8 @@ The project owner chose (b) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16 (#148): §7.4 (the first step looked up in the record, the journal example, and the `$` step's part of the proof
-needing only the schema), §8.5 (a first step that names one node), Appendix D `ref-ambiguous`; [AD](AD.md)'s record. The code,
-with the I2 design's section 4.4 and its suite cases, is #147, which reads the record only where the schema cannot prove the first
-step; the result is the same, since a first step the schema proves singular needs no lookup (its reading 4).
+Draft v0.16 (#148): §7.4 (the first step looked up in the record whatever the root's level declares, the journal example, the
+proof's result coming first, and the `$` step's part of the proof needing only the schema), §8.5 (a first step that names one
+node), §13.6 (an address the proof does not accept follows no alias), Appendix D `ref-ambiguous`; the records of [AD](AD.md) and
+[U3](U3.md). The code, with the I2 design's section 4.4 and its suite cases, is #147, which is being brought in line with §7.4's
+lookup.

@@ -39,6 +39,11 @@ The card's example: "`vmd refs --to people/ana.md` on a strict store, where one 
 error, and fails as a whole when it would leave out the records of a collection whose schema cannot be used, as a query does
 (§9.5).
 
+**Agent's reading, for the owner to confirm.** Two cases of one record that the card leaves open, which Draft v0.16 states in
+§9.5: `vmd refs --from` a record that the strict mode refuses fails, as a strict `get` of it does, since the listing reads only
+that record; and `vmd refs --to` such a record lists the references into it, whose statuses stay as in the default mode, as
+[AJ](AJ.md) decided, since the listing reads the citing records, not the target.
+
 ## Why
 
 The card's reason: "Strict mode exists so a caller never silently gets less than the store holds; (a) keeps that promise and
@@ -53,5 +58,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16 (#148): §9.5, item 4 (`vmd refs` in the strict read mode). The code is #146, the strict read mode in core, which also
-states the rule in the I2 design's section 4.6; `--strict` on the command line comes with the commands of task I2.6.
+Draft v0.16 (#148): §9.5, item 4 (`vmd refs` in the strict read mode, and the reading above). The code is #146, the strict read
+mode in core, which also states the rule in the I2 design's section 4.6; `--strict` on the command line comes with the commands of
+task I2.6.

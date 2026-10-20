@@ -34,21 +34,27 @@ The card's example: "`#notes` with `anchors: explicit` and `cardinality: many` m
 ## Decision
 
 (a): a reference declared `cardinality: many` under `anchors: explicit` is `ref-target-not-allowed` as soon as one of its targets
-is reached only through a title-derived name or a positional step, whatever its other targets are. The title-derived warnings,
-`ref-derived-anchor` and `ref-derived-repeat`, apply to such a reference too, when one of its targets is reached only by a
-title-derived name.
+is reached only through a title-derived name or a positional step, whatever its other targets are. The card adds that this
+"also makes the title-derived warnings (`ref-derived-anchor`) apply to many-references"; how far that reaches is reading 4 below.
 
 **Agent's reading, for the owner to confirm.**
 
 1. The card's example has a duplicate anchor in vmd's terms: an explicit anchor `notes` and the derived anchor `notes` of another
-   heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). §9.3's example therefore uses a step that
-   crosses a level of sections declared `multimap`: `#log/notes` matching one section whose key is its explicit anchor `notes`
-   and another whose key comes only from its title.
+   heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). A Markdown example with a `multimap` level would
+   collide the same way, since every Markdown heading has a derived anchor. §9.3's example is therefore a YAML record, whose
+   sections have no derived anchors: a section with `$anchor: log` holds two sections, one with `$anchor: notes` and one with
+   `$title: Notes` and no anchor, at a level the schema declares `multimap`. `#log/notes` reaches `log` and the first `notes` by
+   explicit anchors, and the second only by the key its title gives, so the reference is breached by that target alone.
 2. "Only" is read as the I2 design's section 5.4 reads it for a reference to one node: a target that its step matched both by an
    explicit anchor and by a title-derived name, such as a heading `## Notes <a id="notes"></a>`, is reached through the explicit
    anchor and is allowed.
 3. The card names `ref-derived-anchor`; Draft v0.16 applies both title-derived warnings, since `ref-derived-repeat` takes
    `ref-derived-anchor`'s place when the slug is repeated (§6.3, Appendix D).
+4. **Open, asked as card AQ.** The card's sentence does not say whether the title-derived warnings reach every reference declared
+   `cardinality: many`, or only one under `anchors: explicit`, which is already `ref-target-not-allowed` when a target is reached
+   that way. Draft v0.16 states the wider reading, in §6.3 and Appendix D's `ref-derived-anchor` and `ref-derived-repeat` rows:
+   every reference declared `cardinality: many` gets the warning when one of its targets is reached only by a title-derived name,
+   whatever its `anchors` setting, as a reference to one node does.
 
 ## Why
 
@@ -65,6 +71,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 ## Applied in
 
 Draft v0.16 (#148): §9.3 (`anchors: explicit` with `cardinality: many`, and the example), §6.3 (the title-derived warnings for a
-many-reference), Appendix D `ref-target-not-allowed`, `ref-derived-anchor` and `ref-derived-repeat`. The code, which has to record
-how each match was made, and its suite cases come with the implementation pull request for this card, which also updates the I2
-design.
+many-reference, reading 4), Appendix D `ref-target-not-allowed`, `ref-derived-anchor` and `ref-derived-repeat`. The code, which
+has to record how each match was made, and its suite cases come with the implementation pull request for this card, which also
+updates the I2 design.
