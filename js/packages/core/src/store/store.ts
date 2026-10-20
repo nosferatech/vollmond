@@ -24,7 +24,14 @@ import { MAX_RECORD_BYTES } from "../format/limits.js";
 import { parseRecord, recordTooLarge } from "../format/parse-record.js";
 import { entryBound, type IndexCache, MAX_ENTRY_BYTES, SNAPSHOT_KEY } from "../index/cache.js";
 import { bindingEntry, bindingEntryKey, parseEntry, parseEntryKey, restoreBinding, restoreStructure } from "../index/entries.js";
-import { type RefsInCounts, readSnapshot, refsInCounts, snapshotReference, snapshotRows } from "../index/snapshot.js";
+import {
+  type RefsInCounts,
+  readSnapshot,
+  refsInCounts,
+  type Snapshot,
+  snapshotReference,
+  snapshotRows,
+} from "../index/snapshot.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { isDeclaredDuplicate } from "../issue/severity.js";
@@ -558,6 +565,15 @@ class BackendStore implements Store {
   // The local index. A store without one reads every record from its parse, as before; with one, `check`, `references` and
   // `list` read structures and bindings from its entries, looked up by the versions the store's listings gave, and write an
   // entry for each record they parse, keyed by the version of the bytes parsed.
+
+  async previousCheck(): Promise<Snapshot | null> {
+    const index = this.#index;
+    if (index === null) return null;
+    const entry = await index.read(SNAPSHOT_KEY);
+    const snapshot = entry === null ? null : readSnapshot(entry, this.#limit);
+    if (snapshot === null || snapshot.inputs !== (await this.#inputs())) return null;
+    return snapshot;
+  }
 
   parsed(path: string): boolean {
     return this.#parses.has(path);

@@ -5,11 +5,16 @@ import type { Reference, ReferenceStatus, ReferenceTarget } from "../reference/r
 import type { ByteRange } from "../text/source-text.js";
 import { MAX_ENTRY_BYTES } from "./cache.js";
 
+// Deviation from the I2 design, recorded in issue #26: a reference's row keeps its URI, §14.2's target address, so that a
+// check of what changed finds the records that name a changed path although nothing was there at the last full check, where
+// the design matched resolved targets only.
 /** A reference as the snapshot keeps it: where it is made, what it says, and what it resolved to. */
 export interface SnapshotReference {
   readonly from: { readonly path: string; readonly at: string; readonly offset?: number };
   readonly form: Reference["form"];
   readonly raw: string;
+  /** The URI reference vmd resolved, which names the path the reference is to, whether or not anything is there. */
+  readonly uri: string;
   readonly status: ReferenceStatus;
   readonly targets: readonly SnapshotTarget[];
 }
@@ -41,6 +46,7 @@ export function snapshotReference(reference: Reference): SnapshotReference {
     from: reference.from,
     form: reference.form,
     raw: reference.raw,
+    uri: reference.uri,
     status: reference.status,
     targets: reference.targets.map(snapshotTarget),
   };
@@ -123,6 +129,7 @@ function readReference(row: Readonly<Record<string, unknown>>): SnapshotReferenc
   if (!isObject(from) || typeof from.path !== "string" || typeof from.at !== "string") return null;
   if (from.offset !== undefined && !Number.isSafeInteger(from.offset)) return null;
   if (typeof row.form !== "string" || !FORMS.has(row.form) || typeof row.raw !== "string") return null;
+  if (typeof row.uri !== "string") return null;
   if (typeof row.status !== "string" || !STATUSES.has(row.status) || !Array.isArray(row.targets)) return null;
   const targets: SnapshotTarget[] = [];
   for (const target of row.targets) {
@@ -138,6 +145,7 @@ function readReference(row: Readonly<Record<string, unknown>>): SnapshotReferenc
     },
     form: row.form as SnapshotReference["form"],
     raw: row.raw,
+    uri: row.uri,
     status: row.status as ReferenceStatus,
     targets,
   };

@@ -939,8 +939,11 @@ over the store's current file listing, not over the snapshot's rows: for each re
 while that record's version in the snapshot equals the version on disk, and otherwise extracts its references again from its parse
 entry, or parses it. So a record with no snapshot rows, one that existed at `REV` or one added since, is still examined, a stale
 snapshot costs work and never hides a citing record, and a forged one would need a write to the user's cache directory, which can
-as well replace vmd itself. A change to `.vmd/aliases.jsonl`, to the configuration or to a file of its `schema/` directory makes
-the scope the whole store, since any reference or binding may depend on it.
+as well replace vmd itself. That holds because what a reference reaches depends only on what is at the path its URI names or below
+it (a path where no file is but files are below names a directory), at its targets and at the paths its aliases name, and a change
+at a path an alias names, as an old or new path of a record alias or the record of an anchor alias, makes the scope the whole
+store (#26). A change to `.vmd/aliases.jsonl`, to the configuration or to a file of its `schema/` directory makes the scope the
+whole store, since any reference or binding may depend on it.
 
 **CI.** A fresh runner has an empty cache, and the gate parses everything, which is what a gate should do. A workflow that saves
 and restores the per-user cache directory between runs trusts its own earlier runs, and whether a pull request's run can write a

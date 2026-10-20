@@ -1,12 +1,15 @@
 import { bindStructure, type RecordBinding } from "../binding/binding.js";
 import { collectionOfRecord, type PathClassifier } from "../config/classify.js";
 import type { Collection, StoreConfiguration } from "../config/configuration.js";
+import type { Snapshot } from "../index/snapshot.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { applySeverities } from "../issue/severity.js";
 import type { RecordStructure } from "../record/record.js";
+import { ALIASES_PATH } from "../reference/aliases.js";
 import type { Reference } from "../reference/reference.js";
 import type { ReferenceResolver } from "../reference/resolve.js";
+import { resolveReferenceUri } from "../reference/uri.js";
 import type { CollectionSchema } from "../schema/collection-schema.js";
 import { listEveryFile } from "../storage/list-every-file.js";
 import { compareUtf8 } from "../storage/path.js";
@@ -20,6 +23,17 @@ export interface CheckOptions {
    * are left out. The other records are still listed, so that the rules across paths, such as case conflicts, see them.
    */
   readonly records?: readonly string[];
+  /**
+   * The store paths that changed, such as since a revision, deleted ones included: the check reports the issues of the records
+   * among them that are there now, and of every record with a reference that names one of them, or reaches one, or names or
+   * reaches a directory above one. A change to the alias file makes it a check of the whole store, since any reference may
+   * depend on it, and so does a file created, changed or removed at a path an alias names, an old or a new path of a record
+   * alias or the record of an anchor alias; the caller widens it the same way for a change to the configuration or its
+   * schemas, which only it can see. The path rules' issues that involve a changed path are reported wherever they land, such
+   * as an unchanged path's case conflict with an added one.
+   * Without a current snapshot of the last full check, every record's references are resolved to find them.
+   */
+  readonly changed?: readonly string[];
 }
 
 /** What a check covered, beyond its issues. */
@@ -59,6 +73,12 @@ export interface CheckedStore {
    * references into the record resolve in, from the local index where it holds it.
    */
   indexedBinding(path: string): Promise<Outcome<RecordBinding> | null>;
+  /**
+   * The snapshot of the store's last full check, when the store is over the local index and the snapshot was made with the
+   * configuration, schemas and alias file the store has now; null otherwise. Its rows hold for a record only while the
+   * record's version is the one the snapshot lists.
+   */
+  previousCheck(): Promise<Snapshot | null>;
   /** Whether the store has read the record's file, to parse it, in its lifetime so far. */
   parsed(path: string): boolean;
   /** Keeps what a check of the whole store found: the files it listed, and every reference resolved. */
@@ -97,6 +117,9 @@ export interface CheckedStore {
  * since without its aliases references would be reported dangling that are not.
  */
 export async function checkStore(store: CheckedStore, options: CheckOptions = {}): Promise<Outcome<CheckSummary>> {
+  if (options.records !== undefined && options.changed !== undefined) {
+    throw new RangeError("a check takes records or changed, not both");
+  }
   const listed = await listEveryFile(store.backend, store.classifier.ignoredGlobs);
   if (!listed.ok) return listed;
   store.listed(listed.value);
@@ -109,9 +132,27 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     paths.push({ path: file.path, kind: found.kind });
     if (found.kind === "record") records.push({ path: file.path, collections: found.collections });
   }
-  for (const issue of pathRuleIssues(paths)) issues.push(issue);
+  // A check of what changed reports the path rules' issues that involve a changed path, wherever they land; another check, those
+  // of the paths in its scope, through the filter below.
+  const changedPaths = options.changed === undefined ? null : new Set(options.changed);
+  const pathIssues = pathRuleIssues(paths, changedPaths === null ? {} : { involving: changedPaths });
+  if (changedPaths === null) for (const issue of pathIssues) issues.push(issue);
 
-  const scope = options.records === undefined ? null : new Set(options.records);
+  // A file the backend could not read when listing it is still there, for a reference to it.
+  const unread = listed.issues.flatMap((issue) => (issue.code === "storage-failed" && issue.path !== null ? [issue.path] : []));
+  const resolver = await store.referenceResolver([...listed.value.map((file) => file.path), ...unread]);
+  if (!resolver.ok) return fail(resolver.issues);
+  let scope: ReadonlySet<string> | null = options.records === undefined ? null : new Set(options.records);
+  // Deviation from the I2 design, recorded in issue #26: a change to the alias file, or a file created, changed or removed at a
+  // path an alias names, can change where any reference through an alias leads, so it makes the check one of the whole store.
+  // The paths an alias names overlap on purpose: a record alias's old path is also the record of the anchor aliases recorded
+  // under it, and either entry alone covers that path, so dropping one changes nothing while dropping both lets a file created
+  // at an old path whose anchor aliases a reference went through slip by.
+  const aliasPaths = resolver.value.aliasPaths();
+  if (changedPaths !== null && !changedPaths.has(ALIASES_PATH) && ![...changedPaths].some((path) => aliasPaths.has(path))) {
+    const versions = new Map(listed.value.map((file) => [file.path, file.version]));
+    scope = await changedScope(store, resolver.value, records, versions, changedPaths);
+  }
   const inScope = (path: string) => scope === null || scope.has(path);
   const collectionsInScope = new Set<Collection>(scope === null ? store.configuration.collections : []);
   // A record the backend could not read is left out of the listing, with its storage-failed, and is still a record checked
@@ -127,10 +168,6 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
   let parsed = 0;
   const references: Reference[] = [];
   let unreadable = failedRecords;
-  // A file the backend could not read when listing it is still there, for a reference to it.
-  const unread = listed.issues.flatMap((issue) => (issue.code === "storage-failed" && issue.path !== null ? [issue.path] : []));
-  const resolver = await store.referenceResolver([...listed.value.map((file) => file.path), ...unread]);
-  if (!resolver.ok) return fail(resolver.issues);
   for (const record of records) {
     if (!inScope(record.path)) continue;
     checked += 1;
@@ -141,18 +178,13 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       const mismatch = filenameMismatch(record.path, collection);
       if (mismatch !== null) issues.push(mismatch);
     }
-    const structure = await store.structure(record.path);
-    let binding: RecordBinding | null = null;
-    if (structure.ok) {
-      const schema = collection === undefined ? null : await store.schema(collection);
-      // The store's binding, which references into the record share; readers refuse a record whose collection's schema cannot
-      // be used, which is checked bound to none, and so without typed references.
-      const bound = schema === null || schema.ok ? await store.indexedBinding(record.path) : null;
-      binding = bound?.ok === true ? bound.value : bindStructure(structure.value);
+    const read = await checkedBinding(store, record.path, collection);
+    const binding = read.ok ? read.value : null;
+    if (binding !== null) {
       for (const issue of binding.issues) issues.push(issue);
     } else {
       unreadable += 1;
-      for (const issue of structure.issues) issues.push(issue);
+      for (const issue of read.issues) issues.push(issue);
     }
     for (const issue of await resolver.value.issuesOf(record.path, binding, references)) issues.push(issue);
     if (store.parsed(record.path)) parsed += 1;
@@ -163,10 +195,10 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     const schemaIssue = await store.schemaIssue(collection);
     if (schemaIssue !== null) issues.push(schemaIssue);
   }
-  const reported = applySeverities(
-    issues.filter((issue) => issue.path === null || inScope(issue.path)),
-    store.configuration,
-  );
+  const inScopeIssues = issues.filter((issue) => issue.path === null || inScope(issue.path));
+  // In a check of the whole store the path issues are among the others; in a part of it, those that involve a changed path.
+  const pathIssuesShown = changedPaths === null ? [] : scope === null ? pathRuleIssues(paths) : pathIssues;
+  const reported = applySeverities([...inScopeIssues, ...pathIssuesShown], store.configuration);
   const summary: CheckSummary = {
     records: checked,
     unreadable,
@@ -175,6 +207,89 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     fromIndex: checked - parsed - failedRecords,
   };
   return succeed(summary, sortIssues(reported));
+}
+
+/**
+ * Gives a record's binding as a check reads it: the store's, which references into the record share, or its structure bound to
+ * no schema when its collection's schema cannot be used, since readers refuse such a record; and fails with the record's
+ * structural errors, or the backend's issue.
+ */
+async function checkedBinding(
+  store: CheckedStore,
+  path: string,
+  collection: Collection | undefined,
+): Promise<Outcome<RecordBinding>> {
+  const structure = await store.structure(path);
+  if (!structure.ok) return structure;
+  const schema = collection === undefined ? null : await store.schema(collection);
+  const bound = schema === null || schema.ok ? await store.indexedBinding(path) : null;
+  return succeed(bound?.ok === true ? bound.value : bindStructure(structure.value));
+}
+
+/** What a reference says and reached, as a check of what changed looks at it, whether from a snapshot or resolved now. */
+interface CitingReference {
+  readonly uri: string;
+  readonly targets: readonly { readonly path: string; readonly kind?: string }[];
+}
+
+/**
+ * Gives the paths whose issues a check of what changed reports: every changed path, and the records with a reference that
+ * cites a changed path. It loops over the records listed now, never over the snapshot's: a record whose version is the one the
+ * snapshot lists is looked at through the snapshot's rows, and any other, changed since or added, through its own references,
+ * resolved now; without a current snapshot, every record is. A record unchanged since the snapshot makes the same references,
+ * and what each one reaches depends only on what is at the path its URI names or below it, at its targets, and at the paths its
+ * aliases name; a change at an alias's path makes the check one of the whole store, so a stale snapshot costs work and never
+ * hides a record.
+ */
+async function changedScope(
+  store: CheckedStore,
+  resolver: ReferenceResolver,
+  records: readonly { readonly path: string; readonly collections: readonly Collection[] }[],
+  versions: ReadonlyMap<string, string>,
+  paths: ReadonlySet<string>,
+): Promise<ReadonlySet<string>> {
+  const snapshot = await store.previousCheck();
+  const rows = new Map<string, CitingReference[]>();
+  for (const reference of snapshot?.references ?? []) {
+    let held = rows.get(reference.from.path);
+    if (held === undefined) {
+      held = [];
+      rows.set(reference.from.path, held);
+    }
+    held.push(reference);
+  }
+  // Every changed path, a record the backend could not read when listing it included, which a check reports.
+  const scope = new Set<string>(paths);
+  for (const record of records) {
+    if (paths.has(record.path)) continue;
+    const version = versions.get(record.path);
+    let references: readonly CitingReference[];
+    if (snapshot !== null && version !== undefined && snapshot.files.get(record.path) === version) {
+      references = rows.get(record.path) ?? [];
+    } else {
+      const checked = await checkedBinding(store, record.path, collectionOfRecord({ kind: "record", ...record }));
+      references = checked.ok ? await resolver.referencesOf(checked.value) : [];
+    }
+    if (references.some((reference) => cites(record.path, reference, paths))) scope.add(record.path);
+  }
+  return scope;
+}
+
+/**
+ * Whether a reference made in the record at `citing` cites one of `paths`: the path its URI names, or the path of one of its
+ * targets, is one of them, or is a directory above one. The named path counts as a directory whether or not the URI ends in
+ * `/`, since a link to a path where no file is but files are below resolves to that directory, so a file created or removed
+ * below it changes what the link reaches.
+ */
+function cites(citing: string, reference: CitingReference, paths: ReadonlySet<string>): boolean {
+  const reaches = (path: string, directory: boolean) => {
+    if (!directory) return paths.has(path);
+    for (const changed of paths) if (path === "" || changed.startsWith(`${path}/`)) return true;
+    return false;
+  };
+  const named = resolveReferenceUri(citing, reference.uri);
+  if (named.kind === "store" && (reaches(named.path, named.directory) || reaches(named.path, true))) return true;
+  return reference.targets.some((target) => reaches(target.path, target.kind === "directory"));
 }
 
 /** The `collection-conflict` of a record that several collections claim. */

@@ -137,6 +137,23 @@ export class ReferenceResolver {
     return found;
   }
 
+  /**
+   * The store paths that the alias file names: each record alias's old and new paths, and the record of each anchor alias. A
+   * file created or removed at one of them can change where a reference through an alias leads.
+   */
+  aliasPaths(): ReadonlySet<string> {
+    const paths = new Set<string>();
+    for (const entry of this.#aliases.entries) {
+      if (entry.kind === "record") {
+        paths.add(entry.from);
+        paths.add(entry.to);
+      } else {
+        paths.add(entry.record);
+      }
+    }
+    return paths;
+  }
+
   /** The store paths of every record among the store's files, in the order given. */
   recordPaths(): string[] {
     return [...this.#files].filter((path) => this.#store.classify(path).kind === "record");
