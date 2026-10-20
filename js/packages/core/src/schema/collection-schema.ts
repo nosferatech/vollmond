@@ -5,8 +5,16 @@ import { childPath } from "../record/exact-path.js";
 import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import { checkExtensionKeywords } from "./keywords.js";
-import { readSchemaSet, type SchemaLocation, type SchemaProblem, type SchemaReader, type SchemaSet } from "./schema-set.js";
+import {
+  locationKey,
+  readSchemaSet,
+  type SchemaLocation,
+  type SchemaProblem,
+  type SchemaReader,
+  type SchemaSet,
+} from "./schema-set.js";
 import { type SchemaShape, Spine } from "./spine.js";
+import { type SchemaSummary, summarizeSchema } from "./summary.js";
 import { compileSchemaSet, metaSchemaFailures, type ValidatorError } from "./validator.js";
 import { type NativeFailure, violationIssues } from "./violations.js";
 import { isObject, isSchemaValue } from "./walk.js";
@@ -38,6 +46,8 @@ export interface CollectionSchema {
    * Throws a `RangeError` for a schema location in `lists` that is not a per-key or `additional` schema of the set.
    */
   validate(record: ParsedRecord, lists?: ListChecks): readonly Issue[];
+  /** Gives what the schema says of the collection's records, its fields, keyed lists and required sections, made once. */
+  summary(): SchemaSummary;
 }
 
 /** What a record's keyed lists add to its validation (see {@link CollectionSchema.validate}). */
@@ -161,6 +171,7 @@ export async function loadCollectionSchema(
     try {
       const compiled = await compileSchemaSet(set, loading.configuration, listSchemas);
       const shape = spine.root;
+      let summarized: SchemaSummary | undefined;
       const schema: CollectionSchema = {
         collection: collection.name,
         digest: compiled.digest,
@@ -174,6 +185,10 @@ export async function loadCollectionSchema(
             for (const error of compiled.validateAt(location, item)) errors.push({ ...error, at: `${at}${error.at}` });
           }
           return violationIssues(record, set, errors, lists?.failures ?? []);
+        },
+        summary: () => {
+          summarized ??= summarizeSchema(collection.name, shape, (location) => set.schemas.get(locationKey(location))?.value);
+          return summarized;
         },
       };
       spines.set(schema, spine);
