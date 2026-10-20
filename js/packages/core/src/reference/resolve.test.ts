@@ -79,6 +79,7 @@ function resolverOver(texts: Readonly<Record<string, string>>, aliases: AliasTab
   const resolver = new ReferenceResolver(
     {
       classify: (path) => classifier.classify(path),
+      collections: new Set(),
       binding: async (path) => {
         const record = records.get(path);
         return record === undefined ? null : { ok: true, value: bindRecord(record, null), issues: [] };

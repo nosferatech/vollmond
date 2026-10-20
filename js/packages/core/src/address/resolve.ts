@@ -58,9 +58,7 @@ export type StepMatch =
   | "anchor-derived"
   | "anchor-block";
 
-// Deviation from the I2 design, recorded in issue #24: the steps of an exact path are not reported yet; their first use, the
-// refusal of positional steps under `anchors: explicit`, comes with typed references.
-/** The targets of an address, and how each step of a semantic path matched. */
+/** The targets of an address, and how each step matched on the way to each of them. */
 export interface StepResolution {
   readonly targets: readonly Target[];
   /**
@@ -68,6 +66,13 @@ export interface StepResolution {
    * an exact path, the root, and a selector.
    */
   readonly steps: readonly (readonly StepMatch[])[];
+  /**
+   * For each target, in the order of `targets`, how each step matched the node on the way to it, a list per step: for a
+   * semantic path, as `steps` gives them, for a selector too; for an exact path, `section-member` for a token that names a
+   * section's own member such as `$sections` or `$body`, `index` for an array's item, and `member` for any other token; none
+   * for the root.
+   */
+  readonly routes: readonly (readonly (readonly StepMatch[])[])[];
 }
 
 /**
@@ -138,7 +143,8 @@ export function resolveAddressSteps(
   }
   const targets = Object.freeze(evaluated.matches.map((match) => resolver.target(match)));
   const steps = use === "singular" && fragment?.kind === "semantic" ? evaluated.ways : [];
-  return succeed(Object.freeze({ targets, steps: Object.freeze(steps) }));
+  const routes = Object.freeze(evaluated.matches.map((match) => evaluated.routes.get(match) ?? []));
+  return succeed(Object.freeze({ targets, steps: Object.freeze(steps), routes }));
 }
 
 /**
@@ -230,6 +236,8 @@ interface Evaluation {
   readonly steps: number;
   /** For each step of a semantic path, from the first, that matched one node, how it matched; up to the first that did not. */
   readonly ways: readonly (readonly StepMatch[])[];
+  /** For each match, how each step matched the node on the way to it. */
+  readonly routes: ReadonlyMap<Match, readonly (readonly StepMatch[])[]>;
 }
 
 /** A node or a block anchor that a step matched, and how. */
@@ -303,30 +311,62 @@ class RecordResolver {
     return list === undefined || list.type === "undeclared" ? undefined : list;
   }
 
-  /** Evaluates a fragment; a singular evaluation stops at the first step that matches several nodes. */
+  /**
+   * Evaluates a fragment; a singular evaluation stops at the first step that matches several nodes. A match's route is how
+   * each step matched the node on the way to it: one node per step, since a later step's matches are children of the
+   * previous step's matches, each of one of them.
+   */
   evaluate(fragment: Fragment | null, singular: boolean): Evaluation {
-    if (fragment === null) return { matches: [this.#root], ambiguous: false, steps: 0, ways: [] };
-    if (fragment.kind === "exact") {
-      const at = fragment.tokens.reduce<string>((parent, token) => childPath(parent, token), "");
-      const node = this.#record.nodes.node(at);
-      return { matches: node === undefined ? [] : [node], ambiguous: false, steps: 0, ways: [] };
-    }
+    if (fragment === null) return { matches: [this.#root], ambiguous: false, steps: 0, ways: [], routes: new Map() };
+    if (fragment.kind === "exact") return this.#evaluateExact(fragment.tokens);
     const [first, ...rest] = fragment.steps;
     let found = this.#inDocumentOrder(grouped(this.#firstStep(first as string)));
     semanticMatches += found.size;
+    let routes = new Map<Match, readonly (readonly StepMatch[])[]>();
+    for (const [match, matched] of found) routes.set(match, [matched]);
     const ways: (readonly StepMatch[])[] = [];
     let steps = 1;
     for (const step of rest) {
       if (singular && found.size > 1) break;
       if (found.size === 1) ways.push([...found.values()][0] as StepMatch[]);
-      const next = grouped([...found.keys()].flatMap((match) => (match.kind === "block" ? [] : this.#step(match, step))));
+      const finds: StepFind[] = [];
+      /** The route to the match each find was made from. */
+      const before = new Map<Match, readonly (readonly StepMatch[])[]>();
+      for (const match of found.keys()) {
+        if (match.kind === "block") continue;
+        for (const find of this.#step(match, step)) {
+          finds.push(find);
+          before.set(find.match, routes.get(match) ?? []);
+        }
+      }
       // One match's results can come after a later match's, when the later one is its descendant.
-      found = this.#inDocumentOrder(next);
+      found = this.#inDocumentOrder(grouped(finds));
       semanticMatches += found.size;
+      routes = new Map();
+      for (const [match, matched] of found) routes.set(match, [...(before.get(match) ?? []), matched]);
       steps++;
     }
     if (found.size === 1 && ways.length === steps - 1) ways.push([...found.values()][0] as StepMatch[]);
-    return { matches: [...found.keys()], ambiguous: singular && found.size > 1, steps, ways };
+    return { matches: [...found.keys()], ambiguous: singular && found.size > 1, steps, ways, routes };
+  }
+
+  /**
+   * Evaluates an exact path: the node at its JSON Pointer, if any, with its route, which names each token a section's own
+   * member, an array's item or another member.
+   */
+  #evaluateExact(tokens: readonly string[]): Evaluation {
+    const nodes = this.#record.nodes;
+    const route: StepMatch[][] = [];
+    let at = "";
+    for (const token of tokens) {
+      const parent = nodes.node(at);
+      if (parent?.kind === "array") route.push(["index"]);
+      else route.push([parent?.kind === "section" && token.startsWith("$") ? "section-member" : "member"]);
+      at = childPath(at, token);
+    }
+    const node = nodes.node(at);
+    if (node === undefined) return { matches: [], ambiguous: false, steps: 0, ways: [], routes: new Map() };
+    return { matches: [node], ambiguous: false, steps: 0, ways: [], routes: new Map([[node, route]]) };
   }
 
   /**

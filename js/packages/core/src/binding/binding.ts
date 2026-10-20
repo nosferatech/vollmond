@@ -5,6 +5,7 @@ import type { NodeInfo } from "../record/node-index.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { CollectionSchema, ListChecks } from "../schema/collection-schema.js";
 import type { ListDeclaration } from "../schema/keywords.js";
+import { LOGICAL_TYPES, type LogicalType } from "../schema/logical-types.js";
 import type { SchemaLocation } from "../schema/schema-set.js";
 import type { SchemaShape } from "../schema/spine.js";
 import type { NativeFailure } from "../schema/violations.js";
@@ -29,15 +30,23 @@ export interface KeyedList {
 
 // Deviation from the I2 design, recorded in issue #23: the binding holds the parsed record rather than a structure without
 // values, which comes with the local index; it gives one shape per node, as the spine does; it leaves the collection to the
-// store, which classifies the path; and its references, with the typed ones, come with typed references.
+// store, which classifies the path; and of its references it gives the typed strings only, since the links of a JSON or YAML
+// record's prose need a parse that a plain read must not pay for.
 /**
  * What a record is under its collection's schema, computed once per record and schema: its keyed lists, the schema's shape of
- * each node, and its issues, those of the parse adjusted for the levels the schema declares and those of the schema.
+ * each node, its typed references, and its issues, those of the parse adjusted for the levels the schema declares and those
+ * of the schema.
  */
 export interface RecordBinding {
   readonly record: ParsedRecord;
   /** The record's keyed lists, by exact path: every `$sections`, and every array the schema declares a keyed list. */
   readonly lists: ReadonlyMap<string, KeyedList>;
+  /**
+   * The exact paths of the record's typed references, in no particular order: each string whose shape declares `x-vmd-ref`
+   * and that is a URI reference, but the `$ref` member of a JSON Reference, which is the object's reference. A string that is
+   * no URI reference has its `schema-violation` from the schema's `format` instead.
+   */
+  readonly typedReferences: readonly string[];
   /** Gives the schema's shape of the node at an exact path; null for a record bound without a schema, or a path with no node. */
   shape(at: string): SchemaShape | null;
   /**
@@ -46,6 +55,9 @@ export interface RecordBinding {
    */
   readonly issues: readonly Issue[];
 }
+
+/** The check of `format: uri-reference`, the validator's own, which a typed reference's string must pass. */
+const URI_REFERENCE = LOGICAL_TYPES.get("uri-reference") as LogicalType;
 
 /** How a node is reached, which says what its members are: a section, a section's `$sections`, or any other value. */
 type Place = "section" | "sections" | "value";
@@ -62,6 +74,7 @@ type Place = "section" | "sections" | "value";
  * - a required key that no item has is a `schema-violation` at the list, an item whose key `additional: false` refuses one at
  *   the item, and an item is validated against its key's per-key schema, or `additional` when that is a schema;
  * - a member that two `patternProperties` patterns bring unequal declarations to is a `schema-violation`, and gets neither;
+ * - a string whose shape declares `x-vmd-ref`, and that is a URI reference, is a typed reference;
  * - a `duplicate-key` the parse raised among the sections of a level declared `multimap` is dropped, unless a field of the
  *   section shares the name before it, and one at a level declared `map` is marked as declared.
  *
@@ -84,6 +97,7 @@ export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null
   return Object.freeze({
     record,
     lists: binder.lists,
+    typedReferences: Object.freeze(binder.typed),
     shape: (at: string) => shapes.get(at) ?? null,
     issues: Object.freeze(issues),
   });
@@ -127,6 +141,8 @@ class Binder {
   readonly lists = new Map<string, KeyedList>();
   readonly shapes = new Map<string, SchemaShape>();
   readonly duplicates: Issue[] = [];
+  /** The exact paths of the typed references found. */
+  readonly typed: string[] = [];
   readonly #subschemas: { readonly at: string; readonly location: SchemaLocation }[] = [];
   readonly #failures: NativeFailure[] = [];
 
@@ -157,7 +173,10 @@ class Binder {
       const { at, value, shape, place } = next;
       this.shapes.set(at, shape);
       if (shape.conflicts.length > 0) this.#failures.push({ at, message: conflictMessage(shape.conflicts) });
-      if (Array.isArray(value)) {
+      if (typeof value === "string") {
+        // A readable record holds a `$ref` member only in a JSON Reference.
+        if (shape.ref !== null && !at.endsWith("/$ref") && URI_REFERENCE.check(value)) this.typed.push(at);
+      } else if (Array.isArray(value)) {
         const declaration = shape.list;
         const keys =
           place === "sections" ? this.#sectionKeys(at) : declaration === null ? null : this.#memberKeys(at, value, declaration);

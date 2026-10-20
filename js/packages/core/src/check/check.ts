@@ -118,18 +118,19 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       if (mismatch !== null) issues.push(mismatch);
     }
     const parsed = await store.parse(record.path);
+    let binding: RecordBinding | null = null;
     if (parsed.ok) {
       const schema = collection === undefined ? null : await store.schema(collection);
       // The store's binding, which references into the record share; readers refuse a record whose collection's schema cannot
-      // be used, which is checked bound to none.
+      // be used, which is checked bound to none, and so without typed references.
       const bound = schema === null || schema.ok ? await store.binding(record.path) : null;
-      const binding = bound?.ok === true ? bound.value : bindRecord(parsed.value, schema?.ok === true ? schema.value : null);
+      binding = bound?.ok === true ? bound.value : bindRecord(parsed.value, schema?.ok === true ? schema.value : null);
       for (const issue of binding.issues) issues.push(issue);
     } else {
       unreadable += 1;
       for (const issue of parsed.issues) issues.push(issue);
     }
-    for (const issue of await resolver.value.issuesOf(record.path, parsed.ok ? parsed.value : null)) issues.push(issue);
+    for (const issue of await resolver.value.issuesOf(record.path, binding)) issues.push(issue);
   }
   for (const collection of store.configuration.collections) {
     if (!collectionsInScope.has(collection)) continue;

@@ -115,6 +115,7 @@ async function referencesAlone(files: Record<string, string>): Promise<Reference
     const opened = successValue(await openStore(storage));
     const reading: ReferenceStore = {
       classify: (path) => opened.classify(path),
+      collections: new Set(opened.configuration.collections.map((collection) => collection.name)),
       binding: (path) => opened.binding(path),
       exists,
     };

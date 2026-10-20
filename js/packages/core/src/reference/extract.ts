@@ -1,9 +1,13 @@
 import type { Nodes } from "mdast";
+import { type ResolutionSubject, subjectBinding, subjectRecord } from "../address/resolve.js";
 import { keepingLeadingFeff, parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
 import { collectLinks } from "../format/markdown/links.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { childPath } from "../record/exact-path.js";
+import type { NodeInfo } from "../record/node-index.js";
+import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
+import type { RefDeclaration } from "../schema/keywords.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
 import type { ReferenceOccurrence } from "./reference.js";
@@ -20,8 +24,14 @@ const UTF8 = new TextEncoder();
  *
  * With `under`, the exact path of a node, only the references in that node and below it are given, and only the prose there
  * is parsed. The root's `$schema` is stored data, and is not looked into.
+ *
+ * In a record bound to its collection's schema, the typed strings the binding found are references too, each with its
+ * declaration, and a `$ref` object carries the declaration of its schema, or else of its `$ref` member's; a record alone, or
+ * one bound without a schema, has neither.
  */
-export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurrence[] {
+export function occurrencesOf(subject: ResolutionSubject, under = ""): ReferenceOccurrence[] {
+  const record = subjectRecord(subject);
+  const binding = subjectBinding(subject);
   const inside = (at: string) => under === "" || at === under || at.startsWith(`${under}/`);
   let labels: readonly string[] | null = null;
   // Only a link reference has a label to look up, and it holds a `[`.
@@ -49,7 +59,11 @@ export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurr
     // structural error.
     const target = value.$ref;
     if (typeof target === "string") {
-      if (inside(at)) found.push(refObject(record, at, target));
+      if (inside(at)) {
+        const occurrence = refObject(record, at, target);
+        const declaration = binding?.shape(at)?.ref ?? binding?.shape(childPath(at, "$ref"))?.ref ?? null;
+        found.push(declaration === null ? occurrence : { ...occurrence, declaration });
+      }
       continue;
     }
     for (const [name, member] of Object.entries(value)) {
@@ -68,6 +82,9 @@ export function occurrencesOf(record: ParsedRecord, under = ""): ReferenceOccurr
       }
     }
   }
+  for (const at of binding?.typedReferences ?? []) {
+    if (inside(at)) found.push(typedString(record, at, binding?.shape(at)?.ref as RefDeclaration));
+  }
   // Each occurrence's node is looked up once, not at every comparison.
   const keyed = found.map((occurrence) => ({
     occurrence,
@@ -84,6 +101,15 @@ function refObject(record: ParsedRecord, at: string, target: string): ReferenceO
   const node = record.nodes.node(childPath(at, "$ref"));
   if (node === undefined) return occurrence;
   const destination = rawRange(record, node.range, target);
+  return destination === null ? occurrence : { ...occurrence, destination };
+}
+
+/** The occurrence of a typed string, with its destination where its bytes in the file are the string. */
+function typedString(record: ParsedRecord, at: string, declaration: RefDeclaration): ReferenceOccurrence {
+  const node = record.nodes.node(at) as NodeInfo;
+  const raw = valueAt(record, at) as string;
+  const occurrence: ReferenceOccurrence = { form: "typed", at, raw, uri: raw, declaration };
+  const destination = rawRange(record, node.range, raw);
   return destination === null ? occurrence : { ...occurrence, destination };
 }
 

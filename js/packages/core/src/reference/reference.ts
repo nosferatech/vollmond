@@ -1,30 +1,36 @@
 import type { StepMatch, Target } from "../address/resolve.js";
 import type { Issue } from "../issue/issue.js";
+import type { RefDeclaration } from "../schema/keywords.js";
 import type { ByteRange } from "../text/source-text.js";
 
 /**
  * The form of a reference: a Markdown inline link, a link reference definition or an image, in a `$body` or a
- * `$title` of any format; or a JSON Reference object, `{"$ref": …}`, in a field's value. Typed strings, whose schema has
- * `x-vmd-ref`, come with schemas.
+ * `$title` of any format; a JSON Reference object, `{"$ref": …}`, in a field's value; or a typed string, a string whose
+ * collection's schema declares it a reference with `x-vmd-ref`.
  */
-export type ReferenceForm = "link" | "definition" | "image" | "ref-object";
+export type ReferenceForm = "link" | "definition" | "image" | "ref-object" | "typed";
 
 /** What a record says about a reference, independent of the record's path and of what the target is. */
 export interface ReferenceOccurrence {
   readonly form: ReferenceForm;
-  /** The exact path of the node that holds it: the `$ref` object, or the `$body` or `$title` that holds a link. */
+  /** The exact path of the node that holds it: the `$ref` object or the typed string, or the `$body` or `$title` of a link. */
   readonly at: string;
   /**
    * For a link, a definition or an image, where it starts in the value at `at`, in UTF-8 bytes of the value: its `[`,
    * or its `!` for an image.
    */
   readonly offset?: number;
-  /** The target as written: a Markdown destination's source text, without its angle brackets; a `$ref`'s string. */
+  /** The target as written: a Markdown destination's source text, without its angle brackets; a `$ref`'s or a typed string. */
   readonly raw: string;
   /** The URI reference vmd resolves: for Markdown, the destination as CommonMark reads it, entities and escapes decoded. */
   readonly uri: string;
   /** Where `raw` is in the file, in UTF-8 bytes, where the record has a file and `raw` is its bytes there. */
   readonly destination?: ByteRange;
+  /**
+   * What the collection's schema declares of the reference with `x-vmd-ref`: always for a typed string; for a `$ref` object,
+   * where its schema or its `$ref` member's declares it; never for a link.
+   */
+  readonly declaration?: RefDeclaration;
 }
 
 /**

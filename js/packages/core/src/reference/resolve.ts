@@ -1,14 +1,24 @@
 import { type Fragment, formatFragment, readFragment } from "../address/address.js";
-import { resolveAddress, resolveAddressSteps, type StepMatch, type Target } from "../address/resolve.js";
+import {
+  type AddressUse,
+  type ResolutionSubject,
+  resolveAddress,
+  resolveAddressSteps,
+  type StepMatch,
+  subjectRecord,
+  type Target,
+} from "../address/resolve.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
 import type { RecordBinding } from "../binding/binding.js";
-import type { PathClass } from "../config/classify.js";
+import { collectionOfRecord, type PathClass } from "../config/classify.js";
 import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
+import type { RefDeclaration } from "../schema/keywords.js";
 import { storageFailureReason } from "../storage/failure-reason.js";
+import { compileGlob, type GlobTest } from "../storage/path.js";
 import type { ValueObject } from "../value/value.js";
 import type { AliasTable } from "./aliases.js";
 import { occurrencesOf } from "./extract.js";
@@ -19,6 +29,8 @@ import { resolveReferenceUri } from "./uri.js";
 export interface ReferenceStore {
   /** Gives what a store path is under the configuration. */
   classify(path: string): PathClass;
+  /** The names of the configuration's collections, which an entry of `x-vmd-ref`'s `targets` may name. */
+  readonly collections: ReadonlySet<string>;
   /**
    * Reads a record as readers do, bound to its collection's schema: a failure for one with a structural error or one refused
    * for its schema, null where the store holds no record.
@@ -31,25 +43,43 @@ export interface ReferenceStore {
   exists(path: string, directory: boolean): Promise<boolean>;
 }
 
-/** What a target path and fragment resolved to, before aliases and warnings. */
+/** A record that exists, with the fragment that matched nothing in it, which an anchor alias may still resolve. */
+interface InRecord {
+  readonly record: ParsedRecord;
+  readonly fragment: Fragment;
+}
+
+/**
+ * What a target path and fragment resolved to, before aliases and warnings; `path` is the store path of what the reference
+ * names, where something is there.
+ */
 type Resolution =
-  | { readonly status: "ok"; readonly targets: readonly ReferenceTarget[]; readonly steps?: Steps }
-  | { readonly status: "ambiguous"; readonly targets: readonly Target[]; readonly message: string }
+  | {
+      readonly status: "ok";
+      readonly path: string;
+      readonly targets: readonly ReferenceTarget[];
+      readonly steps?: Steps;
+      /** For a selector that matched nothing: where it matched nothing. */
+      readonly inRecord?: InRecord;
+    }
+  | { readonly status: "ambiguous"; readonly path: string; readonly targets: readonly Target[]; readonly message: string }
   | { readonly status: "unreadable"; readonly path: string; readonly issues: readonly Issue[] }
   | {
       readonly status: "dangling";
       readonly message: string;
-      /** The record that exists, with the fragment that matched nothing in it, which an anchor alias may still resolve. */
-      readonly inRecord?: { readonly record: ParsedRecord; readonly fragment: Fragment };
+      readonly inRecord?: InRecord;
       /** Whether nothing is at the path, which a record alias may still resolve. */
       readonly missing?: true;
     };
 
-/** How each step of a semantic path matched, and the record and fragment it was evaluated in. */
+/** How the steps of a fragment matched on the way to each target, and the record and fragment it was evaluated in. */
 interface Steps {
   readonly record: ParsedRecord;
-  readonly fragment: Fragment & { readonly kind: "semantic" };
-  readonly ways: readonly (readonly StepMatch[])[];
+  readonly fragment: Fragment;
+  /** For a semantic path used as a singular address, how each step matched, as {@link Reference.steps} gives them. */
+  readonly ways?: readonly (readonly StepMatch[])[];
+  /** For each target, how each step matched the node on the way to it. */
+  readonly routes: readonly (readonly (readonly StepMatch[])[])[];
 }
 
 /**
@@ -71,6 +101,8 @@ export class ReferenceResolver {
   readonly #recordChainEnds: RecordChainEnds = { starts: new Map(), acyclic: new Map() };
   /** The live name that the anchor alias chain from each name reaches in a record, or null, by the record's path and the name. */
   readonly #anchorChainEnds = new Map<string, Map<string, string | null>>();
+  /** The glob entries of `targets` met, compiled once each. */
+  readonly #globs = new Map<string, GlobTest>();
 
   /** Takes the store paths of the store's files but those vmd ignores, and its aliases. */
   constructor(store: ReferenceStore, files: Iterable<string>, aliases: AliasTable) {
@@ -113,10 +145,10 @@ export class ReferenceResolver {
    * Gives the references a record makes, in document order, each resolved, with its issues; with `under`, those in that node
    * and below it. References that leave the store are not given.
    */
-  async referencesOf(record: ParsedRecord, under = ""): Promise<Reference[]> {
+  async referencesOf(subject: ResolutionSubject, under = ""): Promise<Reference[]> {
     const references: Reference[] = [];
-    for (const occurrence of occurrencesOf(record, under)) {
-      const reference = await this.resolve(record, occurrence);
+    for (const occurrence of occurrencesOf(subject, under)) {
+      const reference = await this.resolve(subject, occurrence);
       if (reference !== null) references.push(reference);
     }
     return references;
@@ -127,9 +159,11 @@ export class ReferenceResolver {
    * `alias-shadowed` for its path that is the old name of a record alias, and for each node or block anchor that a first step
    * named by the old name of one of the record's anchor aliases reaches, those under its old paths included: an anchor, a key
    * of the root, as a JSON or YAML record's top-level key or a Markdown record's front matter key, or a child section of the
-   * root by its key. `record` is null for a record that cannot be read, which has only its path.
+   * root by its key. `subject` is null for a record that cannot be read, which has only its path; a record bound to its
+   * collection's schema has its typed references too.
    */
-  async issuesOf(path: string, record: ParsedRecord | null): Promise<Issue[]> {
+  async issuesOf(path: string, subject: ResolutionSubject | null): Promise<Issue[]> {
+    const record = subject === null ? null : subjectRecord(subject);
     const issues: Issue[] = [];
     const moved = this.#aliases.recordMove(path);
     if (moved !== undefined) {
@@ -158,101 +192,117 @@ export class ReferenceResolver {
         );
       }
     }
-    if (record !== null) for (const reference of await this.referencesOf(record)) issues.push(...reference.issues);
+    if (subject !== null) for (const reference of await this.referencesOf(subject)) issues.push(...reference.issues);
     return issues;
   }
 
-  /** Resolves one reference of a record, or gives null for one that leaves the store. */
-  async resolve(citing: ParsedRecord, occurrence: ReferenceOccurrence): Promise<Reference | null> {
-    const uri = resolveReferenceUri(citing.path, occurrence.uri);
+  /**
+   * Resolves one reference of a record, or gives null for one that leaves the store. A reference its schema declares
+   * `cardinality: many` resolves its fragment as a selector, and one it declares with `targets` or `anchors: explicit` is
+   * checked against them.
+   */
+  async resolve(citing: ResolutionSubject, occurrence: ReferenceOccurrence): Promise<Reference | null> {
+    const record = subjectRecord(citing);
+    const uri = resolveReferenceUri(record.path, occurrence.uri);
     if (uri.kind === "outside") return null;
+    const use: AddressUse = occurrence.declaration?.cardinality === "many" ? "selector" : "singular";
     const resolution =
       uri.kind === "invalid"
         ? ({ status: "dangling", message: uri.message } as const)
-        : await this.#resolveTarget(uri.path, uri.directory, uri.fragment);
+        : await this.#resolveTarget(uri.path, uri.directory, uri.fragment, use);
     let final: Resolution = resolution;
     let aliased = false;
-    if (resolution.status === "dangling" && uri.kind === "store") {
-      const through = await this.#throughAliases(uri.path, uri.fragment, resolution);
+    const foundNothing = resolution.status === "dangling" || (resolution.status === "ok" && resolution.inRecord !== undefined);
+    if (foundNothing && uri.kind === "store") {
+      const through = await this.#throughAliases(uri.path, uri.fragment, resolution, use);
       if (through !== null) {
         final = through;
         aliased = true;
       }
     }
-    return this.#reference(citing, occurrence, final, aliased);
+    return this.#reference(record, occurrence, final, aliased);
   }
 
-  /** Resolves a target path and fragment against the live store. */
-  async #resolveTarget(path: string, directory: boolean, fragmentText: string | null): Promise<Resolution> {
+  /** Resolves a target path and fragment against the live store, the fragment as `use` says. */
+  async #resolveTarget(path: string, directory: boolean, fragmentText: string | null, use: AddressUse): Promise<Resolution> {
     if (directory) {
       return (await this.#exists(path, true))
-        ? { status: "ok", targets: [{ path, kind: "directory" }] }
+        ? { status: "ok", path, targets: [{ path, kind: "directory" }] }
         : { status: "dangling", message: `the store has no directory ${path}/`, missing: true };
     }
     if (!(await this.#exists(path, false))) {
-      if (await this.#exists(path, true)) return { status: "ok", targets: [{ path, kind: "directory" }] };
+      if (await this.#exists(path, true)) return { status: "ok", path, targets: [{ path, kind: "directory" }] };
       return { status: "dangling", message: `the store has no file ${path}`, missing: true };
     }
-    if (this.#store.classify(path).kind !== "record") return { status: "ok", targets: [{ path, kind: "asset" }] };
+    if (this.#store.classify(path).kind !== "record") return { status: "ok", path, targets: [{ path, kind: "asset" }] };
     const read = readFragment(fragmentText ?? "");
     if ("problem" in read) {
       return { status: "dangling", message: `its fragment ${JSON.stringify(fragmentText)} is not an address: ${read.problem}` };
     }
     const fragment = read.fragment;
-    if (fragment === null) return { status: "ok", targets: [{ path, at: "", address: "" }] };
-    return this.#resolveFragment(path, fragment);
+    if (fragment === null) return { status: "ok", path, targets: [{ path, at: "", address: "" }] };
+    return this.#resolveFragment(path, fragment, use);
   }
 
   /**
-   * Resolves a fragment in a record that exists, as a singular address, in the record bound to its collection's schema: a step
-   * goes through a keyed list by key, and an address that could cross a level declared `multimap` is ambiguous without being
-   * evaluated, since it cannot be proved to name one node.
+   * Resolves a fragment in a record that exists, in the record bound to its collection's schema, where a step goes through a
+   * keyed list by key. As a singular address, one that could cross a level declared `multimap` is ambiguous without being
+   * evaluated, since it cannot be proved to name one node. As a selector, it is every match, none being `ok`.
    */
-  async #resolveFragment(path: string, fragment: Fragment): Promise<Resolution> {
+  async #resolveFragment(path: string, fragment: Fragment, use: AddressUse): Promise<Resolution> {
     const bound = await this.#store.binding(path);
     if (bound === null) return { status: "dangling", message: `the store has no record ${path}`, missing: true };
     if (!bound.ok) return { status: "unreadable", path, issues: bound.issues };
     const binding = bound.value;
-    const resolved = resolveAddressSteps(binding, fragment, "singular");
+    const resolved = resolveAddressSteps(binding, fragment, use);
     const shown = `${path}${formatFragment(fragment)}`;
     if (resolved.ok) {
-      const { targets, steps: ways } = resolved.value;
-      return fragment.kind === "semantic"
-        ? { status: "ok", targets, steps: { record: binding.record, fragment, ways } }
-        : { status: "ok", targets };
+      const { targets, steps: ways, routes } = resolved.value;
+      const semantic = fragment.kind === "semantic" && use === "singular";
+      const steps: Steps = { record: binding.record, fragment, routes, ...(semantic ? { ways } : {}) };
+      return targets.length === 0
+        ? { status: "ok", path, targets, steps, inRecord: { record: binding.record, fragment } }
+        : { status: "ok", path, targets, steps };
     }
     const issue = resolved.issues[0] as Issue;
-    if (issue.code === "address-not-singular") return { status: "ambiguous", targets: [], message: issue.message };
+    if (issue.code === "address-not-singular") return { status: "ambiguous", path, targets: [], message: issue.message };
     if (issue.code === "address-ambiguous") {
-      return { status: "ambiguous", targets: issue.candidates ?? [], message: `${shown} matches several nodes` };
+      return { status: "ambiguous", path, targets: issue.candidates ?? [], message: `${shown} matches several nodes` };
     }
     return { status: "dangling", message: `${shown} matches no node`, inRecord: { record: binding.record, fragment } };
   }
 
   /**
-   * Resolves a reference that the live store leaves dangling through the aliases: for a path where nothing is, the chain of
-   * record aliases from it, which stops at the first path where a file is; then, in the record that was found, when the
-   * fragment's first step reaches nothing there, the chain of anchor aliases from that step, among those recorded under the
-   * record's path and its old paths, which stops at the first name that a first step reaches in the record; the other steps are
-   * kept. A first step that reaches something is live and wins over its aliases, whatever the later steps match. Gives null
-   * when no alias applies, or when the aliases lead nowhere either.
+   * Resolves a reference that the live store leaves dangling, or that as a selector matches nothing, through the aliases: for
+   * a path where nothing is, the chain of record aliases from it, which stops at the first path where a file is; then, in the
+   * record that was found, when the fragment's first step reaches nothing there, the chain of anchor aliases from that step,
+   * among those recorded under the record's path and its old paths, which stops at the first name that a first step reaches
+   * in the record; the other steps are kept. A first step that reaches something is live and wins over its aliases, whatever
+   * the later steps match. A selector whose anchor alias chain reaches a name resolves through it, whatever the later steps
+   * then match. Gives null when no alias applies, or when the aliases lead a singular address to nothing either.
    */
-  async #throughAliases(path: string, fragmentText: string | null, live: Resolution): Promise<Resolution | null> {
+  async #throughAliases(
+    path: string,
+    fragmentText: string | null,
+    live: Resolution,
+    use: AddressUse,
+  ): Promise<Resolution | null> {
     let current = live;
     if (live.status === "dangling" && live.missing === true) {
       const target = await this.#recordChainEnd(path);
       if (target === path) return null;
-      current = await this.#resolveTarget(target, false, fragmentText);
+      current = await this.#resolveTarget(target, false, fragmentText, use);
     }
-    if (current.status === "dangling" && current.inRecord !== undefined && current.inRecord.fragment.kind === "semantic") {
-      const { record, fragment } = current.inRecord;
+    const inRecord = current.status === "dangling" || current.status === "ok" ? current.inRecord : undefined;
+    if (inRecord !== undefined && inRecord.fragment.kind === "semantic") {
+      const { record, fragment } = inRecord;
       const [first, ...rest] = fragment.steps as [string, ...string[]];
       const renamed = firstStepReaches(record, first) ? null : await this.#anchorChainLiveEnd(record, first);
       if (renamed !== null) {
-        current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] });
+        current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] }, use);
       }
     }
-    // An alias that leads nowhere leaves the reference as dangling as the live store does.
+    // An alias that leads nowhere leaves the reference as the live store does.
     return current === live || current.status === "dangling" ? null : current;
   }
 
@@ -314,6 +364,55 @@ export class ReferenceResolver {
     return paths;
   }
 
+  /**
+   * Gives the `ref-target-not-allowed` of a reference its schema declares, naming each way it breaks the declaration, or null
+   * when it breaks none: a target whose store path no entry of `targets` allows, checked wherever something is at the path,
+   * the status staying what resolution gave; and, under `anchors: explicit`, each target that some step reached only by a
+   * title-derived name or a position, checked where resolution reached targets.
+   */
+  #notAllowed(declaration: RefDeclaration, resolution: Resolution): Pick<IssueInit, "code" | "message" | "hint"> | null {
+    const reasons: string[] = [];
+    const hints: string[] = [];
+    if (resolution.status !== "dangling" && declaration.targets !== null && !this.#allows(declaration.targets, resolution.path)) {
+      const entries = declaration.targets.map((entry) => JSON.stringify(entry)).join(", ");
+      reasons.push(
+        `names ${resolution.path}, which its schema's targets do not allow (${entries === "" ? "no target" : entries})`,
+      );
+      hints.push("point it at a record or a file that the schema's targets allow");
+    }
+    if (declaration.anchors === "explicit" && resolution.status === "ok" && resolution.steps !== undefined) {
+      const { routes } = resolution.steps;
+      const fragile = resolution.targets.filter((_, index) => (routes[index] ?? []).some(reachedFragilely));
+      if (fragile.length > 0) {
+        reasons.push(
+          `reaches ${fragile.map(targetText).join(", ")} by a title-derived name or a position, which its schema's anchors: explicit refuses`,
+        );
+        hints.push("address the target by explicit anchors, field names and keyed-list keys");
+      }
+    }
+    if (reasons.length === 0) return null;
+    return { code: "ref-target-not-allowed", message: reasons.join(", and "), hint: hints.join("; ") };
+  }
+
+  /**
+   * Whether an entry of a declaration's `targets` allows a store path: an entry that names a collection of the configuration
+   * allows its records, a record that several collections claim belonging to none, and any other entry is a glob over store
+   * paths.
+   */
+  #allows(entries: readonly string[], path: string): boolean {
+    return entries.some((entry) => {
+      if (this.#store.collections.has(entry)) return collectionOfRecord(this.#store.classify(path))?.name === entry;
+      let glob = this.#globs.get(entry);
+      if (glob === undefined) {
+        // A schema whose targets hold a malformed glob cannot be used, so an entry here always compiles.
+        const compiled = compileGlob(entry);
+        glob = compiled.ok ? compiled.value : () => false;
+        this.#globs.set(entry, glob);
+      }
+      return glob(path);
+    });
+  }
+
   /** Builds a reference from its resolution, with its issues. */
   #reference(citing: ParsedRecord, occurrence: ReferenceOccurrence, resolution: Resolution, aliased: boolean): Reference {
     const from = {
@@ -334,7 +433,7 @@ export class ReferenceResolver {
         steps = resolution.steps?.ways;
         if (aliased) {
           status = "aliased";
-          const now = targets.map(targetText).join(", ");
+          const now = targets.length === 0 ? `${resolution.path}, where it matches nothing` : targets.map(targetText).join(", ");
           issues.push(
             issue({
               code: "ref-aliased",
@@ -377,6 +476,8 @@ export class ReferenceResolver {
         issues.push(issue({ code: "ref-dangling", message: `${shown}: ${resolution.message}` }));
         break;
     }
+    const refusal = occurrence.declaration === undefined ? null : this.#notAllowed(occurrence.declaration, resolution);
+    if (refusal !== null) issues.push(issue({ ...refusal, message: `${shown} ${refusal.message}` }));
     return Object.freeze({
       ...occurrence,
       from: Object.freeze(from),
@@ -515,19 +616,31 @@ function positionOf(record: ParsedRecord, occurrence: ReferenceOccurrence): Pick
 /** The ways of matching a step that derive from a title, which change when the title changes. */
 const TITLE_DERIVED: ReadonlySet<StepMatch> = new Set(["anchor-derived", "key-title"]);
 
+/** The ways of matching a step that `anchors: explicit` refuses: those of a title, and a position. */
+const FRAGILE: ReadonlySet<StepMatch> = new Set(["anchor-derived", "key-title", "index"]);
+
+/** Whether a step reached its node only by ways that `anchors: explicit` refuses. */
+function reachedFragilely(ways: readonly StepMatch[]): boolean {
+  return ways.length > 0 && ways.every((way) => FRAGILE.has(way));
+}
+
 /**
- * Gives the warning of a reference whose first step matched only through its title, by a derived anchor or a key that is the
- * title's slug: `ref-derived-repeat` when another heading of the record has the same slug, so that a change to either
- * renumbers the other, and `ref-derived-anchor` otherwise. Null when the step matched another way too.
+ * Gives the warning of a reference whose first step reached a target only through its title, by a derived anchor or a key
+ * that is the title's slug, for any of its targets: `ref-derived-repeat` when another heading of the record has the same
+ * slug, so that a change to either renumbers the other, and `ref-derived-anchor` otherwise. Null when the first step reached
+ * every target another way too, and for an exact path.
  */
 function derivedAnchorWarning(steps: Steps): Pick<IssueInit, "code" | "message" | "hint"> | null {
-  const first = steps.ways[0];
-  if (first === undefined || first.length === 0 || !first.every((way) => TITLE_DERIVED.has(way))) return null;
+  if (steps.fragment.kind !== "semantic") return null;
+  const titled = steps.routes.some((route) => {
+    const first = route[0];
+    return first !== undefined && first.length > 0 && first.every((way) => TITLE_DERIVED.has(way));
+  });
+  if (!titled) return null;
   const step = steps.fragment.steps[0] as string;
-  const firstStep = resolveAddress(steps.record, { kind: "semantic", steps: [step] }, "singular");
-  const at = firstStep.ok ? (firstStep.value[0] as Target).at : "";
-  const derived = steps.record.anchors.of(at).find((entry) => entry.kind === "derived" && entry.name === step);
-  const slug = derived?.slug ?? step;
+  // A record's derived anchors have distinct names, each the slug of its heading with a repeat suffix.
+  const derived = steps.record.anchors.named(step).find((entry) => entry.kind === "derived");
+  const slug = (derived !== undefined && "slug" in derived ? derived.slug : undefined) ?? step;
   const hint = "give the heading an explicit anchor, and reference it by that";
   if ((slugCounts(steps.record).get(slug) ?? 0) > 1) {
     return {
