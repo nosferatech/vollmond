@@ -36,6 +36,8 @@ export const INDEX_COMMAND: Command = {
     if (options.publish !== undefined) {
       return usagePlan("index --publish is not offered yet: the portable index comes with phase I7");
     }
+    // Reading R25 of the I2 design, for the project owner to confirm: `--no-cache` contradicts the command, while a cache that
+    // cannot be used is not the user's request, so it is reported rather than taken as `--no-cache`.
     if (globals.noCache) return usagePlan("vmd index writes the local index, which --no-cache turns off");
     return {
       kind: "run",
@@ -60,9 +62,12 @@ export const INDEX_COMMAND: Command = {
 
 /** Writes what `vmd index` did, as its text output. */
 function formatIndexSummary(summary: IndexSummary): string {
+  // A record the backend could not read when listing it is neither parsed nor read from the index.
+  const unread = summary.records - summary.parsed - summary.fromIndex;
+  const notRead = unread === 0 ? "" : `, ${formatCount(unread)} not read`;
   const counts =
     `${counted(summary.records, "record")} (${formatCount(summary.parsed)} parsed, ` +
-    `${formatCount(summary.fromIndex)} from the index), ${counted(summary.references, "reference")}`;
+    `${formatCount(summary.fromIndex)} from the index${notRead}), ${counted(summary.references, "reference")}`;
   if (summary.cacheBytes === undefined) return `${counts}\nno local index was kept: ${summary.noIndex}\n`;
   const failures = summary.failedWrites ?? 0;
   const failed = failures === 0 ? "" : `; ${formatCount(failures)} ${failures === 1 ? "entry" : "entries"} could not be written`;

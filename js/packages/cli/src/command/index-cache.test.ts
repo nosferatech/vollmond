@@ -1,7 +1,7 @@
 // The commands over the local index in the per-user cache directory: `ls`'s store-wide count of unreadable records and
 // `outline`'s refs-in counts, and that nothing in the store or its checkout is ever read or written as cache.
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, symlinkSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createMemoryIndexCache, gitBlobId, openStore, parseRecord } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
@@ -142,6 +142,22 @@ describe("nothing in the checkout is cache", () => {
     const listed = await vmd(root, beside, "ls", "-n", "2");
     expect(listed.stdout).toContain("2 records could not be read\n");
     expect(readdirSync(join(beside, `v1-${IMPLEMENTATION}`))).toContain("entries");
+  });
+
+  test("a store reached through a symbolic link is compared by its real path, so a cache inside it is refused", async () => {
+    const real = writeFiles(temporaryDirectory(), storeFiles());
+    const link = join(temporaryDirectory(), "store");
+    symlinkSync(real, link);
+    const inside = join(real, ".cache");
+    const listed = await vmd(link, inside, "ls", "-n", "2");
+    expect(listed.stdout).not.toContain("could not be read");
+    expect(readdirSync(real)).not.toContain(".cache");
+    // The near miss: a cache beside the real store is used through the link.
+    const beside = temporaryDirectory();
+    expect((await vmd(link, beside, "ls", "-n", "2")).stdout).toContain("2 records could not be read\n");
+    // And one store has one snapshot, by its real path: a check through the link gives an outline by the real path its counts.
+    await vmd(link, beside, "check");
+    expect((await vmd(real, beside, "outline", "a.md")).stdout).toMatch(/#intro .* 3 refs-in\n/);
   });
 
   test("the default cache directory is used inside a working tree that encloses the store, such as a dotfiles home", async () => {

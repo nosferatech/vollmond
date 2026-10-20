@@ -1,7 +1,7 @@
 // `vmd check [PATHS..] [-n N | --all]`: validates the store, or some of its records, and prints the issues found, capped, then
 // a summary.
 
-import { type CheckSummary, fail, type Issue, makeIssue, type Outcome, type Store } from "@vollmond/core";
+import { type CheckSummary, fail, type Issue, makeIssue, type Outcome, parseAddress, type Store } from "@vollmond/core";
 import { DEFAULT_ISSUE_LIMIT, type IssueDetails, type IssueDetailsSource } from "../output/issues.js";
 import { readLimit, shellWord } from "../output/paging.js";
 import { formatCount } from "../output/sizes.js";
@@ -20,8 +20,9 @@ const GLOB_PAGE = 1000;
  * summary line. References still resolve into the whole store. `--quiet` keeps the warnings, which are the result. Exit code
  * 4 when an issue is an error.
  *
- * A PATH or glob that matches no record fails the check with `address-not-found`, naming each one, and for a path that is a
- * directory with the glob that checks the records below it (reading R23 of the I2 design, for the project owner to confirm).
+ * A PATH that is not a store path, such as `./a.md`, fails with `address-malformed`, as `get` says of it. A PATH or glob that
+ * matches no record fails the check with `address-not-found`, naming each one, and for a path that is a directory, with or
+ * without its slash, with the glob that checks the records below it (reading R23 of the I2 design, for the project owner to confirm).
  * `--fix` is refused: it comes with phase I5's rewrites.
  */
 export const CHECK_COMMAND: Command = {
@@ -77,6 +78,11 @@ async function recordsNamed(store: Store, args: readonly string[]): Promise<Outc
   const records = new Set<string>();
   const unmatched: string[] = [];
   for (const arg of args) {
+    // A path that is not a store path is malformed, as `get` says of it; a directory may be written with its slash.
+    if (!arg.includes("*") && !arg.endsWith("/")) {
+      const parsed = parseAddress(arg);
+      if (!parsed.ok) return fail(parsed.issues);
+    }
     const found = arg.includes("*") ? await recordsMatching(store, arg) : await recordAt(store, arg);
     if (!found.ok) return fail(found.issues);
     if (found.value.length === 0) unmatched.push(arg);
@@ -86,9 +92,10 @@ async function recordsNamed(store: Store, args: readonly string[]): Promise<Outc
   let hint: string | undefined;
   for (const arg of unmatched) {
     if (arg.includes("*")) continue;
-    const below = await store.backend.list({ prefix: "", glob: `${arg}/**`, limit: 1 });
+    const directory = arg.endsWith("/") ? arg.slice(0, -1) : arg;
+    const below = await store.backend.list({ prefix: "", glob: `${directory}/**`, limit: 1 });
     if (below.ok && below.value.items.length > 0) {
-      hint = `${arg} is a directory: vmd check ${shellWord(`${arg}/**`)} checks the records below it`;
+      hint = `${arg} is a directory: vmd check ${shellWord(`${directory}/**`)} checks the records below it`;
       break;
     }
   }

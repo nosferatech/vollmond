@@ -159,6 +159,18 @@ describe("check of some records", () => {
     expect((await vmd(root, "check", "tasks/**")).exitCode).toBe(4);
   });
 
+  test("refuses a path that is not a store path as get does, and gives a directory written with a slash its glob", async () => {
+    const root = writeFiles(temporaryDirectory(), checkStoreFiles());
+    for (const path of ["./a.md", "../a.md"]) {
+      const result = await vmd(root, "check", path);
+      expect(result.stderr).toMatch(/^error address-malformed: /);
+      expect(result.exitCode).toBe(1);
+      expect((await vmd(root, "get", path)).stderr).toMatch(/^error address-malformed: /);
+    }
+    const slashed = await vmd(root, "check", "tasks/");
+    expect(slashed.stderr).toContain("hint tasks/ is a directory: vmd check 'tasks/**' checks the records below it\n");
+  });
+
   test("refuses an asset, which is no record", async () => {
     const root = writeFiles(temporaryDirectory(), { ...checkStoreFiles(), "image.png": "x" });
     const result = await vmd(root, "check", "image.png");

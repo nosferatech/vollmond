@@ -385,7 +385,8 @@ function render(report: Report, globals: GlobalOptions): CliResult {
   }
   const value = outcome.ok ? report.text(outcome.value) : "";
   const trailer = outcome.ok && report.trailer !== undefined ? report.trailer(outcome.value) : "";
-  // A failure has no result, so its issues are diagnostics whatever the command lists on success.
+  // Deviation from the specification, recorded in issue #26: a failure has no result, so its issues go to stderr as
+  // diagnostics, a failed `check`'s included, where §12.3 prints `check`'s issues on stdout whatever its outcome.
   if (report.issueOutput === "diagnostics" || !outcome.ok) {
     // One list on stderr, so that the cap and the line that counts every issue found, dropped warnings included, apply once.
     const storeIssues = new Set(report.storeIssues);
@@ -454,7 +455,7 @@ function generalHelp(commands: readonly Command[]): string {
     "  --config FILE  a configuration used in place of the store's .vmd/config.yaml, with its schemas in schema/ beside it\n" +
     "  --json         print every outcome, a failure included, as one JSON object\n" +
     "  --quiet        leave out warnings, but check's, which are its result\n" +
-    "  --strict       the strict read mode: get, outline, ls and refs refuse a record that breaks its schema\n" +
+    "  --strict       the strict read mode: get, outline and ls refuse a record that breaks its schema\n" +
     "  --no-cache     neither read nor write the local index in the per-user cache directory\n"
   );
 }

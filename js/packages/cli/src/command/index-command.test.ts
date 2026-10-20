@@ -99,10 +99,15 @@ describe("vmd index", () => {
     const file = join(root, "b.md");
     chmodSync(file, 0o000);
     try {
-      const result = await vmd(root, temporaryDirectory(), "index");
+      const cache = temporaryDirectory();
+      const result = await vmd(root, cache, "index");
       expect(result.stderr).toMatch(/^b\.md error storage-failed: /);
       expect(result.stderr.match(/ error /g)).toHaveLength(1);
       expect(result.exitCode).toBe(4);
+      // The counts add up: the record the backend could not read is neither parsed nor from the index.
+      expect(result.stdout).toMatch(/^3 records \(2 parsed, 0 from the index, 1 not read\), /);
+      const again = JSON.parse((await vmd(root, cache, "--json", "index")).stdout);
+      expect(again.value).toMatchObject({ records: 3, parsed: 0, fromIndex: 2 });
     } finally {
       chmodSync(file, 0o644);
     }
