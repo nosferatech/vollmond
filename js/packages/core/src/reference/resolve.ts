@@ -446,8 +446,8 @@ export class ReferenceResolver {
       at: occurrence.at,
       ...(occurrence.offset === undefined ? {} : { offset: occurrence.offset }),
     };
-    const issue = (init: Omit<IssueInit, "path" | "at" | "offset" | "position">) =>
-      makeIssue({ ...init, ...from, ...positionOf(citing, occurrence) });
+    const position = positionOf(citing, occurrence);
+    const issue = (init: Omit<IssueInit, "path" | "at" | "offset" | "position">) => makeIssue({ ...init, ...from, ...position });
     const shown = JSON.stringify(occurrence.raw);
     const issues: Issue[] = [];
     let status: ReferenceStatus = resolution.status;
@@ -508,6 +508,7 @@ export class ReferenceResolver {
       ...occurrence,
       from: Object.freeze(from),
       status,
+      ...position,
       targets: Object.freeze([...targets]),
       ...(steps === undefined ? {} : { steps }),
       issues: Object.freeze(issues),

@@ -45,7 +45,7 @@ To run the command from a checkout, build first and then, in `js/`, use `node pa
 `npx` would run that. The `vmd` link in `node_modules/.bin` appears only after a build followed by `npm rebuild` or a fresh
 `npm install`, because the link points at a file that `tsc` creates.
 
-`check`, `index`, `ls` and `outline` keep a local index of what they parse in the per-user cache directory
+`check`, `index`, `refs`, `ls` and `outline` keep a local index of what they parse in the per-user cache directory
 (`$XDG_CACHE_HOME/vmd/` when that is set, otherwise `~/Library/Caches/vmd/` on macOS and `~/.cache/vmd/` elsewhere), never in
 the store; `get`, `cat` and `grep` neither read nor write it, and `--no-cache` turns it off for any command. `vmd index` brings
 it up to date for the whole store, which gives `outline` its refs-in counts. A build writes the id the index keys its entries
