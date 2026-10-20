@@ -1,11 +1,13 @@
 // Typed references: the strings a collection's schema declares with x-vmd-ref, and what the declaration checks of every
 // reference it applies to, a $ref object's included.
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
+import { bindRecord } from "../binding/binding.js";
 import type { Issue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import { openStore, type Store } from "../store/store.js";
+import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { occurrencesOf } from "./extract.js";
 import type { Reference } from "./reference.js";
 
@@ -191,24 +193,22 @@ describe("typed references", () => {
 });
 
 describe("the cost of typed references", () => {
-  test("grows linearly with their count: each string's node is looked up a few times, not once per other reference", async () => {
-    /** The node lookups that finding `count` typed strings takes. */
-    const lookupsFor = async (count: number): Promise<number> => {
+  test("grows linearly with their count, in the binding's walk and in their extraction", async () => {
+    /** Times binding a record of `count` typed strings and extracting them, the record and its schema read once. */
+    const timedFor = async (count: number): Promise<() => number> => {
       const list = Array.from({ length: count }, (_, i) => `../docs/t${i}.md`);
       const store = await storeOf({ "typed/big.json": JSON.stringify({ list }) });
-      const bound = successValue((await store.binding("typed/big.json")) ?? expect.fail("no record"));
-      expect(bound.typedReferences).toHaveLength(count);
-      const lookups = vi.spyOn(bound.record.nodes, "node");
-      try {
-        expect(occurrencesOf(bound)).toHaveLength(count);
-        return lookups.mock.calls.length;
-      } finally {
-        lookups.mockRestore();
-      }
+      const record = successValue((await store.record("typed/big.json")) ?? expect.fail("no record"));
+      const typedCollection = store.configuration.collections.find((collection) => collection.name === "typed");
+      const schema = successValue((await store.schema(typedCollection ?? expect.fail("no collection"))) ?? expect.fail("none"));
+      expect(occurrencesOf(bindRecord(record, schema))).toHaveLength(count);
+      return () => timeOf(() => occurrencesOf(bindRecord(record, schema)));
     };
-    const small = await lookupsFor(5_000);
-    expect(await lookupsFor(20_000)).toBeLessThanOrEqual(4 * small + 10);
-  });
+    const [small, large] = [await timedFor(2_000), await timedFor(16_000)];
+    // Eight times the strings: about ten times the time when linear, measured, and forty or more when each string scans the
+    // others, as a scan in the walk or in the extraction does.
+    expect(await leastTimeRatio(small, large, 3)).toBeLessThan(24);
+  }, 60_000);
 });
 
 describe("a $ref object with x-vmd-ref on its $ref member", () => {
@@ -236,6 +236,57 @@ describe("a $ref object with x-vmd-ref on its $ref member", () => {
     const equal = successValue(await openStore(createMemoryStorage({ files: files("docs/**") })));
     const refs = successValue(await equal.references({ from: "both/b.yaml" }));
     expect(refs.map(({ form, declaration }) => [form, declaration?.targets])).toEqual([["ref-object", ["docs/**"]]]);
+  });
+
+  /** A store whose collection's schema is `patterns`, the `patternProperties` of its root, holding `record` as `p/r.yaml`. */
+  async function patternStore(patterns: readonly string[], record: string): Promise<Store> {
+    const schema = ["type: object", "patternProperties:", ...patterns.map((pattern) => `  ${pattern}`), ""].join("\n");
+    const files = {
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  p:\n    match: ["p/*.yaml"]\n    schema: p.schema.yaml\n',
+      ".vmd/schema/p.schema.yaml": schema,
+      "p/r.yaml": record,
+      "docs/t.md": "# T\n",
+      "other/thing.md": "# Thing\n",
+    };
+    return successValue(await openStore(createMemoryStorage({ files })));
+  }
+  const shownRefs = async (store: Store) =>
+    successValue(await store.references({ from: "p/r.yaml" })).map(
+      (reference) => `${reference.at} ${reference.declaration?.targets ?? "none"} [${codes(reference).join(",")}]`,
+    );
+  const checkedIssues = async (store: Store) =>
+    (await store.check()).issues.map((issue) => `${issue.code} ${issue.at}`).filter((shown) => !shown.startsWith("ref-"));
+
+  test("gets a schema-violation and no declaration where only a member name in the data brings unequal ones together", async () => {
+    const patterns = [
+      '"^a": {type: object, x-vmd-ref: {targets: ["other/**"]}}',
+      `"^ab": {type: object, properties: {$ref: ${typed('{targets: ["docs/**"]}')}}}`,
+    ];
+    // abc takes both patterns: the object's declaration and its member's meet only there.
+    const met = await patternStore(patterns, "abc: {$ref: ../docs/t.md}\n");
+    expect(await shownRefs(met)).toEqual(["/abc none []"]);
+    expect(await checkedIssues(met)).toEqual(["schema-violation /abc"]);
+    // a1 takes the first alone, whose declaration applies.
+    const alone = await patternStore(patterns, "a1: {$ref: ../docs/t.md}\n");
+    expect(await shownRefs(alone)).toEqual(["/a1 other/** [ref-target-not-allowed]"]);
+    expect(await checkedIssues(alone)).toEqual([]);
+    // Declarations that mean the same are no conflict, however they are written.
+    const same = await patternStore(
+      ['"^a": {type: object, x-vmd-ref: {}}', `"^ab": {type: object, properties: {$ref: ${typed("{cardinality: one}")}}}`],
+      "abc: {$ref: ../docs/t.md}\n",
+    );
+    expect(await shownRefs(same)).toEqual(["/abc none []"]);
+    expect(await checkedIssues(same)).toEqual([]);
+  });
+
+  test("gets no declaration from its member where its own declarations conflict in the data", async () => {
+    const patterns = [
+      `"^b": {type: object, x-vmd-ref: {targets: ["docs/**"]}, properties: {$ref: ${typed('{targets: ["docs/**"]}')}}}`,
+      '"^bc": {type: object, x-vmd-ref: {cardinality: many}}',
+    ];
+    const store = await patternStore(patterns, "bcd: {$ref: ../other/thing.md}\n");
+    expect(await shownRefs(store)).toEqual(["/bcd none []"]);
+    expect(await checkedIssues(store)).toEqual(["schema-violation /bcd"]);
   });
 });
 
@@ -273,10 +324,11 @@ describe("cardinality: many", () => {
     // A live first step never follows an alias, whatever the later steps match.
     const live = await one("many", "../docs/t.md#planned/nothing");
     expect(live).toMatchObject({ status: "ok", targets: [], issues: [] });
-    // The chain reaches a name, so the reference resolves through the alias, although the later steps then match nothing.
+    // An alias whose chain reaches a name where the later steps match nothing leads nowhere: as a single reference through it
+    // stays dangling, the live store's, a many-reference stays ok with nothing.
     const nowhere = await one("many", "../docs/t.md#setup/nothing");
-    expect(nowhere).toMatchObject({ status: "aliased", targets: [] });
-    expect(codes(nowhere)).toEqual(["ref-aliased"]);
+    expect(nowhere).toMatchObject({ status: "ok", targets: [], issues: [] });
+    expect(await one("parent", "../docs/t.md#setup/nothing")).toMatchObject({ status: "dangling", targets: [] });
     // A chain that reaches no name leaves the reference as the live store does.
     const unknown = await one("many", "../docs/t.md#unknown");
     expect(unknown).toMatchObject({ status: "ok", targets: [], issues: [] });
@@ -326,6 +378,16 @@ describe("anchors: explicit", () => {
     expect(codes(await one("parent", "../docs/t.md#links/1"))).toEqual([]);
   });
 
+  test("allows a step that matched one node by an explicit anchor and by a derived one", async () => {
+    const store = await storeOf({
+      "docs/d.md": '# D\n\n## Done <a id="done"></a>\n\nx\n',
+      "typed/r.yaml": "strict: ../docs/d.md#done\n",
+    });
+    const [reference] = successValue(await store.references({ from: "typed/r.yaml" }));
+    expect(reference?.steps).toEqual([["key-explicit", "anchor-explicit", "anchor-derived"]]);
+    expect(codes(reference as Reference)).toEqual([]);
+  });
+
   test("with cardinality: many, refuses a reference as soon as one target is reached only by a title or a position", async () => {
     const mixed = await one("strictMany", "../journal/j.json#notes");
     expect(ats(mixed)).toEqual(["/$sections/0", "/$sections/1"]);
@@ -335,6 +397,8 @@ describe("anchors: explicit", () => {
     expect(refusal?.message).not.toContain("#/$sections/1");
     const explicit = await one("strictMany", "../journal/k.json#notes");
     expect(codes(explicit)).toEqual([]);
+    // One target of two reached by its title is enough for the title-derived warning too.
+    expect(codes(await one("many", "../journal/j.json#notes"))).toEqual(["ref-derived-anchor"]);
     expect(codes(await one("many", "../journal/j.json#notes"))).not.toContain("ref-target-not-allowed");
   });
 });

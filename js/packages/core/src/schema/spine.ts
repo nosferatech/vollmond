@@ -1,7 +1,13 @@
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
 import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
-import { type ListDeclaration, type RefDeclaration, readListDeclaration, readRefDeclaration } from "./keywords.js";
+import {
+  type ListDeclaration,
+  type RefDeclaration,
+  readListDeclaration,
+  readRefDeclaration,
+  sameRefDeclaration,
+} from "./keywords.js";
 import { locationKey, referenceKey, type SchemaLocation, type SchemaSet } from "./schema-set.js";
 import { isObject, isSchemaValue, subschemas } from "./walk.js";
 
@@ -1220,12 +1226,14 @@ export class Spine {
    */
   #unequalRefMembers(schema: ValueObject, holder: SchemaLocation): SchemaLocation[] {
     if (!Object.hasOwn(schema, "x-vmd-ref")) return [];
+    // The question is which one applies, which does not arise for two that mean the same, however they are written.
+    const own = readRefDeclaration(schema["x-vmd-ref"] as ValueObject);
     return this.memberLocations(holder, "$ref").filter((member) => {
       const memberSchema = this.schemaAt(member);
       return (
         isObject(memberSchema) &&
         Object.hasOwn(memberSchema, "x-vmd-ref") &&
-        !valuesEqual(memberSchema["x-vmd-ref"] as Value, schema["x-vmd-ref"] as Value)
+        !sameRefDeclaration(readRefDeclaration(memberSchema["x-vmd-ref"] as ValueObject), own)
       );
     });
   }
@@ -1271,9 +1279,10 @@ export class Spine {
 /**
  * The refusal of an `x-vmd-ref` at a location that may hold a `$ref` object, beside an unequal one on its `$ref` member.
  *
- * TODO(#24): which of the two applies is an open question for the project owner, with three options: unequal declarations
- * are refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no record
- * is read under a choice nobody made.
+ * TODO(#24): which of the two applies is an open question for the project owner, recorded in
+ * https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256, with three options: declarations that differ in
+ * meaning are refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no
+ * record is read under a choice nobody made.
  */
 function refMemberMessage(object: SchemaLocation, member: SchemaLocation): string {
   return `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`;

@@ -8,6 +8,7 @@
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
 import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
+import { type RefDeclaration, readRefDeclaration, sameRefDeclaration } from "./keywords.js";
 import { locationKey, referenceKey, type SchemaLocation, type SchemaSet } from "./schema-set.js";
 import type { SpineProblem } from "./spine.js";
 import { isObject, isSchemaValue, subschemas } from "./walk.js";
@@ -683,7 +684,10 @@ export class OracleSpine {
       for (const member of this.memberLocations(holder, "$ref")) {
         const memberSchema = this.schemaAt(member);
         if (!isObject(memberSchema) || !Object.hasOwn(memberSchema, "x-vmd-ref")) continue;
-        if (valuesEqual(memberSchema["x-vmd-ref"] as Value, schema["x-vmd-ref"] as Value)) continue;
+        const [own, members] = [schema["x-vmd-ref"], memberSchema["x-vmd-ref"]].map((value) =>
+          readRefDeclaration(value as ValueObject),
+        );
+        if (sameRefDeclaration(own as RefDeclaration, members as RefDeclaration)) continue;
         report(
           at(object, "x-vmd-ref"),
           `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`,

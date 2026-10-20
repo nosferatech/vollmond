@@ -278,8 +278,8 @@ export class ReferenceResolver {
    * record that was found, when the fragment's first step reaches nothing there, the chain of anchor aliases from that step,
    * among those recorded under the record's path and its old paths, which stops at the first name that a first step reaches
    * in the record; the other steps are kept. A first step that reaches something is live and wins over its aliases, whatever
-   * the later steps match. A selector whose anchor alias chain reaches a name resolves through it, whatever the later steps
-   * then match. Gives null when no alias applies, or when the aliases lead a singular address to nothing either.
+   * the later steps match. Gives null when no alias applies, or when the aliases lead nowhere either: to nothing for a
+   * singular address, or, through an anchor alias, to no match for a selector.
    */
   async #throughAliases(
     path: string,
@@ -299,7 +299,9 @@ export class ReferenceResolver {
       const [first, ...rest] = fragment.steps as [string, ...string[]];
       const renamed = firstStepReaches(record, first) ? null : await this.#anchorChainLiveEnd(record, first);
       if (renamed !== null) {
-        current = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] }, use);
+        const through = await this.#resolveFragment(record.path, { kind: "semantic", steps: [renamed, ...rest] }, use);
+        // An anchor alias that leads a selector to no match leads nowhere, as one that leaves a singular address dangling does.
+        if (through.status !== "ok" || through.targets.length > 0) current = through;
       }
     }
     // An alias that leads nowhere leaves the reference as the live store does.

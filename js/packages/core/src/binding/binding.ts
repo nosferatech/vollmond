@@ -4,7 +4,7 @@ import { childPath } from "../record/exact-path.js";
 import type { NodeInfo } from "../record/node-index.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { CollectionSchema, ListChecks } from "../schema/collection-schema.js";
-import type { ListDeclaration } from "../schema/keywords.js";
+import { type ListDeclaration, type RefDeclaration, sameRefDeclaration } from "../schema/keywords.js";
 import { LOGICAL_TYPES, type LogicalType } from "../schema/logical-types.js";
 import type { SchemaLocation } from "../schema/schema-set.js";
 import type { SchemaShape } from "../schema/spine.js";
@@ -47,6 +47,11 @@ export interface RecordBinding {
    * no URI reference has its `schema-violation` from the schema's `format` instead.
    */
   readonly typedReferences: readonly string[];
+  /**
+   * Gives the `x-vmd-ref` declaration of the reference at an exact path: a typed string's; a JSON Reference's own, or else
+   * its `$ref` member's, none where declarations conflict there or the two differ; null for any other node.
+   */
+  declarationOf(at: string): RefDeclaration | null;
   /** Gives the schema's shape of the node at an exact path; null for a record bound without a schema, or a path with no node. */
   shape(at: string): SchemaShape | null;
   /**
@@ -75,6 +80,8 @@ type Place = "section" | "sections" | "value";
  *   the item, and an item is validated against its key's per-key schema, or `additional` when that is a schema;
  * - a member that two `patternProperties` patterns bring unequal declarations to is a `schema-violation`, and gets neither;
  * - a string whose shape declares `x-vmd-ref`, and that is a URI reference, is a typed reference;
+ * - a JSON Reference whose shape and whose `$ref` member's declare `x-vmd-ref` with different meanings, which only a member
+ *   name in the data brings together, is a `schema-violation`, and gets neither;
  * - a `duplicate-key` the parse raised among the sections of a level declared `multimap` is dropped, unless a field of the
  *   section shares the name before it, and one at a level declared `map` is marked as declared.
  *
@@ -94,10 +101,12 @@ export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null
     for (const issue of binder.duplicates) issues.push(issue);
   }
   const shapes = binder.shapes;
+  const declarations = binder.declarations;
   return Object.freeze({
     record,
     lists: binder.lists,
     typedReferences: Object.freeze(binder.typed),
+    declarationOf: (at: string) => declarations.get(at) ?? null,
     shape: (at: string) => shapes.get(at) ?? null,
     issues: Object.freeze(issues),
   });
@@ -143,6 +152,8 @@ class Binder {
   readonly duplicates: Issue[] = [];
   /** The exact paths of the typed references found. */
   readonly typed: string[] = [];
+  /** The declarations of the JSON References that have one, by exact path. */
+  readonly declarations = new Map<string, RefDeclaration>();
   readonly #subschemas: { readonly at: string; readonly location: SchemaLocation }[] = [];
   readonly #failures: NativeFailure[] = [];
 
@@ -175,7 +186,10 @@ class Binder {
       if (shape.conflicts.length > 0) this.#failures.push({ at, message: conflictMessage(shape.conflicts) });
       if (typeof value === "string") {
         // A readable record holds a `$ref` member only in a JSON Reference.
-        if (shape.ref !== null && !at.endsWith("/$ref") && URI_REFERENCE.check(value)) this.typed.push(at);
+        if (shape.ref !== null && !at.endsWith("/$ref") && URI_REFERENCE.check(value)) {
+          this.typed.push(at);
+          this.declarations.set(at, shape.ref);
+        }
       } else if (Array.isArray(value)) {
         const declaration = shape.list;
         const keys =
@@ -191,12 +205,39 @@ class Binder {
           pending.push({ at: childPath(at, index), value: item, shape: shape.child(step), place: childPlace });
         });
       } else if (value !== null && typeof value === "object") {
+        // A readable record holds a `$ref` member only in a JSON Reference, outside sections.
+        if (typeof (value as ValueObject).$ref === "string") this.#declareReference(at, shape);
         for (const [name, member] of Object.entries(value as ValueObject)) {
           const childPlace: Place = place === "section" && name === "$sections" ? "sections" : "value";
           pending.push({ at: childPath(at, name), value: member, shape: shape.child({ member: name }), place: childPlace });
         }
       }
     }
+  }
+
+  /**
+   * Finds the declaration of the JSON Reference at `at`, whose shape is given: its own `x-vmd-ref`, or else its `$ref`
+   * member's. None where either shape's declarations conflict, which has its `schema-violation` already, or where both
+   * declare and their declarations differ in meaning, which a member name in the data alone brought together, since the
+   * schema's check refuses them where the schema alone does: that object gets a `schema-violation` too.
+   */
+  #declareReference(at: string, shape: SchemaShape): void {
+    const member = shape.child({ member: "$ref" });
+    if (shape.conflicts.length > 0 || member.conflicts.length > 0) return;
+    const own = shape.ref;
+    const members = member.ref;
+    // TODO(#24): which declaration applies where the two differ is an open question, recorded in
+    // https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256; until it is answered neither does.
+    if (own !== null && members !== null && !sameRefDeclaration(own, members)) {
+      this.#failures.push({
+        at,
+        message:
+          "its schema and its $ref member's declare unequal x-vmd-ref, which only this member's name brings together; which one applies is not decided, so it gets neither",
+      });
+      return;
+    }
+    const declaration = own ?? members;
+    if (declaration !== null) this.declarations.set(at, declaration);
   }
 
   /** The section key of each item of the `$sections` at `at`. */
