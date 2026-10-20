@@ -203,6 +203,20 @@
       "description": "The near miss of keyed-item-past-items-false: the list's prefixItems reach the second item, which can stand, so the per-key schema of foo and the sibling's prefixItems entry meet there and the schema is schema-invalid (§9.3, decision AA4, item 4).",
       "input": {"config": "config-keyed-item-before-items-false.yaml"},
       "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "keyed-ref-format-at-every-index",
+      "spec": ["9.3", "D"],
+      "description": "A keyed list's item can stand at either of the two indexes that prefixItems and items: false leave open; one allOf branch gives format: uri-reference at the first, another at the second, so every path to the per-key schema's x-vmd-ref has the format and the schema can be used (§9.3, decision AA4, item 2).",
+      "input": {"config": "config-keyed-ref-format-at-every-index.yaml"},
+      "expect": {"issues": []}
+    },
+    {
+      "id": "keyed-ref-format-missing-at-an-index",
+      "spec": ["9.3", "D"],
+      "description": "The near miss of keyed-ref-format-at-every-index: both allOf branches give the format at the first index only, so an item at the second is a string without it beside x-vmd-ref, and the schema is schema-invalid (§9.3, decision AA4, item 2).",
+      "input": {"config": "config-keyed-ref-format-missing-at-an-index.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
     }
   ]
 }

@@ -1,0 +1,1 @@
+{"type": "object", "properties": {"l": {"type": "array", "prefixItems": [true, true], "items": false, "allOf": [{"prefixItems": [{"format": "uri-reference"}]}, {"prefixItems": [true, {"format": "uri-reference"}]}], "x-vmd-list": {"type": "map", "keys": ["name"], "items": {"foo": {"type": "string", "x-vmd-ref": {}}}}}}}

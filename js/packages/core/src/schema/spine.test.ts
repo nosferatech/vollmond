@@ -340,6 +340,57 @@ describe("the work of walking single locations", () => {
   });
 });
 
+// Issue #138's predicted cost: a keyed list's item may stand at any open index, so the format is looked for at each index,
+// which must be done once for the array, not again for each key that needs it.
+describe("the work of finding the format at each index a keyed item can stand at", () => {
+  const uri = { format: "uri-reference" };
+  /** A keyed list of `keys` keys whose schemas lack the format, under `prefixItems` and `items: false`. */
+  const keyed = (keys: number, prefixItems: readonly unknown[]) => {
+    const items = Object.fromEntries(Array.from({ length: keys }, (_, key) => [`k${key}`, { type: "string", "x-vmd-ref": {} }]));
+    return {
+      type: "object",
+      properties: { l: { type: "array", prefixItems, items: false, "x-vmd-list": { type: "map", keys: ["name"], items } } },
+    };
+  };
+
+  test("is done once per array, however many keys need it", async () => {
+    const prefix = Array.from({ length: 50 }, () => uri);
+    const one = await checked(keyed(1, prefix));
+    const many = await checked(keyed(200, prefix));
+    expect(one.problems).toEqual([]);
+    expect(many.problems).toEqual([]);
+    expect(one.spine.keyedIndexSteps).toBeGreaterThanOrEqual(50);
+    expect(one.spine.keyedIndexSteps).toBeLessThanOrEqual(2 * 50);
+    expect(many.spine.keyedIndexSteps).toBe(one.spine.keyedIndexSteps);
+  });
+
+  // Review of the per-index check: arrays that share one definition each have their own parent, so a memo per parent alone
+  // scanned the definition's indexes and branches again for each array, arrays × prefixItems × branches in all.
+  test("reads the indexes a location gives once, however many arrays it applies beside", async () => {
+    /** `arrays` keyed lists, each with a $ref to one definition whose branch j alone gives the format at index j. */
+    const shared = (arrays: number) => {
+      const size = 64;
+      const allOf = Array.from({ length: size }, (_, branch) => ({
+        prefixItems: Array.from({ length: size }, (_, index) => (index === branch ? uri : true)),
+      }));
+      const properties = Object.fromEntries(
+        Array.from({ length: arrays }, (_, array) => [
+          `l${array}`,
+          { $ref: "#/$defs/a", "x-vmd-list": { type: "map", keys: ["name"], items: { foo: { $ref: "#/$defs/s" } } } },
+        ]),
+      );
+      const a = { type: "array", prefixItems: Array.from({ length: size }, () => true), items: false, allOf };
+      return { type: "object", properties, $defs: { a, s: { type: "string", "x-vmd-ref": {} } } };
+    };
+    const one = await checked(shared(1));
+    const many = await checked(shared(21));
+    expect(one.problems).toEqual([]);
+    expect(many.problems).toEqual([]);
+    // Each further array costs the 66 locations beside it, each taken up once and with the two words of its 64 indexes.
+    expect(many.spine.keyedIndexSteps - one.spine.keyedIndexSteps).toBeLessThanOrEqual(20 * 66 * 4);
+  });
+});
+
 describe("the order of the problems", () => {
   const where = (problems: readonly SpineProblem[]) => problems.map((problem) => problem.location.pointer);
 

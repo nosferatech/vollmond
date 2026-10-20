@@ -1,8 +1,9 @@
 // The spine's check as it stood before its costs were reduced, kept as the oracle of the differential tests: the new check
 // must report what this one reports, over random schemas small enough for this one to finish. Only the check is kept; the
-// shapes are the spine's own. It carries two changes of behaviour made with the check, marked where they stand: a keyed
-// list's item meets the prefixItems entry of every index, and no item is taken where an items: false or a prefixItems entry
-// that is false lets none stand, by the pairs or by the paths of the format check.
+// shapes are the spine's own. It carries three changes of behaviour made with the check, marked where they stand: a keyed
+// list's item meets the prefixItems entry of every index; no item is taken where an items: false or a prefixItems entry
+// that is false lets none stand, by the pairs or by the paths of the format check; and a keyed item has the format where
+// every index it can stand at gives it.
 
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
@@ -13,6 +14,9 @@ import { isObject, isSchemaValue, subschemas } from "./walk.js";
 
 /** The two extension keywords that the spine carries. */
 const DECLARATIONS = ["x-vmd-list", "x-vmd-ref"] as const;
+
+/** In the format check's Must, the mark that every index a keyed item can stand at gives the item the format; no location key. */
+const EVERY_INDEX = "every index";
 
 /**
  * What a schema location's spine below it holds, for the checks that need two locations together or every path: the
@@ -474,15 +478,27 @@ export class OracleSpine {
       // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
       if (edge.kind === "keyed") {
         for (const key of above) {
+          if (key === EVERY_INDEX) continue;
           this.#mustSteps += 1;
           const beside = locationOf(key);
           const schema = this.schemaAt(beside);
           if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) continue;
           for (const location of this.closure([at(beside, "items")])) if (useful(location)) found.add(locationKey(location));
         }
+        // Changed with the check: at each index where an item can stand, some location beside the parent gives the item the
+        // format; the mark stands for that, at the item's own instance location only.
+        const besides = [...above].filter((key) => key !== EVERY_INDEX).map(locationOf);
+        const last = Math.min(closed - 1, Math.max(0, ...besides.map(prefixOf)));
+        let guarded = true;
+        for (let index = 0; index <= last; index++) {
+          const locations = besides.flatMap((beside) => this.itemLocations(beside, index, undefined));
+          if (!locations.some((location) => guardsRefs(this.schemaAt(location)))) guarded = false;
+        }
+        if (guarded) found.add(EVERY_INDEX);
         return found;
       }
       for (const key of above) {
+        if (key === EVERY_INDEX) continue;
         this.#mustSteps += 1;
         const beside = locationOf(key);
         const locations =
@@ -523,7 +539,7 @@ export class OracleSpine {
       const beside = must.get(locationKey(location));
       // Changed with the check: every path to it steps where no item can stand.
       if (beside === undefined) continue;
-      if ([...beside].some((key) => guardsRefs(this.schemaAt(locationOf(key))))) continue;
+      if ([...beside].some((key) => key === EVERY_INDEX || guardsRefs(this.schemaAt(locationOf(key))))) continue;
       report(
         at(location, "x-vmd-ref"),
         "x-vmd-ref stands where a path lets a string stand without format: uri-reference, so a string there would be no reference; give the format, or a type without strings, beside it on every path",
