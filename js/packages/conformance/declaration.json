@@ -52,24 +52,8 @@
       "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
     },
     {
-      "id": "validation/schemas/list-unknown-member",
-      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
-    },
-    {
-      "id": "validation/schemas/list-unknown-value",
-      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
-    },
-    {
       "id": "validation/schemas/patterns-meet-in-record",
       "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
-    },
-    {
-      "id": "validation/schemas/ref-unknown-member",
-      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
-    },
-    {
-      "id": "validation/schemas/ref-unknown-value",
-      "reason": "Draft v0.14 (AA2): an unknown member or value inside x-vmd-list or x-vmd-ref is feature-unsupported in a follow-up pull request to I2.2 (#22), after the schemas pull request (#97), which made it schema-invalid"
     },
     {
       "id": "values/yaml-scalars/ambiguous-key-warned-at-its-mapping",
