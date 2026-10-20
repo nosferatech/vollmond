@@ -1093,8 +1093,8 @@ The target is a URI reference, resolved by RFC 3986 against the citing record's 
   local previewers do not.
 - **Inside the store**, a target that is a record must resolve as a singular address (§7.4), unless the schema declares
   `cardinality: many`. The record part of a reference is always singular, so a reference declared `cardinality: many` whose record
-  does not exist, and that no record alias leads on (§13.6), is dangling too (`ref-dangling`). A target that is an asset or a
-  directory must exist.
+  does not exist, and that no record alias leads on to a record (§13.6), is dangling too (`ref-dangling`). A target that is an
+  asset or a directory must exist.
 - **Outside the store** (an absolute URL, or a relative path that climbs above the store root), a link is an ordinary link. vmd
   does not check it, rewrite it, or track it. A user who wants references tracked and kept up to date brings the collections into
   one store, preferably on one backend, since there are no transactions across backends.
@@ -1115,7 +1115,7 @@ target (as vampiredb's section numbers are), are deferred; their syntax is open 
 ### 8.5 Status
 
 Each reference inside the store resolves to one of `ok`, `dangling` (no target, `ref-dangling`), `ambiguous` (several targets for
-a singular reference, `ref-ambiguous`), `aliased` (resolved through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
+a singular reference, `ref-ambiguous`), `aliased` (reaches a node through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
 record that readers refuse in every read mode, `ref-target-unreadable`). A singular reference whose address crosses a level
 declared `multimap` is `ambiguous` too, without being evaluated, since §7.4's proof cannot make it singular: its `ref-ambiguous`
 says that it cannot be proved singular, and it has no targets. The exceptions are at the first step (§7.4). One that names exactly
@@ -1998,7 +1998,8 @@ one in the previous index (`ref-retargeted`), since such a reference still resol
 rewrite could not see, such as a reference added on a branch opened before the move, which merges without a textual conflict, a
 published URL, the website's redirects, and links outside the store. A reference that reaches a node through an alias is reported
 as `aliased` (§8.5), and `vmd check --fix` rewrites it to the current address. A reference declared `cardinality: many` that an
-alias leads to no match is `ok`, with no targets, so neither applies to it (§8.5).
+alias leads to no match is `ok`, with no targets: it is not reported as `aliased`, and `vmd check --fix` leaves it as written
+(§8.5).
 
 A reference that resolves to no live node is resolved through the aliases, and so is one declared `cardinality: many` whose
 selector matches nothing (§8.5): after `## Setup` is renamed to `## Install`, `related: "notes.md#setup"` with `cardinality: many`
@@ -2084,17 +2085,16 @@ encounters a relative path in any of these variables it should consider the path
 ([specifications.freedesktop.org/basedir/latest](https://specifications.freedesktop.org/basedir/latest/), read on 2026-10-20).
 Since `vmd check` trusts an entry without re-reading the file, a cache that a pull request could write would let a forged entry
 make CI's `vmd check` pass a broken store. So a cache directory set with `XDG_CACHE_HOME` is not used when it lies at or below the
-store root, or at or below any git working tree that encloses the store: every directory from the store root up to `/` that holds
-a `.git` entry, a directory or a file, so a submodule's working tree, a nested clone's and the repository that holds them all
-count. The default directory is always used, unless it lies at or below the store root, since the user's home is not a CI
-workspace: a home kept in git for its dotfiles keeps its default cache, and one whose `XDG_CACHE_HOME` is set inside that checkout
-gets none. A cache that is not used is as if `--no-cache` were given. Reading a store such as vampiredb's `docs/` with `--config`
-writes nothing into it (decision K3). Entries are content-addressed by file version, so an unchanged file is never re-parsed, a
-checkout of an old commit reuses every entry it can, and every store, branch and worktree shares them; each store keeps one
-snapshot, by its real path, and the cache is evicted to a bound (512 MB in the reference implementation). `--no-cache` neither
-reads nor writes it (§12.1). A file's version is the hash of the bytes the backend returns (§11.3). The storage engine is an
-implementation choice. The reference implementation uses JSONL files in the portable index's format (§14.4), which needs no native
-modules.
+store root, or at or below any git working tree that encloses the store: every directory from the store root up to the
+filesystem's root that holds a `.git` entry, a directory or a file, so a submodule's working tree, a nested clone's and the
+repository that holds them all count. The default directory is always used, unless it lies at or below the store root, since the
+user's home is not a CI workspace: a home kept in git for its dotfiles keeps its default cache, and one whose `XDG_CACHE_HOME` is
+set inside that checkout gets none. A cache that is not used is as if `--no-cache` were given. Reading a store such as vampiredb's
+`docs/` with `--config` writes nothing into it (decision K3). Entries are content-addressed by file version, so an unchanged file
+is never re-parsed, a checkout of an old commit reuses every entry it can, and every store, branch and worktree shares them; each
+store keeps one snapshot, by its real path, and the cache is evicted to a bound. `--no-cache` neither reads nor writes it (§12.1).
+A file's version is the hash of the bytes the backend returns (§11.3). The storage engine is an implementation choice. The
+reference implementation keeps rows in the portable index's line format (§14.4), without paths, which needs no native modules.
 
 Where the index lives depends on the setup, as the project owner stated on the review of the I2 design (decisions U4 and W1). In a
 lightweight setup, whose backend is a plain git repository, the index stays local, in this per-user cache, since an index
@@ -2686,7 +2686,7 @@ The columns:
 | `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case, or whose directory prefixes do, every prefix compared case-insensitively; each path after the first in byte order |
 | `collection-conflict` | error | validation | §9.1 | a record that the globs of two or more collections match; it is read unschematized; the record |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
-| `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist and that no record alias leads on (§13.6), or one to an asset or directory that does not exist; the reference |
+| `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist and that no record alias leads on to a record (§13.6), or one to an asset or directory that does not exist; the reference |
 | `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); a record that only the strict read mode refuses does not count, since a reference's status does not depend on the read mode; the reference |
 | `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets, or one whose address crosses a level declared `multimap`, which cannot be proved singular, except at a first step that names exactly one node of the record or none (§7.4); it then has no targets, and where its first step names several nodes, its message names them; the reference |
 | `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step, for a reference declared `cardinality: many` as soon as one of its targets is reached only through such a step, the route through an anchor alias being checked after the alias. Not raised for a `dangling` reference or one that leaves the store; a strict reader need not refuse its record (§9.5); the reference |

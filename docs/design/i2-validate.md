@@ -907,9 +907,8 @@ export interface IndexCache {
 }
 ```
 
-A cache that cannot be written raises no issue, since Appendix D has no code for it and nothing is wrong with the store; `vmd
-index` says how many entries it could not write. §14.3 says the local index is "a cache in `.vmd/cache/`, which is never
-committed"; this layout changes that sentence (question 4).
+A cache that cannot be written raises no issue, since Appendix D has no code for it and nothing is wrong with the store;
+`vmd index` says how many entries it could not write. This layout is the per-user cache directory of §14.3 (question 4).
 
 #### 6.2.1 What the cache trusts, and why that is safe
 

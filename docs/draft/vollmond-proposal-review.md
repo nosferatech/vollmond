@@ -756,7 +756,7 @@ Section numbers refer to Draft v0.17.
   choice
 - [W7](../decisions/W7.md) The agent's readings of the strict read mode are confirmed
 - [W8](../decisions/W8.md) The agent's readings of schema checks and single-place links are confirmed
-- [W9](../decisions/W9.md) The agent's readings of typed references are confirmed (superseded by AU)
+- [W9](../decisions/W9.md) The agent's readings of typed references are confirmed
 
 ## Decisions from cards AT and AU (Draft v0.18)
 

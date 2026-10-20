@@ -47,7 +47,7 @@ The card's example: "`/work/outer/.git`, the store at `/work/outer/inner/store` 
 
 (c): a cache directory set with `XDG_CACHE_HOME` is not used when it lies at or below the store root, or at or below any git
 working tree that encloses the store, every directory from the store root up to the filesystem's root that holds a `.git` entry.
-The default directory in the user's home is always used, unless it lies at or below the store root.
+The default directory in the user's home is always used (reading 1 below for the store root).
 
 **Agent's reading, for the owner to confirm.** Two details of how Draft v0.18 states it in §14.3, both as #153 implements it
 (`js/packages/cli/src/cache/cache-directory.ts`):
