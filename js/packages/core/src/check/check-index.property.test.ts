@@ -76,9 +76,11 @@ const documentText = fc
   .record({
     links: fc.array(target, { maxLength: 3 }),
     anchored: fc.boolean(),
+    // An <a id> in the middle of a paragraph anchors nothing, and gives a link to its name, which dangles, a hint.
+    stray: fc.boolean(),
     repeat: fc.boolean(),
   })
-  .map(({ links, anchored, repeat }) =>
+  .map(({ links, anchored, stray, repeat }) =>
     [
       "# Document",
       "",
@@ -86,7 +88,7 @@ const documentText = fc
       "",
       anchored ? '## Intro <a id="intro"></a>' : "## Intro",
       "",
-      "Text.",
+      stray ? 'Text <a id="nothing"></a>.' : "Text.",
       "",
       "## Details",
       "",

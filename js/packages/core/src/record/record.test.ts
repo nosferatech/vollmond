@@ -33,6 +33,7 @@ describe("parseOutcome", () => {
     anchors: anchorTableOf([], []),
     sectionKeys: new Map(),
     issues,
+    ignoredAnchorElements: [],
   });
   const structural = makeIssue({ code: "duplicate-member", path: "a.json", at: "/a", message: "m" });
   const validation = makeIssue({ code: "duplicate-tag", path: "a.json", at: "", message: "m" });

@@ -15,7 +15,7 @@ import { definitionLabelsOfRecord } from "./definition-labels.js";
 import { documentOrderOf } from "./document-order.js";
 import { childPath } from "./exact-path.js";
 import type { NodeInfo } from "./node-index.js";
-import type { ParsedRecord } from "./record.js";
+import type { IgnoredAnchorElement, ParsedRecord } from "./record.js";
 
 /** What a Markdown record adds to its value and index for the names of its nodes. */
 export interface MarkdownNames {
@@ -23,16 +23,18 @@ export interface MarkdownNames {
   readonly headingSlugs: ReadonlyMap<string, string>;
   /** The block anchors of every `$body`, in document order. */
   readonly blockAnchors: readonly BlockAnchor[];
+  /** The `<a id>` elements of every `$body` that anchor nothing, in document order. */
+  readonly ignoredAnchorElements: readonly IgnoredAnchorElement[];
 }
 
 /** A parsed record before its names are read. */
-export type UnnamedRecord = Omit<ParsedRecord, "anchors" | "sectionKeys">;
+export type UnnamedRecord = Omit<ParsedRecord, "anchors" | "sectionKeys" | "ignoredAnchorElements">;
 
 // Deviation from the I1 design, recorded in issue #14: explicit anchors and tags are read from the value view for every
 // format, and ordered by the index's document order, so no Markdown heading carries its anchor beside its visible text.
 /**
  * Completes a parsed record with its names: its anchor table, its section keys, and the validation issues they raise, added
- * after the record's own issues.
+ * after the record's own issues; and its `<a id>` elements that anchor nothing, those of `markdown`, none without it.
  *
  * - **Anchors.** An explicit anchor is the `$anchor` of a section or of any object in a field's value; the root's `$schema` is
  *   stored data and is not looked into. A Markdown heading's derived anchor is the one its section's heading has in the index,
@@ -67,6 +69,7 @@ export function nameRecord(record: UnnamedRecord, markdown?: MarkdownNames): Par
     anchors: anchorTableOf(anchors, tags),
     sectionKeys: frozenMapOf(sectionKeys),
     issues: [...record.issues, ...issues],
+    ignoredAnchorElements: Object.freeze([...(markdown?.ignoredAnchorElements ?? [])]),
   };
 }
 

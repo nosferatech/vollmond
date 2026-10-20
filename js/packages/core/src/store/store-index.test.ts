@@ -131,6 +131,23 @@ describe("a check over the local index (the guard of the cache)", () => {
     expect(third).toEqual({ parsed: ["runs/r3.json"], bound: ["runs/r3.json"] });
   });
 
+  test("gives a dangling reference the hint of an <a id> that anchors nothing from an entry, as from a parse", async () => {
+    const files = {
+      ".vmd/config.yaml": "vmd: 1\n",
+      "a.md": "# A\n\n[x](b.md#x)\n",
+      "b.md": '# B\n\nText <a id="x"></a> here.\n',
+    };
+    const cache = createMemoryIndexCache();
+    const expected = await (await storeOf(files)).check();
+    expect(expected.issues.find((issue) => issue.code === "ref-dangling")?.hint).toMatch(/^the <a id="x"> at b\.md:3 /);
+    await (await storeOf(files, cache)).check();
+    const second = await counted(async () => {
+      const outcome = await (await storeOf(files, cache)).check();
+      expect(served(outcome)).toEqual(served(expected));
+    });
+    expect(second.parsed).toEqual([]);
+  });
+
   test("re-parses nothing when only the configuration's issues change, and the severities follow the new one", async () => {
     const files = linkedStore(10);
     const cache = createMemoryIndexCache();
