@@ -463,6 +463,85 @@ describe("Store.references", () => {
   });
 });
 
+describe("references into a record bound to its collection's schema", () => {
+  const BOUND: Files = {
+    ".vmd/config.yaml": [
+      "vmd: 1",
+      "collections:",
+      "  refused:",
+      '    match: ["refused/*.md"]',
+      "    schema: missing.schema.json",
+      "  bound:",
+      '    match: ["bound/*.yaml"]',
+      "    schema: bound.schema.yaml",
+      "  journal:",
+      '    match: ["journal/*.md"]',
+      "    schema: journal.schema.yaml",
+      "",
+    ].join("\n"),
+    ".vmd/schema/bound.schema.yaml": [
+      "type: object",
+      "properties:",
+      "  benchmarks: {type: array, x-vmd-list: {type: map, keys: [name]}}",
+      "  log: {type: array, x-vmd-list: {type: multimap, keys: [id]}}",
+      "",
+    ].join("\n"),
+    // The child sections of each top-level section may repeat their keys.
+    ".vmd/schema/journal.schema.yaml": [
+      "type: object",
+      "properties:",
+      "  $sections:",
+      "    type: array",
+      "    items:",
+      "      type: object",
+      "      properties:",
+      '        $sections: {type: array, x-vmd-list: {type: multimap, keys: ["@key"]}}',
+      "",
+    ].join("\n"),
+    "bound/k.yaml": "benchmarks:\n  - {name: append-4k, p99_us: 3}\nlog:\n  - {id: a, n: 1}\n",
+    "unbound/k.yaml": "benchmarks:\n  - {name: append-4k, p99_us: 3}\nlog:\n  - {id: a, n: 1}\n",
+    "journal/w.md": "# W\n\n## Log\n\nWeek.\n\n### Entry\n\nOne.\n",
+  };
+
+  test("step through a keyed list by its key", async () => {
+    expect(await one("../bound/k.yaml#benchmarks/append-4k", BOUND)).toMatchObject({
+      status: "ok",
+      targets: [{ path: "bound/k.yaml", at: "/benchmarks/0", address: "#benchmarks/append-4k" }],
+      steps: [["member"], ["list-key"]],
+      issues: [],
+    });
+    // Nothing declares the list of a record in no collection, so a key step into it matches nothing.
+    expect((await one("../unbound/k.yaml#benchmarks/append-4k", BOUND)).status).toBe("dangling");
+  });
+
+  test("are ambiguous, unevaluated, through a level declared multimap, as links and as $ref objects", async () => {
+    const link = await one("../bound/k.yaml#log/a", BOUND);
+    expect(link).toMatchObject({ status: "ambiguous", targets: [] });
+    expect(codes(link)).toEqual(["ref-ambiguous error"]);
+    expect(link.issues[0]?.message).toContain("cannot be proved to name one node");
+    expect(link.issues[0]).toMatchObject({ path: "docs/r.md", at: "/$body", offset: 0 });
+    // One child section matches, and the declaration still decides.
+    const section = await one("../journal/w.md#log/entry", BOUND);
+    expect(section).toMatchObject({ status: "ambiguous", targets: [] });
+    expect(codes(section)).toEqual(["ref-ambiguous error"]);
+    const object = await refsOf('{"p": {"$ref": "../bound/k.yaml#log/a"}}', BOUND, "docs/o.json");
+    expect(object.map(({ form, status }) => `${form} ${status}`)).toEqual(["ref-object ambiguous"]);
+    expect(object[0]?.issues.map((issue) => issue.code)).toEqual(["ref-ambiguous"]);
+  });
+
+  test("are ok through a level declared multimap where the address is proved singular all the same", async () => {
+    // An exact path, a section's own member, which crosses no level, and an anchor.
+    for (const [target, at] of [
+      ["../bound/k.yaml#/log/0", "/log/0"],
+      ["../journal/w.md#log/$body", "/$sections/0/$body"],
+      ["../journal/w.md#entry", "/$sections/0/$sections/0"],
+    ] as const) {
+      const reference = await one(target, BOUND);
+      expect(reference, target).toMatchObject({ status: "ok", targets: [{ at }] });
+    }
+  });
+});
+
 describe("the store's files, for references", () => {
   test("are listed page by page", async () => {
     const files: Record<string, string> = {};

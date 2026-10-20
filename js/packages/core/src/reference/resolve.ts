@@ -1,6 +1,7 @@
 import { type Fragment, formatFragment, readFragment } from "../address/address.js";
 import { resolveAddress, resolveAddressSteps, type StepMatch, type Target } from "../address/resolve.js";
 import { titleSlugOf } from "../anchor/title-slug.js";
+import type { RecordBinding } from "../binding/binding.js";
 import type { PathClass } from "../config/classify.js";
 import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
@@ -17,8 +18,11 @@ import { resolveReferenceUri } from "./uri.js";
 export interface ReferenceStore {
   /** Gives what a store path is under the configuration. */
   classify(path: string): PathClass;
-  /** Reads a record as readers do: a failure for one with a structural error or one refused for its schema. */
-  record(path: string): Promise<Outcome<ParsedRecord> | null>;
+  /**
+   * Reads a record as readers do, bound to its collection's schema: a failure for one with a structural error or one refused
+   * for its schema, null where the store holds no record.
+   */
+  binding(path: string): Promise<Outcome<RecordBinding> | null>;
   /**
    * Looks up a path that the listing the resolver was given leaves out, because the configuration ignores it: whether a file
    * is there, or for `directory`, whether a file is below it. A file the backend cannot read is there.
@@ -50,7 +54,8 @@ interface Steps {
 /**
  * Resolves the references of a store's records against its files, its records and its aliases, all read once: the files are
  * those of the store's listing without the paths vmd ignores, an ignored path that a reference names is looked up on its own,
- * once, and a record is read as a reader reads it. It is meant for one operation, as a store is.
+ * once, and a record is read as a reader reads it and bound to its collection's schema, whose keyed lists and declared
+ * levels a fragment is resolved through. It is meant for one operation, as a store is.
  */
 export class ReferenceResolver {
   readonly #store: ReferenceStore;
@@ -197,27 +202,30 @@ export class ReferenceResolver {
     return this.#resolveFragment(path, fragment);
   }
 
-  /** Resolves a fragment in a record that exists, as a singular address. */
+  /**
+   * Resolves a fragment in a record that exists, as a singular address, in the record bound to its collection's schema: a step
+   * goes through a keyed list by key, and an address that could cross a level declared `multimap` is ambiguous without being
+   * evaluated, since it cannot be proved to name one node.
+   */
   async #resolveFragment(path: string, fragment: Fragment): Promise<Resolution> {
-    const record = await this.#store.record(path);
-    if (record === null) return { status: "dangling", message: `the store has no record ${path}`, missing: true };
-    if (!record.ok) return { status: "unreadable", path, issues: record.issues };
-    // TODO(#24): references resolve in the parsed record alone, as in a record without a schema: no step goes through a keyed
-    // list by key and none is proved singular. Typed references bring both, with ref-ambiguous for a reference the proof
-    // refuses.
-    const resolved = resolveAddressSteps(record.value, fragment, "singular");
+    const bound = await this.#store.binding(path);
+    if (bound === null) return { status: "dangling", message: `the store has no record ${path}`, missing: true };
+    if (!bound.ok) return { status: "unreadable", path, issues: bound.issues };
+    const binding = bound.value;
+    const resolved = resolveAddressSteps(binding, fragment, "singular");
     const shown = `${path}${formatFragment(fragment)}`;
     if (resolved.ok) {
       const { targets, steps: ways } = resolved.value;
       return fragment.kind === "semantic"
-        ? { status: "ok", targets, steps: { record: record.value, fragment, ways } }
+        ? { status: "ok", targets, steps: { record: binding.record, fragment, ways } }
         : { status: "ok", targets };
     }
     const issue = resolved.issues[0] as Issue;
+    if (issue.code === "address-not-singular") return { status: "ambiguous", targets: [], message: issue.message };
     if (issue.code === "address-ambiguous") {
       return { status: "ambiguous", targets: issue.candidates ?? [], message: `${shown} matches several nodes` };
     }
-    return { status: "dangling", message: `${shown} matches no node`, inRecord: { record: record.value, fragment } };
+    return { status: "dangling", message: `${shown} matches no node`, inRecord: { record: binding.record, fragment } };
   }
 
   /**

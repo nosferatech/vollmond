@@ -44,18 +44,6 @@
       "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
     },
     {
-      "id": "validation/schemas/additional-properties-meet-in-record",
-      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
-    },
-    {
-      "id": "validation/schemas/items-and-list-additional-meet-in-record",
-      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
-    },
-    {
-      "id": "validation/schemas/patterns-meet-in-record",
-      "reason": "I2.3 (#23) and I2.4 (#24): a member or item where only the data brings unequal declarations together gets its schema-violation from the binding of keyed lists and typed references; the schemas code (#97) records it as a conflict of the shape, and nothing reports it yet"
-    },
-    {
       "id": "values/yaml-scalars/ambiguous-key-warned-at-its-mapping",
       "reason": "I2.1 (#21): the YAML ambiguity warnings follow in a later pull request"
     },

@@ -1,0 +1,5 @@
+vmd: 1
+collections:
+  data:
+    match: ["data/*.yaml"]
+    schema: data.schema.yaml

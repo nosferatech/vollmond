@@ -1,6 +1,7 @@
 // The resolver's work against the store: what it lists and looks up, and what it reads of the aliases.
 
 import { describe, expect, test } from "vitest";
+import { bindRecord } from "../binding/binding.js";
 import { PathClassifier } from "../config/classify.js";
 import { readStoreConfiguration } from "../config/configuration.js";
 import { parseRecord } from "../format/parse-record.js";
@@ -70,7 +71,7 @@ function countingMap(
   return new CountingMap(renames);
 }
 
-/** A resolver over parsed records that exist in no listing beyond themselves, with `aliases`. */
+/** A resolver over parsed records, bound to no schema, that exist in no listing beyond themselves, with `aliases`. */
 function resolverOver(texts: Readonly<Record<string, string>>, aliases: AliasTable) {
   const classifier = new PathClassifier(successValue(readStoreConfiguration(encode(CONFIG))));
   const records = new Map<string, ParsedRecord>();
@@ -78,9 +79,9 @@ function resolverOver(texts: Readonly<Record<string, string>>, aliases: AliasTab
   const resolver = new ReferenceResolver(
     {
       classify: (path) => classifier.classify(path),
-      record: async (path) => {
+      binding: async (path) => {
         const record = records.get(path);
-        return record === undefined ? null : { ok: true, value: record, issues: [] };
+        return record === undefined ? null : { ok: true, value: bindRecord(record, null), issues: [] };
       },
       exists: async () => false,
     },

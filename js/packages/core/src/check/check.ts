@@ -1,4 +1,4 @@
-import { bindRecord } from "../binding/binding.js";
+import { bindRecord, type RecordBinding } from "../binding/binding.js";
 import { collectionOfRecord, type PathClassifier } from "../config/classify.js";
 import type { Collection, StoreConfiguration } from "../config/configuration.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
@@ -35,6 +35,11 @@ export interface CheckedStore {
   readonly classifier: PathClassifier;
   /** Parses a record, whatever its collection's schema, once for the store's lifetime. */
   parse(path: string): Promise<Outcome<ParsedRecord>>;
+  /**
+   * Reads a record as readers do and binds it to its collection's schema, once for the store's lifetime: the binding that
+   * references into the record resolve in.
+   */
+  binding(path: string): Promise<Outcome<RecordBinding> | null>;
   /** The issue that makes a collection's schema unusable, the same one each time; null when its schema can be used or it has none. */
   schemaIssue(collection: Collection): Promise<Issue | null>;
   /**
@@ -115,7 +120,11 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     const parsed = await store.parse(record.path);
     if (parsed.ok) {
       const schema = collection === undefined ? null : await store.schema(collection);
-      issues.push(...bindRecord(parsed.value, schema?.ok === true ? schema.value : null).issues);
+      // The store's binding, which references into the record share; readers refuse a record whose collection's schema cannot
+      // be used, which is checked bound to none.
+      const bound = schema === null || schema.ok ? await store.binding(record.path) : null;
+      const binding = bound?.ok === true ? bound.value : bindRecord(parsed.value, schema?.ok === true ? schema.value : null);
+      issues.push(...binding.issues);
     } else {
       unreadable += 1;
       issues.push(...parsed.issues);

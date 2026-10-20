@@ -1,0 +1,4 @@
+type: object
+properties:
+  benchmarks: {type: array, x-vmd-list: {type: map, keys: [name]}}
+  log: {type: array, x-vmd-list: {type: multimap, keys: [id]}}
