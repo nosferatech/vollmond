@@ -232,6 +232,17 @@ describe("Store.check with more issues than a call takes arguments", () => {
     expect(counted(outcome.issues)).toEqual({ "storage-failed": COUNT });
   }, 60_000);
 
+  test("lists each of 150,000 files of one page, from a backend that passes the page's limit", async () => {
+    const inner = createMemoryStorage({ files: CONFIGURATION });
+    const items = Array.from({ length: COUNT }, (_, index) => ({ path: `f${index}.png`, size: 0, version: "", modified: null }));
+    const store = await storeOver(
+      withList(inner, async () => succeed({ items, cursor: null, remaining: { count: 0, exact: true } })),
+    );
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(outcome.issues).toEqual([]);
+  }, 60_000);
+
   test("gives the feature-unsupported of each of 150,000 $ members of a record", async () => {
     const members = Array.from({ length: COUNT }, (_, index) => `"$m${index}":0`);
     const store = await storeOf({ ...CONFIGURATION, "r.json": `{${members.join(",")}}` });

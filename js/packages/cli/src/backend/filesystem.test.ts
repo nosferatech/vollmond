@@ -246,13 +246,16 @@ describe("createFilesystemStorage", () => {
     }
   });
 
-  // Node 24 takes about 125,000 arguments in a call.
-  test("reads a path of 150,000 segments as a path the system refuses, and a path of a few as any other", async () => {
+  // Node 24 takes about 125,000 arguments in a call. Which failure the system gives depends on it: macOS refuses the long
+  // path (storage-failed), Linux stops at its first missing directory (address-not-found).
+  test("fails to read a path of 150,000 segments as the system does, and reads a path of a few", async () => {
     const root = temporaryDirectory();
     writeFiles(root, { "a/a/b.md": "# B\n" });
     const storage = createFilesystemStorage(root);
     const read = await storage.read(`${"a/".repeat(150_000)}b.md`);
-    expect(read.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
+    expect(read.ok).toBe(false);
+    expect(read.issues).toHaveLength(1);
+    expect(["storage-failed", "address-not-found"]).toContain(read.issues[0]?.code);
     expect(successValue(await storage.read("a/a/b.md")).content).toEqual(new TextEncoder().encode("# B\n"));
   });
 });

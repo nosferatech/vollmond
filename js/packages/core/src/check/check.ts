@@ -156,7 +156,7 @@ async function listAll(store: CheckedStore): Promise<Outcome<FileInfo[]>> {
       ...(cursor === null ? {} : { cursor }),
     });
     if (!page.ok) return fail(page.issues);
-    files.push(...page.value.items);
+    for (const file of page.value.items) files.push(file);
     for (const issue of page.issues) issues.push(issue);
     cursor = page.value.cursor;
   } while (cursor !== null);

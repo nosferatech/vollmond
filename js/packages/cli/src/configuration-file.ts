@@ -50,7 +50,7 @@ export function configurationFileSource(file: string, name: string, content: Uin
     content,
     schemaDirectory: `${join(dirname(name), "schema")}${sep}`,
     readSchema: async (path): Promise<Outcome<Uint8Array>> => {
-      const reading = await readBoundedFile(join(directory, path.split("/").join(sep)), MAX_SCHEMA_BYTES);
+      const reading = await readBoundedFile(join(directory, path), MAX_SCHEMA_BYTES);
       if (reading.kind === "read") return succeed(reading.content);
       if (reading.kind === "missing") {
         return fail([makeIssue({ code: "address-not-found", path: null, at: null, message: `schema/${path} does not exist` })]);
