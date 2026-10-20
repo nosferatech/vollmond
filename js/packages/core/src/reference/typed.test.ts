@@ -1,13 +1,12 @@
 // Typed references: the strings a collection's schema declares with x-vmd-ref, and what the declaration checks of every
 // reference it applies to, a $ref object's included.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { bindRecord } from "../binding/binding.js";
 import type { Issue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import { openStore, type Store } from "../store/store.js";
-import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { occurrencesOf } from "./extract.js";
 import type { Reference } from "./reference.js";
 
@@ -192,22 +191,77 @@ describe("typed references", () => {
   });
 });
 
+/** The methods of an array that visit its elements, which the growth test counts. */
+const SCANS = [
+  "indexOf",
+  "lastIndexOf",
+  "includes",
+  "every",
+  "some",
+  "find",
+  "findIndex",
+  "findLast",
+  "findLastIndex",
+  "filter",
+  "map",
+  "forEach",
+  "reduce",
+] as const;
+
 describe("the cost of typed references", () => {
   test("grows linearly with their count, in the binding's walk and in their extraction", async () => {
-    /** Times binding a record of `count` typed strings and extracting them, the record and its schema read once. */
-    const timedFor = async (count: number): Promise<() => number> => {
+    /**
+     * Counts the elements that binding a record of `count` typed strings and extracting them visit through arrays' own
+     * scans, the record and its schema read once: each call of a scanning method adds its array's length, and each element
+     * an array's iterator yields, to a `for…of` or a spread, adds one. A scan per string, such as an `includes` before each
+     * push, an `indexOf` per occurrence or a `for…of` over the strings so far, adds the strings so far each time.
+     *
+     * It cannot see an indexed `for (let i…)` loop over an array, which reads elements by index, nor a scan of a `Map` or a
+     * `Set`, whose iterators are not wrapped.
+     */
+    const scannedFor = async (count: number): Promise<number> => {
       const list = Array.from({ length: count }, (_, i) => `../docs/t${i}.md`);
       const store = await storeOf({ "typed/big.json": JSON.stringify({ list }) });
       const record = successValue((await store.record("typed/big.json")) ?? expect.fail("no record"));
       const typedCollection = store.configuration.collections.find((collection) => collection.name === "typed");
       const schema = successValue((await store.schema(typedCollection ?? expect.fail("no collection"))) ?? expect.fail("none"));
-      expect(occurrencesOf(bindRecord(record, schema))).toHaveLength(count);
-      return () => timeOf(() => occurrencesOf(bindRecord(record, schema)));
+      let scanned = 0;
+      const spies = SCANS.map((name) => {
+        const original = Array.prototype[name] as (...args: unknown[]) => unknown;
+        return vi.spyOn(Array.prototype, name).mockImplementation(function (this: unknown[], ...args: unknown[]) {
+          scanned += this.length;
+          return original.apply(this, args);
+        });
+      });
+      // `values` is the same function as the iterator, and is counted with it.
+      const iterate = Array.prototype[Symbol.iterator];
+      const counted = function (this: unknown[]): IterableIterator<unknown> {
+        const inner = iterate.call(this);
+        const outer: IterableIterator<unknown> = {
+          next() {
+            const step = inner.next();
+            if (step.done !== true) scanned += 1;
+            return step;
+          },
+          [Symbol.iterator]() {
+            return outer;
+          },
+        };
+        return outer;
+      };
+      Array.prototype[Symbol.iterator] = counted as typeof iterate;
+      try {
+        expect(occurrencesOf(bindRecord(record, schema))).toHaveLength(count);
+      } finally {
+        Array.prototype[Symbol.iterator] = iterate;
+        for (const spy of spies) spy.mockRestore();
+      }
+      return scanned;
     };
-    const [small, large] = [await timedFor(2_000), await timedFor(16_000)];
-    // Eight times the strings: about ten times the time when linear, measured, and forty or more when each string scans the
-    // others, as a scan in the walk or in the extraction does.
-    expect(await leastTimeRatio(small, large, 3)).toBeLessThan(24);
+    const small = await scannedFor(2_000);
+    // Eight times the strings: eight times the elements scanned when linear, and about sixty-four times when each string
+    // scans the others.
+    expect(await scannedFor(16_000)).toBeLessThanOrEqual(9 * small);
   }, 60_000);
 });
 
