@@ -67,6 +67,29 @@
       "description": "For contrast, a record that no alias names raises nothing (§13.6).",
       "input": {"records": ["docs/plain.md", "refs/live.md"]},
       "expect": {}
+    },
+    {
+      "id": "refs-aliased-anchor-repeating-root",
+      "description": "In a journal whose root's sections are declared multimap, a first step that names no node of the record is not ambiguous, so the link done is dangling in the live store and resolves through the anchor alias done to finished, as aliased; tpyo, which no alias names, stays dangling; and monday, which names two sections, is ambiguous (§7.4, §8.5, §13.6, decision AP).",
+      "spec": ["7.4", "8.5", "13.6"],
+      "input": {"record": "refs/journal.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/journal.md", "at": "/$body", "offset": 4}, "raw": "../journal/j.md#done", "status": "aliased", "targets": [{"path": "journal/j.md", "at": "/$sections/0", "address": "#finished"}]},
+        {"from": {"path": "refs/journal.md", "at": "/$body", "offset": 31}, "raw": "../journal/j.md#tpyo", "status": "dangling", "targets": []},
+        {"from": {"path": "refs/journal.md", "at": "/$body", "offset": 61}, "raw": "../journal/j.md#monday", "status": "ambiguous", "targets": []}
+      ]}
+    },
+    {
+      "id": "check-aliased-repeating-root",
+      "spec": ["7.4", "8.5", "13.6", "D"],
+      "operation": "check",
+      "description": "The same links in check: a ref-aliased warning, a ref-dangling error and a ref-ambiguous error, all at the $body that holds them (§8.5, Appendix D, decision AP).",
+      "input": {"records": ["refs/journal.md"]},
+      "expect": {"issues": [
+        {"code": "ref-aliased", "severity": "warning", "path": "refs/journal.md", "at": "/$body"},
+        {"code": "ref-dangling", "severity": "error", "path": "refs/journal.md", "at": "/$body"},
+        {"code": "ref-ambiguous", "severity": "error", "path": "refs/journal.md", "at": "/$body"}
+      ]}
     }
   ]
 }

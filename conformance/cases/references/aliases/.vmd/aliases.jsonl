@@ -8,3 +8,4 @@
 {"kind": "anchor", "record": "data/keys.yaml", "from": "a", "to": "b", "at": "2026-10-09T08:00:00Z"}
 {"kind": "anchor", "record": "data/keys.yaml", "from": "n", "to": "b", "at": "2026-10-09T08:00:00Z"}
 {"kind": "anchor", "record": "data/keys.yaml", "from": "gone", "to": "b", "at": "2026-10-09T08:00:00Z"}
+{"kind": "anchor", "record": "journal/j.md", "from": "done", "to": "finished", "at": "2026-10-20T08:00:00Z"}

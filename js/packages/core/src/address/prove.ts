@@ -18,8 +18,8 @@ interface Position {
 /**
  * Proves before evaluation that a fragment, used as a singular address in a bound record, names at most one node (§7.4), as
  * {@link unprovableStep} does. Fails with `address-not-singular`, with the record's path and no node, naming the step that
- * could cross a level declared `multimap`, and, where the first step does not name exactly one node in the record, how many
- * it names there and their exact paths.
+ * could cross a level declared `multimap`, and, where the first step names several nodes in the record, how many and their
+ * exact paths.
  */
 export function proveSingular(binding: RecordBinding, fragment: Fragment | null): Outcome<null> {
   const failure = unprovable(binding, fragment);
@@ -30,9 +30,7 @@ export function proveSingular(binding: RecordBinding, fragment: Fragment | null)
   const inRecord =
     firstMatches === null
       ? ""
-      : firstMatches.length === 0
-        ? `, and ${subject} names no node in the record`
-        : `, and ${subject} names ${firstMatches.length} nodes in the record, ${listed(firstMatches.map(shownMatch))}`;
+      : `, and ${subject} names ${firstMatches.length} nodes in the record, ${listed(firstMatches.map(shownMatch))}`;
   return fail([
     makeIssue({
       code: "address-not-singular",
@@ -58,11 +56,12 @@ export function proveSingular(binding: RecordBinding, fragment: Fragment | null)
  * crosses no level: no section key of a valid record begins with `$`. A level the schema leaves undeclared is unique by the
  * strict default; lenient mode and duplicates in the data are the cases §7.4 leaves to evaluation.
  *
- * Where the schema alone cannot prove the address, whatever step fails, the record decides its first step: the address is
- * singular when that step names exactly one node in the record, by its anchors, the root's member and the root's child
- * sections together, and the steps after it are proved from that node's shape alone. When the step names none or several, or
- * begins with `$`, which the schema already reads as the root's own member, the step the schema found is the one given. So
- * declaring a level `multimap` never makes an address provable.
+ * Where the schema alone cannot prove the address, whatever step fails, the record decides its first step, by its anchors,
+ * the root's member and the root's child sections together. When that step names exactly one node in the record, the steps
+ * after it are proved from that node's shape alone. When it names none, the address is proved: it names no node, whatever
+ * follows, and evaluation finds it not found. When it names several, or begins with `$`, which the schema already reads as the
+ * root's own member, the step the schema found is the one given. So declaring a level `multimap` never makes an address
+ * provable.
  *
  * Cost: a few memoized shape steps per step of the path, twice at most, and a few map lookups in the record.
  */
@@ -74,7 +73,7 @@ export function unprovableStep(binding: RecordBinding, fragment: Fragment | null
 interface Unprovable {
   /** The step's number, from 1. */
   readonly step: number;
-  /** What the first step names in the record, where that is not exactly one node; null where the record was not asked. */
+  /** What the first step names in the record, where that is several nodes; null where the record was not asked. */
   readonly firstMatches: readonly FirstStepMatch[] | null;
 }
 
@@ -89,7 +88,9 @@ function unprovable(binding: RecordBinding, fragment: Fragment | null): Unprovab
   if (namesOwnMember(first)) return { step: fromSchema, firstMatches: null };
   const matches = firstStepMatches(binding, first);
   const [only] = matches;
-  if (only === undefined || matches.length > 1) return { step: fromSchema, firstMatches: matches };
+  // A first step that names no node leaves the address naming none: not ambiguous, and not found at evaluation.
+  if (only === undefined) return null;
+  if (matches.length > 1) return { step: fromSchema, firstMatches: matches };
   const fromRecord = crossingStep(binding, positionsAt(binding, only), rest, false);
   return fromRecord === null ? null : { step: fromRecord + 1, firstMatches: null };
 }

@@ -531,6 +531,26 @@
         "fails": true,
         "issues": [{ "code": "address-not-singular", "severity": "error", "path": "mapped/r.json", "at": null }]
       }
+    },
+    {
+      "id": "repeating-root-first-step-names-none",
+      "description": "The root's sections are declared multimap, and tpyo names no node of the record: an address that names nothing is not ambiguous, so the singular address is not found (§7.4, decision AP).",
+      "spec": ["7.3", "7.4", "D"],
+      "input": { "address": "repeating/j.md#tpyo", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "repeating/j.md", "at": null }]
+      }
+    },
+    {
+      "id": "repeating-root-first-step-names-none-then-step",
+      "description": "The same with a step after it: the first step names no node, so no later step can name one either, and the address is not found rather than not singular (§7.4, decision AP).",
+      "spec": ["7.3", "7.4", "D"],
+      "input": { "address": "repeating/j.md#tpyo/later", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-found", "severity": "error", "path": "repeating/j.md", "at": null }]
+      }
     }
   ]
 }

@@ -374,8 +374,8 @@ function ruleRefuses(from: readonly Group[], steps: readonly string[], anchored:
  * What the rule says of `steps` in a record of the tree. A first step that is not a `$` step also reaches each node an anchor
  * of that name is on, alone. Its matches in the record are the root's member of that name, the root sections whose key it is,
  * and the nodes its anchors are on, a node counting once. Where the rule refuses the steps from the root, the record decides
- * the first step (card AO): the steps are refused unless it has exactly one match, and otherwise the rule decides the steps
- * after it from that node alone. An address the rule accepts from the root is ambiguous when its first step has several
+ * the first step (card AO): the steps are refused when it has several matches, accepted when it has none (card AP), as the
+ * address then names nothing, and otherwise the rule decides the steps after it from that node alone. An address the rule accepts from the root is ambiguous when its first step has several
  * matches (§7.3); otherwise it names one node or none.
  */
 function oracleVerdict(root: SectionNode, facts: RecordFacts, steps: readonly string[]): Verdict {
@@ -394,7 +394,9 @@ function oracleVerdict(root: SectionNode, facts: RecordFacts, steps: readonly st
   if (!ruleRefuses([{ kind: "section", nodes: [root] }], steps, anchoredGroups)) {
     return matches > 1 ? "ambiguous" : "accepted";
   }
-  if (own || matches !== 1) return "refused";
+  if (own || matches > 1) return "refused";
+  // A first step that names nothing leaves the address naming nothing (card AP).
+  if (matches === 0) return "accepted";
   const at = sections[0];
   const only: Group =
     member !== undefined
@@ -420,6 +422,8 @@ describe("the proof against evaluation (property 6)", () => {
     let accepted = 0;
     let missingRefused = 0;
     let missingNotFound = 0;
+    /** A first step that names nothing, where the schema alone refuses the address: proved, and not found (card AP). */
+    let missingFirstProvedByRecord = 0;
     let acceptedThroughRepeatableRoot = 0;
     let acceptedFromAnchor = 0;
     /** Accepted where the root is not multimap, and the schema alone refuses the steps. */
@@ -462,6 +466,9 @@ describe("the proof against evaluation (property 6)", () => {
             expect({ missing, code: missedCode }).toEqual({ missing, code: failureOf(missedVerdict) });
             if (missedVerdict === "refused") missingRefused += 1;
             else missingNotFound += 1;
+            if (index === 0 && missedVerdict === "accepted" && ruleRefuses([{ kind: "section", nodes: [tree] }], missing, [])) {
+              missingFirstProvedByRecord += 1;
+            }
           }
         }
       }),
@@ -471,6 +478,7 @@ describe("the proof against evaluation (property 6)", () => {
     expect(accepted).toBeGreaterThan(50);
     expect(missingRefused).toBeGreaterThan(50);
     expect(missingNotFound).toBeGreaterThan(50);
+    expect(missingFirstProvedByRecord).toBeGreaterThan(20);
     expect(acceptedThroughRepeatableRoot).toBeGreaterThan(20);
     expect(acceptedFromAnchor).toBeGreaterThan(20);
     expect(acceptedThroughRecordElsewhere).toBeGreaterThan(20);

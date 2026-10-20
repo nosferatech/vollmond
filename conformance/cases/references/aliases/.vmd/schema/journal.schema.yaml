@@ -1,0 +1,5 @@
+type: object
+properties:
+  $sections:
+    type: array
+    x-vmd-list: { type: multimap, keys: ["@key"] }
