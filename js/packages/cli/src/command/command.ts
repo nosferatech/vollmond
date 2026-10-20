@@ -4,6 +4,7 @@
 
 import type { Outcome, StorageReader, Store, StoreConfiguration } from "@vollmond/core";
 import type { GlobalOptions, OptionSpec, OptionValue } from "../arguments.js";
+import type { FilesystemIndexCache } from "../cache/filesystem-cache.js";
 import type { IssueDetailsSource } from "../output/issues.js";
 import type { StoreLocation } from "../store-discovery.js";
 
@@ -16,6 +17,8 @@ export interface OpenedStore {
   readonly storage: StorageReader;
   /** The store's records and assets over `storage`, each record read and parsed once for the run. */
   readonly store: Store;
+  /** The local index the store reads and writes, for a command that reads one and a cache that may serve the store; or null. */
+  readonly index: FilesystemIndexCache | null;
 }
 
 /** A command's command line, read: its arguments and options, and the global options. */
@@ -116,6 +119,11 @@ export interface Command {
   readonly options: Readonly<Record<string, OptionSpec>>;
   /** Whether it reads a store, which the CLI then finds, and whose configuration it reads, before it runs the command. */
   readonly readsStore: boolean;
+  /**
+   * Whether it reads its store over the local index in the per-user cache directory, and writes what it parses there; false
+   * by default, so that a plain read, such as `get`, has no side effects.
+   */
+  readonly readsIndex?: boolean;
   /**
    * What the issues of its outcome are, which decides where they are printed without `--json`; the configuration's issues and
    * the warning about the runtime's Unicode data go to stderr whatever this says.

@@ -5,6 +5,7 @@ import {
   resolveAddress,
   resolveAddressSteps,
   type StepMatch,
+  subjectBinding,
   subjectRecord,
   type Target,
 } from "../address/resolve.js";
@@ -15,7 +16,7 @@ import { type Issue, type IssueInit, makeIssue } from "../issue/issue.js";
 import type { Outcome } from "../issue/outcome.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { valueAt } from "../record/node-value.js";
-import type { ParsedRecord } from "../record/record.js";
+import { isParsedRecord, isRestoredRecord, type RecordStructure } from "../record/record.js";
 import type { RefDeclaration } from "../schema/keywords.js";
 import { storageFailureReason } from "../storage/failure-reason.js";
 import { compileGlob, type GlobTest } from "../storage/path.js";
@@ -45,7 +46,7 @@ export interface ReferenceStore {
 
 /** A record that exists, with the fragment that matched nothing in it, which an anchor alias may still resolve. */
 interface InRecord {
-  readonly record: ParsedRecord;
+  readonly record: RecordStructure;
   readonly fragment: Fragment;
 }
 
@@ -74,7 +75,7 @@ type Resolution =
 
 /** How the steps of a fragment matched on the way to each target, and the record and fragment it was evaluated in. */
 interface Steps {
-  readonly record: ParsedRecord;
+  readonly record: RecordStructure;
   readonly fragment: Fragment;
   /** For a semantic path used as a singular address, how each step matched, as {@link Reference.steps} gives them. */
   readonly ways?: readonly (readonly StepMatch[])[];
@@ -160,9 +161,9 @@ export class ReferenceResolver {
    * named by the old name of one of the record's anchor aliases reaches, those under its old paths included: an anchor, a key
    * of the root, as a JSON or YAML record's top-level key or a Markdown record's front matter key, or a child section of the
    * root by its key. `subject` is null for a record that cannot be read, which has only its path; a record bound to its
-   * collection's schema has its typed references too.
+   * collection's schema has its typed references too. `references`, when given, receives each reference resolved.
    */
-  async issuesOf(path: string, subject: ResolutionSubject | null): Promise<Issue[]> {
+  async issuesOf(path: string, subject: ResolutionSubject | null, references?: Reference[]): Promise<Issue[]> {
     const record = subject === null ? null : subjectRecord(subject);
     const issues: Issue[] = [];
     const moved = this.#aliases.recordMove(path);
@@ -179,7 +180,7 @@ export class ReferenceResolver {
     }
     for (const [from, to] of record === null ? [] : await this.#anchorRenamesOf(path)) {
       // One warning per node the name reaches: a node that a step matches several ways is one match.
-      for (const target of firstStepTargets(record as ParsedRecord, from)) {
+      for (const target of firstStepTargets(record as RecordStructure, from)) {
         issues.push(
           makeIssue({
             code: "alias-shadowed",
@@ -192,7 +193,11 @@ export class ReferenceResolver {
         );
       }
     }
-    if (subject !== null) for (const reference of await this.referencesOf(subject)) issues.push(...reference.issues);
+    if (subject === null) return issues;
+    for (const reference of await this.referencesOf(subject)) {
+      issues.push(...reference.issues);
+      references?.push(reference);
+    }
     return issues;
   }
 
@@ -222,7 +227,7 @@ export class ReferenceResolver {
         aliased = !(through.status === "ok" && through.targets.length === 0);
       }
     }
-    return this.#reference(record, occurrence, final, aliased);
+    return this.#reference(citing, occurrence, final, aliased);
   }
 
   /** Resolves a target path and fragment against the live store, the fragment as `use` says. */
@@ -328,7 +333,7 @@ export class ReferenceResolver {
    * that no first step reaches in the record. Each name of a record's chains is walked from once, however many references
    * start at it or pass it.
    */
-  async #anchorChainLiveEnd(record: ParsedRecord, name: string): Promise<string | null> {
+  async #anchorChainLiveEnd(record: RecordStructure, name: string): Promise<string | null> {
     let ends = this.#anchorChainEnds.get(record.path);
     if (ends === undefined) {
       ends = new Map();
@@ -418,9 +423,9 @@ export class ReferenceResolver {
   }
 
   /** Builds a reference from its resolution, with its issues. */
-  #reference(citing: ParsedRecord, occurrence: ReferenceOccurrence, resolution: Resolution, aliased: boolean): Reference {
+  #reference(citing: ResolutionSubject, occurrence: ReferenceOccurrence, resolution: Resolution, aliased: boolean): Reference {
     const from = {
-      path: citing.path,
+      path: subjectRecord(citing).path,
       at: occurrence.at,
       ...(occurrence.offset === undefined ? {} : { offset: occurrence.offset }),
     };
@@ -594,14 +599,35 @@ async function liveEndOfAliasChain(
 }
 
 /** Whether a semantic path whose only step is `name` matches anything in a record: a node, or a block anchor. */
-function firstStepReaches(record: ParsedRecord, name: string): boolean {
+function firstStepReaches(record: RecordStructure, name: string): boolean {
   return firstStepTargets(record, name).length > 0;
 }
 
 /** Gives what a semantic path whose only step is `name` matches in a record, nodes and block anchors, in document order. */
-function firstStepTargets(record: ParsedRecord, name: string): readonly Target[] {
+function firstStepTargets(record: RecordStructure, name: string): readonly Target[] {
   const found = resolveAddress(record, { kind: "semantic", steps: [name] }, "selector");
   return found.ok ? found.value : [];
+}
+
+/**
+ * Gives the slug of each `$title` of a JSON or YAML record's sections but the root, by exact path, in document order: kept
+ * in the local index for a restored record, and otherwise read from the titles, each as a heading's inline content with the
+ * record's link reference definitions in scope.
+ */
+export function sectionTitleSlugs(record: RecordStructure): ReadonlyMap<string, string> {
+  if (isRestoredRecord(record)) return record.facts.titleSlugs;
+  if (!isParsedRecord(record)) throw new RangeError("a record's title slugs need its value or the index's facts");
+  const slugs = new Map<string, string>();
+  let labels: readonly string[] | null = null;
+  for (const section of record.nodes.sections()) {
+    if (section.at === "") continue;
+    const title = (valueAt(record, section.at) as ValueObject).$title;
+    const text = typeof title === "string" ? title : "";
+    // Only a link reference has a label to look up, and it holds a `[`.
+    if (text.includes("[")) labels ??= definitionLabelsOfRecord(record.value);
+    slugs.set(section.at, titleSlugOf(text, text.includes("[") ? (labels as readonly string[]) : []));
+  }
+  return slugs;
 }
 
 /** A target as a message names it. */
@@ -609,14 +635,24 @@ function targetText(target: ReferenceTarget): string {
   return "kind" in target ? target.path : `${target.path}${target.address}`;
 }
 
-/** Where a reference's issue is in the file: its destination, or else the start of the node that holds it. */
-function positionOf(record: ParsedRecord, occurrence: ReferenceOccurrence): Pick<IssueInit, "position"> {
+/**
+ * Where a reference's issue is in the file: its destination, or else the start of the node that holds it. A record restored
+ * from the local index, and its restored binding, keep the positions of exactly those offsets.
+ */
+function positionOf(citing: ResolutionSubject, occurrence: ReferenceOccurrence): Pick<IssueInit, "position"> {
+  const record = subjectRecord(citing);
   const offset = occurrence.destination?.start ?? record.nodes.node(occurrence.at)?.range.start;
-  return offset === undefined ? {} : { position: record.source.position(offset) };
+  if (offset === undefined) return {};
+  if (isParsedRecord(record)) return { position: record.source.position(offset) };
+  const position =
+    subjectBinding(citing)?.restored?.positions.get(offset) ??
+    (isRestoredRecord(record) ? record.facts.positions.get(offset) : undefined);
+  return position === undefined ? {} : { position };
 }
 
-// Deviation from the I2 design, recorded in issue #24: `ref-retargeted` is not raised, since it compares a reference with the
-// previous index, which the local index brings.
+// Deviation from the I2 design, recorded in issues #24 and #25: `ref-retargeted` is not raised. It compares a reference with
+// the previous index, the local index's snapshot, so a check over the index would report what one without it cannot; when it
+// comes, that is the one difference the two may have.
 /** The ways of matching a step that derive from a title, which change when the title changes. */
 const TITLE_DERIVED: ReadonlySet<StepMatch> = new Set(["anchor-derived", "key-title"]);
 
@@ -660,28 +696,20 @@ function derivedAnchorWarning(steps: Steps): Pick<IssueInit, "code" | "message" 
   };
 }
 
-const slugCountsOf = new WeakMap<ParsedRecord, ReadonlyMap<string, number>>();
+const slugCountsOf = new WeakMap<RecordStructure, ReadonlyMap<string, number>>();
 
 /**
  * Counts the headings of a record by slug: a Markdown record's headings that have a derived anchor, and a JSON or YAML
  * record's sections but the root, by the slug of their titles.
  */
-function slugCounts(record: ParsedRecord): ReadonlyMap<string, number> {
+function slugCounts(record: RecordStructure): ReadonlyMap<string, number> {
   let counts = slugCountsOf.get(record);
   if (counts !== undefined) return counts;
   const slugs: string[] = [];
   if (record.format === "md") {
     for (const entry of record.anchors.anchors) if (entry.kind === "derived" && entry.slug !== undefined) slugs.push(entry.slug);
   } else {
-    let labels: readonly string[] | null = null;
-    for (const section of record.nodes.sections()) {
-      if (section.at === "") continue;
-      const title = (valueAt(record, section.at) as ValueObject).$title;
-      const text = typeof title === "string" ? title : "";
-      // Only a link reference has a label to look up, and it holds a `[`.
-      if (text.includes("[")) labels ??= definitionLabelsOfRecord(record.value);
-      slugs.push(titleSlugOf(text, text.includes("[") ? (labels as readonly string[]) : []));
-    }
+    for (const slug of sectionTitleSlugs(record).values()) slugs.push(slug);
   }
   const map = new Map<string, number>();
   for (const slug of slugs) map.set(slug, (map.get(slug) ?? 0) + 1);

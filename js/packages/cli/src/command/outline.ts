@@ -4,11 +4,10 @@
 import { type Outline, type OutlineEntry, succeed } from "@vollmond/core";
 import { type ColumnRow, formatColumns, oneLine } from "../output/lines.js";
 import { MAX_LIMIT } from "../output/paging.js";
-import { formatTokens } from "../output/sizes.js";
+import { formatCount, formatTokens } from "../output/sizes.js";
 import { type Command, type OpenedStore, outcomeOutput, usagePlan } from "./command.js";
 import { argumentCountProblem, rangeJson, readWholeNumber, storeIssueDetails } from "./options.js";
 
-// TODO(#25): the refs-in counts of each line need the local index.
 /**
  * Outlines the node a singular address names, a record's root without a fragment: a first line with its address and its size
  * in tokens, then a line for each section below it, indented by its depth below the node, with its canonical address, its
@@ -17,7 +16,8 @@ import { argumentCountProblem, rangeJson, readWholeNumber, storeIssueDetails } f
  * `$body` (`@range [start,end]`), which tells apart blocks whose name is not unique; for a JSON or YAML record's root, its top-level members come
  * after its line, one level below it, so that an outline is useful for every format. `--depth N` goes down at most N levels,
  * every level by default, so it bounds block anchors and members as it bounds sections. A node that is not a section has no
- * sections below it.
+ * sections below it. Each line ends with its refs-in count, the references into the node and below it, when the local index
+ * holds a snapshot of a full check that is still current; otherwise there is no count.
  */
 export const OUTLINE_COMMAND: Command = {
   name: "outline",
@@ -28,6 +28,7 @@ export const OUTLINE_COMMAND: Command = {
     "  --depth N  go down at most N levels below the node, every level by default; a section's block anchors are\n" +
     "             one level below it, and a JSON or YAML record's top-level members one level below the record\n",
   readsStore: true,
+  readsIndex: true,
   prepare: ({ positionals, options }) => {
     const problem = argumentCountProblem(positionals, 1, 1, "an address");
     if (problem !== null) return usagePlan(problem);
@@ -51,6 +52,7 @@ export const OUTLINE_COMMAND: Command = {
   },
 };
 
+// TODO(#26): without a current snapshot, the outline is to say that `vmd index` gives the counts, once that command exists.
 /**
  * Writes an outline: the node's line, then its block anchors and a data record's members, then one line per section, each
  * followed by its block anchors one level deeper. The title column is left out when no line has a title, as for a data
@@ -58,7 +60,7 @@ export const OUTLINE_COMMAND: Command = {
  */
 function formatOutline(outline: Outline): string {
   const { node } = outline;
-  const head = `${oneLine(`${outline.path}${node.address}`)}  ${formatTokens(node.size)}${rangeNote(node, "  ")}\n`;
+  const head = `${oneLine(`${outline.path}${node.address}`)}  ${formatTokens(node.size)}${rangeNote(node, "  ")}${refsInNote(node, "  ")}\n`;
   const lines: { readonly entry: OutlineEntry; readonly depth: number }[] = [
     ...(node.blocks ?? []).map((entry) => ({ entry, depth: 1 })),
     ...(outline.members ?? []).map((entry) => ({ entry, depth: 1 })),
@@ -70,7 +72,13 @@ function formatOutline(outline: Outline): string {
   const titled = lines.some(({ entry }) => entry.title !== undefined && entry.title !== "");
   const rows = lines.map(
     ({ entry, depth }): ColumnRow => ({
-      cells: [entry.address, ...(titled ? [entry.title ?? ""] : []), formatTokens(entry.size), rangeNote(entry, "")],
+      cells: [
+        entry.address,
+        ...(titled ? [entry.title ?? ""] : []),
+        formatTokens(entry.size),
+        rangeNote(entry, ""),
+        ...(entry.refsIn === undefined ? [] : [refsInNote(entry, "")]),
+      ],
       depth,
     }),
   );
@@ -83,6 +91,11 @@ function formatOutline(outline: Outline): string {
  */
 function rangeNote(entry: OutlineEntry, before: string): string {
   return entry.range === undefined ? "" : `${before}@range ${JSON.stringify(rangeJson(entry.range))}`;
+}
+
+/** Writes an entry's refs-in count after `before`, as `N refs-in`; the empty string for an entry without one. */
+function refsInNote(entry: OutlineEntry, before: string): string {
+  return entry.refsIn === undefined ? "" : `${before}${formatCount(entry.refsIn)} refs-in`;
 }
 
 /** An outline as `--json` writes it: each block anchor's range as `[start, end]`. */

@@ -19,6 +19,11 @@ export interface CollectionSchema {
   readonly collection: string;
   /** The SHA-256 of the configuration and of every schema file the collection reads, in hexadecimal. */
   readonly digest: string;
+  /**
+   * The SHA-256 of the collection's root schema's path and of every schema file it reads, each with its path, in hexadecimal:
+   * what a record's binding depends on, which the configuration's other members do not change.
+   */
+  readonly bindingDigest: string;
   /** The spine's shape of a record's root. */
   readonly root: SchemaShape;
   // Deviation from the I2 design, recorded in issue #23: the binding hands its keyed lists' checks to `validate`, which
@@ -159,6 +164,7 @@ export async function loadCollectionSchema(
       const schema: CollectionSchema = {
         collection: collection.name,
         digest: compiled.digest,
+        bindingDigest: await schemaFilesDigest(set),
         root: shape,
         validate: (record, lists) => {
           const errors: ValidatorError[] = compiled.validate(record.value);
@@ -181,6 +187,24 @@ export async function loadCollectionSchema(
     }
   }
   return fail([schemaIssue(collection, set, problems, loading, unlisted)]);
+}
+
+/** The SHA-256 of a schema set's root path and of each of its files with its path and length, in hexadecimal. */
+async function schemaFilesDigest(set: SchemaSet): Promise<string> {
+  const encoder = new TextEncoder();
+  const parts: Uint8Array[] = [encoder.encode(`root\0${set.root}\0`)];
+  for (const path of [...set.files.keys()].sort()) {
+    const bytes = (set.files.get(path) as { readonly bytes: Uint8Array }).bytes;
+    parts.push(encoder.encode(`\0${path}\0${bytes.length}\0`), bytes);
+  }
+  const total = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    total.set(part, offset);
+    offset += part.length;
+  }
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", total));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /**

@@ -16,6 +16,7 @@ export {
   type AddressUse,
   blockAnchorAddress,
   canonicalAddress,
+  type ParsedSubject,
   type RecordLookup,
   type ResolutionSubject,
   resolveAddress,
@@ -28,7 +29,7 @@ export {
 } from "./address/resolve.js";
 export type { AnchorEntry, AnchorTable, BlockAnchorEntry, NodeAnchor, TagEntry } from "./anchor/anchor-table.js";
 export { type UnicodeRuntimeProbe, unicodeRuntimeProbe } from "./anchor/unicode/probe.js";
-export { bindRecord, type KeyedList, type RecordBinding } from "./binding/binding.js";
+export { type BindingFacts, bindRecord, bindStructure, type KeyedList, type RecordBinding } from "./binding/binding.js";
 export type { CheckOptions, CheckSummary } from "./check/check.js";
 export { collectionOfRecord, type PathClass, PathClassifier } from "./config/classify.js";
 export {
@@ -42,6 +43,13 @@ export {
 export { parseMarkdownRecord } from "./format/markdown/markdown.js";
 export { parseRecord } from "./format/parse-record.js";
 export { parseYamlRecord, parseYamlUnit, type YamlUnit, type YamlUnitNode, type YamlUnitPlace } from "./format/yaml.js";
+export {
+  createMemoryIndexCache,
+  type IndexCache,
+  MAX_ENTRY_BYTES,
+  type MemoryIndexCache,
+  SNAPSHOT_KEY,
+} from "./index/cache.js";
 export { ISSUE_CODES, type IssueClass, type IssueCode, type IssueCodeInfo, isIssueCode, type Severity } from "./issue/codes.js";
 export { hasStructuralError, type Issue, type IssueInit, makeIssue, type NameOccurrence, repeatedNodes } from "./issue/issue.js";
 export { fail, type Outcome, succeed } from "./issue/outcome.js";
@@ -72,7 +80,17 @@ export {
   type ValueNodeInfo,
 } from "./record/node-index.js";
 export { blockText, valueAt } from "./record/node-value.js";
-export { type ParsedRecord, parseOutcome, type RecordFormat, recordFormatOf } from "./record/record.js";
+export {
+  isParsedRecord,
+  isRestoredRecord,
+  type ParsedRecord,
+  parseOutcome,
+  type RecordFormat,
+  type RecordStructure,
+  type RestoredRecord,
+  recordFormatOf,
+  type StructureFacts,
+} from "./record/record.js";
 export { checkShape, nodeLocator, type ShapeContext, type ShapeUnit } from "./record/shape.js";
 export {
   type Alias,

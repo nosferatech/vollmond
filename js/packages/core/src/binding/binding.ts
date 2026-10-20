@@ -2,13 +2,15 @@ import { type Issue, makeIssue } from "../issue/issue.js";
 import { declaredDuplicate } from "../issue/severity.js";
 import { childPath } from "../record/exact-path.js";
 import type { NodeInfo } from "../record/node-index.js";
-import type { ParsedRecord } from "../record/record.js";
+import { isParsedRecord, type ParsedRecord, type RecordStructure } from "../record/record.js";
+import type { ReferenceOccurrence } from "../reference/reference.js";
 import type { CollectionSchema, ListChecks } from "../schema/collection-schema.js";
 import type { ListDeclaration, RefDeclaration } from "../schema/keywords.js";
 import { LOGICAL_TYPES, type LogicalType } from "../schema/logical-types.js";
 import type { SchemaLocation } from "../schema/schema-set.js";
 import type { SchemaShape } from "../schema/spine.js";
 import type { NativeFailure } from "../schema/violations.js";
+import type { Position } from "../text/source-text.js";
 import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
 
 /**
@@ -28,17 +30,18 @@ export interface KeyedList {
   indexesOf(key: string): readonly number[];
 }
 
-// Deviation from the I2 design, recorded in issue #23: the binding holds the parsed record rather than a structure without
-// values, which comes with the local index; it gives one shape per node, as the spine does; it leaves the collection to the
-// store, which classifies the path; and of its references it gives the typed strings only, since the links of a JSON or YAML
-// record's prose need a parse that a plain read must not pay for.
+// Deviation from the I2 design, recorded in issue #23: the binding gives one shape per node, as the spine does; it leaves the
+// collection to the store, which classifies the path; and of its references it gives the typed strings only, since the links
+// of a JSON or YAML record's prose need a parse that a plain read must not pay for. Deviation recorded in issue #25: the local
+// index keeps no shapes, which are the loaded schema's own objects, and a restored binding finds them again from the schema.
 /**
  * What a record is under its collection's schema, computed once per record and schema: its keyed lists, the schema's shape of
  * each node, its typed references, and its issues, those of the parse adjusted for the levels the schema declares and those
  * of the schema.
  */
-export interface RecordBinding {
-  readonly record: ParsedRecord;
+export interface RecordBinding<Record extends RecordStructure = RecordStructure> {
+  /** The record bound: parsed, or restored from the local index. */
+  readonly record: Record;
   /** The record's keyed lists, by exact path: every `$sections`, and every array the schema declares a keyed list. */
   readonly lists: ReadonlyMap<string, KeyedList>;
   /**
@@ -59,6 +62,19 @@ export interface RecordBinding {
    * a level declared `multimap` dropped and each at a level declared `map` marked as declared, then the schema's.
    */
   readonly issues: readonly Issue[];
+  /**
+   * For a binding restored from the local index, what stands in for the record's values: its typed references' occurrences
+   * and their issues' positions. Absent for a binding computed from a parsed record, or from a structure without a schema.
+   */
+  readonly restored?: BindingFacts;
+}
+
+/** What a binding restored from the local index holds in place of the values of its typed references. */
+export interface BindingFacts {
+  /** The occurrence of each typed reference, by its exact path, with its declaration. */
+  readonly typed: ReadonlyMap<string, ReferenceOccurrence>;
+  /** The line and column of each byte offset that an issue of a typed reference is positioned at. */
+  readonly positions: ReadonlyMap<number, Position>;
 }
 
 /** The check of `format: uri-reference`, the validator's own, which a typed reference's string must pass. */
@@ -88,7 +104,7 @@ type Place = "section" | "sections" | "value";
  * Without a schema, every `$sections` is an undeclared keyed list and the parse's issues stay as they are. Cost: linear in the
  * record's nodes; a list's items share their shapes, and keys are looked up in a map.
  */
-export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null): RecordBinding {
+export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null): RecordBinding<ParsedRecord> {
   const binder = new Binder(record);
   if (schema === null) {
     binder.bindSections();
@@ -109,6 +125,84 @@ export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null
     declarationOf: (at: string) => declarations.get(at) ?? null,
     shape: (at: string) => shapes.get(at) ?? null,
     issues: Object.freeze(issues),
+  });
+}
+
+/**
+ * Binds a record's structure to no schema, as {@link bindRecord} binds a record whose collection has no usable schema: every
+ * `$sections` is an undeclared keyed list, and the parse's issues stay as they are. It reads no value, so a structure restored
+ * from the local index binds as its parse would.
+ */
+export function bindStructure<Record extends RecordStructure>(record: Record): RecordBinding<Record> {
+  const binder = new Binder(record);
+  binder.bindSections();
+  return Object.freeze({
+    record,
+    lists: binder.lists,
+    typedReferences: Object.freeze([]),
+    declarationOf: () => null,
+    shape: () => null,
+    issues: Object.freeze(binder.adjustedParseIssues()),
+  });
+}
+
+/** What a binding restored from the local index is made of: what its computation found, without the schema's shapes. */
+export interface BindingParts {
+  /** Each keyed list, by exact path, with its type and the key of each item. */
+  readonly lists: readonly { readonly at: string; readonly type: KeyedList["type"]; readonly keys: readonly (string | null)[] }[];
+  readonly typedReferences: readonly string[];
+  /** The declaration of each reference that has one, by exact path. */
+  readonly declarations: ReadonlyMap<string, RefDeclaration>;
+  readonly issues: readonly Issue[];
+  readonly restored: BindingFacts;
+}
+
+/**
+ * Makes a binding from what its computation found, as the local index keeps it, over a record and the schema it was bound
+ * to. The shape of each node is found again from the schema when first asked, step by step down from the root, each item of
+ * a keyed list by its key, as {@link bindRecord}'s walk finds it, so it is the same object the computation gave.
+ */
+export function bindingOf<Record extends RecordStructure>(
+  record: Record,
+  schema: CollectionSchema,
+  parts: BindingParts,
+): RecordBinding<Record> {
+  const lists = new Map<string, KeyedList>();
+  for (const list of parts.lists) lists.set(list.at, new Keys(list.at, list.type, list.keys));
+  const shapes = new Map<string, SchemaShape>([["", schema.root]]);
+  const shape = (at: string): SchemaShape | null => {
+    const known = shapes.get(at);
+    if (known !== undefined) return known;
+    // The nearest ancestor whose shape is known, then down from it.
+    const path: NodeInfo[] = [];
+    let node = record.nodes.node(at);
+    while (node !== undefined && !shapes.has(node.at)) {
+      path.push(node);
+      node = node.parent === null ? undefined : record.nodes.node(node.parent);
+    }
+    if (node === undefined) return null;
+    let current = shapes.get(node.at) as SchemaShape;
+    for (const step of path.reverse()) {
+      const parent = step.parent as string;
+      if (typeof step.key === "number") {
+        const key = lists.get(parent)?.keyOf(step.key) ?? null;
+        current = current.child(key === null ? { item: step.key } : { item: step.key, key });
+      } else {
+        current = current.child({ member: step.key as string });
+      }
+      shapes.set(step.at, current);
+    }
+    return current;
+  };
+  const declarations = parts.declarations;
+  return Object.freeze({
+    record,
+    lists,
+    typedReferences: Object.freeze([...parts.typedReferences]),
+    declarationOf: (at: string) => declarations.get(at) ?? null,
+    shape,
+    issues: Object.freeze([...parts.issues]),
+    restored: parts.restored,
   });
 }
 
@@ -146,7 +240,7 @@ class Keys implements KeyedList {
 
 /** One binding's walk: what it found, and the checks it hands to the validator. */
 class Binder {
-  readonly #record: ParsedRecord;
+  readonly #record: RecordStructure;
   readonly lists = new Map<string, KeyedList>();
   readonly shapes = new Map<string, SchemaShape>();
   readonly duplicates: Issue[] = [];
@@ -157,8 +251,15 @@ class Binder {
   readonly #subschemas: { readonly at: string; readonly location: SchemaLocation }[] = [];
   readonly #failures: NativeFailure[] = [];
 
-  constructor(record: ParsedRecord) {
+  constructor(record: RecordStructure) {
     this.#record = record;
+  }
+
+  /** The record as parsed, which only a walk beside a schema reads: its value and its source. */
+  get #parsed(): ParsedRecord {
+    if (!isParsedRecord(this.#record))
+      throw new RangeError("binding to a schema reads the record's value, so it needs the parse");
+    return this.#record;
   }
 
   /** The keyed lists' checks for the validator. */
@@ -178,7 +279,7 @@ class Binder {
   /** Walks the value view from the root, whose shape is given, beside the spine. */
   walk(root: SchemaShape): void {
     const pending: { readonly at: string; readonly value: Value; readonly shape: SchemaShape; readonly place: Place }[] = [
-      { at: "", value: this.#record.value, shape: root, place: "section" },
+      { at: "", value: this.#parsed.value, shape: root, place: "section" },
     ];
     for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
       const { at, value, shape, place } = next;
@@ -307,7 +408,7 @@ class Binder {
         path: this.#record.path,
         at,
         message: `the key ${JSON.stringify(key)} is also the key of ${earlier} in the same list, which its schema declares a map`,
-        position: this.#record.source.position(node.range.start),
+        position: this.#parsed.source.position(node.range.start),
       }),
     );
   }

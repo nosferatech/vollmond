@@ -18,7 +18,7 @@ Prerequisites: Node 24 or later and npm. Run the commands below in `js/`.
 ```sh
 cd js
 npm ci              # install the pinned dependencies
-npm run build       # tsc -b: compile the packages to dist/ (tests are not built)
+npm run build       # tsc -b: compile the packages to dist/ (tests are not built), and write core's implementation id
 npm run typecheck   # type check all packages, tests included, without emitting
 npm run lint        # Biome: lint and format check
 npm run format      # Biome: rewrite files to the formatting rules
@@ -44,6 +44,11 @@ To run the command from a checkout, build first and then, in `js/`, use `node pa
 `npm exec --workspace @vollmond/cli vmd -- --version`. Do not use `npx vmd`: the registry has an unrelated package named `vmd`, and
 `npx` would run that. The `vmd` link in `node_modules/.bin` appears only after a build followed by `npm rebuild` or a fresh
 `npm install`, because the link points at a file that `tsc` creates.
+
+`ls` and `outline` keep a local index of what they parse in the per-user cache directory (`$XDG_CACHE_HOME/vmd/` when that
+is set, otherwise `~/Library/Caches/vmd/` on macOS and `~/.cache/vmd/` elsewhere), never in the store. A build writes the id the
+index keys its entries by, so a changed build starts cold. The tests point `XDG_CACHE_HOME` at a temporary directory
+(`js/vitest.setup.ts`), and so does CI's smoke run.
 
 `@vollmond/core` must not use Node APIs. Its `tsconfig.json` leaves out Node's types, and
 `js/packages/core/src/no-node-types.typecheck.ts` makes

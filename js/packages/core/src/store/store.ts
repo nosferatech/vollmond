@@ -3,14 +3,14 @@ import {
   type AddressUse,
   blockAnchorAddress,
   canonicalAddress,
-  type ResolutionSubject,
+  type ParsedSubject,
   resolveStoreAddress,
   type StoreResolution,
   subjectRecord,
   type Target,
 } from "../address/resolve.js";
 import type { BlockAnchorEntry } from "../anchor/anchor-table.js";
-import { bindRecord, type RecordBinding } from "../binding/binding.js";
+import { bindRecord, bindStructure, type RecordBinding } from "../binding/binding.js";
 import { type CheckOptions, type CheckSummary, checkStore } from "../check/check.js";
 import { collectionOfRecord, type PathClass, PathClassifier } from "../config/classify.js";
 import {
@@ -21,19 +21,23 @@ import {
 } from "../config/configuration.js";
 import { MAX_RECORD_BYTES } from "../format/limits.js";
 import { parseRecord, recordTooLarge } from "../format/parse-record.js";
+import { entryBound, type IndexCache, MAX_ENTRY_BYTES, SNAPSHOT_KEY } from "../index/cache.js";
+import { bindingEntry, bindingEntryKey, parseEntry, parseEntryKey, restoreBinding, restoreStructure } from "../index/entries.js";
+import { type RefsInCounts, readSnapshot, refsInCounts, snapshotReference, snapshotRows } from "../index/snapshot.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { isDeclaredDuplicate } from "../issue/severity.js";
 import { type ComputedFieldName, type ComputedFields, computeFields } from "../meta/computed-fields.js";
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
-import type { ParsedRecord } from "../record/record.js";
+import { type ParsedRecord, type RecordStructure, recordFormatOf } from "../record/record.js";
 import { ALIASES_PATH, aliasFileTooLarge, MAX_ALIAS_FILE_BYTES, NO_ALIASES, readAliases } from "../reference/aliases.js";
 import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
 import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
 import { MAX_SCHEMA_BYTES } from "../schema/schema-set.js";
 import { storageFailureReason } from "../storage/failure-reason.js";
+import { listEveryFile } from "../storage/list-every-file.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
@@ -95,8 +99,11 @@ export interface StoreEntry extends FileInfo {
 /** How many records a listing could not read, and what it counted them in. */
 export interface UnreadableCount {
   readonly count: number;
-  /** `page`: only the records on the page were read, so records elsewhere in the store are not counted. */
-  readonly scope: "page";
+  /**
+   * `page`: only the records on the page were read, so records elsewhere in the store are not counted; `store`: every record
+   * the listing's glob matches, on every page, as a store over the local index counts them.
+   */
+  readonly scope: "page" | "store";
 }
 
 /** A page of a store's records and assets, with the records on it that could not be read counted. */
@@ -169,6 +176,12 @@ export interface OutlineEntry {
    */
   readonly range?: ByteRange;
   /**
+   * The references into the node or the block anchor, those into nodes below it included, `ok` or `aliased`, each once, as
+   * the store's last full check resolved them: given when the store is over the local index and the snapshot of that check is
+   * current, the store unchanged since; absent otherwise.
+   */
+  readonly refsIn?: number;
+  /**
    * For a section, the block anchors of its own `$body`, and for a `$body`, its block anchors, in document order, when the
    * outline goes down to them: they are one level below the section or the `$body`. Absent for other nodes, and for a
    * section or a `$body` at the outline's last level.
@@ -221,7 +234,7 @@ export interface Store {
    * schema, is bound without one. Fails, or gives null, as {@link Store.record} does, in either read mode: references and
    * checks share it.
    */
-  binding(path: string): Promise<Outcome<RecordBinding> | null>;
+  binding(path: string): Promise<Outcome<RecordBinding<ParsedRecord>> | null>;
   /**
    * Resolves an address in the record's binding, read with {@link Store.binding}, and fails as that read does. In the strict
    * read mode, also fails with the issues the mode refuses the record for, when it has any, and with those only (see
@@ -294,6 +307,12 @@ export async function openStore(
     readonly configuration?: ConfigurationSource;
     /** How the store's readers treat a record that does not validate; `best-effort` by default. */
     readonly readMode?: ReadMode;
+    /**
+     * The local index, which checks, listings and the resolution of references read records from, and write what they parse
+     * to; a full check keeps its snapshot there, which outlines read their refs-in counts from. None by default. Reads of a
+     * node's value, `get` and `outline` themselves, parse the record.
+     */
+    readonly index?: IndexCache;
   } = {},
 ): Promise<Outcome<Store>> {
   let source = options.configuration;
@@ -326,7 +345,7 @@ export async function openStore(
   }
   const configuration = readStoreConfiguration(source.content);
   if (!configuration.ok) return configuration;
-  const store = new BackendStore(backend, configuration.value, source, options.readMode ?? "best-effort");
+  const store = new BackendStore(backend, configuration.value, source, options.readMode ?? "best-effort", options.index ?? null);
   return succeed(store, configuration.issues);
 }
 
@@ -384,21 +403,39 @@ class BackendStore implements Store {
   readonly #reads = new Map<string, Promise<Outcome<ParsedRecord> | null>>();
   /** The records read, by path, once each read has ended. */
   readonly #read = new Map<string, Outcome<ParsedRecord> | null>();
-  /** The parses of records, whatever their collections' schemas, by path. */
-  readonly #parses = new Map<string, Promise<Outcome<ParsedRecord>>>();
+  /** The parses of records, whatever their collections' schemas, with the version of the bytes parsed, by path. */
+  readonly #parses = new Map<string, Promise<ParseRead>>();
+  /** The local index, or null. */
+  readonly #index: IndexCache | null;
+  /** The largest entry or snapshot the store writes or reads, in bytes: the index's own bound, at most the default. */
+  readonly #limit: number;
+  /** The version of each file the store's listings gave, by path, which the local index looks entries up by. */
+  readonly #versions = new Map<string, string>();
+  /** The structure of each record, from the local index or its parse, by path, with the version it is of. */
+  readonly #structures = new Map<string, Promise<StructureRead>>();
+  /** The bindings that checks and references read, from the local index or computed, by path. */
+  readonly #indexedBindings = new Map<string, Promise<Outcome<RecordBinding> | null>>();
   /** The bindings of records read, by path. */
-  readonly #bindings = new Map<string, Promise<Outcome<RecordBinding> | null>>();
+  readonly #bindings = new Map<string, Promise<Outcome<RecordBinding<ParsedRecord>> | null>>();
   /** Each collection's schema, loaded once, when it is first looked at: null for a collection without one. */
   readonly #schemas = new Map<Collection, Promise<Outcome<CollectionSchema> | null>>();
   /** The resolver of the store's references, made when references are first needed. */
   #resolver: Promise<Outcome<ReferenceResolver>> | undefined;
 
-  constructor(backend: StorageReader, configuration: StoreConfiguration, source: ConfigurationSource, readMode: ReadMode) {
+  constructor(
+    backend: StorageReader,
+    configuration: StoreConfiguration,
+    source: ConfigurationSource,
+    readMode: ReadMode,
+    index: IndexCache | null,
+  ) {
     this.backend = backend;
     this.configuration = configuration;
     this.readMode = readMode;
     this.classifier = new PathClassifier(configuration);
     this.#source = source;
+    this.#index = index;
+    this.#limit = Math.min(index?.maxEntryBytes ?? MAX_ENTRY_BYTES, MAX_ENTRY_BYTES);
   }
 
   classify(path: string): PathClass {
@@ -421,7 +458,7 @@ class BackendStore implements Store {
     return this.#read.get(path);
   }
 
-  binding(path: string): Promise<Outcome<RecordBinding> | null> {
+  binding(path: string): Promise<Outcome<RecordBinding<ParsedRecord>> | null> {
     let binding = this.#bindings.get(path);
     if (binding === undefined) {
       binding = this.#bind(path);
@@ -431,7 +468,7 @@ class BackendStore implements Store {
   }
 
   /** Reads a record and binds it to its collection's schema, which a readable record's collection can use, or has none. */
-  async #bind(path: string): Promise<Outcome<RecordBinding> | null> {
+  async #bind(path: string): Promise<Outcome<RecordBinding<ParsedRecord>> | null> {
     const read = await this.record(path);
     if (read === null || !read.ok) return read;
     const collection = collectionOfRecord(this.classify(path));
@@ -443,7 +480,7 @@ class BackendStore implements Store {
    * Gives a record's binding as the store's readers read it: {@link Store.binding}'s, failing in the strict read mode with the
    * issues the mode refuses the record for. References and checks read the binding itself, so that the mode changes neither.
    */
-  async #readerBinding(path: string): Promise<Outcome<RecordBinding> | null> {
+  async #readerBinding(path: string): Promise<Outcome<RecordBinding<ParsedRecord>> | null> {
     const bound = await this.binding(path);
     if (this.readMode !== "strict" || bound === null || !bound.ok) return bound;
     const refusals = strictRefusals(bound.value, collectionOfRecord(this.classify(path)));
@@ -470,11 +507,17 @@ class BackendStore implements Store {
   }
 
   parse(path: string): Promise<Outcome<ParsedRecord>> {
+    return this.#parse(path).then((read) => read.outcome);
+  }
+
+  /** Reads and parses a record once, with the version of the bytes parsed: null where nothing was parsed. */
+  #parse(path: string): Promise<ParseRead> {
     let parsing = this.#parses.get(path);
     if (parsing === undefined) {
-      parsing = this.backend.read(path, { maxBytes: MAX_RECORD_BYTES }).then((file) => {
-        if (!file.ok) return fail(file.issues);
-        return "oversized" in file.value ? fail([recordTooLarge(path)]) : parseRecord(path, file.value.content);
+      parsing = this.backend.read(path, { maxBytes: MAX_RECORD_BYTES }).then((file): ParseRead => {
+        if (!file.ok) return { outcome: fail(file.issues), version: null };
+        if ("oversized" in file.value) return { outcome: fail([recordTooLarge(path)]), version: null };
+        return { outcome: parseRecord(path, file.value.content), version: file.value.version };
       });
       this.#parses.set(path, parsing);
     }
@@ -502,6 +545,155 @@ class BackendStore implements Store {
 
   check(options?: CheckOptions): Promise<Outcome<CheckSummary>> {
     return checkStore(this, options);
+  }
+
+  // The local index. A store without one reads every record from its parse, as before; with one, `check`, `references` and
+  // `list` read structures and bindings from its entries, looked up by the versions the store's listings gave, and write an
+  // entry for each record they parse, keyed by the version of the bytes parsed.
+
+  listed(files: readonly FileInfo[]): void {
+    for (const file of files) this.#versions.set(file.path, file.version);
+  }
+
+  structure(path: string): Promise<Outcome<RecordStructure>> {
+    return this.#structure(path).then((read) => read.outcome);
+  }
+
+  /** Gives a record's structure, once: from the local index's parse entry for its listed version, or from its parse. */
+  #structure(path: string): Promise<StructureRead> {
+    let reading = this.#structures.get(path);
+    if (reading === undefined) {
+      reading = this.#readStructure(path);
+      this.#structures.set(path, reading);
+    }
+    return reading;
+  }
+
+  async #readStructure(path: string): Promise<StructureRead> {
+    const index = this.#index;
+    const listed = this.#versions.get(path);
+    const format = recordFormatOf(path);
+    if (index !== null && listed !== undefined && format !== null && !this.#parses.has(path)) {
+      const entry = await index.read(parseEntryKey(listed, format));
+      const restored = entry === null ? null : restoreStructure(entry, path, this.#limit);
+      if (restored !== null) return { outcome: restored, version: listed };
+    }
+    const parsed = await this.#parse(path);
+    if (index !== null && parsed.version !== null && format !== null) {
+      const rows = parseEntry(parsed.outcome, path, this.#entryBound(parsed.outcome));
+      if (rows !== null) await index.write(parseEntryKey(parsed.version, format), rows);
+    }
+    return parsed;
+  }
+
+  /** The largest entry the store writes for a record of this parse: by the record's size, under the index's bound. */
+  #entryBound(outcome: Outcome<ParsedRecord>): number {
+    return entryBound(outcome.ok ? outcome.value.source.bytes.length : 0, this.#limit);
+  }
+
+  /** Writes the parse entry of a record this store parsed, when it is over the local index. */
+  async #keepParse(path: string): Promise<void> {
+    const index = this.#index;
+    const format = recordFormatOf(path);
+    if (index === null || format === null || !this.#parses.has(path)) return;
+    const parsed = await this.#parse(path);
+    const rows = parsed.version === null ? null : parseEntry(parsed.outcome, path, this.#entryBound(parsed.outcome));
+    if (rows !== null) await index.write(parseEntryKey(parsed.version as string, format), rows);
+  }
+
+  indexedBinding(path: string): Promise<Outcome<RecordBinding> | null> {
+    if (this.#index === null) return this.binding(path);
+    let binding = this.#indexedBindings.get(path);
+    if (binding === undefined) {
+      binding = this.#indexedBind(path);
+      this.#indexedBindings.set(path, binding);
+    }
+    return binding;
+  }
+
+  /**
+   * Binds a record as {@link Store.binding} does, but from its structure: a binding entry of the local index where it holds
+   * one for the record's version and its collection's schema files, a structure bound without a schema where it has none,
+   * and otherwise from its parse, written to the index.
+   */
+  async #indexedBind(path: string): Promise<Outcome<RecordBinding> | null> {
+    const found = this.classify(path);
+    if (found.kind !== "record") return null;
+    const collection = collectionOfRecord(found);
+    const schema = collection === undefined ? null : await this.schema(collection);
+    if (schema !== null && !schema.ok) {
+      const stat = await this.backend.stat(path);
+      if (!stat.ok && stat.issues.every((issue) => issue.code === "address-not-found")) return null;
+      return fail([schema.issues[0] as Issue]);
+    }
+    const { outcome: structure, version } = await this.#structure(path);
+    if (!structure.ok) return structure.issues.every((issue) => issue.code === "address-not-found") ? null : structure;
+    if (schema === null) return succeed(bindStructure(structure.value));
+    const index = this.#index as IndexCache;
+    const key = version === null ? null : bindingEntryKey(version, structure.value.format, schema.value);
+    if (key !== null) {
+      const entry = await index.read(key);
+      const restored = entry === null ? null : restoreBinding(entry, structure.value, schema.value, this.#limit);
+      if (restored !== null) return succeed(restored);
+    }
+    // A binding needs the record's value: the parse of the bytes the structure is of, unless the file changed since.
+    const parsed = await this.#parse(path);
+    if (!parsed.outcome.ok)
+      return parsed.outcome.issues.every((issue) => issue.code === "address-not-found") ? null : parsed.outcome;
+    const binding = bindRecord(parsed.outcome.value, schema.value);
+    const rows = bindingEntry(binding, this.#entryBound(parsed.outcome));
+    if (rows !== null && parsed.version !== null) {
+      await index.write(bindingEntryKey(parsed.version, binding.record.format, schema.value), rows);
+    }
+    return succeed(binding);
+  }
+
+  async checked(files: readonly FileInfo[], unread: readonly string[], references: readonly Reference[]): Promise<void> {
+    const index = this.#index;
+    if (index === null) return;
+    const listing = new Map<string, string | null>();
+    for (const file of files) listing.set(file.path, file.version);
+    for (const path of unread) listing.set(path, null);
+    const snapshot = { inputs: await this.#inputs(), files: listing, references: references.map(snapshotReference) };
+    const rows = snapshotRows(snapshot, this.#limit);
+    if (rows !== null) await index.write(SNAPSHOT_KEY, rows);
+  }
+
+  /**
+   * The digest of what a check reads beyond the files it lists, which a snapshot is current only with: the configuration's
+   * bytes, each collection's schema files, or why its schema cannot be used, and the alias file's version.
+   */
+  async #inputs(): Promise<string> {
+    const parts: unknown[] = [await sha256Hex(this.#source.content)];
+    for (const collection of this.configuration.collections) {
+      const schema = await this.schema(collection);
+      parts.push([collection.name, schema === null ? null : schema.ok ? schema.value.bindingDigest : schema.issues[0]?.message]);
+    }
+    const aliases = await this.backend.stat(ALIASES_PATH);
+    parts.push(aliases.ok ? aliases.value.version : aliases.issues.map((issue) => issue.code));
+    return sha256Hex(new TextEncoder().encode(JSON.stringify(parts)));
+  }
+
+  /**
+   * Gives the refs-in counts of a record from the snapshot of the store's last full check, when the store is over the local
+   * index and the snapshot is current: every file listed now has the version it had then, no other file is there, and the
+   * configuration, the schemas and the alias file are as they were. Null otherwise, and for a listing that fails.
+   */
+  async #refsIn(path: string): Promise<RefsInCounts | null> {
+    const index = this.#index;
+    if (index === null) return null;
+    const entry = await index.read(SNAPSHOT_KEY);
+    const snapshot = entry === null ? null : readSnapshot(entry, this.#limit);
+    if (snapshot === null) return null;
+    const listed = await listEveryFile(this.backend, this.classifier.ignoredGlobs);
+    if (!listed.ok) return null;
+    const now = new Map<string, string | null>();
+    for (const file of listed.value) now.set(file.path, file.version);
+    for (const issue of listed.issues) if (issue.code === "storage-failed" && issue.path !== null) now.set(issue.path, null);
+    if (now.size !== snapshot.files.size) return null;
+    for (const [file, version] of now) if (snapshot.files.get(file) !== version) return null;
+    if (snapshot.inputs !== (await this.#inputs())) return null;
+    return refsInCounts(snapshot, path);
   }
 
   /**
@@ -543,7 +735,7 @@ class BackendStore implements Store {
     }
     const store = {
       classify: (path: string) => this.classify(path),
-      binding: (path: string) => this.binding(path),
+      binding: (path: string) => this.indexedBinding(path),
       collections: new Set(this.configuration.collections.map((collection) => collection.name)),
       exists: (path: string, directory: boolean) => this.#exists(path, directory),
     };
@@ -569,7 +761,7 @@ class BackendStore implements Store {
       // The issues of the collections whose schemas cannot be used, once each: they have no record path.
       const schemaIssues: Issue[] = [];
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
-        const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.binding(path);
+        const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.indexedBinding(path);
         if (read === null) continue;
         if (read.ok) {
           for (const reference of await resolver.value.referencesOf(read.value)) references.push(reference);
@@ -600,7 +792,7 @@ class BackendStore implements Store {
     const resolved = await this.resolve(address, "singular", options.reading);
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
-    const subject: ResolutionSubject = resolved.value.binding ?? record;
+    const subject: ParsedSubject = resolved.value.binding ?? record;
     const target = targets[0] as Target;
     const value = formOf(record, target, options.form ?? "value");
     if (!value.ok) return fail(value.issues);
@@ -631,12 +823,15 @@ class BackendStore implements Store {
     const resolved = await this.resolve(address, "singular", options.reading);
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
-    const subject: ResolutionSubject = resolved.value.binding ?? record;
+    const subject: ParsedSubject = resolved.value.binding ?? record;
     const target = targets[0] as Target;
     const block = blockAnchorOf(record, target);
     const node = record.nodes.node(target.at) as NodeInfo;
+    await this.#keepParse(record.path);
+    const counts = await this.#refsIn(record.path);
+    const counted = (entry: OutlineEntry) => (counts === null ? entry : withRefsIn(entry, counts));
     if (block !== undefined) {
-      return succeed({ path: record.path, node: blockEntry(subject, block), sections: [] });
+      return succeed({ path: record.path, node: counted(blockEntry(subject, block)), sections: [] });
     }
     // Whether the outline goes down to `levels` below the node.
     const reaches = (levels: number) => depth === undefined || levels <= depth;
@@ -647,13 +842,13 @@ class BackendStore implements Store {
             .sections()
             .filter((section) => section.at.startsWith(`${node.at}/`))
             .filter((section) => reaches(section.depth - node.depth))
-            .map((section) => outlineEntry(subject, section, reaches(section.depth - node.depth + 1)));
-    const outline: Outline = { path: record.path, node: outlineEntry(subject, node, reaches(1)), sections };
+            .map((section) => counted(outlineEntry(subject, section, reaches(section.depth - node.depth + 1))));
+    const outline: Outline = { path: record.path, node: counted(outlineEntry(subject, node, reaches(1))), sections };
     if (node.at !== "" || record.format === "md" || !reaches(1)) return succeed(outline);
     const members = record.nodes
       .children("")
       .filter((member) => member.key !== "$sections")
-      .map((member) => outlineEntry(subject, member, false));
+      .map((member) => counted(outlineEntry(subject, member, false)));
     return succeed({ ...outline, members });
   }
 
@@ -666,6 +861,7 @@ class BackendStore implements Store {
       ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
     });
     if (!listed.ok) return fail(listed.issues);
+    if (this.#index !== null) this.listed(listed.value.items);
     const issues: Issue[] = [...listed.issues];
     // A record the backend could not read is left out of the page, and is still a record this page could not read.
     let unreadable = listed.issues.filter(
@@ -678,7 +874,12 @@ class BackendStore implements Store {
         items.push({ ...file, kind: "asset" });
         continue;
       }
-      const read = this.readMode === "strict" ? await this.#readerBinding(file.path) : await this.record(file.path);
+      const read =
+        this.readMode === "strict"
+          ? await this.#readerBinding(file.path)
+          : this.#index === null
+            ? await this.record(file.path)
+            : await this.indexedBinding(file.path);
       const readable = read?.ok === true;
       if (!readable) unreadable += 1;
       // A structural error is counted, not reported: it is the record's, and `get` reports it. A failed read is the listing's,
@@ -692,7 +893,46 @@ class BackendStore implements Store {
       items.push({ ...file, kind: "record", readable, ...(collection === undefined ? {} : { collection: collection.name }) });
     }
     const { cursor, remaining } = listed.value;
-    return succeed({ items, cursor, remaining, unreadable: { count: unreadable, scope: "page" } }, issues);
+    if (this.#index === null) {
+      return succeed({ items, cursor, remaining, unreadable: { count: unreadable, scope: "page" } }, issues);
+    }
+    const counted = await this.#unreadableRecords(query.glob);
+    if (!counted.ok) return fail(counted.issues);
+    // The pages of the whole listing hold the page's own listing issues again, as other objects.
+    const shown = new Set(issues.map(issueKey));
+    for (const issue of counted.issues) {
+      if (shown.has(issueKey(issue))) continue;
+      shown.add(issueKey(issue));
+      issues.push(issue);
+    }
+    return succeed({ items, cursor, remaining, unreadable: { count: counted.value, scope: "store" } }, issues);
+  }
+
+  // Deviation from the I2 design, recorded in issue #25: in the strict read mode the count reads each record's parse, since
+  // what the mode refuses is decided on the parse-based binding; the command line has no strict mode until `--strict`.
+  /**
+   * Counts the records that a listing over the local index could not read, on every page of a glob's listing: as `list` counts
+   * a page's, each read from the index where it holds it, in the strict read mode from its parse. Gives the issues behind the
+   * count as `list` gives a page's: the listing's, a failed read's, and each unusable schema's once. Fails as `list` does.
+   */
+  async #unreadableRecords(glob: string | undefined): Promise<Outcome<number>> {
+    const listed = await listEveryFile(this.backend, this.classifier.ignoredGlobs, glob);
+    if (!listed.ok) return fail(listed.issues);
+    this.listed(listed.value);
+    const issues: Issue[] = [...listed.issues];
+    let count = listed.issues.filter(
+      (issue) => issue.code === "storage-failed" && issue.path !== null && this.classify(issue.path).kind === "record",
+    ).length;
+    for (const file of listed.value) {
+      if (this.classify(file.path).kind !== "record") continue;
+      const read = this.readMode === "strict" ? await this.#readerBinding(file.path) : await this.indexedBinding(file.path);
+      if (read?.ok === true) continue;
+      count += 1;
+      for (const issue of read?.issues ?? []) {
+        if (issue.path === null ? !issues.includes(issue) : issue.code === "storage-failed") issues.push(issue);
+      }
+    }
+    return succeed(count, issues);
   }
 
   grep(query: Omit<GrepQuery, "exclude">): Promise<Outcome<CountedPage<GrepMatch>>> {
@@ -710,6 +950,29 @@ function strictRefusals(binding: RecordBinding, collection: Collection | undefin
   const refusals = binding.issues.filter((issue) => issue.code === "schema-violation" || isDeclaredDuplicate(issue));
   const mismatch = collection === undefined ? null : filenameMismatch(binding.record.path, collection);
   return mismatch === null ? refusals : [...refusals, mismatch];
+}
+
+/** A record's parse, with the version of the bytes parsed: null where nothing was parsed, such as a file not read. */
+interface ParseRead {
+  readonly outcome: Outcome<ParsedRecord>;
+  readonly version: string | null;
+}
+
+/** A record's structure, with the version of the file it is of: null where it is of no bytes read. */
+interface StructureRead {
+  readonly outcome: Outcome<RecordStructure>;
+  readonly version: string | null;
+}
+
+/** What tells two issues apart in a listing's report: their code, path, node and message. */
+function issueKey(issue: Issue): string {
+  return JSON.stringify([issue.code, issue.path, issue.at, issue.message]);
+}
+
+/** The SHA-256 of bytes, in hexadecimal. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /** Gives a resolved node in a form, or fails with `usage-invalid` for a body the node does not have. */
@@ -757,7 +1020,7 @@ function blockAnchorOf(record: ParsedRecord, target: Target): BlockAnchorEntry |
  * Gives the outline entry of a node: for a member, with its name; for a section or a `$body`, with its block anchors when
  * `withBlocks`.
  */
-function outlineEntry(subject: ResolutionSubject, node: NodeInfo, withBlocks: boolean): OutlineEntry {
+function outlineEntry(subject: ParsedSubject, node: NodeInfo, withBlocks: boolean): OutlineEntry {
   const record = subjectRecord(subject);
   const base = { at: node.at, address: canonicalAddress(subject, node.at), size: sizeOf(node.range) };
   if (node.kind !== "section") {
@@ -776,7 +1039,7 @@ function outlineEntry(subject: ResolutionSubject, node: NodeInfo, withBlocks: bo
 }
 
 /** Gives the outline entries of the block anchors of the `$body` at an exact path, in document order. */
-function blocksOf(subject: ResolutionSubject, body: string): OutlineEntry[] {
+function blocksOf(subject: ParsedSubject, body: string): OutlineEntry[] {
   const record = subjectRecord(subject);
   return record.anchors.anchors
     .filter((entry): entry is BlockAnchorEntry => entry.kind === "block" && entry.at === body)
@@ -784,13 +1047,20 @@ function blocksOf(subject: ResolutionSubject, body: string): OutlineEntry[] {
 }
 
 /** Gives the outline entry of a block anchor: its `$body`, its canonical address, its block's size and its range. */
-function blockEntry(subject: ResolutionSubject, entry: BlockAnchorEntry): OutlineEntry {
+function blockEntry(subject: ParsedSubject, entry: BlockAnchorEntry): OutlineEntry {
   return {
     at: entry.at,
     address: blockAnchorAddress(subject, entry),
     size: sizeOf(entry.fileRange),
     range: entry.range,
   };
+}
+
+/** Gives an outline entry with its refs-in count, and its block anchors' counts. */
+function withRefsIn(entry: OutlineEntry, counts: RefsInCounts): OutlineEntry {
+  const refsIn = entry.range === undefined ? counts.node(entry.at) : counts.block(entry.at, entry.range);
+  const blocks = entry.blocks?.map((block) => withRefsIn(block, counts));
+  return { ...entry, refsIn, ...(blocks === undefined ? {} : { blocks }) };
 }
 
 /** The number of bytes in a range. */

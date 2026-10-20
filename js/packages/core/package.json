@@ -13,7 +13,8 @@
     },
     "./testkit": {
       "source": "./src/storage/storage-contract.testkit.ts"
-    }
+    },
+    "./implementation-id.json": "./dist/implementation-id.json"
   },
   "files": [
     "dist",

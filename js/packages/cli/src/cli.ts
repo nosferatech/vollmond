@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { createRequire } from "node:module";
 import {
   type ConfigurationSource,
@@ -12,6 +13,8 @@ import {
 } from "@vollmond/core";
 import { GLOBAL_OPTIONS, type GlobalOptions, type OptionSpec, readCommandLine, readCommandLineHead } from "./arguments.js";
 import { createFilesystemStorage } from "./backend/filesystem.js";
+import { cacheMayServe } from "./cache/cache-directory.js";
+import { createFilesystemIndexCache, type FilesystemIndexCache } from "./cache/filesystem-cache.js";
 import type { Command, IssueOutput, OpenedStore } from "./command/command.js";
 import { BUILT_IN_COMMANDS } from "./command/index.js";
 import { configurationFileSource, readConfigurationFile } from "./configuration-file.js";
@@ -40,6 +43,26 @@ export interface CliEnvironment {
   readonly runtimeUnicodeVersion: string | undefined;
   /** Whether stdout is a terminal, which a command's text output may escape for; false when not said. */
   readonly stdoutIsTerminal: boolean;
+  /**
+   * Where the local index is, for the commands that read it; null for none, the default, so that only a process's own run,
+   * which `main` makes with the per-user cache directory, ever uses one.
+   */
+  readonly cache: CacheSettings | null;
+}
+
+/** Where the local index is kept, and for which implementation. */
+export interface CacheSettings {
+  /** vmd's directory in the per-user cache directory. */
+  readonly directory: string;
+  /**
+   * Whether `XDG_CACHE_HOME` set the directory, which is then refused inside any git working tree that encloses the store;
+   * false for the default in the user's home, refused only at or below the store root.
+   */
+  readonly explicit: boolean;
+  /** The implementation id, which the cache keeps each build's entries apart by. */
+  readonly implementation: string;
+  /** The time now, in milliseconds since the epoch, for eviction; the clock by default. */
+  readonly now?: () => number;
 }
 
 /** Reads the version of the `@vollmond/cli` package from its `package.json`. */
@@ -62,6 +85,7 @@ function processEnvironment(environment: Partial<CliEnvironment>): CliEnvironmen
     unicodeProbe: environment.unicodeProbe ?? unicodeRuntimeProbe,
     runtimeUnicodeVersion: "runtimeUnicodeVersion" in environment ? environment.runtimeUnicodeVersion : process.versions.unicode,
     stdoutIsTerminal: environment.stdoutIsTerminal ?? false,
+    cache: environment.cache ?? null,
   };
 }
 
@@ -141,7 +165,7 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
   const storeIssues: Issue[] = [];
   let storeDetails: IssueDetailsSource | undefined;
   if (command.readsStore) {
-    const opened = await openCommandStore(globals, env);
+    const opened = await openCommandStore(globals, env, command.readsIndex === true);
     if (opened.kind === "failed") return render(opened.report, globals);
     store = opened.store;
     storeIssues.push(...opened.issues);
@@ -162,6 +186,28 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
           ...(output.details === undefined ? {} : { details: output.details }),
         };
   return render({ ...report, ...(storeDetails === undefined ? {} : { storeDetails }) }, globals);
+}
+
+/**
+ * Gives the local index of a store in the per-user cache directory, or null: without cache settings, for a store root that
+ * cannot be resolved, and for a cache directory that may not serve it (`cacheMayServe`), where what is committed could be
+ * read as cache.
+ */
+async function indexCacheOf(settings: CacheSettings | null, root: string): Promise<FilesystemIndexCache | null> {
+  if (settings === null) return null;
+  let storeRoot: string;
+  try {
+    storeRoot = await realpath(root);
+    if (!(await cacheMayServe(settings.directory, storeRoot, settings.explicit))) return null;
+  } catch {
+    return null;
+  }
+  return createFilesystemIndexCache({
+    directory: settings.directory,
+    implementation: settings.implementation,
+    storeRoot,
+    ...(settings.now === undefined ? {} : { now: settings.now }),
+  });
 }
 
 /**
@@ -210,6 +256,7 @@ function usage(message: string, hint: string): Report {
 async function openCommandStore(
   globals: GlobalOptions,
   env: CliEnvironment,
+  readsIndex: boolean,
 ): Promise<
   | {
       readonly kind: "store";
@@ -267,7 +314,11 @@ async function openCommandStore(
     }
     configuration = configurationFileSource(location.configurationFile, name, reading.content);
   }
-  const opened = await openStore(storage, configuration === undefined ? {} : { configuration });
+  const index = readsIndex ? await indexCacheOf(env.cache, location.root) : null;
+  const opened = await openStore(storage, {
+    ...(configuration === undefined ? {} : { configuration }),
+    ...(index === null ? {} : { index }),
+  });
   if (!opened.ok) {
     return {
       kind: "failed",
@@ -281,6 +332,7 @@ async function openCommandStore(
       configuration: opened.value.configuration,
       storage,
       store: opened.value,
+      index,
     },
     issues: opened.issues,
     details,

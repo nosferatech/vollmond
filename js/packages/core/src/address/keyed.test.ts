@@ -19,7 +19,7 @@ function parsed(path: string, text: string): ParsedRecord {
 }
 
 /** A record bound to the schema given as a JSON value. */
-async function bound(path: string, text: string, schema: unknown): Promise<RecordBinding> {
+async function bound(path: string, text: string, schema: unknown): Promise<RecordBinding<ParsedRecord>> {
   return bindRecord(parsed(path, text), await usable(schema));
 }
 

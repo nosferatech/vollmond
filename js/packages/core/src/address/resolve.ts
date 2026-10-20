@@ -5,24 +5,30 @@ import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { documentOrderOf } from "../record/document-order.js";
 import { childPath } from "../record/exact-path.js";
 import type { NodeInfo, SectionInfo } from "../record/node-index.js";
-import type { ParsedRecord } from "../record/record.js";
+import type { ParsedRecord, RecordStructure } from "../record/record.js";
 import type { ByteRange } from "../text/source-text.js";
 import { type AddressReading, encodeExactPath, type Fragment, formatFragment, parseAddress } from "./address.js";
 import { proveSingular, unprovableStep } from "./prove.js";
 
 /**
  * What an address is resolved in: a record bound to its collection's schema, whose keyed lists steps go through and whose
- * declarations decide what is singular, or a parsed record alone, resolved as a record without a schema is.
+ * declarations decide what is singular, or a record alone, resolved as a record without a schema is. The record is parsed,
+ * or its structure restored from the local index; resolution reads no value.
  */
-export type ResolutionSubject = ParsedRecord | RecordBinding;
+export type ResolutionSubject = RecordStructure | RecordBinding;
+
+/** A subject whose record was parsed, so that its values can be read: what reads of values, such as `get`, take. */
+export type ParsedSubject = ParsedRecord | RecordBinding<ParsedRecord>;
 
 /** Gives the binding of a subject, or null for a record alone. */
-export function subjectBinding(subject: ResolutionSubject): RecordBinding | null {
+export function subjectBinding<Record extends RecordStructure>(
+  subject: Record | RecordBinding<Record>,
+): RecordBinding<Record> | null {
   return "lists" in subject ? subject : null;
 }
 
-/** Gives the parsed record of a subject. */
-export function subjectRecord(subject: ResolutionSubject): ParsedRecord {
+/** Gives the record of a subject. */
+export function subjectRecord<Record extends RecordStructure>(subject: Record | RecordBinding<Record>): Record {
   return "lists" in subject ? subject.record : subject;
 }
 
@@ -180,13 +186,13 @@ export function blockAnchorAddress(subject: ResolutionSubject, entry: BlockAncho
  * Reads the record at a store path: its parse outcome, or its binding to its collection's schema, or null when the store holds
  * no record there.
  */
-export type RecordLookup = (path: string) => Promise<Outcome<ResolutionSubject> | null>;
+export type RecordLookup = (path: string) => Promise<Outcome<ParsedSubject> | null>;
 
 /** What an address resolved to in a store: the record it names, as the lookup read it, and the targets in it. */
 export interface StoreResolution {
   readonly record: ParsedRecord;
   /** The record's binding, when the lookup gave one. */
-  readonly binding?: RecordBinding;
+  readonly binding?: RecordBinding<ParsedRecord>;
   readonly targets: readonly Target[];
 }
 
@@ -291,7 +297,7 @@ function resolverOf(subject: ResolutionSubject): RecordResolver {
  * address of each match. A record is immutable, so they never go stale.
  */
 class RecordResolver {
-  readonly #record: ParsedRecord;
+  readonly #record: RecordStructure;
   readonly #binding: RecordBinding | null;
   readonly #root: NodeInfo;
   readonly #childSections = new Map<string, ReadonlyMap<string, readonly SectionInfo[]>>();
@@ -299,7 +305,7 @@ class RecordResolver {
   /** The one node that a form of a canonical address names as a singular address, by its steps; null where it names none. */
   readonly #singular = new Map<string, Match | null>();
 
-  constructor(record: ParsedRecord, binding: RecordBinding | null) {
+  constructor(record: RecordStructure, binding: RecordBinding | null) {
     this.#record = record;
     this.#binding = binding;
     this.#root = record.nodes.node("") as NodeInfo;
