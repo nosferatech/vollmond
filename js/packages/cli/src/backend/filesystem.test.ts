@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitBlobId, type Outcome } from "@vollmond/core";
@@ -35,6 +36,15 @@ function writeFiles(root: string, files: Readonly<Record<string, Uint8Array | st
     mkdirSync(dirname(absolute), { recursive: true });
     writeFileSync(absolute, content);
   }
+}
+
+/** Listens on a Unix domain socket at `path`, which puts a socket file there. */
+function listenAt(path: string): Promise<Server> {
+  const server = createServer();
+  return new Promise((done, failed) => {
+    server.once("error", failed);
+    server.listen(path, () => done(server));
+  });
 }
 
 function successValue<T>(outcome: Outcome<T>): T {
@@ -98,15 +108,68 @@ describe("createFilesystemStorage", () => {
     expect((await storage.read("d/a.md")).ok).toBe(true);
   });
 
+  // A FIFO, a socket or a device does not belong in a store, so meeting one is a failure, not a missing file. Nothing
+  // waits on the FIFO, which no writer ever opens: the test's timeout would end a read that blocked.
   test.skipIf(process.platform === "win32")(
-    "finds no file at a FIFO, without waiting for a writer",
+    "fails at a FIFO with storage-failed, and lists and searches past it with the issue, without waiting for a writer",
+    async () => {
+      const root = temporaryDirectory();
+      writeFiles(root, { "a.md": "a\n", "d/b.md": "b\n", "empty/.keep": "" });
+      execFileSync("mkfifo", [join(root, "pipe.md")]);
+      execFileSync("mkfifo", [join(root, "d", "pipe")]);
+      const storage = createFilesystemStorage(root);
+      const failure = (outcome: Outcome<unknown>) => [outcome.ok, outcome.issues.map((issue) => [issue.code, issue.message])];
+      expect(failure(await storage.read("pipe.md"))).toEqual([
+        false,
+        [["storage-failed", "cannot read pipe.md: it is a FIFO, not a regular file"]],
+      ]);
+      expect(failure(await storage.read("pipe.md", { maxBytes: 10 }))).toEqual(failure(await storage.read("pipe.md")));
+      expect(failure(await storage.stat("d/pipe"))).toEqual([
+        false,
+        [["storage-failed", "cannot read d/pipe: it is a FIFO, not a regular file"]],
+      ]);
+      // A directory is still no file, as is a path below a FIFO.
+      expect((await storage.read("d")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+      expect((await storage.read("pipe.md/x")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
+      const listed = await storage.list({ prefix: "", limit: 10 });
+      expect(successValue(listed).items.map((item) => item.path)).toEqual(["a.md", "d/b.md", "empty/.keep"]);
+      expect(listed.issues.map((issue) => [issue.code, issue.severity, issue.path])).toEqual([
+        ["storage-failed", "error", "d/pipe"],
+        ["storage-failed", "error", "pipe.md"],
+      ]);
+      // A glob or an exclude glob that leaves the FIFO out leaves its issue out too.
+      expect((await storage.list({ prefix: "d/", limit: 10 })).issues.map((issue) => issue.path)).toEqual(["d/pipe"]);
+      expect((await storage.list({ prefix: "", exclude: ["**/pipe*"], limit: 10 })).issues).toEqual([]);
+      const searched = await storage.grep({ pattern: "b", mode: "literal", context: 0, limit: 10 });
+      expect(successValue(searched).items.map((match) => match.path)).toEqual(["d/b.md"]);
+      expect(searched.issues.map((issue) => [issue.code, issue.path])).toEqual([
+        ["storage-failed", "d/pipe"],
+        ["storage-failed", "pipe.md"],
+      ]);
+      expect((await storage.grep({ pattern: "b", mode: "literal", glob: "*.md", context: 0, limit: 10 })).issues).toEqual([
+        expect.objectContaining({ code: "storage-failed", path: "pipe.md" }),
+      ]);
+    },
+    2000,
+  );
+
+  test.skipIf(process.platform === "win32")(
+    "fails at a socket with storage-failed, and lists past it with the issue",
     async () => {
       const root = temporaryDirectory();
       writeFiles(root, { "a.md": "a\n" });
-      execFileSync("mkfifo", [join(root, "pipe.md")]);
-      const storage = createFilesystemStorage(root);
-      expect((await storage.read("pipe.md")).issues.map((issue) => issue.code)).toEqual(["address-not-found"]);
-      expect(successValue(await storage.list({ prefix: "", limit: 10 })).items.map((item) => item.path)).toEqual(["a.md"]);
+      const server = await listenAt(join(root, "s.md"));
+      try {
+        const storage = createFilesystemStorage(root);
+        expect((await storage.read("s.md")).issues.map((issue) => [issue.code, issue.message])).toEqual([
+          ["storage-failed", "cannot read s.md: it is a socket, not a regular file"],
+        ]);
+        const listed = await storage.list({ prefix: "", limit: 10 });
+        expect(successValue(listed).items.map((item) => item.path)).toEqual(["a.md"]);
+        expect(listed.issues.map((issue) => [issue.code, issue.path])).toEqual([["storage-failed", "s.md"]]);
+      } finally {
+        await new Promise((done) => server.close(done));
+      }
     },
     2000,
   );

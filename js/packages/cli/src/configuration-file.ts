@@ -105,7 +105,7 @@ function failedReading(error: unknown): BoundedFileReading {
 }
 
 /** Says what kind of file `info` describes, as "a directory" or "a FIFO". */
-function describeKind(info: {
+export function describeKind(info: {
   isDirectory(): boolean;
   isFIFO(): boolean;
   isSocket(): boolean;

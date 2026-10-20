@@ -33,7 +33,9 @@ export interface FileSource {
   /**
    * Lists every file under a directory, `""` for the store root, as store paths in any order. A directory that does not exist
    * lists nothing. A directory below it that cannot be read is left out with a `storage-failed` issue; when the directory
-   * itself cannot be read, the listing fails with one.
+   * itself cannot be read, the listing fails with one. A path that is not a regular file but is not missing to the source
+   * either, such as a FIFO, is listed too, and its read fails with `storage-failed`, so that a listing reports it only when
+   * the query selects it.
    */
   listFiles(directory: string): Promise<Outcome<readonly string[]>>;
   /** Reads a file, and fails with `address-not-found` when there is none, or `storage-failed` when it cannot be read. */
