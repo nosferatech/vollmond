@@ -534,6 +534,60 @@ describe("the spine", () => {
         );
         expect(issue.message).toContain("allOf/1/prefixItems/1");
       });
+
+      // A prefixItems entry that is false lets no item stand at its index, and so at none after it either.
+      test("nor past a prefixItems entry that is false, while the conflict before it is schema-invalid", async () => {
+        await usable(besideSibling({ prefixItems: [item("many"), false] }));
+        const issue = await unusable(file(besideSibling({ prefixItems: [item("many"), true, false] })));
+        expect(issue.message).toContain("allOf/1/prefixItems/1");
+      });
+
+      // With items: false and no prefixItems the array holds no item, so nothing below its keyed list meets anything.
+      test("nor in a keyed list's additional where no item stands at all, while one item lets it meet", async () => {
+        const conflicting = { allOf: [item("one"), item("many")] };
+        const array = (extra: object) => ({
+          type: "object",
+          properties: {
+            l: { type: "array", ...extra, "x-vmd-list": { type: "map", keys: ["name"], additional: conflicting } },
+          },
+        });
+        await usable(array({ items: false }));
+        const issue = await unusable(file(array({ prefixItems: [true], items: false })));
+        expect(issue.message).toContain("x-vmd-list/additional/allOf/0, s.json#/properties/l/x-vmd-list/additional/allOf/1");
+      });
+    });
+
+    // The format check asks for format: uri-reference beside x-vmd-ref on every path; a path through a position where no
+    // item can stand is no path.
+    describe("and a typed reference needs its format only where an item can stand", () => {
+      const bare = { "x-vmd-ref": {} };
+      const keyedArray = (extra: object) => ({
+        type: "object",
+        properties: {
+          l: { type: "array", ...extra, "x-vmd-list": { type: "map", keys: ["name"], items: { foo: bare } } },
+        },
+      });
+      const formatAt = "x-vmd-ref stands where a path lets a string stand without format: uri-reference";
+
+      test("so a key's schema has the format of every prefixItems entry that items: false leaves it", async () => {
+        await usable(keyedArray({ prefixItems: [{ format: "uri-reference" }], items: false }));
+        const open = await unusable(file(keyedArray({ prefixItems: [{ format: "uri-reference" }] })));
+        expect(open.message).toContain(formatAt);
+        const second = await unusable(file(keyedArray({ prefixItems: [{ format: "uri-reference" }, {}], items: false })));
+        expect(second.message).toContain(formatAt);
+      });
+
+      test("and none where no item stands at all, while one item needs it", async () => {
+        await usable(keyedArray({ items: false }));
+        expect((await unusable(file(keyedArray({ prefixItems: [true], items: false })))).message).toContain(formatAt);
+      });
+
+      test("and none past a prefixItems entry that is false, in prefixItems or in items", async () => {
+        await usable({ type: "array", prefixItems: [false, bare] });
+        await usable({ type: "array", prefixItems: [false], items: bare });
+        expect((await unusable(file({ type: "array", prefixItems: [true, bare] }))).message).toContain(formatAt);
+        expect((await unusable(file({ type: "array", prefixItems: [true], items: bare }))).message).toContain(formatAt);
+      });
     });
   });
 

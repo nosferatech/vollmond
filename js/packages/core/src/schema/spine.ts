@@ -404,7 +404,9 @@ export class Spine {
    * `prefixItems`: still at most quadratic, but reached with less schema. It takes no item at an index where an `items: false`
    * of either location, or of what their `allOf` and `$ref` bring, lets none stand, since no valid record holds one there. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
-   * could give it, which in the worst case is quadratic too.
+   * could give it, which in the worst case is quadratic too. Where a `false` ends the items of an array with a keyed list,
+   * the step to its items takes, for each location beside it, what each index before that end gives, so it grows with the
+   * `prefixItems` as well.
    *
    * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
    * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
@@ -694,7 +696,9 @@ export class Spine {
    * beside it. What applies beside a location L on every path, Must(L), is the greatest fixed point of: L's own `allOf`
    * and `$ref` closure, and the intersection over each way L is reached from a parent P of what P's Must gives the same
    * step. Only the references whose own closure lacks the format need it, so Must is computed for the locations above them,
-   * and holds only the locations whose spine below gives the format or such a type, as a bitset over those.
+   * and holds only the locations whose spine below gives the format or such a type, as a bitset over those. A step to an
+   * item where no item can stand, as {@link Spine.#closedFrom} tells from the parent, is no way of reaching the child, and a
+   * reference that only such steps reach needs no format.
    */
   #checkRefFormats(report: (location: SchemaLocation, message: string) => void): void {
     this.#mustSteps = 0;
@@ -762,17 +766,36 @@ export class Spine {
       const schema = this.schemaAt(location);
       return isObject(schema) && Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
     };
+    // What a step from a parent gives beside the child on every path; undefined, as for every location, while the parent's
+    // is not known, and for a step to an item where none can stand, which is on no path that a valid record takes.
     const given = (parent: SchemaLocation, edge: SpineEdge): Uint32Array | undefined => {
       const above = must.get(locationKey(parent));
       if (above === undefined) return undefined;
       if (edge.kind === "same") return above;
+      const closed = this.#closedFrom(parent);
+      if (edge.kind === "prefix" && edge.index >= closed) return undefined;
+      if (edge.kind === "items" && prefixOf(parent) >= closed) return undefined;
+      if (edge.kind === "keyed" && closed === 0) return undefined;
       const found = new Uint32Array(words);
       if (edge.kind === "unnamed") return found;
       forEachBit(above, (id) => {
         this.#mustSteps += 1;
         const beside = usefulLocations[id] as SchemaLocation;
-        // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
         if (edge.kind === "keyed") {
+          // An item of a keyed list stands at any index before `closed`, and gets what a location gives at each of them.
+          if (closed !== Number.POSITIVE_INFINITY) {
+            let common: Uint32Array | undefined;
+            for (let index = 0; index < closed; index++) {
+              const atIndex = new Uint32Array(words);
+              for (const location of this.itemLocations(beside, index, undefined)) add(atIndex, location);
+              if (common === undefined) common = atIndex;
+              else for (let word = 0; word < words; word++) common[word] = (common[word] as number) & (atIndex[word] as number);
+            }
+            for (let word = 0; word < words; word++)
+              found[word] = (found[word] as number) | ((common as Uint32Array)[word] as number);
+            return;
+          }
+          // At any index at all, it gets the items schema of a location without prefixItems.
           const schema = this.schemaAt(beside);
           if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) return;
           for (const location of this.closure([at(beside, "items")])) add(found, location);
@@ -818,12 +841,12 @@ export class Spine {
     }
     for (const location of needy) {
       const beside = must.get(locationKey(location));
+      // Undefined still: every path to it steps where no item can stand, so no valid record has a string there.
+      if (beside === undefined) continue;
       let guarded = false;
-      if (beside !== undefined) {
-        forEachBit(beside, (id) => {
-          guarded ||= guardsRefs(this.schemaAt(usefulLocations[id] as SchemaLocation));
-        });
-      }
+      forEachBit(beside, (id) => {
+        guarded ||= guardsRefs(this.schemaAt(usefulLocations[id] as SchemaLocation));
+      });
       if (guarded) continue;
       report(
         at(location, "x-vmd-ref"),
@@ -935,8 +958,9 @@ export class Spine {
             addAll(this.closure([at(location, "patternProperties", source)]));
         }
         if (isSchemaValue(schema.additionalProperties)) addAll(this.closure([at(location, "additionalProperties")]));
+        // Where no item can stand at any index, nothing below the keyed list applies to anything.
         const list = schema["x-vmd-list"];
-        if (isObject(list) && isObject(list.additional)) {
+        if (isObject(list) && isObject(list.additional) && this.#closedFrom(location) > 0) {
           addAll(this.closure([at(at(location, "x-vmd-list"), "additional")]));
         }
       }
@@ -968,8 +992,9 @@ export class Spine {
 
   /**
    * The first index at which no item can stand where a location applies, because it, or what its `allOf` and `$ref` bring,
-   * gives `items: false` past its `prefixItems`; infinite where none does. An item there fails that `false` whatever it
-   * holds, so declarations that meet only there meet in no valid record.
+   * gives `items: false` past its `prefixItems`, or a `prefixItems` entry that is `false`; infinite where none does. An item
+   * there fails that `false` whatever it holds, and an item past it needs one there, so declarations that meet only from
+   * that index on meet in no valid record.
    */
   #closedFrom(location: SchemaLocation): number {
     const key = locationKey(location);
@@ -982,8 +1007,11 @@ export class Spine {
       // beside the pair without being brought by either, since the walk keeps pairs, not every set that applies together.
       for (const applied of this.closure([location])) {
         const schema = this.schemaAt(applied);
-        if (!isObject(schema) || schema.items !== false) continue;
-        closed = Math.min(closed, Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0);
+        if (!isObject(schema)) continue;
+        const prefix = Array.isArray(schema.prefixItems) ? schema.prefixItems : [];
+        const falseEntry = prefix.indexOf(false);
+        if (falseEntry !== -1) closed = Math.min(closed, falseEntry);
+        if (schema.items === false) closed = Math.min(closed, prefix.length);
       }
       this.#closedFromByLocation.set(key, closed);
     }
