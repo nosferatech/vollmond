@@ -1,7 +1,8 @@
 // What a store's configuration changes in the read commands: collections in `ls`, ignored paths, and where schemas are.
 
 import { execFileSync } from "node:child_process";
-import { chmodSync, symlinkSync, truncateSync } from "node:fs";
+import { chmodSync, rmSync, symlinkSync, truncateSync } from "node:fs";
+import { createServer, type Server } from "node:net";
 import { join } from "node:path";
 import { MAX_SCHEMA_BYTES } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
@@ -23,6 +24,15 @@ const COLLECTIONS = [
 /** The environment of a run in `cwd`, with a runtime whose Unicode data agrees. */
 function env(cwd: string): Partial<CliEnvironment> {
   return { cwd, unicodeProbe: () => ({ version: "17.0.0", agrees: true, failures: [] }) };
+}
+
+/** Listens on a Unix domain socket at `path`, which puts a socket file there. */
+function listenAt(path: string): Promise<Server> {
+  const server = createServer();
+  return new Promise((done, failed) => {
+    server.once("error", failed);
+    server.listen(path, () => done(server));
+  });
 }
 
 /** Runs `vmd` in `cwd` and returns its result, with stdout as text. */
@@ -145,6 +155,16 @@ describe("--config", () => {
       execFileSync("mkfifo", [join(piped, "examples/store/schema/ticket.schema.json")]);
       const fifo = await vmd(piped, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
       expect(fifo.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a FIFO/);
+      const socketed = checkout({});
+      makeDirectories(socketed, "examples/store/schema");
+      const server = await listenAt(join(socketed, "examples/store/schema/ticket.schema.json"));
+      try {
+        const args = ["--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md"];
+        const socket = await vmd(socketed, ...args);
+        expect(socket.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a socket/);
+      } finally {
+        await new Promise((done) => server.close(done));
+      }
     }
     const locked = checkout({ "ticket.schema.json": "{}" });
     const file = join(locked, "examples/store/schema/ticket.schema.json");
@@ -187,17 +207,98 @@ describe("a store's own schema that is not a regular file", () => {
     expect(result.stderr).toMatch(/storage-failed: .* cannot be read: \.vmd\/schema\/t\.json is a directory, not a file/);
   });
 
-  // The storage contract makes a path that names something other than a regular file a missing one, so a FIFO among the
-  // store's own schemas does not exist to vmd, where one beside a --config file is storage-failed.
+  // A FIFO, a socket or a device does not belong in a store, so one among the store's own schemas is a failure, as one beside a
+  // --config file is. The test's timeout would end a read that waited on the FIFO, which no writer opens.
   test.skipIf(process.platform === "win32")(
-    "is missing, schema-invalid, for a FIFO, as the storage contract reads one",
+    "is storage-failed for a FIFO, without waiting on it",
     async () => {
       const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
       makeDirectories(root, ".vmd/schema");
       execFileSync("mkfifo", [join(root, ".vmd/schema/t.json")]);
       const result = await vmd(root, "get", "t/a.md");
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(
+        /storage-failed: .* cannot be read: cannot read \.vmd\/schema\/t\.json: it is a FIFO, not a regular file/,
+      );
+    },
+    5000,
+  );
+
+  test.skipIf(process.platform === "win32")("is storage-failed for a socket", async () => {
+    const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
+    makeDirectories(root, ".vmd/schema");
+    const server = await listenAt(join(root, ".vmd/schema/t.json"));
+    try {
+      const result = await vmd(root, "get", "t/a.md");
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(/storage-failed: .* cannot be read: .*t\.json: it is a socket, not a regular file/);
+    } finally {
+      await new Promise((done) => server.close(done));
+    }
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "is missing, schema-invalid, for a directory whose only file is a FIFO, which a listing leaves out",
+    async () => {
+      const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
+      makeDirectories(root, ".vmd/schema/t.json");
+      execFileSync("mkfifo", [join(root, ".vmd/schema/t.json/x.json")]);
+      const result = await vmd(root, "get", "t/a.md");
+      expect(result.exitCode).toBe(1);
       expect(result.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t does not exist/);
     },
+    5000,
+  );
+
+  test("is missing, schema-invalid, for an empty directory", async () => {
+    const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
+    makeDirectories(root, ".vmd/schema/t.json");
+    const result = await vmd(root, "get", "t/a.md");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t does not exist/);
+  });
+});
+
+describe("a FIFO or a socket in the store", () => {
+  /** The collections store, with FIFOs at a record path, in an ignored directory and below a dot segment. */
+  function pipedStore(): string {
+    const root = collectionsStore();
+    makeDirectories(root, ".hidden");
+    for (const path of ["notes/pipe.md", "drafts/pipe.md", ".hidden/pipe.md"]) execFileSync("mkfifo", [join(root, path)]);
+    return root;
+  }
+
+  test.skipIf(process.platform === "win32")(
+    "fails a read of one by name with storage-failed, without waiting on it",
+    async () => {
+      const result = await vmd(pipedStore(), "get", "notes/pipe.md");
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toMatch(/storage-failed: cannot read notes\/pipe\.md: it is a FIFO, not a regular file/);
+    },
+    5000,
+  );
+
+  test.skipIf(process.platform === "win32")(
+    "is left out of ls and grep with a storage-failed error, which still succeed, unless vmd ignores its path",
+    async () => {
+      const root = pipedStore();
+      const listed = await vmd(root, "ls");
+      expect(listed.stdout).toContain("notes/a.md ");
+      expect(listed.stdout).not.toContain("pipe");
+      expect(listed.stderr).toBe(
+        "notes/pipe.md error storage-failed: cannot read notes/pipe.md: it is a FIFO, not a regular file\n",
+      );
+      expect(listed.exitCode).toBe(4);
+      const searched = await vmd(root, "grep", "# A");
+      expect(searched.stdout).toContain("notes/a.md");
+      expect(searched.stderr).toBe(listed.stderr);
+      expect(searched.exitCode).toBe(4);
+      // The ignored FIFOs alone: in a directory the configuration ignores, and below a segment that starts with a dot.
+      rmSync(join(root, "notes/pipe.md"));
+      expect((await vmd(root, "ls")).stderr).toBe("");
+      expect(await vmd(root, "grep", "# A")).toEqual(expect.objectContaining({ stderr: "", exitCode: 0 }));
+    },
+    5000,
   );
 });
 

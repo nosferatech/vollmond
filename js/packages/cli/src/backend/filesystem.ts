@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { constants, type Dirent } from "node:fs";
-import { open, readdir, realpath } from "node:fs/promises";
+import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   createStorageReader,
@@ -14,6 +14,7 @@ import {
   type StoredFile,
   succeed,
 } from "@vollmond/core";
+import { describeKind, type FileKindInfo } from "../file-kind.js";
 
 // Deviation from the specification, recorded in issue #16: file versions are SHA-1 git blob ids in every store, a SHA-256 git
 // repository included, which the specification gives the SHA-256 form; and the history operations are not provided yet, since
@@ -26,12 +27,14 @@ import {
  *   such as a line-ending conversion, makes git's blob differ from the file.
  * - Paths are exact. A path names a file only when the filesystem stores it under that name, byte for byte, below the root's
  *   real path: on a filesystem that ignores case or Unicode normalization, `A.md` does not find `a.md`, and a path through a
- *   symbolic link, at any segment, finds nothing. Listings hold regular files only, by their stored names, and do not
- *   descend into symbolic links.
+ *   symbolic link, at any segment, finds nothing. Listings hold regular files by their stored names, leave out directories
+ *   and symbolic links, and do not descend into symbolic links.
  * - Every path with a `.git` segment is left out of listings and finds no file.
  * - A file or a directory that cannot be read, for a permission error or any other failure but a missing path, gives
- *   `storage-failed`; a missing path, or one that names something other than a regular file (a directory, a FIFO), gives
- *   `address-not-found`.
+ *   `storage-failed`; a missing path, a directory, or a path through a symbolic link gives `address-not-found`.
+ * - Anything else that is not a regular file, such as a FIFO, a socket or a device, gives `storage-failed` when it is read
+ *   or its file is asked for, and is told by its type before it is opened, so that nothing waits on a FIFO. A listing leaves
+ *   it out with a `storage-failed` issue, as it does a file that it cannot read, unless the query leaves out its path.
  * - `head()` runs `git rev-parse` in the store root, and gives the commit of `HEAD`, or null outside a git working copy, in a
  *   repository without commits, for a root that does not exist, and where `git` cannot be run. There is no history.
  *
@@ -98,14 +101,15 @@ class FilesystemFileSource implements FileSource {
     return real === absolute ? { kind: "found", absolute } : { kind: "absent" };
   }
 
-  /** Adds the files among `entries`, the entries of `directory`, and those below its subdirectories, to `paths`. */
+  /**
+   * Adds the files among `entries`, the entries of `directory`, and those below its subdirectories, to `paths`: every entry
+   * but a directory or a symbolic link, so that one that is not a regular file, such as a FIFO, fails when it is read.
+   */
   async #walk(directory: string, absolute: string, entries: readonly Dirent[], paths: string[], issues: Issue[]): Promise<void> {
     for (const entry of entries) {
       if (entry.name === ".git") continue;
       const path = directory === "" ? entry.name : `${directory}/${entry.name}`;
-      if (entry.isFile()) {
-        paths.push(path);
-      } else if (entry.isDirectory()) {
+      if (entry.isDirectory()) {
         const below = join(absolute, entry.name);
         let belowEntries: Dirent[];
         try {
@@ -115,6 +119,8 @@ class FilesystemFileSource implements FileSource {
           continue;
         }
         await this.#walk(path, below, belowEntries, paths, issues);
+      } else if (!entry.isSymbolicLink()) {
+        paths.push(path);
       }
     }
   }
@@ -131,15 +137,25 @@ class FilesystemFileSource implements FileSource {
 
   /**
    * Reads a file, refusing it as oversized when the open file's size is more than `maxBytes`, before reading anything; a file
-   * that grows meanwhile is read up to `maxBytes` and one byte, and refused too.
+   * that grows meanwhile is read up to `maxBytes` and one byte, and refused too. A path that is neither a regular file nor a
+   * directory fails with `storage-failed` before it is opened, since opening a socket fails and opening a device may act on it.
+   * A file replaced by a device between that check and the open is opened before the check of the open file refuses it.
    */
   async #read(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>> {
     const located = await this.#locate(path);
     if (located.kind === "absent") return fail([notFound(path)]);
     if (located.kind === "failed") return fail([storageFailed(path, `cannot read ${path}`, located.cause)]);
+    try {
+      const info = await lstat(located.absolute);
+      if (info.isDirectory() || info.isSymbolicLink()) return fail([notFound(path)]);
+      if (!info.isFile()) return fail([notRegular(path, info)]);
+    } catch (error) {
+      if (isMissing(error)) return fail([notFound(path)]);
+      return fail([storageFailed(path, `cannot read ${path}`, error)]);
+    }
     let handle: Awaited<ReturnType<typeof open>>;
     try {
-      // Without following a symbolic link that replaced the file since it was located, and without waiting on a FIFO.
+      // Without following a symbolic link that replaced the file since it was looked at, nor waiting on a FIFO that did.
       handle = await open(located.absolute, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     } catch (error) {
       if (isMissing(error) || errorCode(error) === "ELOOP") return fail([notFound(path)]);
@@ -147,7 +163,8 @@ class FilesystemFileSource implements FileSource {
     }
     try {
       const stats = await handle.stat();
-      if (!stats.isFile()) return fail([notFound(path)]);
+      if (stats.isDirectory()) return fail([notFound(path)]);
+      if (!stats.isFile()) return fail([notRegular(path, stats)]);
       if (stats.size > maxBytes) return succeed({ path, oversized: true, size: stats.size });
       if (maxBytes === Number.POSITIVE_INFINITY) {
         return succeed({ bytes: new Uint8Array(await handle.readFile()), modified: stats.mtime.toISOString() });
@@ -232,6 +249,16 @@ function isMissing(error: unknown): boolean {
 
 function notFound(path: string): Issue {
   return makeIssue({ code: "address-not-found", path, at: null, message: `${path} does not exist` });
+}
+
+/** Creates the `storage-failed` issue of a path that names something other than a regular file or a directory, such as a FIFO. */
+function notRegular(path: string, info: FileKindInfo): Issue {
+  return makeIssue({
+    code: "storage-failed",
+    path,
+    at: null,
+    message: `cannot read ${path}: it is ${describeKind(info)}, not a regular file`,
+  });
 }
 
 /** Creates a `storage-failed` issue, whose message gives the error's code, such as `EACCES`, rather than its absolute path. */

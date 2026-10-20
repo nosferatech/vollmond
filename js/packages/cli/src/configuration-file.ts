@@ -10,6 +10,7 @@ import {
   type Outcome,
   succeed,
 } from "@vollmond/core";
+import { describeKind } from "./file-kind.js";
 
 /** What reading a configuration file gave: its bytes, or why there are none. */
 export type ConfigurationFileReading =
@@ -102,21 +103,6 @@ function failedReading(error: unknown): BoundedFileReading {
   const code = (error as { code?: unknown }).code;
   if (code === "ENOENT" || code === "ENOTDIR") return { kind: "missing" };
   return { kind: "unreadable", reason: describeError(error) };
-}
-
-/** Says what kind of file `info` describes, as "a directory" or "a FIFO". */
-function describeKind(info: {
-  isDirectory(): boolean;
-  isFIFO(): boolean;
-  isSocket(): boolean;
-  isCharacterDevice(): boolean;
-  isBlockDevice(): boolean;
-}): string {
-  if (info.isDirectory()) return "a directory";
-  if (info.isFIFO()) return "a FIFO";
-  if (info.isSocket()) return "a socket";
-  if (info.isCharacterDevice() || info.isBlockDevice()) return "a device";
-  return "a special file";
 }
 
 /** Says why a file could not be read, for the user. */
