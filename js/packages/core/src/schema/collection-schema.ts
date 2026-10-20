@@ -47,8 +47,8 @@ export interface ListChecks {
 export interface SchemaLoading {
   /** The configuration file's bytes, which the digest covers. */
   readonly configuration: Uint8Array;
-  /** How the configuration file is named in messages, for the hint that says where schemas are. */
-  readonly configurationName: string;
+  /** The schema directory as messages name it, ending in a separator, for the hint that says where schemas are. */
+  readonly schemaDirectory: string;
   /** The format version the store declares, which a `feature-unsupported` message names. */
   readonly declared: number;
   /** Reads a file of the schema directory. */
@@ -219,7 +219,7 @@ function schemaIssue(
   if (code === "feature-unsupported") {
     message += `; a construct this vmd does not define, an x-vmd-* keyword or a member or value inside x-vmd-list or x-vmd-ref, may come from a newer minor version, so the schema may need a newer version of vmd, and the store declares format version ${loading.declared}`;
   }
-  const hints = [`schemas are in the schema/ directory beside ${loading.configurationName}`];
+  const hints = [`schemas are in ${loading.schemaDirectory}`];
   for (const problem of problems) if (problem.hint !== undefined && !hints.includes(problem.hint)) hints.push(problem.hint);
   return makeIssue({
     code,

@@ -261,8 +261,11 @@ function notRegular(path: string, info: FileKindInfo): Issue {
   });
 }
 
-/** Creates a `storage-failed` issue, whose message gives the error's code, such as `EACCES`, rather than its absolute path. */
+/**
+ * Creates a `storage-failed` issue whose message is `<what>: <reason>`, the reason being the error's code, such as `EACCES`,
+ * rather than its absolute path, or "no reason given" when the error has neither a code nor a message.
+ */
 function storageFailed(path: string | null, what: string, cause: unknown): Issue {
   const reason = errorCode(cause) ?? (cause instanceof Error ? cause.message : String(cause));
-  return makeIssue({ code: "storage-failed", path, at: null, message: reason === "" ? what : `${what}: ${reason}` });
+  return makeIssue({ code: "storage-failed", path, at: null, message: `${what}: ${reason === "" ? "no reason given" : reason}` });
 }

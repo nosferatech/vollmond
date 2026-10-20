@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import { makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
+import type { StorageReader } from "../storage/storage.js";
 import { type ConfigurationSource, MAX_SCHEMA_BYTES, openStore, type Store } from "./store.js";
 
 type Files = Readonly<Record<string, string | Uint8Array | MemoryFile>>;
@@ -158,7 +159,34 @@ describe("a collection whose schema cannot be used", () => {
     const store = await storeOf({ ...FILES, ".vmd/schema/ticket.schema.json": { content: "{}", unreadable: true } });
     const refused = (await store.record("tickets/0001.md")) as Outcome<unknown>;
     expect(refused.issues.map((issue) => [issue.code, issue.path, issue.at])).toEqual([["storage-failed", null, null]]);
-    expect(refused.issues[0]?.message).toMatch(/^the schema ticket\.schema\.json of the collection tickets cannot be read/);
+    expect(refused.issues[0]?.message).toBe(
+      "the schema ticket.schema.json of the collection tickets cannot be read: permission denied, so the collection's records cannot be read",
+    );
+    expect(refused.issues[0]?.hint).toBe("schemas are in .vmd/schema/");
+  });
+
+  test("keeps the whole message of a backend that does not start it with the path it could not read", async () => {
+    const schema = ".vmd/schema/ticket.schema.json";
+    /** The message of reading a record of a store whose backend refuses the schema with `message`. */
+    const messageOf = async (message: string) => {
+      const inner = createMemoryStorage({ files: FILES });
+      const backend: StorageReader = {
+        list: (query) => inner.list(query),
+        stat: (path) => inner.stat(path),
+        read: async (path, options) =>
+          path === schema ? fail([makeIssue({ code: "storage-failed", path, at: null, message })]) : inner.read(path, options),
+        grep: (query) => inner.grep(query),
+        head: () => inner.head(),
+        history: inner.history,
+      };
+      const store = successValue(await openStore(backend));
+      return ((await store.record("tickets/0001.md")) as Outcome<unknown>).issues[0]?.message;
+    };
+    expect(await messageOf(`cannot read ${schema}: EIO`)).toContain("of the collection tickets cannot be read: EIO, so");
+    expect(await messageOf(`${schema}: EIO`)).toContain(`tickets cannot be read: ${schema}: EIO, so`);
+    expect(await messageOf("cannot read .vmd/schema/other.json: EIO")).toContain(
+      "tickets cannot be read: cannot read .vmd/schema/other.json: EIO, so",
+    );
   });
 
   test("is one whose schema is a directory, which is storage-failed, and the listing reports it once", async () => {
@@ -166,7 +194,7 @@ describe("a collection whose schema cannot be used", () => {
     const store = await storeOf({ ...rest, ".vmd/schema/ticket.schema.json/inside.json": "{}", "tickets/0002.md": "# Two\n" });
     const refused = (await store.record("tickets/0001.md")) as Outcome<unknown>;
     expect(refused.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
-    expect(refused.issues[0]?.message).toContain(".vmd/schema/ticket.schema.json is a directory, not a file");
+    expect(refused.issues[0]?.message).toContain("tickets cannot be read: it is a directory, not a regular file, so");
     const listed = await store.list({ glob: "tickets/*", limit: 10 });
     expect(listed.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
@@ -179,7 +207,7 @@ describe("a configuration source", () => {
     return {
       reads,
       content: new TextEncoder().encode(content),
-      name: "elsewhere/config.yaml",
+      schemaDirectory: "elsewhere/schema/",
       readSchema: async (path): Promise<Outcome<Uint8Array>> => {
         reads.push(path);
         const schema = schemas[path];
@@ -197,7 +225,7 @@ describe("a configuration source", () => {
     expect(store.configuration.ignore).toEqual([]);
     const refused = (await store.record("tickets/0001.md")) as Outcome<unknown>;
     expect(refused.issues.map((issue) => issue.code)).toEqual(["schema-invalid"]);
-    expect(refused.issues[0]?.hint).toContain("elsewhere/config.yaml");
+    expect(refused.issues[0]?.hint).toContain("schemas are in elsewhere/schema/");
     const given = sourceOf(config, { "ticket.schema.json": "{}" });
     const readable = successValue(await openStore(backend, { configuration: given }));
     expect((await readable.record("tickets/0001.md"))?.ok).toBe(true);

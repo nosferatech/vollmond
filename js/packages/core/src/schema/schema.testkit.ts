@@ -22,7 +22,7 @@ export async function load(files: Readonly<Record<string, string>>, root = "s.js
   const encoder = new TextEncoder();
   const loaded = await loadCollectionSchema(collectionOf(root), {
     configuration: CONFIGURATION,
-    configurationName: ".vmd/config.yaml",
+    schemaDirectory: ".vmd/schema/",
     declared,
     read: async (path) =>
       Object.hasOwn(files, path)

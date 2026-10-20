@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { open, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import {
   type ConfigurationSource,
   fail,
@@ -42,21 +42,21 @@ export async function readConfigurationFile(path: string): Promise<Configuration
  * Gives the configuration source of a configuration file that has been read: its bytes, and the `schema/` directory beside
  * the file, from which each schema is read as {@link readConfigurationFile} reads the configuration, at most one byte more
  * than `MAX_SCHEMA_BYTES`. A schema that does not exist fails with `address-not-found`; one that cannot be read, or is not a
- * regular file, with `storage-failed`.
+ * regular file, with `storage-failed`. `name` is the file as messages name it, from which the source names the schema directory beside it.
  */
 export function configurationFileSource(file: string, name: string, content: Uint8Array): ConfigurationSource {
   const directory = join(dirname(file), "schema");
   return {
     content,
-    name,
+    schemaDirectory: `${join(dirname(name), "schema")}${sep}`,
     readSchema: async (path): Promise<Outcome<Uint8Array>> => {
-      const shown = `schema/${path}`;
       const reading = await readBoundedFile(join(directory, ...path.split("/")), MAX_SCHEMA_BYTES);
       if (reading.kind === "read") return succeed(reading.content);
       if (reading.kind === "missing") {
-        return fail([makeIssue({ code: "address-not-found", path: null, at: null, message: `${shown} does not exist` })]);
+        return fail([makeIssue({ code: "address-not-found", path: null, at: null, message: `schema/${path} does not exist` })]);
       }
-      const message = reading.kind === "invalid" ? `${shown} ${reading.reason}` : `cannot read ${shown}: ${reading.reason}`;
+      // The reason alone, as `EACCES` or `it is a FIFO, not a regular file`: the store's message names the schema.
+      const message = reading.kind === "invalid" ? `it ${reading.reason}` : reading.reason;
       return fail([makeIssue({ code: "storage-failed", path: null, at: null, message })]);
     },
   };

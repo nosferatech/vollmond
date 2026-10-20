@@ -448,6 +448,20 @@ export function describeStorageContract(backend: ContractBackend): void {
         expect((await storage.read("a.md")).ok).toBe(true);
       });
 
+      test.skipIf(!backend.canMakeUnreadable)("say so as `cannot read <path>: <reason>`, from stat and read", async () => {
+        const storage = await create({ ...files, "d/e.md": "alpha\n" }, ["b.md", "d/e.md"]);
+        for (const path of ["b.md", "d/e.md"]) {
+          for (const outcome of [
+            await storage.stat(path),
+            await storage.read(path),
+            await storage.read(path, { maxBytes: 100 }),
+          ]) {
+            expect(outcome.issues.map((issue) => issue.path)).toEqual([path]);
+            expect(outcome.issues[0]?.message).toMatch(new RegExp(`^cannot read ${path.replace(".", "\\.")}: \\S`));
+          }
+        }
+      });
+
       test.skipIf(!backend.canMakeUnreadable)(
         "are left out of a listing, which succeeds with a storage-failed issue",
         async () => {
