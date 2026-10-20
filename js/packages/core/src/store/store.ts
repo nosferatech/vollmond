@@ -23,6 +23,7 @@ import { MAX_RECORD_BYTES } from "../format/limits.js";
 import { parseRecord, recordTooLarge } from "../format/parse-record.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
+import { isDeclaredDuplicate } from "../issue/severity.js";
 import { type ComputedFieldName, type ComputedFields, computeFields } from "../meta/computed-fields.js";
 import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
@@ -37,6 +38,7 @@ import { compareUtf8 } from "../storage/path.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
+import { filenameMismatch } from "./path-rules.js";
 
 /** The store's configuration file, relative to its root. */
 const CONFIGURATION_PATH = ".vmd/config.yaml";
@@ -71,12 +73,19 @@ export interface ConfigurationSource {
   readSchema(path: string): Promise<Outcome<Uint8Array | OversizedFile>>;
 }
 
+/**
+ * How a store's readers treat a record that does not validate. `best-effort` reads every record without a structural error;
+ * `strict` also refuses one whose data breaks its collection's schema: a `schema-violation`, a `duplicate-key` at a level the
+ * schema declares `type: map`, or a `filename-mismatch`.
+ */
+export type ReadMode = "best-effort" | "strict";
+
 /** A file a store lists: a record or an asset, with what the backend says of it. */
 export interface StoreEntry extends FileInfo {
   readonly kind: "record" | "asset";
   /**
-   * For a record, whether it could be read: false for one with a structural error, one the backend could not read, and one of
-   * a collection whose schema cannot be used.
+   * For a record, whether it could be read: false for one with a structural error, one the backend could not read, one of a
+   * collection whose schema cannot be used, and, in the strict read mode, one the mode refuses.
    */
   readonly readable?: boolean;
   /** For a record of a collection, the collection's name; absent for a record that no collection, or several, claim. */
@@ -189,6 +198,12 @@ export interface Outline {
 export interface Store {
   readonly backend: StorageReader;
   readonly configuration: StoreConfiguration;
+  /**
+   * How the store's readers treat a record that does not validate: what {@link Store.resolve}, and the reads made through it,
+   * refuse, and what {@link Store.list} and {@link Store.references} count or report. References' statuses and
+   * {@link Store.check} do not depend on it.
+   */
+  readonly readMode: ReadMode;
   /** Gives what a store path is under the configuration: ignored, an asset, or a record with the collections that claim it. */
   classify(path: string): PathClass;
   /**
@@ -203,10 +218,15 @@ export interface Store {
   /**
    * Reads a record as {@link Store.record} does and binds it to its collection's schema, once: its keyed lists, its shapes
    * and its issues, the schema's included. A record that no collection, or several, claim, or whose collection has no
-   * schema, is bound without one. Fails, or gives null, as {@link Store.record} does.
+   * schema, is bound without one. Fails, or gives null, as {@link Store.record} does, in either read mode: references and
+   * checks share it.
    */
   binding(path: string): Promise<Outcome<RecordBinding> | null>;
-  /** Resolves an address in the record's binding, read with {@link Store.binding}. */
+  /**
+   * Resolves an address in the record's binding, read with {@link Store.binding}, and fails as that read does. In the strict
+   * read mode, also fails with the issues the mode refuses the record for, when it has any, and with those only (see
+   * {@link ReadMode}).
+   */
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>>;
   /**
    * Reads the node a singular address names, in the requested form, with the requested computed fields. Fails as resolving
@@ -229,8 +249,8 @@ export interface Store {
   /**
    * Lists the store's records and assets in UTF-8 byte order of their paths, leaving out the paths vmd ignores, which are not
    * counted either. Each record on the page is read, to count those that cannot be; the records of other pages are not. A
-   * record refused for its collection's schema is counted, and the schema's issue is reported once. Fails as the backend's
-   * `list` does.
+   * record refused for its collection's schema is counted, and the schema's issue is reported once. In the strict read mode, a
+   * record the mode refuses is counted too, and its issues are not reported. Fails as the backend's `list` does.
    */
   list(query: StoreListQuery): Promise<Outcome<StorePage>>;
   /** Searches the text of the store's records and assets as the backend's `grep` does, leaving out the paths vmd ignores. */
@@ -244,9 +264,11 @@ export interface Store {
   /**
    * Gives the references made in a node and below it, or in every record of the store, each resolved against the store, in
    * document order of each record and the records in UTF-8 byte order of their paths. References that leave the store are not
-   * given. Without `from`, a record that cannot be read is left out; with it, the read fails as resolving `from` does. Fails
-   * with `alias-file-invalid` for an alias file that cannot be read as one, or one larger than `MAX_ALIAS_FILE_BYTES`, which is
-   * refused by its size before it is read, and as the backend's `list` and `read` do.
+   * given. Without `from`, a record that cannot be read is left out: in the strict read mode, a record the mode refuses too,
+   * and the issues of each record left out are the outcome's, unless some collections' schemas cannot be used, which fails the
+   * read with each such schema's issue, once. With `from`, the read fails as resolving `from` does. A reference's status does
+   * not depend on the read mode. Fails with `alias-file-invalid` for an alias file that cannot be read as one, or one larger
+   * than `MAX_ALIAS_FILE_BYTES`, which is refused by its size before it is read, and as the backend's `list` and `read` do.
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
   /**
@@ -266,11 +288,13 @@ export interface Store {
  * configuration's warnings are the outcome's issues. Schemas are read when a record of their collection is first read or
  * checked, not here.
  */
-// TODO(#23): the strict read mode of §9.5, which refuses records with schema violations as readers' errors, comes as an
-// option here in its own pull request, over the bindings' issues.
 export async function openStore(
   backend: StorageReader,
-  options: { readonly configuration?: ConfigurationSource } = {},
+  options: {
+    readonly configuration?: ConfigurationSource;
+    /** How the store's readers treat a record that does not validate; `best-effort` by default. */
+    readonly readMode?: ReadMode;
+  } = {},
 ): Promise<Outcome<Store>> {
   let source = options.configuration;
   if (source === undefined) {
@@ -302,7 +326,8 @@ export async function openStore(
   }
   const configuration = readStoreConfiguration(source.content);
   if (!configuration.ok) return configuration;
-  return succeed(new BackendStore(backend, configuration.value, source), configuration.issues);
+  const store = new BackendStore(backend, configuration.value, source, options.readMode ?? "best-effort");
+  return succeed(store, configuration.issues);
 }
 
 /**
@@ -352,6 +377,7 @@ export function storeConfigurationSource(backend: StorageReader, content: Uint8A
 class BackendStore implements Store {
   readonly backend: StorageReader;
   readonly configuration: StoreConfiguration;
+  readonly readMode: ReadMode;
   readonly classifier: PathClassifier;
   readonly #source: ConfigurationSource;
   /** The records read, by path: the read under way, so that two reads of one path at once share it. */
@@ -367,9 +393,10 @@ class BackendStore implements Store {
   /** The resolver of the store's references, made when references are first needed. */
   #resolver: Promise<Outcome<ReferenceResolver>> | undefined;
 
-  constructor(backend: StorageReader, configuration: StoreConfiguration, source: ConfigurationSource) {
+  constructor(backend: StorageReader, configuration: StoreConfiguration, source: ConfigurationSource, readMode: ReadMode) {
     this.backend = backend;
     this.configuration = configuration;
+    this.readMode = readMode;
     this.classifier = new PathClassifier(configuration);
     this.#source = source;
   }
@@ -410,6 +437,17 @@ class BackendStore implements Store {
     const collection = collectionOfRecord(this.classify(path));
     const schema = collection === undefined ? null : await this.schema(collection);
     return succeed(bindRecord(read.value, schema?.ok === true ? schema.value : null));
+  }
+
+  /**
+   * Gives a record's binding as the store's readers read it: {@link Store.binding}'s, failing in the strict read mode with the
+   * issues the mode refuses the record for. References and checks read the binding itself, so that the mode changes neither.
+   */
+  async #readerBinding(path: string): Promise<Outcome<RecordBinding> | null> {
+    const bound = await this.binding(path);
+    if (this.readMode !== "strict" || bound === null || !bound.ok) return bound;
+    const refusals = strictRefusals(bound.value, collectionOfRecord(this.classify(path)));
+    return refusals.length > 0 ? fail(refusals) : bound;
   }
 
   // Deviation from the I2 design, recorded in issue #21: every read of a record of a collection with a schema reads the schema
@@ -526,11 +564,22 @@ class BackendStore implements Store {
     if (!resolver.ok) return fail(resolver.issues);
     if (query.from === undefined) {
       const references: Reference[] = [];
+      const refusals: Issue[] = [];
+      // The issues of the collections whose schemas cannot be used, once each: they have no record path.
+      const schemaIssues: Issue[] = [];
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
-        const read = await this.record(path);
-        if (read?.ok === true) for (const reference of await resolver.value.referencesOf(read.value)) references.push(reference);
+        const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.record(path);
+        if (read === null) continue;
+        if (read.ok) {
+          for (const reference of await resolver.value.referencesOf(subjectRecord(read.value))) references.push(reference);
+        } else if (this.readMode === "strict") {
+          for (const issue of read.issues) {
+            if (issue.path !== null) refusals.push(issue);
+            else if (!schemaIssues.includes(issue)) schemaIssues.push(issue);
+          }
+        }
       }
-      return succeed(references);
+      return schemaIssues.length > 0 ? fail(schemaIssues) : succeed(references, refusals);
     }
     const resolved = await this.resolve(query.from, "singular", query.reading);
     if (!resolved.ok) return fail(resolved.issues);
@@ -543,7 +592,7 @@ class BackendStore implements Store {
   }
 
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>> {
-    return resolveStoreAddress((path) => this.binding(path), address, use, reading);
+    return resolveStoreAddress((path) => this.#readerBinding(path), address, use, reading);
   }
 
   async get(address: string, options: GetOptions = {}): Promise<Outcome<GetResult>> {
@@ -628,7 +677,7 @@ class BackendStore implements Store {
         items.push({ ...file, kind: "asset" });
         continue;
       }
-      const read = await this.record(file.path);
+      const read = this.readMode === "strict" ? await this.#readerBinding(file.path) : await this.record(file.path);
       const readable = read?.ok === true;
       if (!readable) unreadable += 1;
       // A structural error is counted, not reported: it is the record's, and `get` reports it. A failed read is the listing's,
@@ -648,6 +697,18 @@ class BackendStore implements Store {
   grep(query: Omit<GrepQuery, "exclude">): Promise<Outcome<CountedPage<GrepMatch>>> {
     return this.backend.grep({ ...query, exclude: this.classifier.ignoredGlobs });
   }
+}
+
+/**
+ * Gives the issues that the strict read mode refuses a bound record for, in the binding's order and then the file name's: its
+ * schema violations, its repeated keys at levels the schema declares `type: map`, and its file name when its collection's rule
+ * rejects it. Empty for a record the mode reads.
+ */
+// TODO(#24): the mode refuses `ref-target-not-allowed` too, which typed references raise, and they are not extracted yet.
+function strictRefusals(binding: RecordBinding, collection: Collection | undefined): Issue[] {
+  const refusals = binding.issues.filter((issue) => issue.code === "schema-violation" || isDeclaredDuplicate(issue));
+  const mismatch = collection === undefined ? null : filenameMismatch(binding.record.path, collection);
+  return mismatch === null ? refusals : [...refusals, mismatch];
 }
 
 /** Gives a resolved node in a form, or fails with `usage-invalid` for a body the node does not have. */
