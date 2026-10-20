@@ -758,6 +758,20 @@ Section numbers refer to Draft v0.17.
 - [W8](../decisions/W8.md) The agent's readings of schema checks and single-place links are confirmed
 - [W9](../decisions/W9.md) The agent's readings of typed references are confirmed
 
+## Decisions from cards AT and AU (Draft v0.18)
+
+Recorded 2026-10-20, and applied to Draft v0.18. Card AT comes from the independent review of the local index (#153): a cache
+directory set with `XDG_CACHE_HOME` inside a git checkout that encloses the store, past the nearest one. Card AU comes from the
+independent review of Draft v0.17 (#155): a many-valued reference that a record alias leads to no match, the half of the I2
+design's reading R19 that card W9 did not cover. The project owner chose the recommended option on both, with no note: (c) on AT
+and (b) on AU. Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to
+confirm. Section numbers refer to Draft v0.18.
+
+- [AT](../decisions/AT.md) A cache directory set with `XDG_CACHE_HOME` is not used inside any git checkout around the store; the
+  default always is
+- [AU](../decisions/AU.md) A many-valued reference that a record alias leads to no match is `ok` with no targets, as for an old
+  section name
+
 ## Decisions given in conversation
 
 Decisions the project owner gave in conversation with the session that no round above records. The planning round's plan-3a is
