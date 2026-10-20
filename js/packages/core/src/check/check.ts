@@ -1,12 +1,14 @@
-import { bindRecord, type RecordBinding } from "../binding/binding.js";
+import { bindStructure, type RecordBinding } from "../binding/binding.js";
 import { collectionOfRecord, type PathClassifier } from "../config/classify.js";
 import type { Collection, StoreConfiguration } from "../config/configuration.js";
 import { type Issue, makeIssue } from "../issue/issue.js";
 import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { applySeverities } from "../issue/severity.js";
-import type { ParsedRecord } from "../record/record.js";
+import type { RecordStructure } from "../record/record.js";
+import type { Reference } from "../reference/reference.js";
 import type { ReferenceResolver } from "../reference/resolve.js";
 import type { CollectionSchema } from "../schema/collection-schema.js";
+import { listEveryFile } from "../storage/list-every-file.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { FileInfo, StorageReader } from "../storage/storage.js";
 import { filenameMismatch, type ListedPath, pathRuleIssues } from "../store/path-rules.js";
@@ -33,13 +35,23 @@ export interface CheckedStore {
   readonly backend: StorageReader;
   readonly configuration: StoreConfiguration;
   readonly classifier: PathClassifier;
-  /** Parses a record, whatever its collection's schema, once for the store's lifetime. */
-  parse(path: string): Promise<Outcome<ParsedRecord>>;
+  /**
+   * Learns the versions of the files a check listed, so that their records are read from the local index where it holds
+   * them.
+   */
+  listed(files: readonly FileInfo[]): void;
+  /**
+   * Gives a record's structure, whatever its collection's schema, once for the store's lifetime: its parse, or what the local
+   * index keeps of it.
+   */
+  structure(path: string): Promise<Outcome<RecordStructure>>;
   /**
    * Reads a record as readers do and binds it to its collection's schema, once for the store's lifetime: the binding that
-   * references into the record resolve in.
+   * references into the record resolve in, from the local index where it holds it.
    */
-  binding(path: string): Promise<Outcome<RecordBinding> | null>;
+  indexedBinding(path: string): Promise<Outcome<RecordBinding> | null>;
+  /** Keeps what a check of the whole store found: the files it listed, and every reference resolved. */
+  checked(files: readonly FileInfo[], unread: readonly string[], references: readonly Reference[]): Promise<void>;
   /** The issue that makes a collection's schema unusable, the same one each time; null when its schema can be used or it has none. */
   schemaIssue(collection: Collection): Promise<Issue | null>;
   /**
@@ -50,9 +62,6 @@ export interface CheckedStore {
   /** A collection's schema, the same each time; null for a collection without one, a failure for one that cannot be used. */
   schema(collection: Collection): Promise<Outcome<CollectionSchema> | null>;
 }
-
-/** How many paths a page of the listing that a check reads holds. */
-const LIST_PAGE = 1000;
 
 /**
  * Checks a store's records and paths, and gives every issue found, with the severities the configuration gives them, those
@@ -72,12 +81,14 @@ const LIST_PAGE = 1000;
  *   has as its old name.
  *
  * With `records`, only those records' issues are reported, and a collection's schema issue only when one of them is in it.
+ * A check of the whole store hands what it found to the store, which keeps it as the snapshot of the local index.
  * Fails as the backend's `list` does, with nothing checked, and with the issue of an alias file that cannot be read as one,
  * since without its aliases references would be reported dangling that are not.
  */
 export async function checkStore(store: CheckedStore, options: CheckOptions = {}): Promise<Outcome<CheckSummary>> {
-  const listed = await listAll(store);
+  const listed = await listEveryFile(store.backend, store.classifier.ignoredGlobs);
   if (!listed.ok) return listed;
+  store.listed(listed.value);
   const issues: Issue[] = [...listed.issues];
   const paths: ListedPath[] = [];
   const records: { readonly path: string; readonly collections: readonly Collection[] }[] = [];
@@ -102,6 +113,7 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       store.classifier.classify(issue.path).kind === "record",
   ).length;
   let checked = failedRecords;
+  const references: Reference[] = [];
   let unreadable = failedRecords;
   // A file the backend could not read when listing it is still there, for a reference to it.
   const unread = listed.issues.flatMap((issue) => (issue.code === "storage-failed" && issue.path !== null ? [issue.path] : []));
@@ -117,21 +129,22 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       const mismatch = filenameMismatch(record.path, collection);
       if (mismatch !== null) issues.push(mismatch);
     }
-    const parsed = await store.parse(record.path);
+    const structure = await store.structure(record.path);
     let binding: RecordBinding | null = null;
-    if (parsed.ok) {
+    if (structure.ok) {
       const schema = collection === undefined ? null : await store.schema(collection);
       // The store's binding, which references into the record share; readers refuse a record whose collection's schema cannot
       // be used, which is checked bound to none, and so without typed references.
-      const bound = schema === null || schema.ok ? await store.binding(record.path) : null;
-      binding = bound?.ok === true ? bound.value : bindRecord(parsed.value, schema?.ok === true ? schema.value : null);
+      const bound = schema === null || schema.ok ? await store.indexedBinding(record.path) : null;
+      binding = bound?.ok === true ? bound.value : bindStructure(structure.value);
       for (const issue of binding.issues) issues.push(issue);
     } else {
       unreadable += 1;
-      for (const issue of parsed.issues) issues.push(issue);
+      for (const issue of structure.issues) issues.push(issue);
     }
-    for (const issue of await resolver.value.issuesOf(record.path, binding)) issues.push(issue);
+    for (const issue of await resolver.value.issuesOf(record.path, binding, references)) issues.push(issue);
   }
+  if (scope === null) await store.checked(listed.value, unread, references);
   for (const collection of store.configuration.collections) {
     if (!collectionsInScope.has(collection)) continue;
     const schemaIssue = await store.schemaIssue(collection);
@@ -142,26 +155,6 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     store.configuration,
   );
   return succeed({ records: checked, unreadable }, sortIssues(reported));
-}
-
-/** Lists every file of the store but the ignored ones, page by page, with the issues of the pages. */
-async function listAll(store: CheckedStore): Promise<Outcome<FileInfo[]>> {
-  const files: FileInfo[] = [];
-  const issues: Issue[] = [];
-  let cursor: string | null = null;
-  do {
-    const page = await store.backend.list({
-      prefix: "",
-      exclude: store.classifier.ignoredGlobs,
-      limit: LIST_PAGE,
-      ...(cursor === null ? {} : { cursor }),
-    });
-    if (!page.ok) return fail(page.issues);
-    for (const file of page.value.items) files.push(file);
-    for (const issue of page.issues) issues.push(issue);
-    cursor = page.value.cursor;
-  } while (cursor !== null);
-  return succeed(files, issues);
 }
 
 /** The `collection-conflict` of a record that several collections claim. */

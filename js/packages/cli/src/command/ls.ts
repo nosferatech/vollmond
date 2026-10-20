@@ -32,6 +32,7 @@ export const LS_COMMAND: Command = {
     "        everything below docs\n" +
     "  -n N  list at most N, 100 by default; --cursor C continues after them\n",
   readsStore: true,
+  readsIndex: true,
   prepare: ({ positionals, options }) => {
     const problem = argumentCountProblem(positionals, 0, 1, "a glob");
     if (problem !== null) return usagePlan(problem);

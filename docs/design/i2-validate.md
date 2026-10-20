@@ -919,6 +919,21 @@ pull request could add `.vmd/cache/…` with `git add -f` past a `.gitignore`, s
 cache, so a committed `.vmd/cache/` is an ordinary ignored directory: harmless, and never read. What the cache trusts is then
 exactly what the user's home directory holds, written by the user's own vmd.
 
+**A cache directory set elsewhere** (card AT, answered by the project owner on 2026-10-20 with its option (c)). An
+`XDG_CACHE_HOME` can put the cache anywhere, a CI workspace included, so the rule depends on where the directory comes from:
+
+- **Set with `XDG_CACHE_HOME`:** not used when it lies at or below the store root, or at or below any git working tree that
+  encloses the store. That is every directory from the store root up to `/` with a `.git` entry, so a submodule's working tree,
+  a nested clone's and the repository that holds them all count.
+- **The default** (`~/.cache/vmd/`, `~/Library/Caches/vmd/`): always used, unless it lies at or below the store root, since
+  the design trusts the user's home, which is never a CI workspace. So a home kept in git for its dotfiles keeps its default
+  cache, and one whose `XDG_CACHE_HOME` is set inside that checkout gets none.
+
+No git process is run: a `.git` entry, a directory or a file, marks a working tree. The working trees looked at are those
+around the store root, so with `--config` naming a configuration in another checkout, a cache set inside that other checkout is
+used. That checkout's commits make no claim about the store's files, though a configuration taken from a checkout is trusted
+already, with its schemas.
+
 `check --changed` trusts the snapshot for one thing: which records cite a path, from each reference's resolved target. It loops
 over the store's current file listing, not over the snapshot's rows: for each record listed now, it uses the snapshot's rows only
 while that record's version in the snapshot equals the version on disk, and otherwise extracts its references again from its parse
@@ -1337,6 +1352,7 @@ refuses what the specification allows or changes what it states; the design's ch
 | R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets (confirmed by the project owner on card W9). A record alias that leads a `many` reference to a record where its fragment matches nothing leaves it `ok` with no targets too, as for an old section name, a single reference through it staying `dangling` (the project owner's answer on card AU, 2026-10-20); one whose fragment matches there is `aliased` | §8.5, §13.6 |
 | R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…`; confirmed by the project owner on card W9 | §8.2, §9.3 |
 | R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ, the rule card AR keeps (question 22); confirmed by the project owner on card W9 | §9.3 |
+| R22 | Agent's reading, for the owner to confirm: a node's refs-in count counts the references whose status is `ok` or `aliased` and that have a target at the node or below it, each reference once per node however many of its targets are there; an `ambiguous` reference's candidates do not count (I2.5) | §12.1, §12.2 |
 
 The first version listed 20 readings. Seven of them (its R1 and R4 to R8, and R20) refused or moved what the specification allows,
 and are now questions, with the value of `x-vmd-summary`, which no reading named: collection names (question 10), the schema

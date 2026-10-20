@@ -44,11 +44,17 @@ jobs:
       - name: Smoke test the built command
         # An explicit bash runs with -eo pipefail, so a command that fails before its grep fails the step.
         shell: bash
+        env:
+          # ls and outline write the local index; it goes to a directory of this run, never to ~/.cache, and no step restores
+          # a vmd cache, since a gate that trusted an earlier run's entries would trust what that run read.
+          XDG_CACHE_HOME: ${{ runner.temp }}/vmd-cache
         run: |
           node packages/cli/dist/main.js --version
           store=../conformance/cases/addresses/appendix-a
           ticket=tickets/0171-clean-root-in-scattered-record.md
           node packages/cli/dist/main.js --store "$store" ls | grep -q "^$ticket "
+          # ls wrote its entries to the run's cache directory.
+          compgen -G "$XDG_CACHE_HOME/vmd/v1-*/entries/parse/*/*.jsonl" > /dev/null
           node packages/cli/dist/main.js --store "$store" outline "$ticket" | grep -q '^  #done '
           node packages/cli/dist/main.js --store "$store" --json get "$ticket#done" --meta all | grep -q '"@address":"#done"'
           node packages/cli/dist/main.js --store "$store" grep -F 'clean root' | grep -q "^$ticket:"

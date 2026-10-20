@@ -1,16 +1,17 @@
 // How often a check binds each record, counted: once, whether the record is checked or a reference resolves into it.
 
 import { describe, expect, test, vi } from "vitest";
-import { bindRecord as libraryBindRecord } from "../binding/binding.js";
+import { bindRecord as libraryBindRecord, bindStructure as libraryBindStructure } from "../binding/binding.js";
 import { createMemoryStorage } from "../storage/memory.js";
 import { openStore } from "../store/store.js";
 
-// The binding of a record to its collection's schema, counted.
+// The binding of a record to its collection's schema, and of a structure to none, counted.
 vi.mock("../binding/binding.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../binding/binding.js")>();
-  return { ...original, bindRecord: vi.fn(original.bindRecord) };
+  return { ...original, bindRecord: vi.fn(original.bindRecord), bindStructure: vi.fn(original.bindStructure) };
 });
 const bindRecord = vi.mocked(libraryBindRecord);
+const bindStructure = vi.mocked(libraryBindStructure);
 
 describe("Store.check", () => {
   test("binds each record once, also where references resolve into it", async () => {
@@ -39,9 +40,13 @@ describe("Store.check", () => {
     );
     if (!opened.ok) expect.fail(JSON.stringify(opened.issues));
     bindRecord.mockClear();
+    bindStructure.mockClear();
     const checked = await opened.value.check();
     expect(checked.issues.map((issue) => `${issue.code} ${issue.path}`)).toEqual(["schema-invalid null"]);
-    const bound = bindRecord.mock.calls.map(([record, schema]) => `${record.path} ${schema === null ? "none" : "schema"}`);
+    const bound = [
+      ...bindRecord.mock.calls.map(([record, schema]) => `${record.path} ${schema === null ? "none" : "schema"}`),
+      ...bindStructure.mock.calls.map(([record]) => `${record.path} none`),
+    ];
     // A record whose collection's schema cannot be used is checked bound to none, which readers never do.
     expect(bound.sort()).toEqual(["bound/a.yaml schema", "bound/b.yaml schema", "plain.md none", "refused/r.md none"]);
   });

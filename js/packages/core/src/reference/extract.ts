@@ -1,12 +1,13 @@
 import type { Nodes } from "mdast";
 import { type ResolutionSubject, subjectBinding, subjectRecord } from "../address/resolve.js";
+import type { RecordBinding } from "../binding/binding.js";
 import { keepingLeadingFeff, parseInlineContent, parseMarkdownTree } from "../format/markdown/library.js";
 import { collectLinks } from "../format/markdown/links.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { childPath } from "../record/exact-path.js";
 import type { NodeInfo } from "../record/node-index.js";
 import { valueAt } from "../record/node-value.js";
-import type { ParsedRecord } from "../record/record.js";
+import { isParsedRecord, isRestoredRecord, type ParsedRecord } from "../record/record.js";
 import type { RefDeclaration } from "../schema/keywords.js";
 import type { ByteRange } from "../text/source-text.js";
 import type { Value, ValueObject } from "../value/value.js";
@@ -27,12 +28,68 @@ const UTF8 = new TextEncoder();
  *
  * In a record bound to its collection's schema, the typed strings the binding found are references too, each with its
  * declaration, and a `$ref` object carries the declaration the binding gives it, its schema's or else its `$ref` member's;
- * a record alone, or one bound without a schema, has neither.
+ * a record alone, or one bound without a schema, has neither. A record restored from the local index gives the references
+ * its parse found, kept in the index, and parses nothing.
  */
 export function occurrencesOf(subject: ResolutionSubject, under = ""): ReferenceOccurrence[] {
   const record = subjectRecord(subject);
   const binding = subjectBinding(subject);
   const inside = (at: string) => under === "" || at === under || at.startsWith(`${under}/`);
+  const found: ReferenceOccurrence[] = [];
+  if (isRestoredRecord(record)) {
+    for (const occurrence of record.facts.occurrences) {
+      if (!inside(occurrence.at)) continue;
+      const declaration = occurrence.form === "ref-object" ? (binding?.declarationOf(occurrence.at) ?? null) : null;
+      found.push(declaration === null ? occurrence : { ...occurrence, declaration });
+    }
+  } else {
+    for (const occurrence of valueOccurrences(record as ParsedRecord, binding, inside, under)) found.push(occurrence);
+  }
+  for (const at of binding?.typedReferences ?? []) {
+    if (inside(at)) found.push(typedOccurrence(binding as RecordBinding, at));
+  }
+  // Each occurrence's node is looked up once, not at every comparison.
+  const keyed = found.map((occurrence) => ({
+    occurrence,
+    start: record.nodes.node(occurrence.at)?.range.start ?? 0,
+    offset: occurrence.offset ?? 0,
+  }));
+  keyed.sort((a, b) => a.start - b.start || a.offset - b.offset);
+  return keyed.map(({ occurrence }) => occurrence);
+}
+
+/**
+ * Gives the references of a parsed record that do not depend on its schema, in document order: its links, images and
+ * definitions, and its `$ref` objects without a declaration. They are what the local index keeps of a record's references.
+ */
+export function schemaFreeOccurrences(record: ParsedRecord): ReferenceOccurrence[] {
+  return occurrencesOf(record);
+}
+
+/**
+ * Gives the occurrence of a typed reference of a binding: the one the local index kept, for a restored binding, or else read
+ * from the record's value. Throws a `RangeError` for a path that is not one of the binding's typed references.
+ */
+export function typedOccurrence(binding: RecordBinding, at: string): ReferenceOccurrence {
+  const declaration = binding.declarationOf(at);
+  if (declaration === null) throw new RangeError(`${JSON.stringify(at)} is not a typed reference of the binding`);
+  if (binding.restored !== undefined) {
+    const kept = binding.restored.typed.get(at);
+    if (kept === undefined) throw new RangeError(`the index keeps no typed reference at ${JSON.stringify(at)}`);
+    return kept;
+  }
+  const record = binding.record;
+  if (!isParsedRecord(record)) throw new RangeError("a binding computed from a structure has no typed references");
+  return typedString(record, at, declaration);
+}
+
+/** Gives the links and `$ref` objects of a parsed record's value, those under `under`, with the binding's declarations. */
+function valueOccurrences(
+  record: ParsedRecord,
+  binding: RecordBinding | null,
+  inside: (at: string) => boolean,
+  under: string,
+): ReferenceOccurrence[] {
   let labels: readonly string[] | null = null;
   // Only a link reference has a label to look up, and it holds a `[`.
   const labelsFor = (prose: string): readonly string[] => {
@@ -82,17 +139,7 @@ export function occurrencesOf(subject: ResolutionSubject, under = ""): Reference
       }
     }
   }
-  for (const at of binding?.typedReferences ?? []) {
-    if (inside(at)) found.push(typedString(record, at, binding?.declarationOf(at) as RefDeclaration));
-  }
-  // Each occurrence's node is looked up once, not at every comparison.
-  const keyed = found.map((occurrence) => ({
-    occurrence,
-    start: record.nodes.node(occurrence.at)?.range.start ?? 0,
-    offset: occurrence.offset ?? 0,
-  }));
-  keyed.sort((a, b) => a.start - b.start || a.offset - b.offset);
-  return keyed.map(({ occurrence }) => occurrence);
+  return found;
 }
 
 /** The occurrence of a `$ref` object, with its destination where the `$ref` string's bytes in the file are the string. */

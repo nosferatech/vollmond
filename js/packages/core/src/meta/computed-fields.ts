@@ -1,7 +1,7 @@
 import {
   blockAnchorAddress,
   canonicalAddress,
-  type ResolutionSubject,
+  type ParsedSubject,
   subjectBinding,
   subjectRecord,
   type Target,
@@ -132,7 +132,7 @@ export interface ComputedFieldContext {
  * range that is not one of the record's block anchors. `@version` hashes the value with the runtime's Web Crypto API.
  */
 export async function computeFields(
-  of: ResolutionSubject,
+  of: ParsedSubject,
   subject: string | Target,
   names: readonly ComputedFieldName[] | "all",
   context: ComputedFieldContext = {},
@@ -157,7 +157,7 @@ export async function computeFields(
 
 /** Gives one computed field of a node or a block anchor, or undefined where it does not apply. */
 async function fieldOf(
-  of: ResolutionSubject,
+  of: ParsedSubject,
   node: NodeInfo,
   block: BlockAnchorEntry | undefined,
   name: ComputedFieldName,
