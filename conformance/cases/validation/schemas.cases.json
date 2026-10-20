@@ -189,6 +189,20 @@
       "description": "At an item of a keyed list, each schema object applies its prefixItems entry or else its items, together with its keyed list's schema for the item's key, so the first item, under prefixItems, and the per-key schema of foo bring unequal declarations together, and the schema is schema-invalid (§9.3, decision AA4, item 4).",
       "input": {"config": "config-keyed-item-meets-prefix-items.yaml"},
       "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
+    },
+    {
+      "id": "keyed-item-past-items-false",
+      "spec": ["9.3"],
+      "description": "A keyed list's per-key schema and a sibling's second prefixItems entry give unequal declarations only at the second item, which the list's own prefixItems and items: false let no item reach, so they meet in no valid record and the schema can be used (§9.3).",
+      "input": {"config": "config-keyed-item-past-items-false.yaml"},
+      "expect": {"issues": []}
+    },
+    {
+      "id": "keyed-item-before-items-false",
+      "spec": ["9.3", "D"],
+      "description": "The near miss of keyed-item-past-items-false: the list's prefixItems reach the second item, which can stand, so the per-key schema of foo and the sibling's prefixItems entry meet there and the schema is schema-invalid (§9.3, decision AA4, item 4).",
+      "input": {"config": "config-keyed-item-before-items-false.yaml"},
+      "expect": {"issues": [{"code": "schema-invalid", "severity": "error", "path": null, "at": null}]}
     }
   ]
 }

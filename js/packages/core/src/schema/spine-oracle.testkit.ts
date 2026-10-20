@@ -1,7 +1,8 @@
 // The spine's check as it stood before its costs were reduced, kept as the oracle of the differential tests: the new check
 // must report what this one reports, over random schemas small enough for this one to finish. Only the check is kept; the
-// shapes are the spine's own. It carries one change of behaviour made with the check, marked where it stands: a keyed
-// list's item meets the prefixItems entry of every index.
+// shapes are the spine's own. It carries two changes of behaviour made with the check, marked where they stand: a keyed
+// list's item meets the prefixItems entry of every index, and no item is taken where an items: false or a prefixItems entry
+// that is false lets none stand, by the pairs or by the paths of the format check.
 
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
@@ -463,6 +464,11 @@ export class OracleSpine {
       const above = must.get(locationKey(parent));
       if (above === undefined) return undefined;
       if (edge.kind === "same") return above;
+      // Changed with the check: a step to an item where none can stand is on no path.
+      const closed = this.#closedFrom(parent);
+      if (edge.kind === "prefix" && edge.index >= closed) return undefined;
+      if (edge.kind === "items" && prefixOf(parent) >= closed) return undefined;
+      if (edge.kind === "keyed" && closed === 0) return undefined;
       const found = new Set<string>();
       if (edge.kind === "unnamed") return found;
       // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
@@ -515,7 +521,9 @@ export class OracleSpine {
     }
     for (const location of needy) {
       const beside = must.get(locationKey(location));
-      if (beside !== undefined && [...beside].some((key) => guardsRefs(this.schemaAt(locationOf(key))))) continue;
+      // Changed with the check: every path to it steps where no item can stand.
+      if (beside === undefined) continue;
+      if ([...beside].some((key) => guardsRefs(this.schemaAt(locationOf(key))))) continue;
       report(
         at(location, "x-vmd-ref"),
         "x-vmd-ref stands where a path lets a string stand without format: uri-reference, so a string there would be no reference; give the format, or a type without strings, beside it on every path",
@@ -578,7 +586,8 @@ export class OracleSpine {
         }
         if (isSchemaValue(schema.additionalProperties)) addAll(this.closure([at(location, "additionalProperties")]));
         const list = schema["x-vmd-list"];
-        if (isObject(list) && isObject(list.additional)) {
+        // Changed with the check: not where no item can stand at any index.
+        if (isObject(list) && isObject(list.additional) && this.#closedFrom(location) > 0) {
           addAll(this.closure([at(at(location, "x-vmd-list"), "additional")]));
         }
       }
@@ -592,7 +601,7 @@ export class OracleSpine {
    * where the pair does not apply.
    */
   #checkSteps(one: SchemaLocation, first: ValueObject, other: SchemaLocation, second: ValueObject): CheckStep[] {
-    const steps = namedSteps(first, second);
+    const steps = namedSteps(first, second, Math.min(this.#closedFrom(one), this.#closedFrom(other)));
     const takesUnnamed = (schema: ValueObject) =>
       isObject(schema.patternProperties) || isSchemaValue(schema.additionalProperties);
     if (!takesUnnamed(first) || !takesUnnamed(second)) return steps;
@@ -604,6 +613,23 @@ export class OracleSpine {
       }
     }
     return steps;
+  }
+
+  /**
+   * The first index at which no item can stand where a location applies, because it, or what its `allOf` and `$ref` bring,
+   * gives `items: false` past its `prefixItems`, or a `prefixItems` entry that is `false`; infinite where none does.
+   */
+  // Changed with the check: an item at or past such a false fails one whatever it holds, so nothing meets there.
+  #closedFrom(location: SchemaLocation): number {
+    let closed = Number.POSITIVE_INFINITY;
+    for (const applied of this.closure([location])) {
+      const schema = this.schemaAt(applied);
+      if (!isObject(schema)) continue;
+      const prefix = Array.isArray(schema.prefixItems) ? schema.prefixItems : [];
+      if (prefix.includes(false)) closed = Math.min(closed, prefix.indexOf(false));
+      if (schema.items === false) closed = Math.min(closed, prefix.length);
+    }
+    return closed;
   }
 
   /** Every member name a `properties` of the schema set lists, in any schema object. */
@@ -677,8 +703,11 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
   return Array.isArray(type) ? !type.includes("string") : type !== "string";
 }
 
-/** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */
-function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
+/**
+ * The steps that two schema objects name, which both follow together: the members `properties` names, and the items at the
+ * indexes below `closed`, the first at which no item can stand.
+ */
+function namedSteps(first: ValueObject, second: ValueObject, closed: number): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
   let prefix = 0;
@@ -690,9 +719,11 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
     if (isObject(list) && isObject(list.items)) for (const key of Object.keys(list.items)) keys.add(key);
   }
   for (const name of names) steps.push({ kind: "member", name });
-  for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
+  // Changed with the check: no index from `closed` on.
+  const last = Math.min(prefix, closed - 1);
+  for (let index = 0; index <= last; index++) steps.push({ kind: "item", index });
   // Changed with the check: an item with a key can stand at any index, so its key's schema meets each prefixItems entry.
-  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
+  for (const key of keys) for (let index = 0; index <= last; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 
