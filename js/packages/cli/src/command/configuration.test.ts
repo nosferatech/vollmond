@@ -130,7 +130,7 @@ describe("--config", () => {
     const result = await vmd(home, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/schema-invalid: the schema ticket\.schema\.json of the collection tickets does not exist/);
-    expect(result.stderr).toContain("hint schemas are in the schema/ directory beside examples/store/config.yaml");
+    expect(result.stderr).toContain("hint schemas are in examples/store/schema/");
   });
 
   test("refuses a schema larger than a mebibyte, and reads one of exactly a mebibyte", async () => {
@@ -148,20 +148,22 @@ describe("--config", () => {
     makeDirectories(home, "examples/store/schema/ticket.schema.json");
     const directory = await vmd(home, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
     expect(directory.exitCode).toBe(1);
-    expect(directory.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a directory/);
+    expect(directory.stderr).toMatch(
+      /storage-failed: .*ticket\.schema\.json .* cannot be read: it is a directory, not a regular/,
+    );
     if (process.platform !== "win32") {
       const piped = checkout({});
       makeDirectories(piped, "examples/store/schema");
       execFileSync("mkfifo", [join(piped, "examples/store/schema/ticket.schema.json")]);
       const fifo = await vmd(piped, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
-      expect(fifo.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a FIFO/);
+      expect(fifo.stderr).toMatch(/storage-failed: .*ticket\.schema\.json .* cannot be read: it is a FIFO, not a regular file/);
       const socketed = checkout({});
       makeDirectories(socketed, "examples/store/schema");
       const server = await listenAt(join(socketed, "examples/store/schema/ticket.schema.json"));
       try {
         const args = ["--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md"];
         const socket = await vmd(socketed, ...args);
-        expect(socket.stderr).toMatch(/storage-failed: .* cannot be read: schema\/ticket\.schema\.json is a socket/);
+        expect(socket.stderr).toMatch(/storage-failed: .*ticket\.schema\.json .* cannot be read: it is a socket, not a regular/);
       } finally {
         await new Promise((done) => server.close(done));
       }
@@ -179,7 +181,7 @@ describe("--config", () => {
         "get",
         "tickets/0001.md",
       );
-      expect(unreadable.stderr).toMatch(/storage-failed: .* cannot be read: cannot read schema\/ticket\.schema\.json: EACCES/);
+      expect(unreadable.stderr).toMatch(/storage-failed: .*ticket\.schema\.json .* cannot be read: EACCES, so/);
     } finally {
       chmodSync(file, 0o644);
     }
@@ -204,7 +206,7 @@ describe("a store's own schema that is not a regular file", () => {
     });
     const result = await vmd(root, "get", "t/a.md");
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toMatch(/storage-failed: .* cannot be read: \.vmd\/schema\/t\.json is a directory, not a file/);
+    expect(result.stderr).toMatch(/storage-failed: .*t\.json .* cannot be read: it is a directory, not a regular file/);
   });
 
   // A FIFO, a socket or a device does not belong in a store, so one among the store's own schemas is a failure, as one beside a
@@ -217,9 +219,7 @@ describe("a store's own schema that is not a regular file", () => {
       execFileSync("mkfifo", [join(root, ".vmd/schema/t.json")]);
       const result = await vmd(root, "get", "t/a.md");
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toMatch(
-        /storage-failed: .* cannot be read: cannot read \.vmd\/schema\/t\.json: it is a FIFO, not a regular file/,
-      );
+      expect(result.stderr).toMatch(/storage-failed: .*t\.json .* cannot be read: it is a FIFO, not a regular file/);
     },
     5000,
   );
@@ -231,7 +231,7 @@ describe("a store's own schema that is not a regular file", () => {
     try {
       const result = await vmd(root, "get", "t/a.md");
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toMatch(/storage-failed: .* cannot be read: .*t\.json: it is a socket, not a regular file/);
+      expect(result.stderr).toMatch(/storage-failed: .*t\.json .* cannot be read: it is a socket, not a regular file/);
     } finally {
       await new Promise((done) => server.close(done));
     }
@@ -257,6 +257,73 @@ describe("a store's own schema that is not a regular file", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t does not exist/);
   });
+});
+
+// The message of a schema that cannot be read names the file once, as the schema of its collection, and the two places schemas
+// are read from, the store's .vmd/schema/ and the schema/ beside a --config file, word one failure alike, with a hint that
+// names the directory.
+describe("a schema that cannot be read", () => {
+  const runsAsRoot = process.getuid?.() === 0;
+  const CONFIG = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
+  const STORE_HINT = "  hint schemas are in .vmd/schema/\n";
+  const CONFIG_HINT = "  hint schemas are in examples/schema/\n";
+  const FIFO = "the schema t.json of the collection t cannot be read: it is a FIFO, not a regular file, so";
+  const LOCKED = "the schema t.json of the collection t cannot be read: EACCES, so the collection's records cannot be read";
+  const MISSING = "the schema t.json of the collection t does not exist, so the collection's records cannot be read";
+
+  /** A store whose collection `t` has the schema `t.json`, kept in `.vmd/schema/`, or beside `examples/config.yaml`. */
+  function schemaStore(where: "store" | "config"): { root: string; schemas: string; args: string[] } {
+    const root = writeFiles(temporaryDirectory(), {
+      [where === "store" ? ".vmd/config.yaml" : "examples/config.yaml"]: CONFIG,
+      ...(where === "config" ? { ".vmd/config.yaml": "vmd: 1\n" } : {}),
+      "t/a.md": "# A\n",
+    });
+    const schemas = where === "store" ? ".vmd/schema" : "examples/schema";
+    makeDirectories(root, schemas);
+    const args = where === "store" ? ["get", "t/a.md"] : ["--config", "examples/config.yaml", "get", "t/a.md"];
+    return { root, schemas: join(root, schemas), args };
+  }
+
+  for (const [where, hint] of [
+    ["store", STORE_HINT],
+    ["config", CONFIG_HINT],
+  ] as const) {
+    test.skipIf(process.platform === "win32")(
+      `that is a FIFO names it once, in ${where === "store" ? "the store's .vmd/schema/" : "the schema/ beside --config"}`,
+      async () => {
+        const store = schemaStore(where);
+        execFileSync("mkfifo", [join(store.schemas, "t.json")]);
+        const result = await vmd(store.root, ...store.args);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain(`error storage-failed: ${FIFO} the collection's records cannot be read\n${hint}`);
+      },
+      5000,
+    );
+
+    test.skipIf(process.platform === "win32" || runsAsRoot)(
+      `that the filesystem refuses names it once, in ${where === "store" ? "the store" : "--config's directory"}`,
+      async () => {
+        const store = schemaStore(where);
+        const file = join(store.schemas, "t.json");
+        writeFiles(store.schemas, { "t.json": "{}" });
+        chmodSync(file, 0o000);
+        try {
+          const result = await vmd(store.root, ...store.args);
+          expect(result.exitCode).toBe(1);
+          expect(result.stderr).toContain(`error storage-failed: ${LOCKED}\n${hint}`);
+        } finally {
+          chmodSync(file, 0o644);
+        }
+      },
+    );
+
+    test(`that does not exist names it once, in ${where === "store" ? "the store" : "--config's directory"}`, async () => {
+      const store = schemaStore(where);
+      const result = await vmd(store.root, ...store.args);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(`error schema-invalid: ${MISSING}\n${hint.slice(0, -1)}`);
+    });
+  }
 });
 
 describe("a FIFO or a socket in the store", () => {
@@ -381,7 +448,7 @@ describe("symbolic links", () => {
       const linked = await vmd(store, "get", "t/a.md");
       expect(linked.exitCode).toBe(1);
       expect(linked.stderr).toMatch(/^error schema-invalid: the schema t\.json of the collection t does not exist/);
-      expect(linked.stderr).toMatch(/hint schemas are in the schema\/ directory beside \.vmd\/config\.yaml; .*symbolic link/);
+      expect(linked.stderr).toMatch(/hint schemas are in \.vmd\/schema\/; .*symbolic link/);
       const plain = writeFiles(temporaryDirectory(), {
         ".vmd/config.yaml": CONFIG_T,
         ".vmd/schema/t.json": "{}",

@@ -82,6 +82,7 @@ describe("openStore", () => {
       configuration: {
         content: new TextEncoder().encode(CONFIG),
         name: "given.yaml",
+        schemaDirectory: "schema/",
         readSchema: async () => expect.fail("no schema is read"),
       },
     });

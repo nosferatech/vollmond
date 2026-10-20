@@ -57,9 +57,12 @@ export interface ConfigurationSource {
   readonly content: Uint8Array;
   /** The configuration file as messages name it: `.vmd/config.yaml`, or the path a caller was given. */
   readonly name: string;
+  /** The schema directory as messages name it, ending in a separator: `.vmd/schema/`, or the `schema/` beside `name`. */
+  readonly schemaDirectory: string;
   /**
    * Reads a file of the schema directory by its path relative to that directory, which has no `.` or `..` segment. Fails with
-   * `address-not-found` when there is none, whose hint the store passes on, and with another issue when it cannot be read. A
+   * `address-not-found` when there is none, whose hint the store passes on, and with another issue when it cannot be read,
+   * whose message says why, such as `EACCES`, without naming the file, which the store's message about the schema names. A
    * source may stop reading after one byte more than {@link MAX_SCHEMA_BYTES}, or give a larger file as an `OversizedFile`
    * without reading it, since a longer file is refused whatever it holds.
    */
@@ -306,7 +309,8 @@ export async function openStore(
  * larger than {@link MAX_SCHEMA_BYTES} is refused by its size before it is read. A schema that the backend finds no file for
  * fails with `address-not-found`, whose hint says that a backend may refuse a path reached through a symbolic link, unless
  * files lie below its path, which makes it a directory: that fails with `storage-failed`, since the file is there but cannot
- * be read as one. A backend that cannot read the file fails with its own issue.
+ * be read as one. A backend that cannot read the file fails with its own issue, less the `cannot read <path>: ` that vmd's
+ * backends start such a message with, since the store's message about the schema names the file.
  */
 export function storeConfigurationSource(
   backend: StorageReader,
@@ -316,11 +320,19 @@ export function storeConfigurationSource(
   return {
     content,
     name,
+    schemaDirectory: `${SCHEMA_DIRECTORY}/`,
     readSchema: async (path) => {
       const stored = `${SCHEMA_DIRECTORY}/${path}`;
       const file = await backend.read(stored, { maxBytes: MAX_SCHEMA_BYTES });
       if (file.ok) return succeed("oversized" in file.value ? file.value : file.value.content);
-      if (!file.issues.every((issue) => issue.code === "address-not-found")) return fail(file.issues);
+      if (!file.issues.every((issue) => issue.code === "address-not-found")) {
+        const named = `cannot read ${stored}: `;
+        return fail(
+          file.issues.map((issue) =>
+            issue.message.startsWith(named) ? { ...issue, message: issue.message.slice(named.length) } : issue,
+          ),
+        );
+      }
       const below = await backend.list({ prefix: `${stored}/`, limit: 1 });
       if (!below.ok || below.value.items.length === 0) {
         return fail([
@@ -333,7 +345,9 @@ export function storeConfigurationSource(
           }),
         ]);
       }
-      return fail([makeIssue({ code: "storage-failed", path: null, at: null, message: `${stored} is a directory, not a file` })]);
+      return fail([
+        makeIssue({ code: "storage-failed", path: null, at: null, message: "it is a directory, not a regular file" }),
+      ]);
     },
   };
 }
@@ -437,7 +451,7 @@ class BackendStore implements Store {
     if (schema === undefined) {
       schema = loadCollectionSchema(collection, {
         configuration: this.#source.content,
-        configurationName: this.#source.name,
+        schemaDirectory: this.#source.schemaDirectory,
         declared: this.configuration.declared,
         read: (path) => this.#source.readSchema(path),
       });
