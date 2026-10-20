@@ -37,7 +37,8 @@ The card's example: "`#notes` with `anchors: explicit` and `cardinality: many` m
 is reached only through a title-derived name or a positional step, whatever its other targets are. The card adds that this
 "also makes the title-derived warnings (`ref-derived-anchor`) apply to many-references"; how far that reaches is reading 4 below.
 
-**Agent's reading, for the owner to confirm.**
+**Agent's reading.** Readings 2 and 3 were confirmed by the owner on [W8](W8.md) (2026-10-20), items 3 and 4, and reading 4
+was decided by [AQ](AQ.md). Reading 1, how Draft v0.16 chose its example, was on no card and is still for the owner to confirm.
 
 1. The card's example has a duplicate anchor in vmd's terms: an explicit anchor `notes` and the derived anchor `notes` of another
    heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). The clash comes from the explicit anchor sitting
@@ -51,7 +52,8 @@ is reached only through a title-derived name or a positional step, whatever its 
    anchor and is allowed.
 3. The card names `ref-derived-anchor`; Draft v0.16 applies both title-derived warnings, since `ref-derived-repeat` takes
    `ref-derived-anchor`'s place when the slug is repeated (§6.3, Appendix D).
-4. **Open, asked as card AQ.** The card's sentence does not say whether the title-derived warnings reach every reference declared
+4. **Asked as card AQ, and decided as stated here:** [AQ](AQ.md) chose that every many-valued reference gets the warnings.
+   The card's sentence does not say whether the title-derived warnings reach every reference declared
    `cardinality: many`, or only one under `anchors: explicit`, which is already `ref-target-not-allowed` when a target is reached
    that way. Draft v0.16 states the wider reading, in §6.3 and Appendix D's `ref-derived-anchor` and `ref-derived-repeat` rows:
    every reference declared `cardinality: many` gets the warning when one of its targets is reached only by a title-derived name,
@@ -75,3 +77,8 @@ Draft v0.16 (#148): §9.3 (`anchors: explicit` with `cardinality: many`, and the
 many-reference, reading 4), Appendix D `ref-target-not-allowed`, `ref-derived-anchor` and `ref-derived-repeat`. The code, which
 has to record how each match was made, and its suite cases come with the implementation pull request for this card, which also
 updates the I2 design.
+
+Draft v0.17: card [W8](W8.md) confirmed readings 2 and 3, and [AQ](AQ.md) decided reading 4 as Draft v0.16 states it, so
+the text of §6.3 and Appendix D stays. §9.3 now says that a target matched both by an explicit anchor and by its title is reached
+through the explicit anchor (reading 2), and that a step through a title-derived name under `anchors: explicit` raises both the
+refusal and the warning.

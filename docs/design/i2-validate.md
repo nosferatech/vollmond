@@ -648,30 +648,31 @@ whose name is not singular keeps core's fallback to its `$body`'s address, which
 ### 4.6 The strict read mode
 
 §9.5's strict read mode (G7) was deferred to I3 because its codes come from schemas (I1 §5). With the binding of section 4.1,
-every input it needs exists in I2: a strict store refuses a record with a structural error or with `schema-violation`,
-`ref-target-not-allowed`, a declared `duplicate-key` or `filename-mismatch`, and a refused record is an error, not a result.
+every input it needs exists in I2: a strict store refuses a record with a structural error or with `schema-violation`, a
+declared `duplicate-key` or `filename-mismatch`, and a refused record is an error, not a result. It does not refuse a record for
+`ref-target-not-allowed`: the project owner's answer on card AS leaves that to the implementation, and vmd's choice, which Draft
+v0.17 §9.5 states for the owner to confirm, is to return the record while `check` reports the reference, so a strict read
+resolves no typed references.
 `openStore(…, {readMode: "strict"})` gives it in core; `ls` counts refused records with the unreadable ones. Whether the CLI gets
-a global `--strict` now, which §12.1 does not list, is question 11. `ref-target-not-allowed` needs references resolved, so a
-strict `get` of one record resolves that record's typed references.
+a global `--strict` now, which §12.1 does not list, is question 11.
 
 The refusal is the readers', not the store's shared read path (the project owner's answer on card AJ): a strict `get`, `outline`
 or `resolve` fails on a refused record, but `Store.binding`, which the reference resolver and `check` read, binds the record in
 either mode. So a reference into a refused record has the status a best-effort store gives it, and `check` reports the same issues
 in both modes, as §9.5's validator reports every issue whatever the mode. §8.5's `unreadable` stays the status of a reference into
 a record every reader refuses. A refused read fails with the record's refusing issues only, not its other errors, as a read of a
-record with a structural error fails with its structural errors (the implementing agent's reading, for the project owner to
-confirm, in #146).
+record with a structural error fails with its structural errors (the implementing agent's reading in #146, confirmed by the
+project owner on card W7).
 
 `references()` over every record (`refs` without `from`) reads as a query does (the project owner's answer on card AK): in the
 strict mode it returns the references of the records it can read, reports each refused record as an error of the outcome, and
 fails as a whole over a collection whose schema cannot be used. A best-effort store leaves both out silently, as before. The
-implementing agent's readings, for the project owner to confirm (in #146): a refused record is reported by every issue it is
+implementing agent's readings in #146, confirmed by the project owner on card W7: a refused record is reported by every issue it is
 refused for, not by one error per record; a record with a structural error, and one the backend cannot read (`storage-failed`),
 are reported as well; and the failure gives the issue of each collection whose schema cannot be used, once each.
 
-The first pull request of the mode refuses the codes that exist then; `ref-target-not-allowed` comes with typed references
-(I2.4's second pull request, section 13), and with it the resolution of a strict read's typed references, recorded as a deviation
-in #23.
+The mode refuses the codes above, and no others: typed references (I2.4's second pull request, section 13) add
+`ref-target-not-allowed`, which `check` reports and the mode does not refuse (card AS).
 
 ---
 
@@ -723,7 +724,7 @@ record's links need no extra parse, since they come from its own.
 a valid `uri-reference`; an invalid one is the `schema-violation` and no reference (reading R5). A `$ref` object carries the
 declaration of its own schema, or else of its `$ref` member's: the object is the one reference, and an `x-vmd-ref` on its `$ref`
 member applies to it (the project owner's answer on card AN). Where the object's schema and its `$ref` member's both declare
-`x-vmd-ref`, and the two differ, no card says which applies (question 22).
+`x-vmd-ref`, and the two differ, they are refused (the project owner's answer on card AR; question 22).
 
 ### 5.2 Resolving a target
 
@@ -1326,14 +1327,14 @@ refuses what the specification allows or changes what it states; the design's ch
 | R11 | a node's refs-in count includes the references into nodes below it | §12.1, §12.2 |
 | R12 | `check --changed` on a store without history fails with `storage-failed` | §12.1, §11.2 |
 | R13 | `path-invalid` is raised once per path, naming every rule it breaks, not once per rule | §3.2, Appendix D |
-| R14 | `x-vmd-ref`'s `targets` is checked wherever something is at the path, `ok`, `aliased`, `ambiguous`, `unreadable` and an empty `many` reference, and not for a `dangling` one; the path checked is the one after record aliases | §9.3 |
-| R15 | a record that two collections claim (`collection-conflict`) matches no collection entry of `targets`, as it is read as a record of none | §9.1, §9.3 |
-| R16 | `targets: []` allows no target; without `targets`, any is allowed | §9.3 |
-| R17 | `anchors: explicit` on a reference resolved through an anchor alias checks the route after the alias renamed the first step | §9.3, §13.6 |
-| R18 | under `anchors: explicit`, a step through a title-derived name raises both `ref-target-not-allowed` and `ref-derived-anchor` | §9.3, Appendix D |
-| R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets. A record alias makes a `many` reference `aliased`, with no targets where its fragment matches nothing in the record it leads to | §8.5, §13.6 |
-| R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…` | §8.2, §9.3 |
-| R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ (question 22); a conservative stopgap while the question is open | §9.3 |
+| R14 | `x-vmd-ref`'s `targets` is checked wherever something is at the path, `ok`, `aliased`, `ambiguous`, `unreadable` and an empty `many` reference, and not for a `dangling` one; the path checked is the one after record aliases; confirmed by the project owner on card W9 | §9.3 |
+| R15 | a record that two collections claim (`collection-conflict`) matches no collection entry of `targets`, as it is read as a record of none; confirmed by the project owner on card W9 | §9.1, §9.3 |
+| R16 | `targets: []` allows no target; without `targets`, any is allowed; confirmed by the project owner on card W9 | §9.3 |
+| R17 | `anchors: explicit` on a reference resolved through an anchor alias checks the route after the alias renamed the first step; confirmed by the project owner on card W9 | §9.3, §13.6 |
+| R18 | under `anchors: explicit`, a step through a title-derived name raises both `ref-target-not-allowed` and `ref-derived-anchor`; confirmed by the project owner on card W9 | §9.3, Appendix D |
+| R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets (confirmed by the project owner on card W9). A record alias makes a `many` reference `aliased`, with no targets where its fragment matches nothing in the record it leads to (not on the card, still for the owner to confirm) | §8.5, §13.6 |
+| R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…`; confirmed by the project owner on card W9 | §8.2, §9.3 |
+| R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ, the rule card AR keeps (question 22); confirmed by the project owner on card W9 | §9.3 |
 
 The first version listed 20 readings. Seven of them (its R1 and R4 to R8, and R20) refused or moved what the specification allows,
 and are now questions, with the value of `x-vmd-summary`, which no reading named: collection names (question 10), the schema
@@ -1486,9 +1487,10 @@ recommended, and go into a Draft v0.11 with their decision records before the pu
     refused: `schema-invalid` where the schema alone brings them together (the spine's check, section 3.3), and a
     `schema-violation` at the object, which then gets neither, where only a member name in the data does, as §9.3 has it for
     other declarations that meet in the data; (b) the member's wins; (c) the object's wins. Recommended: (a), which the code
-    does until it is answered, so that no record is read under a choice nobody made; on the desk as card AR, recorded on #24
+    does, so that no record is read under a choice nobody made; recorded on #24
     (https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256). Consequence: §9.3 and Appendix D's
-    `schema-invalid` row name the case (*spec*, §9.3, Appendix D).
+    `schema-invalid` row name the case (*spec*, §9.3, Appendix D). **Answered:** the project owner chose (a) on card AR, and
+    Draft v0.17 states it in §9.3.
 
 Not a question but pending with the owner: #20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The
 design does not depend on it; I2.8's numbers do.

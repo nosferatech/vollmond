@@ -448,11 +448,14 @@ objects with these members:
   aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared in order, since a selector returns its matches in document order (§7.4,
   decision R5). A dangling reference has an empty list, and so does a reference declared `cardinality: many` whose selector
-  matches nothing in a record that exists, which is valid with the status `ok` when no anchor alias applies, and otherwise follows
-  the alias as `aliased` (§8.5, §13.6, decision AL). An `ambiguous` reference lists the nodes that its step matched, in document
-  order, as `resolve` gives the candidates of an ambiguous address (reading R8 of the I2 design, `docs/design/i2-validate.md`
-  §11), and an asset or a directory is listed by its `path` alone, a directory's without a trailing `/` and the store root's as
-  `""`.
+  matches nothing in a record that exists, which is valid with the status `ok`. Such a reference follows an anchor alias whose
+  `from` is its first step (§8.5, §13.6, decision AL): it is `aliased`, with the nodes it matches there, and `ok` with an empty
+  list where the later steps match nothing at the name the alias leads to. Through a record alias, it is `aliased` with an empty
+  list where its fragment matches nothing in the record the alias leads to. An `ambiguous` reference with several matches at
+  evaluation lists the nodes that its step matched, in document order, as `resolve` gives the candidates of an ambiguous address
+  (reading R8 of the I2 design, `docs/design/i2-validate.md` §11); one that §7.4's proof cannot make singular has an empty list
+  (§8.5), as `references/keyed-levels/refs-through-multimap-not-singular` expects. An asset or a directory is listed by its `path`
+  alone, a directory's without a trailing `/` and the store root's as `""`.
 
 Links that leave the store are not listed (§8.2).
 
@@ -641,7 +644,7 @@ A runner writes its report as one JSON document:
 
 ```json
 {
-  "suite": { "version": "0.16.0-dev", "case_format": 1, "commit": "1ec3cc2" },
+  "suite": { "version": "0.17.0-dev", "case_format": 1, "commit": "1ec3cc2" },
   "implementation": { "name": "vollmond-ts", "version": "0.1.0", "profiles": ["read"] },
   "selection": null,
   "results": [
@@ -708,13 +711,13 @@ half alone.
 `suite.json` holds two members:
 
 ```json
-{ "version": "0.16.0-dev", "case_format": 1 }
+{ "version": "0.17.0-dev", "case_format": 1 }
 ```
 
 - **`version`** is `<spec version>.<release>` for a release of the suite. Its first two parts are the version of the proposal
-  the suite tests (Draft v0.16 gives `0.16`), and the release counts the suite's releases under that version, from 0. The spec's
+  the suite tests (Draft v0.17 gives `0.17`), and the release counts the suite's releases under that version, from 0. The spec's
   minor version rises with each round of decisions applied to it (decision C27), so a suite release always names one state of
-  the rules, and `version` moves to the new spec version, as `0.16.0-dev`, in the change that applies a round. A release
+  the rules, and `version` moves to the new spec version, as `0.17.0-dev`, in the change that applies a round. A release
   is cut when the project owner asks, at the end of a phase for example. It sets `version`, and tags the commit
   `conformance-<version>`. Right after a release, `version` becomes the next release with `-dev` appended, so a checkout
   between releases never claims to be one. Ordinary changes to cases and inputs leave `suite.json` alone, so that parallel

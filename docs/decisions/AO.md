@@ -3,8 +3,9 @@ id: AO
 title: "The proof that an address names one node looks its first step up in the record"
 round: "AO"
 date: "2026-10-20"
-status: accepted
+status: superseded
 supersedes: [AD.md]
+superseded_by: [AP.md]
 sections: ["§7.4", "§8.5", "Appendix D"]
 decided_by: owner
 sources:
@@ -55,23 +56,26 @@ It takes up the lookup that AD's option (c) proposed and AD left aside because "
 proof still works from the schema alone" in the same direction, fewer false refusals; this record supersedes AD on that point.
 AD's rule for a `$` step from a section stands, and is still proved from the schema alone. The decision record R4 is not touched.
 
-**Agent's reading, for the owner to confirm.**
+**Agent's reading.** Reading 1 was decided otherwise by [AP](AP.md); readings 2 and 3 were confirmed by the owner on
+[W8](W8.md) (2026-10-20), items 6 and 8, reading 3 for its U3 part only.
 
-1. A first step that names no node of the record, or several, is proved from the schema as before, so `#monday` is not singular
-   in the card's journal, and in a store whose root level is a `type: map`, a first step that matches a root member and another
-   node's anchor still passes the proof and is ambiguous when evaluated (§7.4's second case the proof cannot cover).
-   **Open, asked as card AP.** This has a cost, which #147 also names (its reading 1): in a journal whose top-level sections may
-   repeat, a first step that names no node, `#typo`, is `ambiguous` rather than `dangling`, so an anchor alias never applies to
-   it; after `done` is renamed to `finished`, `#done` stays `ambiguous` instead of following the alias, as before this decision.
-   That meets §13.6's rule that a first step that "reaches no name of the record, then follows the record's anchor aliases". For
-   now the proof's result comes first: an address the proof does not accept is `ambiguous` and is not resolved through an
-   alias. Draft v0.16 says so in §7.4 and §13.6, so that the two rules do not read as contradicting each other. The other
-   reading, under which a first step that names no node counts as proved, so that evaluation finds it `dangling` and the aliases
-   apply, is the card's to decide.
+1. A first step that names no node of the record, or several, is proved from the schema as before, so `#monday` is not singular in
+   the card's journal, and in a store whose root level is a `type: map`, a first step that matches a root member and another
+   node's anchor still passes the proof and is ambiguous when evaluated (§7.4's second case the proof cannot cover). **Asked as
+   card AP, and decided otherwise:** [AP](AP.md) proves a first step that names no node, so `#typo` is `dangling` and `#done`
+   follows its alias. What this item said in Draft v0.16 follows. This has a cost, which #147 also names (its reading 1): in a
+   journal whose top-level sections may repeat, a first step that names no node, `#typo`, is `ambiguous` rather than `dangling`,
+   so an anchor alias never applies to it; after `done` is renamed to `finished`, `#done` stays `ambiguous` instead of following
+   the alias, as before this decision. That meets §13.6's rule that a first step that "reaches no name of the record, then follows
+   the record's anchor aliases". For now the proof's result comes first: an address the proof does not accept is `ambiguous` and
+   is not resolved through an alias. Draft v0.16 says so in §7.4 and §13.6, so that the two rules do not read as contradicting
+   each other. The other reading, under which a first step that names no node counts as proved, so that evaluation finds it
+   `dangling` and the aliases apply, is the card's to decide.
 2. "Names exactly one node" counts every name a first step reaches (§7.3): root members, the root's child sections by key,
    section members, and anchors, explicit and derived. The card's parenthesis gives two examples; a derived anchor that names
    one node, such as `#monday-1`, is singular by the same rule.
-3. AO supersedes AD rather than leaving it standing as [AH](AH.md) left [AC](AC.md): AD's decision says the proof works from the
+3. (W8, item 8, confirms the part about U3; that AO supersedes AD is the agent's reading, which the card does not cover.) AO
+   supersedes AD rather than leaving it standing as [AH](AH.md) left [AC](AC.md): AD's decision says the proof works from the
    schema alone, which AO changes, as [AC](AC.md) superseded [W4](W4.md) for one of its items. It does not supersede [U3](U3.md),
    whose decision, "a reference through a `multimap` level has the status `ambiguous` and the issue `ref-ambiguous`", is read as
    still holding for every step that the proof does not accept; a first step that names exactly one node is accepted, so a
@@ -98,3 +102,7 @@ proof's result coming first, and the `$` step's part of the proof needing only t
 node), §13.6 (an address the proof does not accept follows no alias), Appendix D `ref-ambiguous`; the records of [AD](AD.md) and
 [U3](U3.md). The code, with the I2 design's section 4.4 and its suite cases, is #147, which is being brought in line with §7.4's
 lookup.
+
+Draft v0.17: [AP](AP.md) proves a first step that names no node of the record, which reading 1 had kept not singular, so this
+record is superseded; its rule for a first step that names exactly one node stands. Card [W8](W8.md) confirmed readings 2 and 3
+(items 6 and 8), and §7.4 now gives a derived or block anchor that names one node as an example.

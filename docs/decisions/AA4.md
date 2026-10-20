@@ -67,14 +67,15 @@ Appendix D's `feature-unsupported` and `schema-invalid` rows.
 - Item 2's rule is stated as #97 implements it: the format, or a `type` that allows no string, must apply beside the declaration
   on every path that reaches it. #97 says this narrows nothing beyond the card's wording.
 
-**Agent's reading, for the owner to confirm (Draft v0.16).** One detail of items 2 and 4 that the pull request for positions
-closed by `items: false` (#136) found open, which Draft v0.16 states in §9.3: a position at which no item can stand, one past the
-`prefixItems` that `items: false` closes or one whose `prefixItems` entry is `false`, is no instance location of a valid record.
-So nothing meets there (item 4's "apply together"), and a path through it is no path, so a typed reference reached only through
-such positions needs no `format: uri-reference` (item 2's "every path"). Only the boolean schema `false` closes a position; a
-schema that admits nothing, such as `{not: {}}`, does not, since telling those apart would mean deciding whether a schema can be
-satisfied (#136). #136 implements it, and its suite case `validation/schemas/keyed-item-past-items-false` (the schema is usable)
-and the near miss `keyed-item-before-items-false` (`schema-invalid`) pin it.
+**Agent's reading (Draft v0.16), confirmed by the owner on [W8](W8.md) (2026-10-20), its item 2.** One detail of items 2 and 4
+that the pull request for positions closed by `items: false` (#136) found open, which Draft v0.16 states in §9.3: a position at
+which no item can stand, one past the `prefixItems` that `items: false` closes or one whose `prefixItems` entry is `false`, is no
+instance location of a valid record. So nothing meets there (item 4's "apply together"), and a path through it is no path, so a
+typed reference reached only through such positions needs no `format: uri-reference` (item 2's "every path"). Only the boolean
+schema `false` closes a position; a schema that admits nothing, such as `{not: {}}`, does not, since telling those apart would
+mean deciding whether a schema can be satisfied (#136). #136 implements it, and its suite case
+`validation/schemas/keyed-item-past-items-false` (the schema is usable) and the near miss `keyed-item-before-items-false`
+(`schema-invalid`) pin it.
 
 ## Why
 
@@ -105,3 +106,5 @@ case `keyed-item-meets-prefix-items` is no longer skipped.
 
 Draft v0.16: §9.3 ("Declarations that meet" and "What else is refused") states the reading from #136 above, for the owner to
 confirm.
+
+Draft v0.17: card [W8](W8.md) confirmed the reading from #136; the draft's text keeps it as written.
