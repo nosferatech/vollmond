@@ -306,8 +306,7 @@ export async function openStore(
  * larger than {@link MAX_SCHEMA_BYTES} is refused by its size before it is read. A schema that the backend finds no file for
  * fails with `address-not-found`, whose hint says that a backend may refuse a path reached through a symbolic link, unless
  * files lie below its path, which makes it a directory: that fails with `storage-failed`, since the file is there but cannot
- * be read as one, and so does a directory holding only files the backend cannot read. A backend that cannot read the file,
- * such as one that is a FIFO, fails with its own issue.
+ * be read as one. A backend that cannot read the file fails with its own issue.
  */
 export function storeConfigurationSource(
   backend: StorageReader,
@@ -322,9 +321,8 @@ export function storeConfigurationSource(
       const file = await backend.read(stored, { maxBytes: MAX_SCHEMA_BYTES });
       if (file.ok) return succeed("oversized" in file.value ? file.value : file.value.content);
       if (!file.issues.every((issue) => issue.code === "address-not-found")) return fail(file.issues);
-      // A file below that the backend cannot read, such as a FIFO, is there too.
       const below = await backend.list({ prefix: `${stored}/`, limit: 1 });
-      if (!below.ok || (below.value.items.length === 0 && !below.issues.some((issue) => issue.code === "storage-failed"))) {
+      if (!below.ok || below.value.items.length === 0) {
         return fail([
           makeIssue({
             code: "address-not-found",

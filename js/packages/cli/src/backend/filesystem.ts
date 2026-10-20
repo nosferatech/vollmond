@@ -14,7 +14,7 @@ import {
   type StoredFile,
   succeed,
 } from "@vollmond/core";
-import { describeKind } from "../configuration-file.js";
+import { describeKind, type FileKindInfo } from "../file-kind.js";
 
 // Deviation from the specification, recorded in issue #16: file versions are SHA-1 git blob ids in every store, a SHA-256 git
 // repository included, which the specification gives the SHA-256 form; and the history operations are not provided yet, since
@@ -139,6 +139,7 @@ class FilesystemFileSource implements FileSource {
    * Reads a file, refusing it as oversized when the open file's size is more than `maxBytes`, before reading anything; a file
    * that grows meanwhile is read up to `maxBytes` and one byte, and refused too. A path that is neither a regular file nor a
    * directory fails with `storage-failed` before it is opened, since opening a socket fails and opening a device may act on it.
+   * A file replaced by a device between that check and the open is opened before the check of the open file refuses it.
    */
   async #read(path: string, maxBytes: number): Promise<Outcome<StoredFile | OversizedFile>> {
     const located = await this.#locate(path);
@@ -251,7 +252,7 @@ function notFound(path: string): Issue {
 }
 
 /** Creates the `storage-failed` issue of a path that names something other than a regular file or a directory, such as a FIFO. */
-function notRegular(path: string, info: Parameters<typeof describeKind>[0]): Issue {
+function notRegular(path: string, info: FileKindInfo): Issue {
   return makeIssue({
     code: "storage-failed",
     path,

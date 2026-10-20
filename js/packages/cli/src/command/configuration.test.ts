@@ -238,14 +238,14 @@ describe("a store's own schema that is not a regular file", () => {
   });
 
   test.skipIf(process.platform === "win32")(
-    "is storage-failed for a directory whose only file is a FIFO",
+    "is missing, schema-invalid, for a directory whose only file is a FIFO, which a listing leaves out",
     async () => {
       const root = writeFiles(temporaryDirectory(), { ".vmd/config.yaml": CONFIG, "t/a.md": "# A\n" });
       makeDirectories(root, ".vmd/schema/t.json");
       execFileSync("mkfifo", [join(root, ".vmd/schema/t.json/x.json")]);
       const result = await vmd(root, "get", "t/a.md");
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toMatch(/storage-failed: .* cannot be read: \.vmd\/schema\/t\.json is a directory, not a file/);
+      expect(result.stderr).toMatch(/schema-invalid: the schema t\.json of the collection t does not exist/);
     },
     5000,
   );
