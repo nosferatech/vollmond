@@ -130,6 +130,7 @@ export {
 } from "./schema/logical-types.js";
 export { DRAFT_2020_12, type SchemaLocation, type SchemaReader } from "./schema/schema-set.js";
 export type { SchemaShape, ShapeStep } from "./schema/spine.js";
+export type { FieldSummary, ListSummary, SchemaSummary } from "./schema/summary.js";
 export { closeValidatorUriSchemes } from "./schema/validator.js";
 export type { NativeFailure } from "./schema/violations.js";
 export { createStorageReader, type FileSource, type StoredFile } from "./storage/file-source.js";

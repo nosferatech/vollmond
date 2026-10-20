@@ -63,6 +63,7 @@ jobs:
           # The decision records, a store of some 300 records that link to each other: check finds no issue.
           node packages/cli/dist/main.js --store ../docs/decisions check | grep -q ': 0 errors, 0 warnings$'
           node packages/cli/dist/main.js --store ../docs/decisions refs U4.md | grep -q '^U4\.md  [0-9,]* references\?$'
+          node packages/cli/dist/main.js --store ../docs/decisions schema decisions | grep -q '^required sections$'
       # The decision records are a vmd store: every record must read with no issue, and its supersessions and links must hold.
       - name: Read the decision records
         run: node scripts/check-decisions.mjs

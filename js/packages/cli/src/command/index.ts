@@ -7,6 +7,7 @@ import { INDEX_COMMAND } from "./index-command.js";
 import { LS_COMMAND } from "./ls.js";
 import { OUTLINE_COMMAND } from "./outline.js";
 import { REFS_COMMAND } from "./refs.js";
+import { SCHEMA_COMMAND } from "./schema.js";
 
 /** The commands `vmd` offers, in the order its help lists them. */
 export const BUILT_IN_COMMANDS: readonly Command[] = Object.freeze([
@@ -17,5 +18,6 @@ export const BUILT_IN_COMMANDS: readonly Command[] = Object.freeze([
   GET_COMMAND,
   CHECK_COMMAND,
   REFS_COMMAND,
+  SCHEMA_COMMAND,
   INDEX_COMMAND,
 ]);
