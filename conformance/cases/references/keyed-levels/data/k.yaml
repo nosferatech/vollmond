@@ -1,0 +1,4 @@
+benchmarks:
+  - {name: append-4k, p99_us: 3}
+log:
+  - {id: a, n: 1}

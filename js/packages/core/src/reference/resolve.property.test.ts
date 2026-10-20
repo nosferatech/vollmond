@@ -97,7 +97,7 @@ async function referencesTogether(files: Record<string, string>): Promise<readon
 
 /**
  * The references of `docs/r.md` in a store of these files, each resolved alone: by a resolver of its own, over a store of its
- * own that reads and parses the records it resolves into again, so that none of them, and nothing kept for one, is shared with
+ * own that reads, parses and binds the records it resolves into again, so that none of them, and nothing kept for one, is shared with
  * another reference. Only data is shared: the file listing, the alias table and the citing record, which no link resolves into.
  */
 async function referencesAlone(files: Record<string, string>): Promise<Reference[]> {
@@ -115,7 +115,7 @@ async function referencesAlone(files: Record<string, string>): Promise<Reference
     const opened = successValue(await openStore(storage));
     const reading: ReferenceStore = {
       classify: (path) => opened.classify(path),
-      record: (path) => opened.record(path),
+      binding: (path) => opened.binding(path),
       exists,
     };
     const reference = await new ReferenceResolver(reading, listed, aliases).resolve(citing, occurrence);

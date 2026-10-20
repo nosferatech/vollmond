@@ -1,0 +1,46 @@
+{
+  "defaults": {"spec": ["7.4", "8.5"], "profiles": ["validate"], "operation": "refs", "input": {"store": "keyed-levels"}},
+  "cases": [
+    {
+      "id": "refs-through-keyed-list",
+      "spec": ["5.6", "7.3", "8.5"],
+      "description": "A reference resolves in the record bound to its collection's schema, so a step into a keyed list matches the item with that key: the link is ok, with that item as its target (§7.3, §8.5).",
+      "input": {"record": "refs/keyed.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/keyed.md", "at": "/$body", "offset": 0}, "raw": "../data/k.yaml#benchmarks/append-4k", "status": "ok", "targets": [{"path": "data/k.yaml", "at": "/benchmarks/0", "address": "#benchmarks/append-4k"}]}
+      ]}
+    },
+    {
+      "id": "check-through-keyed-list",
+      "spec": ["7.3", "8.5"],
+      "operation": "check",
+      "description": "The same link raises nothing in check (§8.5).",
+      "input": {"records": ["refs/keyed.md"]},
+      "expect": {}
+    },
+    {
+      "id": "refs-through-multimap-not-singular",
+      "description": "A link whose address crosses a level declared multimap cannot be proved singular, so it is ambiguous without being evaluated, with no targets, although one item has the key (§7.4, §8.5).",
+      "input": {"record": "refs/multimap.md"},
+      "expect": {"result": [
+        {"from": {"path": "refs/multimap.md", "at": "/$body", "offset": 0}, "raw": "../data/k.yaml#log/a", "status": "ambiguous", "targets": []}
+      ]}
+    },
+    {
+      "id": "check-through-multimap-not-singular",
+      "spec": ["7.4", "8.5", "D"],
+      "operation": "check",
+      "description": "The same link is a ref-ambiguous error at the $body that holds it (§8.5, Appendix D).",
+      "input": {"records": ["refs/multimap.md"]},
+      "expect": {"issues": [{"code": "ref-ambiguous", "severity": "error", "path": "refs/multimap.md", "at": "/$body"}]}
+    },
+    {
+      "id": "check-exact-path-through-multimap",
+      "spec": ["7.2", "7.4", "8.5"],
+      "operation": "check",
+      "description": "For contrast, an exact path to the same item is always singular, and raises nothing (§7.2, §7.4).",
+      "input": {"records": ["refs/exact.md"]},
+      "expect": {}
+    }
+  ]
+}

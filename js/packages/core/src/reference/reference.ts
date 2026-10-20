@@ -44,8 +44,9 @@ export interface Reference extends ReferenceOccurrence {
   readonly from: { readonly path: string; readonly at: string; readonly offset?: number };
   readonly status: ReferenceStatus;
   /**
-   * The targets: one for an `ok` or `aliased` reference; for an `ambiguous` one, the nodes of the step that matched several;
-   * none for a `dangling` or `unreadable` one.
+   * The targets: one for an `ok` or `aliased` reference; for an `ambiguous` one, the nodes of the step that matched several,
+   * or none for one whose address could cross a level declared `multimap` and was not evaluated; none for a `dangling` or
+   * `unreadable` one.
    */
   readonly targets: readonly ReferenceTarget[];
   /** For a record target reached by a semantic path, how each step matched. */

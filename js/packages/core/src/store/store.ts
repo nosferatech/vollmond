@@ -494,7 +494,7 @@ class BackendStore implements Store {
     }
     const store = {
       classify: (path: string) => this.classify(path),
-      record: (path: string) => this.record(path),
+      binding: (path: string) => this.binding(path),
       exists: (path: string, directory: boolean) => this.#exists(path, directory),
     };
     return succeed(new ReferenceResolver(store, files, aliases));
