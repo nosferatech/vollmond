@@ -34,9 +34,10 @@ In brief:
   the portable index's row format, shared by every store and worktree, plus a snapshot of the last full check per store. Nothing
   in a checkout is read as cache, so entries committed into a repository are never trusted (section 6.2, question 4). A warm check
   re-parses nothing unchanged and re-resolves every reference, which costs 15 to 19 ms for vampiredb's 1,965 (M).
-- **vampiredb**: `vmd check` will report the 40 links into 12 of the 17 anchor elements that §6.2 does not make block anchors,
-  which `docs.sh` accepts (#20, open item 1, pending). Everything else resolves (M). A cold check without the index is estimated
-  at about 1.1 to 1.4 s, within the plan's budget of 2 s for a warm one.
+- **vampiredb**: `vmd check` with the trial configuration of section 8.2 reports one document whose parts are level-1
+  headings, so that its header cannot be checked, and nothing dangles: the 40 links into anchor elements that §6.2 did not make
+  block anchors resolve since decision T widened it (#20, open item 1). A cold check without the index takes 1.7 s, and a warm
+  one 0.2 s, within the plan's budget of 2 s (M, 2026-10-20).
 
 ---
 
@@ -1137,98 +1138,132 @@ unit test.
 
 ### 8.1 What the docs hold
 
-Measured on the store `~/vampiredb/docs` on 2026-10-11 (M: [`vampiredb-links.mjs`](../research/i2-design/vampiredb-links.mjs)):
+Measured on the store `~/vampiredb/docs` on 2026-10-20, at vampiredb `0588e29f`. The instruments were
+[`check.mjs`](../../examples/vampiredb/check.mjs) and [`demo.mjs`](../../examples/vampiredb/demo.mjs) `--fast` (M):
 
-- 37 Markdown records, 3.1 MB, none unreadable; the parse raises 17 warnings, all `anchor-element-ignored` (#20, open item 1).
-- 2,006 links and definitions: 1,994 links and 12 link reference definitions, which 12 reference links use. 41 of the links are
-  autolinks or autolink literals, which section 5.1 does not count as references, so the references are 1,965. None is in a
-  heading; none targets an image, an asset or a directory.
-- Their targets: 1,198 resolve through an explicit anchor and 661 through a block anchor; 53 name a record without a fragment; 12
-  are absolute URIs and 1 climbs above the store root (`guidelines/Decision_Log.md:234`, `../../.github/workflows/checkers.yml`),
-  so 13 leave the store; and 40 match no node. None goes through a derived anchor.
-- `scripts/docs.sh` on the same checkout: "30 documents, all conforming; 438 anchors and 2168 references to them checked", no
-  problem (M: [`results/vampiredb-docs-sh.txt`](../research/i2-design/results/vampiredb-docs-sh.txt)).
+- **46 Markdown records**, 4.4 MB, none unreadable. Of them, 39 are the documents `docs.sh` checks (section 8.2); the other 7
+  are `ARCHITECTURE.md`, `Licensing.md`, `README.md`, `TODO.md`, `components.md` and the READMEs of `design/` and
+  `guidelines/`.
+- **The parse** raises one warning: `multiple-h1` in `draft/Measured_Mutex_And_Span_Histograms.md`, whose parts are level-1
+  headings.
+- **852 sections and 167 explicit anchors.** The 284 block anchors include the 18 elements in a list item's later paragraphs,
+  which decision T (Draft v0.11) made block anchors. No anchor element is ignored.
+- **2,073 references**, none dangling. One reference goes through a derived anchor: `ARCHITECTURE.md`'s link to
+  `guidelines/Working_Practices.md#what-the-merge-queue-runs` (`ref-derived-anchor`).
+- **`scripts/docs.sh`** on the same checkout: "39 documents, all conforming; 451 anchors and 2290 references to them checked".
 
-The 40 are the links into 12 of the 17 `<a id>` elements of `design/Minimal_Log.md` that start a list item's second or later
-paragraph, which §6.2 does not make block anchors (#20, which counted them). `docs.sh` reads every `<a id="…"></a>` outside code
-as an anchor, so it accepts them.
+**On 2026-10-11, when this design was written** (M: [`vampiredb-links.mjs`](../research/i2-design/vampiredb-links.mjs) and
+[`results/vampiredb-docs-sh.txt`](../research/i2-design/results/vampiredb-docs-sh.txt)), the docs held 37 records and 30
+documents, with 1,965 references. The parse raised 17 warnings, all `anchor-element-ignored`, and 40 links matched no node: the
+links into 12 of the 17 elements that decision T later made block anchors. On that state, the links and definitions were 2,006:
+1,994 links and 12 link reference definitions. 41 of the links were autolinks, which are not references (section 5.1). 13 left
+the store: 12 absolute URIs, and `guidelines/Decision_Log.md:234` climbing above the store root. The other sections' timings
+are from that state; the link counts were not measured again.
 
 ### 8.2 The trial configuration (I2.7)
 
-`examples/vampiredb/config.yaml` grows from `vmd: 1` to a configuration with one collection, and a schema beside it in
-`examples/vampiredb/schema/`:
+[`examples/vampiredb/config.yaml`](../../examples/vampiredb/config.yaml) declares one collection, `documents`:
+`design/**/*.md`, `draft/**/*.md` and `guidelines/**/*.md`, excluding `**/README.md`. That is `docs.sh`'s
+`documents()` (`find docs/design docs/draft docs/guidelines -name '*.md' ! -name README.md`), recursive like its `find`. Its
+schema is [`examples/vampiredb/schema/anchored-document.schema.yaml`](../../examples/vampiredb/schema/anchored-document.schema.yaml).
+The files are the reference; in prose, the schema says:
 
-```yaml
-vmd: 1
-collections:
-  documents:                                   # the anchored documents docs.sh checks: design/, draft/, guidelines/
-    match: ["design/**/*.md", "draft/*.md", "guidelines/*.md"]
-    exclude: ["**/README.md"]
-    schema: anchored-document.schema.yaml
-```
+- **The root has a `$title` and a `$body`.** The header table that opens each document is prose in the root's `$body`, so its
+  rows are patterns on that string. This is a stop-gap: R1 (§22) moves the header to front matter, where a schema checks it as
+  fields. A row is read as `docs.sh` reads it: `| **Name** | ` at the start of a line, then the keyword, optionally in
+  backticks, then ` — ` and prose or the end of the row. The rules are:
+  - a Type from `docs.sh`'s seven;
+  - a Status from its four;
+  - Implemented only for a Design;
+  - a Component row for a Design, Investigation, Analysis or Report;
+  - a Scope row for a Convention, Guideline or Record.
 
-```yaml
-# anchored-document.schema.yaml: what docs.sh checks of a document's form, as far as a schema of the value view can say it
-$defs:
-  section:
-    type: object
-    if: { properties: { $title: { pattern: "^([0-9]+(\\.[0-9]+)*|A\\.[0-9]+)\\.? |^Appendix [A-Z]" } } }
-    then: { required: [$anchor] }              # a numbered heading carries an anchor
-    properties:
-      $sections: { type: array, items: { $ref: "#/$defs/section" }, x-vmd-list: { type: map, keys: ["@key"] } }
-type: object
-required: [$title, $body]
-properties:
-  $body:                                       # the header table opens the document, until R1 moves it to front matter
-    allOf:
-      - pattern: "\\| \\*\\*Type\\*\\* \\| `?(Design|Investigation|Analysis|Report|Convention|Guideline|Record)\\b"
-      - pattern: "\\| \\*\\*Status\\*\\* \\| `?(Draft|Accepted|Implemented|Deprecated)\\b"
-  $sections: { type: array, items: { $ref: "#/$defs/section" }, x-vmd-list: { type: map, keys: ["@key"] } }
-```
+  The rules between rows are an `if`/`then` on the `$body` string, off the spine.
+- **In a document that has an anchor somewhere, every numbered heading carries one.** That covers every level, and a numbered
+  heading is one whose `$title` matches `^([0-9]+(\.[0-9]+)*|A\.[0-9]+)\.? |^Appendix [A-Z]`. "Has an anchor" is `docs.sh`'s
+  condition. It is a recursive `$defs` entry: an `$anchor` on a section, or `<a id="` in its `$body`, or the same in a section
+  below it through `contains`. The root's `if` applies it, and the `then` applies the heading rule through every level's
+  `$sections`.
+- **Every level's `$sections` is `x-vmd-list: {type: map, keys: ["@key"]}`**, on the spine. The conditional subschemas carry
+  no `x-vmd-*`, so the spine rule of §9.3 accepts them.
 
-The header table is prose in the root's `$body`, so the two patterns check it as text, which is a stop-gap: R1 (§22) moves the
-header to front matter, where a schema checks it as fields. `docs.sh`'s rule that `Implemented` is only for a Design, and its
-component slugs from `docs/components.md`, are left out: the first is an `if`/`then` on prose, the second would copy a list the
-schema cannot read. The document collection matches `docs.sh`'s `documents()` (`find docs/design docs/draft docs/guidelines -name
-'*.md' ! -name README.md`), whose count is 30 (M). `docs.sh` asks for heading anchors only in documents that have at least one
-anchor, while the schema asks every document of the collection; if one of the 30 has numbered headings and no anchor (U), I2.7
-narrows `match` rather than the rule.
+Left out:
+
+- the Component slugs of `docs/components.md`, a list the schema cannot read;
+- `docs.sh`'s window of a file's first 12 lines for the header.
+
+An `<a id="` inside code in a `$body` counts as an anchor for the heading rule, where `docs.sh` masks code. A heading that is a
+number alone (`## 3`) is numbered for `docs.sh` and not here, and `## Appendix A: Notes` the other way round. No document has
+any of the three today (M).
+
+**Two departures from this section as first proposed, recorded on [#27](https://github.com/nosferatech/vollmond/issues/27).**
+
+- **The heading rule.** The first proposal applied it to every document of the collection. It said that if one of the
+  documents had numbered headings and no anchor, I2.7 would narrow `match` rather than the rule. 17 of the 39 do: the first
+  check gave 348 `schema-violation`s, exactly the headings that a scan with `docs.sh`'s heading pattern finds when it treats
+  every document as anchored. Narrowing `match` to the 8 documents with anchors would also have dropped the header check from
+  the other 31, and the list of 8 would go stale silently. So the rule became conditional in the schema, with `docs.sh`'s own
+  condition.
+- **The header patterns.** The first proposal's patterns matched a row anywhere in a line, and their `\b` accepted `Design-ish`
+  and `Design, Report`. The rules between rows were left out "as an `if`/`then` on prose", which a schema expresses without
+  difficulty.
+
+With the trial configuration, `vmd check` over the docs exits with 4. The causes are one error and two warnings (M, 2026-10-20):
+
+- `draft/Measured_Mutex_And_Span_Histograms.md` has four level-1 headings, so vmd reads no title (§5.2). The record has no
+  `$title` and no root `$body`, and the schema's `required` fails. The schema keeps it required, so that the document's header
+  is not silently unchecked. The document stays an error until vampiredb restructures it.
+- Its `multiple-h1` warning.
+- The `ref-derived-anchor` warning of section 8.1.
+
+The check takes 1.7 s cold, with no index, and 0.2 s warm. `vampiredb-trial.test.ts` in `@vollmond/cli` runs the
+configuration over a made-up store in CI, each rule firing once and each near miss passing.
 
 ### 8.3 The comparison with `docs.sh` (I2.8)
 
 | Check | `docs.sh` | `vmd check` |
 |---|---|---|
 | a link with `#ID` to a document with anchors, ID missing | yes | `ref-dangling` |
-| a link with `#ID` to 12 of the 17 ignored anchor elements | accepted | `ref-dangling` (40), until #20's open item 1 is answered |
+| a link with `#ID` to an anchor element in a list item's later paragraph | accepted | resolved: a block anchor since decision T |
 | a link to a missing file | only when it has a `#` | `ref-dangling` for every relative link |
-| a link to a document without anchors | skipped ("its links are plain Markdown") | resolved: headings, derived anchors |
+| a link to a document without anchors | skipped ("its links are plain Markdown") | resolved: headings, derived anchors, with `ref-derived-anchor` |
 | reference links and definitions | not read (its pattern is `[text](target)`) | read |
-| links and code-comment references from outside `docs/` (the repository's `README.md`, `.rs` files) | read: among its 2,168 references | outside the store, not seen |
-| links from `docs/` to outside it | not checked | outside the store (13), not checked (§8.2); the 41 autolinks are not references |
+| links and code-comment references from outside `docs/` (the repository's `README.md`, `.rs` files) | read: among its 2,290 references | outside the store, not seen |
+| links from `docs/` to outside it | not checked | outside the store, not checked (§8.2); autolinks are not references |
 | a duplicate anchor id | yes | `duplicate-anchor` |
-| a numbered heading without an anchor | yes | `schema-violation` (section 8.2) |
-| header fields: Type, Status | yes | `schema-violation`, as patterns on prose |
-| header fields: Implemented only for Design, Component slugs | yes | no |
+| a numbered heading without an anchor, in a document with anchors | yes | `schema-violation` (section 8.2) |
+| header fields: Type, Status, Implemented only for a Design, Component and Scope present | yes | `schema-violation`, as patterns on prose (section 8.2) |
+| header fields: Component slugs from `docs/components.md` | yes | no |
+| a document whose parts are level-1 headings | not looked at | `multiple-h1`, and its header is not seen (section 8.2) |
 | the shown number or label of a link (`[§4.6](…)`) | yes, and `--fix-refs` | no: label templates are deferred (§8.4, §20's open question 3) |
 | ticket citations | yes | no: not vmd's |
 | file names | letters, digits, `_`, `-`, `.` | `path-invalid` (§3.2), which is narrower for the first character |
 
-`examples/vampiredb/check-demo.mjs`, in the style of I1.11's `demo.mjs`, runs both on the checkout and matches `docs.sh`'s link
-problems inside `docs/` with vmd's issues by file, line and target, so that "every broken link `docs.sh` reports inside `docs/`,
-`vmd` reports too" is a check rather than a claim. Since `docs.sh` reports nothing today, the demonstration plants faults in a
-copy of the docs, each once: an anchor id renamed, an anchored heading deleted, a link to a missing file with and without `#`, a
-duplicate anchor, a numbered heading without its anchor, a reference link to a missing anchor, and a wrong shown number. It
-records which tool reports each, against the table above, then times `vmd check` cold and warm, the median of ten, on the
-unmodified store, and checks that the store is unchanged (a digest before and after), as I1.11 did.
+`examples/vampiredb/check-demo.mjs`, in the style of I1.11's `demo.mjs`, runs both tools on the checkout. It matches `docs.sh`'s
+link problems inside `docs/` with vmd's issues by file, line and target, so that "every broken link `docs.sh` reports inside
+`docs/`, `vmd` reports too" is a check rather than a claim. Since `docs.sh` reports nothing today, the demonstration plants faults
+in a copy of the docs, each once:
 
-### 8.4 The 17 anchor elements (#20, open item 1)
+- an anchor id renamed;
+- an anchored heading deleted;
+- a link to a missing file, with `#` and without;
+- a duplicate anchor;
+- a numbered heading without its anchor;
+- a reference link to a missing anchor;
+- a wrong shown number.
 
-#20's first open item asks the owner whether the 17 anchor elements move in vampiredb's documents or §6.2 widens to accept them;
-it is not in the decision log yet. I2 proceeds either way: the code does not depend on the answer, only the demonstration's
-numbers do. Until it is answered, `vmd check` on vampiredb exits with 4 for the 40 links, and I2.8's record explains them. If §6.2
-widens, the block anchor of a list item's later paragraph is that paragraph, which I1's ranges already define for a top-level one,
-and the 40 resolve; if the documents change, it is 17 edits in vampiredb by its owner, and the 40 links resolve with them. G6
-forbids lowering `ref-dangling`, and K3 forbids editing vampiredb from here, so the trial configuration cannot hide them.
+It records which tool reports each fault, against the table above. It then times `vmd check` cold and warm, the median of ten,
+on the unmodified store, and checks that the store is unchanged (a digest before and after), as I1.11 did. I2.7's
+[`check.mjs`](../../examples/vampiredb/check.mjs) already runs the check and the digest.
+
+### 8.4 The anchor elements in a list item's later paragraphs (#20, open item 1)
+
+#20's first open item asked the project owner whether the 17 anchor elements of `design/Minimal_Log.md` that start a list item's second
+or later paragraph should move in vampiredb's documents, or whether §6.2 should widen to accept them. Decision T (Draft v0.11)
+widened §6.2 to any paragraph outside block quotes. The block anchor of such an element is its paragraph, and the code follows
+it. Today's docs hold 18 such elements, and the links into them resolve (section 8.1). This design had expected `vmd check` to
+exit with 4 for their 40 links until the item was answered. G6 forbids lowering `ref-dangling`, and K3 forbids editing vampiredb
+from here, so the trial configuration could not have hidden them.
 
 ---
 
@@ -1533,8 +1568,8 @@ recommended, and go into a Draft v0.11 with their decision records before the pu
     `schema-invalid` row name the case (*spec*, §9.3, Appendix D). **Answered:** the project owner chose (a) on card AR, and
     Draft v0.17 states it in §9.3.
 
-Not a question but pending with the owner: #20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The
-design does not depend on it; I2.8's numbers do.
+#20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4), was pending with the project owner when this
+design was written; decision T (Draft v0.11) answered it.
 
 ---
 

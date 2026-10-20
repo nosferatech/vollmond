@@ -1,1 +1,6 @@
 vmd: 1
+collections:
+  documents:                                   # the documents docs.sh checks: design/, draft/ and guidelines/, at any depth
+    match: ["design/**/*.md", "draft/**/*.md", "guidelines/**/*.md"]
+    exclude: ["**/README.md"]
+    schema: anchored-document.schema.yaml
