@@ -302,7 +302,7 @@ Recorded 2026-10-10. The review raised nine questions that needed the owner; the
 - [G4](../decisions/G4.md) Under anchors: explicit, no step resolves through a title-derived key (superseded by G10)
 - [G5](../decisions/G5.md) An empty many-reference is valid (superseded by I1.8)
 - [G6](../decisions/G6.md) Validation errors cannot be lowered
-- [G7](../decisions/G7.md) Strict read refuses structural errors and schema violations only
+- [G7](../decisions/G7.md) Strict read refuses structural errors and schema violations only (superseded by AS)
 - [G8](../decisions/G8.md) Compatibility quoting covers numbers
 - [G9](../decisions/G9.md) Metadata are computed fields, requested explicitly
 

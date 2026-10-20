@@ -4,6 +4,7 @@ title: "Whether the strict read mode refuses a record for `ref-target-not-allowe
 round: "AS"
 date: "2026-10-20"
 status: accepted
+supersedes: [G7.md]
 sections: ["§9.5", "Appendix D"]
 decided_by: owner
 sources:
@@ -53,17 +54,17 @@ breaks its declaration is the implementation's choice, and vmd chooses "the simp
 Which behaviour that is, the note does not say; the engineering manager's reading below is what Draft v0.17 states. #151, which
 added the refusal, was closed unmerged.
 
-**Agent's reading, for the owner to confirm (the engineering manager's).** The simplest and most consistent behaviour is not to
-refuse a record for `ref-target-not-allowed` in the strict read mode. §9.5 then says that a strict reader need not refuse such a
-record, nor return it, since that is the implementation's choice, and that vmd returns it while `vmd check` reports the reference.
-The reasons: it keeps G7's "a broken link elsewhere or a style warning never hides a record", since such a break often comes from
-a change in the target record, and it needs no code, since the strict read mode of #146 does not refuse the code. It is the card's
-option (b) as vmd's behaviour, with the rule for implementations left open as the note asks.
+**Agent's reading, for the owner to confirm: the engineering manager's.** In the engineering manager's comment closing #151: "The
+simplest and most consistent behaviour for this implementation is not to refuse `ref-target-not-allowed` in the strict read mode:
+it keeps decision G7's "a change elsewhere never hides a record", needs no code, and `vmd check` still reports every such link."
+Draft v0.17 states it in §9.5: a strict reader need not refuse such a record, nor return it, since that is the implementation's
+choice, and vmd returns it while `vmd check` reports the reference.
 
-**Agent's reading, for the owner to confirm.** This does not supersede G7: G7 limited the strict mode to structural errors and
-schema violations, and its rule stands. What changes is §9.5's list of the validation codes that count as schema violations for
-the mode, which Draft v0.4 wrote when it applied G7 and which, as the card says, no card decided; `ref-target-not-allowed` leaves
-that list. G7's record notes it.
+This amends [G7](G7.md) in the same direction, as [AA4](AA4.md) amended [U2](U2.md) and [AO](AO.md) amended [AD](AD.md): G7's
+option, "A strict reader gets only records whose data conforms to the schema", no longer holds for `x-vmd-ref`, since §9.5's list
+of the validation codes that count as schema violations for the mode, which Draft v0.4 wrote when it applied G7, loses
+`ref-target-not-allowed`. So this record supersedes G7. G7's rule, that the strict mode refuses structural errors and schema
+violations only, and its reason, "a broken link elsewhere or a style warning never hides a record", stand for every other code.
 
 ## Why
 
@@ -83,6 +84,6 @@ On the card, choosing Other:
 ## Applied in
 
 Draft v0.17 (#155): §9.5, item 4 (`ref-target-not-allowed` leaves the codes the mode refuses, and a strict reader need not refuse
-such a record), Appendix D `ref-target-not-allowed`; [G7](G7.md)'s record. The strict read mode's code (#146) already leaves the
-code out; its comment `TODO(#24)` in `js/packages/core/src/store/store.ts`, which says the mode refuses it too, stays until a code
-change removes it.
+such a record), Appendix D `ref-target-not-allowed`; [G7](G7.md)'s record, now superseded. The strict read mode's code (#146)
+already leaves the code out; its comment `TODO(#24)` in `js/packages/core/src/store/store.ts`, which says the mode refuses it too,
+stays until a code change removes it.

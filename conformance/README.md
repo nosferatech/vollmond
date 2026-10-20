@@ -448,11 +448,14 @@ objects with these members:
   aliases belongs to the Validate profile (§13.6, decision C22), so `aliased` cases need no more than `validate`.
 - **`targets`** is the list of resolved targets, compared in order, since a selector returns its matches in document order (§7.4,
   decision R5). A dangling reference has an empty list, and so does a reference declared `cardinality: many` whose selector
-  matches nothing in a record that exists, which is valid with the status `ok` when no anchor alias applies, and otherwise follows
-  the alias as `aliased` (§8.5, §13.6, decision AL). An `ambiguous` reference lists the nodes that its step matched, in document
-  order, as `resolve` gives the candidates of an ambiguous address (reading R8 of the I2 design, `docs/design/i2-validate.md`
-  §11), and an asset or a directory is listed by its `path` alone, a directory's without a trailing `/` and the store root's as
-  `""`.
+  matches nothing in a record that exists, which is valid with the status `ok`. Such a reference follows an anchor alias whose
+  `from` is its first step (§8.5, §13.6, decision AL): it is `aliased`, with the nodes it matches there, and `ok` with an empty
+  list where the later steps match nothing at the name the alias leads to. Through a record alias, it is `aliased` with an empty
+  list where its fragment matches nothing in the record the alias leads to. An `ambiguous` reference with several matches at
+  evaluation lists the nodes that its step matched, in document order, as `resolve` gives the candidates of an ambiguous address
+  (reading R8 of the I2 design, `docs/design/i2-validate.md` §11); one that §7.4's proof cannot make singular has an empty list
+  (§8.5), as `references/keyed-levels/refs-through-multimap-not-singular` expects. An asset or a directory is listed by its `path`
+  alone, a directory's without a trailing `/` and the store root's as `""`.
 
 Links that leave the store are not listed (§8.2).
 
