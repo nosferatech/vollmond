@@ -142,6 +142,20 @@ describe("Store.check", () => {
     expect(successValue(await store.check({ records: [] }))).toEqual({ records: 0, unreadable: 0 });
   });
 
+  test("reports a link into a journal whose top-level sections may repeat only where its first step names several nodes", async () => {
+    const store = await storeOf({
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  journal: {match: ["journal/*.md"], schema: journal.schema.json}\n',
+      ".vmd/schema/journal.schema.json": JSON.stringify({
+        properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } },
+      }),
+      "journal/j.md": '# J\n\n## Done <a id="done"></a>\n\nFinished.\n\n## Monday\n\nOne.\n\n## Monday\n\nTwo.\n',
+      "r.md": "# R\n\n[a](journal/j.md#done) [b](journal/j.md#done/$body) [c](journal/j.md#monday)\n",
+    });
+    const outcome = await store.check({ records: ["r.md"] });
+    expect(shown(outcome.issues)).toEqual(['ref-ambiguous error r.md "/$body"']);
+    expect(outcome.issues[0]?.message).toContain("#monday");
+  });
+
   test("gives the issues the configuration's severities: lenient uniqueness, and the issues entries", async () => {
     const config = 'vmd: 1\nuniqueness: lenient\nissues:\n  duplicate-key: "off"\n  heading-html: error\n';
     const store = await storeOf({ ".vmd/config.yaml": config, "twice.md": TWICE, "html.md": "# H\n\n## S <u>u</u>\n" });

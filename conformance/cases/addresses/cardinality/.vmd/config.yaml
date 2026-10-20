@@ -6,3 +6,9 @@ collections:
   runs:
     match: ["perf/runs/*.yaml"]
     schema: run.schema.yaml
+  repeating:
+    match: ["repeating/*.md"]
+    schema: repeating.schema.yaml
+  mapped:
+    match: ["mapped/*.json"]
+    schema: mapped.schema.yaml

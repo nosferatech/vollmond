@@ -55,8 +55,10 @@ type Node = ObjectNode | ListNode | { readonly kind: "leaf" };
 /** Field and member names, and keys: two alphabets, so that a field never shares a name with a section or a key member. */
 const MEMBERS = ["m", "n"] as const;
 const KEYS = ["x", "y", "z"] as const;
-/** A step that names no member, no key and no index anywhere. */
+/** A step that names no member, no key, no index and no anchor anywhere. */
 const MISSING = "w";
+/** The names of anchors: a key, which a root section may have; a member's name, which a root field may have; and two others. */
+const ANCHORS = ["x", "m", "p", "q"] as const;
 
 const listType = fc.constantFrom<ListType>("map", "multimap", "none");
 
@@ -230,49 +232,90 @@ function keysOf(type: ListType, pick: Pick, requiresX: boolean): string[] {
   return type === "multimap" ? Array.from({ length: count }, () => KEYS[pick() % KEYS.length] as string) : KEYS.slice(0, count);
 }
 
-/** A record of a tree, with the semantic steps of every node but the root. */
-function instance(root: SectionNode, pick: Pick): { value: unknown; paths: Path[] } {
+/** An explicit anchor of a record's value object: its name, its node of the tree, and the steps of its path from the root. */
+interface Anchor {
+  readonly name: string;
+  readonly node: ObjectNode;
+  readonly steps: readonly string[];
+}
+
+/** What the oracle reads of a record: the keys of its root sections, in their order, and its anchors. */
+interface RecordFacts {
+  readonly rootKeys: readonly string[];
+  readonly anchors: readonly Anchor[];
+}
+
+/**
+ * A record of a tree, with the semantic steps of every node but the root, and of every node from an anchor at or above it.
+ * Some value objects get an explicit anchor, each name once, so that no `duplicate-anchor` arises: a key of the root's
+ * sections, a root member's name, or a name nothing else has.
+ */
+function instance(root: SectionNode, pick: Pick): { value: unknown; paths: Path[]; anchors: Anchor[] } {
   const paths: Path[] = [];
-  const members = (of: Readonly<Record<string, Node>>, steps: string[], repeats: boolean) => {
+  const anchors: Anchor[] = [];
+  const names = [...ANCHORS];
+  /** The anchors whose node is being built, each with the length of its path. */
+  const active: { readonly name: string; readonly depth: number }[] = [];
+  /** Adds the path of a node, whose steps at `repeated` are keys the data repeats, and the path from each active anchor. */
+  const add = (steps: readonly string[], repeated: readonly number[]) => {
+    paths.push({ steps, repeats: repeated.length > 0 });
+    for (const { name, depth } of active) {
+      paths.push({ steps: [name, ...steps.slice(depth)], repeats: repeated.some((index) => index >= depth) });
+    }
+  };
+  const members = (of: Readonly<Record<string, Node>>, steps: string[], repeated: readonly number[]) => {
     const value: Record<string, unknown> = {};
-    for (const [name, member] of Object.entries(of)) value[name] = build(member, [...steps, name], repeats);
+    for (const [name, member] of Object.entries(of)) value[name] = build(member, [...steps, name], repeated);
     return value;
   };
-  const build = (at: Node, steps: string[], repeats: boolean): unknown => {
-    paths.push({ steps, repeats });
+  const build = (at: Node, steps: string[], repeated: readonly number[]): unknown => {
     switch (at.kind) {
       case "leaf":
+        add(steps, repeated);
         return 1;
-      case "object":
-        return members(at.members, steps, repeats);
+      case "object": {
+        const name = pick() % 3 === 0 ? names.splice(pick() % (names.length + 1), 1)[0] : undefined;
+        if (name === undefined) {
+          add(steps, repeated);
+          return members(at.members, steps, repeated);
+        }
+        anchors.push({ name, node: at, steps });
+        active.push({ name, depth: steps.length });
+        add(steps, repeated);
+        const value = { $anchor: name, ...members(at.members, steps, repeated) };
+        active.pop();
+        return value;
+      }
       case "list": {
+        add(steps, repeated);
         const keys = keysOf(at.list, pick, at.requiresX);
         return keys.map((key, index) => {
           const step = at.list === "none" ? String(index) : key;
-          const repeated = at.list === "multimap" && keys.filter((each) => each === key).length > 1;
-          const item = build(at.prefix[index] ?? at.item, [...steps, step], repeats || repeated) as object;
-          return { [at.keyMember]: key, ...item };
+          const repeats = at.list === "multimap" && keys.filter((each) => each === key).length > 1;
+          const item = build(at.prefix[index] ?? at.item, [...steps, step], repeats ? [...repeated, steps.length] : repeated);
+          return { [at.keyMember]: key, ...(item as object) };
         });
       }
     }
   };
-  const section = (at: SectionNode, steps: string[], repeats: boolean): Record<string, unknown> => {
-    const value = members(at.members, steps, repeats);
+  const section = (at: SectionNode, steps: string[], repeated: readonly number[]): Record<string, unknown> => {
+    const value = members(at.members, steps, repeated);
     const sections = at.sections;
     if (sections === null) return value;
     // An undeclared level is unique by the strict default, so its keys are distinct as a map's are.
     const keys = keysOf(sections.list === "none" ? "map" : sections.list, pick, false);
     value.$sections = keys.map((key, index) => {
-      const repeated = sections.list === "multimap" && keys.filter((each) => each === key).length > 1;
+      const repeats = sections.list === "multimap" && keys.filter((each) => each === key).length > 1;
       const child = [...steps, key];
-      paths.push({ steps: child, repeats: repeats || repeated });
+      const below = repeats ? [...repeated, steps.length] : repeated;
+      add(child, below);
       // The section's own member, which a step beginning with $ names wherever the section's level sits (card AD).
-      paths.push({ steps: [...child, "$title"], repeats: repeats || repeated });
-      return { $title: key, ...section(sections.prefix[index] ?? sections.item, child, repeats || repeated) };
+      add([...child, "$title"], below);
+      return { $title: key, ...section(sections.prefix[index] ?? sections.item, child, below) };
     });
     return value;
   };
-  return { value: section(root, [], false), paths };
+  return { value: section(root, [], []), paths, anchors };
 }
 
 /**
@@ -288,18 +331,18 @@ type Group =
 const positions = <T>(of: { readonly prefix: readonly T[]; readonly item: T }): T[] => [...of.prefix, of.item];
 
 /**
- * Whether the rule of §4.4, applied to the tree, refuses these steps. A step crosses a multimap when it leaves a group in
- * which a section's child sections, or a list's items, are declared multimap; a declaration anywhere in the group decides. A
- * step from a section that begins with `$` names the section's own member, which no tree node stands for, and crosses nothing.
- * From a group of sections it reaches the group of their members of that name, and the group of every position's child
- * section. From a group of values it reaches the group of their members of that name; where a list of the group is keyed,
- * the group of every position's item of every list in it, since a step there may be a key; and otherwise, for an index, the
- * group of the items at that index.
+ * Whether the rule of §4.4, applied to the tree, refuses `steps` from `groups`. A step crosses a multimap when it leaves a
+ * group in which a section's child sections, or a list's items, are declared multimap; a declaration anywhere in the group
+ * decides. A step from a section that begins with `$` names the section's own member, which no tree node stands for, and
+ * crosses nothing. From a group of sections it reaches the group of their members of that name, and the group of every
+ * position's child section. From a group of values it reaches the group of their members of that name; where a list of the
+ * group is keyed, the group of every position's item of every list in it, since a step there may be a key; and otherwise, for
+ * an index, the group of the items at that index. The first step also reaches `anchored`.
  */
-function oracleRefuses(root: SectionNode, steps: readonly string[]): boolean {
-  let groups: Group[] = [{ kind: "section", nodes: [root] }];
-  for (const step of steps) {
-    const next: Group[] = [];
+function ruleRefuses(from: readonly Group[], steps: readonly string[], anchored: readonly Group[]): boolean {
+  let groups = from;
+  for (const [index, step] of steps.entries()) {
+    const next: Group[] = index === 0 ? [...anchored] : [];
     for (const group of groups) {
       if (group.kind === "section") {
         // No section key of a valid record begins with $, so such a step names the section's own member and crosses no level (card AD).
@@ -327,6 +370,48 @@ function oracleRefuses(root: SectionNode, steps: readonly string[]): boolean {
   return false;
 }
 
+/**
+ * What the rule says of `steps` in a record of the tree. A first step that is not a `$` step also reaches each node an anchor
+ * of that name is on, alone. Its matches in the record are the root's member of that name, the root sections whose key it is,
+ * and the nodes its anchors are on, a node counting once. Where the rule refuses the steps from the root, the record decides
+ * the first step (card AO): the steps are refused unless it has exactly one match, and otherwise the rule decides the steps
+ * after it from that node alone. An address the rule accepts from the root is ambiguous when its first step has several
+ * matches (§7.3); otherwise it names one node or none.
+ */
+function oracleVerdict(root: SectionNode, facts: RecordFacts, steps: readonly string[]): Verdict {
+  const [first, ...rest] = steps as [string, ...string[]];
+  const own = first.startsWith("$");
+  const member = own ? undefined : root.members[first];
+  const sections = own ? [] : facts.rootKeys.flatMap((key, at) => (key === first ? [at] : []));
+  // An anchor on the root's member of that name is on a node the step matches already.
+  const anchored = own
+    ? []
+    : facts.anchors.filter(
+        (anchor) => anchor.name === first && !(member !== undefined && anchor.steps.length === 1 && anchor.steps[0] === first),
+      );
+  const matches = (member === undefined ? 0 : 1) + sections.length + anchored.length;
+  const anchoredGroups = anchored.map((anchor): Group => ({ kind: "value", nodes: [anchor.node] }));
+  if (!ruleRefuses([{ kind: "section", nodes: [root] }], steps, anchoredGroups)) {
+    return matches > 1 ? "ambiguous" : "accepted";
+  }
+  if (own || matches !== 1) return "refused";
+  const at = sections[0];
+  const only: Group =
+    member !== undefined
+      ? { kind: "value", nodes: [member] }
+      : at !== undefined
+        ? { kind: "section", nodes: [root.sections?.prefix[at] ?? (root.sections as SectionsNode).item] }
+        : { kind: "value", nodes: [(anchored[0] as Anchor).node] };
+  return ruleRefuses([only], rest, []) ? "refused" : "accepted";
+}
+
+/** What the rule says of an address: the proof refuses it, or accepts it and evaluation finds it ambiguous, or neither. */
+type Verdict = "refused" | "ambiguous" | "accepted";
+
+/** The code a singular address fails with under a verdict, where the address names no node when it is accepted. */
+const failureOf = (verdict: Verdict): string =>
+  verdict === "refused" ? "address-not-singular" : verdict === "ambiguous" ? "address-ambiguous" : "address-not-found";
+
 describe("the proof against evaluation (property 6)", () => {
   test("refuses exactly what the rule refuses on the tree; accepted addresses name one node; repeated keys are refused", {
     timeout: 600_000,
@@ -335,6 +420,11 @@ describe("the proof against evaluation (property 6)", () => {
     let accepted = 0;
     let missingRefused = 0;
     let missingNotFound = 0;
+    let acceptedThroughRepeatableRoot = 0;
+    let acceptedFromAnchor = 0;
+    /** Accepted where the root is not multimap, and the schema alone refuses the steps. */
+    let acceptedThroughRecordElsewhere = 0;
+    let ambiguous = 0;
     await fc.assert(
       fc.asyncProperty(trees.section, fc.array(fc.nat(), { minLength: 97, maxLength: 97 }), async (tree, choices) => {
         let next = 0;
@@ -342,29 +432,35 @@ describe("the proof against evaluation (property 6)", () => {
         const renderer = new Renderer(pick);
         const rootSchema = renderer.section(tree) as Record<string, unknown>;
         const schema = Object.keys(renderer.defs).length === 0 ? rootSchema : { allOf: [rootSchema], $defs: renderer.defs };
-        const { value, paths } = instance(tree, pick);
+        const { value, paths, anchors } = instance(tree, pick);
         const binding = bindRecord(record(JSON.stringify(value)), await usable(schema));
         expect(binding.issues).toEqual([]);
+        const rootKeys = ((value as { $sections?: { $title: string }[] }).$sections ?? []).map((each) => each.$title);
+        const facts: RecordFacts = { rootKeys, anchors };
+        const anchorNames = new Set(anchors.map((anchor) => anchor.name));
         for (const { steps, repeats } of paths) {
           const outcome = resolveAddress(binding, { kind: "semantic", steps }, "singular");
-          const code = outcome.ok ? null : outcome.issues[0]?.code;
-          const expected = oracleRefuses(tree, steps);
-          expect({ steps, refused: code === "address-not-singular" }).toEqual({ steps, refused: expected });
-          if (!expected) expect(outcome.ok).toBe(true);
+          const code = outcome.ok ? "resolved" : outcome.issues[0]?.code;
+          const verdict = oracleVerdict(tree, facts, steps);
+          expect({ steps, code }).toEqual({ steps, code: verdict === "accepted" ? "resolved" : failureOf(verdict) });
           if (repeats) expect(code).toBe("address-not-singular");
-          if (expected) refused += 1;
+          if (verdict === "refused") refused += 1;
           else accepted += 1;
-          // The same path with one step naming nothing: refused by the same rule, and otherwise not found, never resolved.
+          if (verdict === "ambiguous") ambiguous += 1;
+          if (verdict === "accepted" && !(steps[0] as string).startsWith("$")) {
+            if (tree.sections?.list === "multimap") acceptedThroughRepeatableRoot += 1;
+            else if (ruleRefuses([{ kind: "section", nodes: [tree] }], steps, [])) acceptedThroughRecordElsewhere += 1;
+          }
+          if (verdict === "accepted" && anchorNames.has(steps[0] as string)) acceptedFromAnchor += 1;
+          // The same path with one step naming nothing: refused by the same rule, ambiguous where its first step is, and
+          // otherwise not found, never resolved.
           for (const [index] of steps.entries()) {
             const missing = steps.map((step, at) => (at === index ? MISSING : step));
             const missed = resolveAddress(binding, { kind: "semantic", steps: missing }, "singular");
             const missedCode = missed.ok ? "resolved" : missed.issues[0]?.code;
-            const refuses = oracleRefuses(tree, missing);
-            expect({ missing, code: missedCode }).toEqual({
-              missing,
-              code: refuses ? "address-not-singular" : "address-not-found",
-            });
-            if (refuses) missingRefused += 1;
+            const missedVerdict = oracleVerdict(tree, facts, missing);
+            expect({ missing, code: missedCode }).toEqual({ missing, code: failureOf(missedVerdict) });
+            if (missedVerdict === "refused") missingRefused += 1;
             else missingNotFound += 1;
           }
         }
@@ -375,5 +471,9 @@ describe("the proof against evaluation (property 6)", () => {
     expect(accepted).toBeGreaterThan(50);
     expect(missingRefused).toBeGreaterThan(50);
     expect(missingNotFound).toBeGreaterThan(50);
+    expect(acceptedThroughRepeatableRoot).toBeGreaterThan(20);
+    expect(acceptedFromAnchor).toBeGreaterThan(20);
+    expect(acceptedThroughRecordElsewhere).toBeGreaterThan(20);
+    expect(ambiguous).toBeGreaterThan(10);
   });
 });

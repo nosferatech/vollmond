@@ -471,6 +471,66 @@
       "profiles": ["read"],
       "input": { "address": "notes/body-anchor.json#a/$body", "as": "singular" },
       "expect": { "result": [{ "path": "notes/body-anchor.json", "at": "/$sections/0/$body", "address": "#a/$body" }] }
+    },
+    {
+      "id": "repeating-root-anchor-singular",
+      "description": "The root's sections are declared multimap, yet done names exactly one node of the record, the section with the explicit anchor done, which no other top-level key repeats, so the first step is singular (§7.4, decision AO).",
+      "spec": ["7.3", "7.4", "7.5"],
+      "input": { "address": "repeating/j.md#done", "as": "singular" },
+      "expect": { "result": [{ "path": "repeating/j.md", "at": "/$sections/0", "address": "#done" }] }
+    },
+    {
+      "id": "repeating-root-anchor-body-singular",
+      "description": "The rest of the address is proved from the schema, from the node the first step names: done/$body is that section's text (§7.4, decision AO).",
+      "spec": ["7.3", "7.4", "7.5"],
+      "input": { "address": "repeating/j.md#done/$body", "as": "singular" },
+      "expect": { "result": [{ "path": "repeating/j.md", "at": "/$sections/0/$body", "address": "#done/$body" }] }
+    },
+    {
+      "id": "repeating-root-key-not-singular",
+      "description": "The near miss of repeating-root-anchor-singular: monday names two top-level sections of the record, at a level declared multimap, so it is not singular (§7.4, decision AO).",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "repeating/j.md#monday", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "repeating/j.md", "at": null }]
+      }
+    },
+    {
+      "id": "repeating-root-derived-anchor-canonical",
+      "description": "The second Monday's derived anchor monday-1 names that section alone, so it is a singular first step and the section's canonical address (§7.5 form 3), where its exact path was before the first step was looked up in the record (decision AO).",
+      "spec": ["6.3", "7.2", "7.4", "7.5"],
+      "input": { "address": "repeating/j.md#/$sections/2", "as": "singular" },
+      "expect": { "result": [{ "path": "repeating/j.md", "at": "/$sections/2", "address": "#monday-1" }] }
+    },
+    {
+      "id": "repeating-root-selector",
+      "description": "As a selector, monday returns both Mondays; the first one's derived anchor monday is also the key of both, so its canonical address is its exact path (§7.5 form 4), and the second's is monday-1.",
+      "spec": ["7.4", "7.5"],
+      "input": { "address": "repeating/j.md#monday", "as": "selector" },
+      "expect": {
+        "result": [
+          { "path": "repeating/j.md", "at": "/$sections/1", "address": "#/$sections/1" },
+          { "path": "repeating/j.md", "at": "/$sections/2", "address": "#monday-1" }
+        ]
+      }
+    },
+    {
+      "id": "map-root-field-singular",
+      "description": "The root's sections are a map whose own child sections are declared multimap, so from the schema alone notes could be a root section whose children repeat; the record has the field notes and no such section, so the first step names one node, and notes/a is singular (§7.4, decision AO).",
+      "spec": ["7.3", "7.4", "7.5"],
+      "input": { "address": "mapped/r.json#notes/a", "as": "singular" },
+      "expect": { "result": [{ "path": "mapped/r.json", "at": "/notes/a", "address": "#notes/a" }] }
+    },
+    {
+      "id": "map-root-section-step-not-singular",
+      "description": "The near miss of map-root-field-singular: log names the one root section keyed log, but the step after it crosses that section's child sections, which are declared multimap, so log/a is not singular (§7.4, decision AO).",
+      "spec": ["5.7", "7.4", "D"],
+      "input": { "address": "mapped/r.json#log/a", "as": "singular" },
+      "expect": {
+        "fails": true,
+        "issues": [{ "code": "address-not-singular", "severity": "error", "path": "mapped/r.json", "at": null }]
+      }
     }
   ]
 }
