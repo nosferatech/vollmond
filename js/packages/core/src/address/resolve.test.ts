@@ -397,4 +397,39 @@ describe("resolveAddressSteps", () => {
     expect(ways(json, "")).toEqual([]);
     expect(ways(json, "#a/b", "selector")).toEqual([]);
   });
+
+  const routes = (parsed: ParsedRecord, address: string, use: "singular" | "selector") => {
+    const read = parseAddress(`${parsed.path}${address}`);
+    if (!read.ok) throw new Error(`malformed: ${address}`);
+    const outcome = resolveAddressSteps(parsed, read.value.fragment, use);
+    if (!outcome.ok) throw new Error(`failed: ${address}`);
+    return outcome.value.targets.map((target, index) => [target.at, outcome.value.routes[index]]);
+  };
+
+  test("gives, for each target of a selector, how each step matched the node on its way there", () => {
+    // Two sections with one key: the first by its title, the second by its anchor, which the first step also matches.
+    const json = record(
+      "j.json",
+      '{"$sections": [{"$title": "Notes", "f": [1]}, {"$title": "Other", "$anchor": "notes", "f": [2, 3]}]}',
+    );
+    expect(routes(json, "#notes", "selector")).toEqual([
+      ["/$sections/0", [["key-title"]]],
+      ["/$sections/1", [["key-explicit", "anchor-explicit"]]],
+    ]);
+    expect(routes(json, "#notes/f/0", "selector")).toEqual([
+      ["/$sections/0/f/0", [["key-title"], ["member"], ["index"]]],
+      ["/$sections/1/f/0", [["key-explicit", "anchor-explicit"], ["member"], ["index"]]],
+    ]);
+    expect(routes(json, "#nothing", "selector")).toEqual([]);
+  });
+
+  test("gives a singular address's one route, and an exact path's, each token a member or an index", () => {
+    const json = record("d.json", '{"a": {"b": [1, 2]}, "$sections": [{"$title": "S", "$body": "x"}]}');
+    expect(routes(json, "#a/b/1", "singular")).toEqual([["/a/b/1", [["member"], ["member"], ["index"]]]]);
+    expect(routes(json, "#/a/b/1", "singular")).toEqual([["/a/b/1", [["member"], ["member"], ["index"]]]]);
+    expect(routes(json, "#/$sections/0/$body", "singular")).toEqual([
+      ["/$sections/0/$body", [["section-member"], ["index"], ["section-member"]]],
+    ]);
+    expect(routes(json, "", "singular")).toEqual([["", []]]);
+  });
 });

@@ -4,14 +4,6 @@
   "profiles": ["read", "validate"],
   "skip": [
     {
-      "id": "addresses/explicit-refs/positional-steps-allowed-by-default",
-      "reason": "I2.4 (#24): typed references follow in a later pull request"
-    },
-    {
-      "id": "addresses/explicit-refs/positional-steps-not-allowed",
-      "reason": "I2.4 (#24): typed references follow in a later pull request"
-    },
-    {
       "id": "data/jsonc/jsonc-data-block",
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
     },
@@ -30,18 +22,6 @@
     {
       "id": "data/jsonc/jsonc-trailing-comma",
       "reason": "Draft v0.11 (V1): JSONC follows after I2, with I4's comment-preserving edits"
-    },
-    {
-      "id": "references/targets/many-reference-to-missing-record",
-      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
-    },
-    {
-      "id": "references/targets/no-targets-allows-any-target",
-      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
-    },
-    {
-      "id": "references/targets/targets-restrict",
-      "reason": "I2.4 (#24): typed references, the strings a schema declares with x-vmd-ref, follow in a later pull request; the references pull request (#99) extracts links and $ref objects only"
     },
     {
       "id": "values/yaml-scalars/ambiguous-key-warned-at-its-mapping",

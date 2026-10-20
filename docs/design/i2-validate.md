@@ -560,6 +560,10 @@ export type StepMatch =
 ```
 
 A step that matches one node in several ways records each way; a key and a derived anchor of one node stay one match (I1 §4.2).
+Each target gets its route, how each step matched the node on the way to it, also when a selector's step matches several nodes,
+since a step's matches are children of the previous step's, each of one of them. The project owner's answer on card AM (section
+5.4) needs a route per target. Naming an exact path's tokens `section-member`, `index` or `member` is this design's, for G10's
+refusal of positions in an exact path.
 
 ### 4.3 Uniqueness, strict and lenient
 
@@ -710,7 +714,10 @@ record's links need no extra parse, since they come from its own.
 
 **`$ref` objects** (§8.1) are found by I1's shape walk wherever they stand in a field's value, schema or not: `form:
 "ref-object"`, `at` the object. **Typed strings** come from the binding: a string whose spine location has `x-vmd-ref` and that is
-a valid `uri-reference`; an invalid one is the `schema-violation` and no reference (reading R5).
+a valid `uri-reference`; an invalid one is the `schema-violation` and no reference (reading R5). A `$ref` object carries the
+declaration of its own schema, or else of its `$ref` member's: the object is the one reference, and an `x-vmd-ref` on its `$ref`
+member applies to it (the project owner's answer on card AN). Where the object's schema and its `$ref` member's both declare
+`x-vmd-ref`, and the two differ, no card says which applies (question 22).
 
 ### 5.2 Resolving a target
 
@@ -741,7 +748,7 @@ file counts as one, reading R7); a directory, which exists when a listed path is
 | a record, singular, not provably singular | `ambiguous` (question 3) | none | `ref-ambiguous`, with the reason |
 | a record, singular, no match | `dangling`, unless an alias resolves it (section 5.5) | none | `ref-dangling` |
 | a record, singular, several matches | `ambiguous` | the matches (reading R8) | `ref-ambiguous`, with the candidates |
-| a record, `cardinality: many` | `ok`, also with no match (G5) | every match | none |
+| a record, `cardinality: many` | `ok`, also with no match (G5), unless an alias resolves it (section 5.5) | every match | none |
 | through an alias | `aliased` | the alias's target | `ref-aliased` (warning) |
 
 The proof applies to every reference of cardinality one, whatever its form: a Markdown link through a level declared `multimap` is
@@ -761,8 +768,12 @@ of section 5.1, with `offset` for a link (Appendix D's note on prose).
   exists (G5), and `ref-dangling` for a record that does not (decision I1.8).
 - **`anchors: explicit`** (G4, G10) refuses a reference any of whose steps matched only by `key-title`, `anchor-derived` or
   `index` (section 4.2): no title-derived name, no position in a semantic or an exact path. A step that matched one node by an
-  allowed way too, such as `#done` naming a heading by its explicit anchor and its derived one, is allowed.
+  allowed way too, such as `#done` naming a heading by its explicit anchor and its derived one, is allowed. With `cardinality:
+  many`, the reference is refused as soon as one target's route has such a step, and the refusal names those targets (the
+  project owner's answer on card AM).
 - A breach is `ref-target-not-allowed` at the reference; the status stays what resolution gave, since the target exists.
+  `targets` is checked wherever something is at the path, `ambiguous` and `unreadable` references included, and not for a
+  `dangling` one, which names nothing (reading R14); `anchors: explicit` where resolution reached targets.
 
 ### 5.5 Aliases
 
@@ -779,7 +790,11 @@ be reported as dangling that are not (reading R9). A reference that resolves thr
    step that reaches something in the record is live and is not followed through its aliases, so `#a/x` is `dangling` when `a`
    is live and `a/x` matches nothing, beside the `alias-shadowed` warning of `a` (the project owner's answer on card AG).
 
-A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`. `alias-shadowed` warns for
+A live node always wins (§13.6), so an alias is consulted only when the live resolution is `dangling`, or, for a reference
+declared `cardinality: many`, when it matches nothing: its first step, when it reaches no name of the record, follows the
+record's anchor aliases, as it would for a single reference (the project owner's answer on card AL, which follows §13.6's "a
+reference that resolves to no live node"). It is `aliased` when the alias leads to a match, and `ok` with no targets when it
+leads to none, as a single reference stays `dangling` then (reading R19). `alias-shadowed` warns for
 each live record path that equals a record alias's `from`, and for each node that a first step named by an anchor alias's `from`
 reaches, the same names that stop a chain: an anchor, a key of the root, as a JSON or YAML record's top-level key or a Markdown
 record's front matter key, or a child section of the root by its key (the project owner's answer on card AC). Writing the file is
@@ -790,7 +805,9 @@ I5's.
 - **`ref-derived-anchor`**: the first step matched only by `anchor-derived` or `key-title`, both title-derived (G4), and the slug
   is not repeated in the record. **`ref-derived-repeat`** in its place when another heading of the record has the same slug, so
   that `#notes` and `#notes-1` both warn while two `## Notes` exist (§6.3). That needs each heading's slug beside its derived
-  anchor, which the anchor table keeps from I2.4 on. vampiredb's docs have no reference through a derived anchor (M).
+  anchor, which the anchor table keeps from I2.4 on. vampiredb's docs have no reference through a derived anchor (M). A reference
+  declared `cardinality: many` warns as soon as its first step reached one target only that way (the project owner's answer on
+  card AM).
 - **`ref-retargeted`**: a reference whose resolved exact path differs from the one in the previous index (§13.5), which is the
   snapshot of section 6.2. A reference is identified across runs by its citing path, node, form, `raw`, and its rank among the
   references with the same four in that node (reading R10); offsets are not used, since an edit above it moves them.
@@ -1303,6 +1320,14 @@ refuses what the specification allows or changes what it states; the design's ch
 | R11 | a node's refs-in count includes the references into nodes below it | §12.1, §12.2 |
 | R12 | `check --changed` on a store without history fails with `storage-failed` | §12.1, §11.2 |
 | R13 | `path-invalid` is raised once per path, naming every rule it breaks, not once per rule | §3.2, Appendix D |
+| R14 | `x-vmd-ref`'s `targets` is checked wherever something is at the path, `ok`, `aliased`, `ambiguous`, `unreadable` and an empty `many` reference, and not for a `dangling` one; the path checked is the one after record aliases | §9.3 |
+| R15 | a record that two collections claim (`collection-conflict`) matches no collection entry of `targets`, as it is read as a record of none | §9.1, §9.3 |
+| R16 | `targets: []` allows no target; without `targets`, any is allowed | §9.3 |
+| R17 | `anchors: explicit` on a reference resolved through an anchor alias checks the route after the alias renamed the first step | §9.3, §13.6 |
+| R18 | under `anchors: explicit`, a step through a title-derived name raises both `ref-target-not-allowed` and `ref-derived-anchor` | §9.3, Appendix D |
+| R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets. A record alias makes a `many` reference `aliased`, with no targets where its fragment matches nothing in the record it leads to | §8.5, §13.6 |
+| R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…` | §8.2, §9.3 |
+| R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ (question 22); a conservative stopgap while the question is open | §9.3 |
 
 The first version listed 20 readings. Seven of them (its R1 and R4 to R8, and R20) refused or moved what the specification allows,
 and are now questions, with the value of `x-vmd-summary`, which no reading named: collection names (question 10), the schema
@@ -1450,6 +1475,14 @@ recommended, and go into a Draft v0.11 with their decision records before the pu
     the collection's data, and with (b) of question 12 it would not be detectable either. Consequence: §9.1's "Every addition is
     detectable" and Appendix D's `feature-unsupported` row change (*spec*, §9.1, Appendix D), and the answer depends on question
     12's.
+22. **A `$ref` object whose schema and whose `$ref` member's declare unequal `x-vmd-ref`.** Card AN makes the
+    object the one reference, with its member's declaration, and does not say which applies when both declare. (a) They are
+    refused: `schema-invalid` where the schema alone brings them together (the spine's check, section 3.3), and a
+    `schema-violation` at the object, which then gets neither, where only a member name in the data does, as §9.3 has it for
+    other declarations that meet in the data; (b) the member's wins; (c) the object's wins. Recommended: (a), which the code
+    does until it is answered, so that no record is read under a choice nobody made; on the desk as card AR, recorded on #24
+    (https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256). Consequence: §9.3 and Appendix D's
+    `schema-invalid` row name the case (*spec*, §9.3, Appendix D).
 
 Not a question but pending with the owner: #20's open item 1, the 17 anchor elements of `design/Minimal_Log.md` (section 8.4). The
 design does not depend on it; I2.8's numbers do.

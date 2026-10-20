@@ -572,3 +572,56 @@ describe("a spine with more locations than a call takes arguments", () => {
     expect(problems).toEqual([expect.stringContaining("x-vmd-ref is reached through $dynamicRef")]);
   }, 60_000);
 });
+
+// Which declaration applies where a $ref object's schema and its $ref member's both declare x-vmd-ref, unequal, is not decided,
+// so the check refuses the schema until it is.
+describe("a $ref object whose schema and whose $ref member's both declare x-vmd-ref", () => {
+  const member = (declaration: unknown) => ({ type: "string", format: "uri-reference", "x-vmd-ref": declaration });
+  const refusal = "an x-vmd-ref on a $ref object and an unequal one on its $ref member";
+
+  test("is refused where the declarations are unequal: its own, one beside it, and one that takes the member unnamed", async () => {
+    const own = {
+      properties: {
+        o: { type: "object", "x-vmd-ref": { targets: ["a/**"] }, properties: { $ref: member({ targets: ["b/**"] }) } },
+      },
+    };
+    expect((await checked(own)).problems).toEqual([expect.stringContaining(refusal)]);
+    const beside = {
+      properties: {
+        o: { allOf: [{ type: "object", "x-vmd-ref": {} }, { properties: { $ref: member({ cardinality: "many" }) } }] },
+      },
+    };
+    expect((await checked(beside)).problems).toEqual([expect.stringContaining(refusal)]);
+    const unnamed = {
+      properties: { o: { type: "object", "x-vmd-ref": {}, additionalProperties: member({ anchors: "explicit" }) } },
+    };
+    expect((await checked(unnamed)).problems).toEqual([expect.stringContaining(refusal)]);
+    // Compared as written, as declarations that meet at one location are: the defaults spelled out differ from none.
+    const spelledOut = {
+      properties: {
+        o: { type: "object", "x-vmd-ref": {}, properties: { $ref: member({ cardinality: "one", anchors: "any" }) } },
+      },
+    };
+    expect((await checked(spelledOut)).problems).toEqual([expect.stringContaining(refusal)]);
+  });
+
+  test("is accepted where they are equal, or where the member's schema does not take $ref", async () => {
+    const equal = {
+      properties: {
+        o: { type: "object", "x-vmd-ref": { targets: ["a/**"] }, properties: { $ref: member({ targets: ["a/**"] }) } },
+      },
+    };
+    expect((await checked(equal)).problems).toEqual([]);
+    const named = {
+      properties: {
+        o: {
+          type: "object",
+          "x-vmd-ref": {},
+          properties: { $ref: { type: "string" } },
+          additionalProperties: member({ anchors: "explicit" }),
+        },
+      },
+    };
+    expect((await checked(named)).problems).toEqual([]);
+  });
+});

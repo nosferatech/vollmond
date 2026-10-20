@@ -42,6 +42,8 @@ export interface SchemaShape {
   listSchemas(key: string): readonly SchemaLocation[];
   /** The typed reference declared here; null when none is, or when unequal ones meet here (see `conflicts`). */
   readonly ref: RefDeclaration | null;
+  /** The value of the `x-vmd-ref` that gives `ref`, as the schema writes it, for comparing declarations as written. */
+  readonly refWritten: Value | null;
   /**
    * The schema locations of unequal declarations that meet here, which only a member name in the data can bring together, as
    * two `patternProperties` patterns that both match it do; empty otherwise. The location then gets neither declaration.
@@ -1215,8 +1217,26 @@ export class Spine {
   }
 
   /**
+   * The locations that a `$ref` member takes from `holder`, a location that applies beside `schema`, whose `x-vmd-ref` is
+   * unequal to the one `schema` gives, compared as written, as declarations that meet at one location are: none where
+   * `schema` gives none.
+   */
+  #unequalRefMembers(schema: ValueObject, holder: SchemaLocation): SchemaLocation[] {
+    if (!Object.hasOwn(schema, "x-vmd-ref")) return [];
+    return this.memberLocations(holder, "$ref").filter((member) => {
+      const memberSchema = this.schemaAt(member);
+      return (
+        isObject(memberSchema) &&
+        Object.hasOwn(memberSchema, "x-vmd-ref") &&
+        !valuesEqual(memberSchema["x-vmd-ref"] as Value, schema["x-vmd-ref"] as Value)
+      );
+    });
+  }
+
+  /**
    * Reports what two locations that apply together, or one with itself, show: unequal declarations through `reportPair`,
-   * since they name the pair, which is visited once, and `unevaluatedItems` beside a keyed list through `report`.
+   * since they name the pair, which is visited once; `unevaluatedItems` beside a keyed list, and an `x-vmd-ref` of one beside
+   * an unequal one on the `$ref` member the other takes, through `report`.
    */
   #checkPair(
     one: SchemaLocation,
@@ -1235,6 +1255,10 @@ export class Spine {
         `unequal ${keyword} declarations apply to one instance location, from ${a}, ${b}; declarations that meet must be equal`,
       );
     }
+    for (const [object, schema, holder] of [[one, first, other] as const, [other, second, one] as const]) {
+      for (const member of this.#unequalRefMembers(schema, holder))
+        report(at(object, "x-vmd-ref"), refMemberMessage(object, member));
+    }
     for (const [list, beside] of [[first, other] as const, [second, one] as const]) {
       const besideSchema = this.schemaAt(beside);
       if (Object.hasOwn(list, "x-vmd-list") && isObject(besideSchema) && Object.hasOwn(besideSchema, "unevaluatedItems")) {
@@ -1245,6 +1269,18 @@ export class Spine {
       }
     }
   }
+}
+
+/**
+ * The refusal of an `x-vmd-ref` at a location that may hold a `$ref` object, beside an unequal one on its `$ref` member.
+ *
+ * TODO(#24): which of the two applies is an open question for the project owner, recorded in
+ * https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256, with three options: unequal declarations are
+ * refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no record is
+ * read under a choice nobody made, and the two are compared as written, as declarations that meet at one location are.
+ */
+function refMemberMessage(object: SchemaLocation, member: SchemaLocation): string {
+  return `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`;
 }
 
 /**
@@ -1416,6 +1452,7 @@ class Shape implements SchemaShape {
   readonly #children = new Map<string, Shape>();
   readonly list: ListDeclaration | null;
   readonly ref: RefDeclaration | null;
+  readonly refWritten: Value | null;
   readonly conflicts: readonly SchemaLocation[];
   readonly format: string | null;
   readonly summary: boolean | null;
@@ -1472,6 +1509,7 @@ class Shape implements SchemaShape {
     this.list =
       listsEqual && firstList !== undefined ? readListDeclaration(firstList.value as ValueObject, firstList.location) : null;
     this.ref = refsEqual && firstRef !== undefined ? readRefDeclaration(firstRef.value as ValueObject) : null;
+    this.refWritten = refsEqual && firstRef !== undefined ? firstRef.value : null;
     this.conflicts = conflicts;
     this.format = format;
     this.summary = summary;

@@ -544,6 +544,7 @@ class BackendStore implements Store {
     const store = {
       classify: (path: string) => this.classify(path),
       binding: (path: string) => this.binding(path),
+      collections: new Set(this.configuration.collections.map((collection) => collection.name)),
       exists: (path: string, directory: boolean) => this.#exists(path, directory),
     };
     return succeed(new ReferenceResolver(store, files, aliases));
@@ -568,10 +569,10 @@ class BackendStore implements Store {
       // The issues of the collections whose schemas cannot be used, once each: they have no record path.
       const schemaIssues: Issue[] = [];
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
-        const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.record(path);
+        const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.binding(path);
         if (read === null) continue;
         if (read.ok) {
-          for (const reference of await resolver.value.referencesOf(subjectRecord(read.value))) references.push(reference);
+          for (const reference of await resolver.value.referencesOf(read.value)) references.push(reference);
         } else if (this.readMode === "strict") {
           for (const issue of read.issues) {
             if (issue.path !== null) refusals.push(issue);
@@ -585,7 +586,7 @@ class BackendStore implements Store {
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
     const target = targets[0] as Target;
-    const references = await resolver.value.referencesOf(record, target.at);
+    const references = await resolver.value.referencesOf(resolved.value.binding ?? record, target.at);
     const range = target.range;
     if (range === undefined) return succeed(references);
     return succeed(references.filter((reference) => inBlock(reference, target.at, range)));
@@ -609,7 +610,7 @@ class BackendStore implements Store {
     if (options.meta === "all" || options.meta.includes("@refs")) {
       const resolver = await this.referenceResolver();
       if (!resolver.ok) return fail(resolver.issues);
-      references = await resolver.value.referencesOf(record, target.at);
+      references = await resolver.value.referencesOf(subject, target.at);
     }
     const meta = await computeFields(subject, target, options.meta, {
       severities: this.configuration,
