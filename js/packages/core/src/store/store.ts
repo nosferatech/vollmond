@@ -4,6 +4,7 @@ import {
   blockAnchorAddress,
   canonicalAddress,
   type ParsedSubject,
+  type ResolutionSubject,
   resolveStoreAddress,
   type StoreResolution,
   subjectRecord,
@@ -285,6 +286,13 @@ export interface Store {
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
   /**
+   * Gives the canonical address of the node at an exact path of a record, as a fragment with its `#`, or `""` for the root:
+   * what an issue's `in` line names the node by. The record is read as checks read it, from the local index where it holds
+   * it, bound to its collection's schema when that can be used. Undefined when the store holds no readable record there, or
+   * the record has no node at `at`.
+   */
+  nodeAddress(path: string, at: string): Promise<string | undefined>;
+  /**
    * Gives a collection's schema, loaded, checked and compiled once for the store's lifetime: null for a collection without
    * one, or a failure with the one issue that makes it unusable, which readers refuse the collection's records with (see
    * `loadCollectionSchema`).
@@ -550,6 +558,21 @@ class BackendStore implements Store {
   // The local index. A store without one reads every record from its parse, as before; with one, `check`, `references` and
   // `list` read structures and bindings from its entries, looked up by the versions the store's listings gave, and write an
   // entry for each record they parse, keyed by the version of the bytes parsed.
+
+  parsed(path: string): boolean {
+    return this.#parses.has(path);
+  }
+
+  async nodeAddress(path: string, at: string): Promise<string | undefined> {
+    const bound = await this.indexedBinding(path);
+    let subject: ResolutionSubject | null = bound?.ok === true ? bound.value : null;
+    if (subject === null) {
+      const structure = await this.structure(path);
+      if (!structure.ok) return undefined;
+      subject = structure.value;
+    }
+    return subjectRecord(subject).nodes.node(at) === undefined ? undefined : canonicalAddress(subject, at);
+  }
 
   listed(files: readonly FileInfo[]): void {
     for (const file of files) this.#versions.set(file.path, file.version);
@@ -945,7 +968,9 @@ class BackendStore implements Store {
  * schema violations, its repeated keys at levels the schema declares `type: map`, and its file name when its collection's rule
  * rejects it. Empty for a record the mode reads.
  */
-// TODO(#24): the mode refuses `ref-target-not-allowed` too, which typed references raise, and they are not extracted yet.
+// Not `ref-target-not-allowed`: whether the strict mode refuses a record whose typed reference points where its declaration
+// forbids is the implementation's choice, since such a break often comes from a change in the record it points to, and vmd
+// does not refuse it, so that a change elsewhere never hides a record; `check` reports the reference.
 function strictRefusals(binding: RecordBinding, collection: Collection | undefined): Issue[] {
   const refusals = binding.issues.filter((issue) => issue.code === "schema-violation" || isDeclaredDuplicate(issue));
   const mismatch = collection === undefined ? null : filenameMismatch(binding.record.path, collection);

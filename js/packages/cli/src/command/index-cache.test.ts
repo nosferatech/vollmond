@@ -78,7 +78,7 @@ describe("outline over the local index", () => {
   test("gives each line's refs-in count while the snapshot of the last full check is current", async () => {
     const root = writeFiles(temporaryDirectory(), storeFiles());
     const cache = temporaryDirectory();
-    expect((await vmd(root, cache, "outline", "a.md")).stdout).not.toContain("refs-in");
+    expect((await vmd(root, cache, "outline", "a.md")).stdout).not.toMatch(/\d refs-in/);
     await checkWith(root, cache);
     const outline = await vmd(root, cache, "outline", "a.md");
     expect(outline.stdout).toMatch(/^a\.md {2}.* {2}4 refs-in\n/);
@@ -86,10 +86,11 @@ describe("outline over the local index", () => {
     expect(outline.stdout).toMatch(/#deep .* 2 refs-in\n/);
     const json = JSON.parse((await vmd(root, cache, "--json", "outline", "a.md")).stdout);
     expect(json.value.node.refsIn).toBe(4);
-    // A changed file makes the snapshot stale: no counts, and no line about them in this version.
+    // A changed file makes the snapshot stale: no counts, and a line that says vmd index gives them.
     writeFiles(root, { "d.md": "# D\n" });
     const stale = await vmd(root, cache, "outline", "a.md");
-    expect(stale.stdout).not.toContain("refs-in");
+    expect(stale.stdout).not.toMatch(/\d refs-in/);
+    expect(stale.stdout).toContain("no refs-in counts: the local index is not current; vmd index brings it up to date\n");
     expect(stale.stderr).toBe("");
   });
 });

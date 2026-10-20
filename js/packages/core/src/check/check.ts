@@ -28,6 +28,15 @@ export interface CheckSummary {
   readonly records: number;
   /** How many of them have no value view: a structural error, or a file the backend could not read when listing or reading it. */
   readonly unreadable: number;
+  /** How many references the records checked make, each resolved. */
+  readonly references: number;
+  /** How many of the records checked were read from their files, to parse them or to bind them, a read that failed included. */
+  readonly parsed: number;
+  /**
+   * How many of the records checked were checked from the local index alone, without reading their files: the records checked
+   * less those parsed and those the backend could not read when listing them.
+   */
+  readonly fromIndex: number;
 }
 
 /** What {@link checkStore} needs of a store. */
@@ -50,6 +59,8 @@ export interface CheckedStore {
    * references into the record resolve in, from the local index where it holds it.
    */
   indexedBinding(path: string): Promise<Outcome<RecordBinding> | null>;
+  /** Whether the store has read the record's file, to parse it, in its lifetime so far. */
+  parsed(path: string): boolean;
   /** Keeps what a check of the whole store found: the files it listed, and every reference resolved. */
   checked(files: readonly FileInfo[], unread: readonly string[], references: readonly Reference[]): Promise<void>;
   /** The issue that makes a collection's schema unusable, the same one each time; null when its schema can be used or it has none. */
@@ -113,6 +124,7 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       store.classifier.classify(issue.path).kind === "record",
   ).length;
   let checked = failedRecords;
+  let parsed = 0;
   const references: Reference[] = [];
   let unreadable = failedRecords;
   // A file the backend could not read when listing it is still there, for a reference to it.
@@ -143,6 +155,7 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       for (const issue of structure.issues) issues.push(issue);
     }
     for (const issue of await resolver.value.issuesOf(record.path, binding, references)) issues.push(issue);
+    if (store.parsed(record.path)) parsed += 1;
   }
   if (scope === null) await store.checked(listed.value, unread, references);
   for (const collection of store.configuration.collections) {
@@ -154,7 +167,14 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     issues.filter((issue) => issue.path === null || inScope(issue.path)),
     store.configuration,
   );
-  return succeed({ records: checked, unreadable }, sortIssues(reported));
+  const summary: CheckSummary = {
+    records: checked,
+    unreadable,
+    references: references.length,
+    parsed,
+    fromIndex: checked - parsed - failedRecords,
+  };
+  return succeed(summary, sortIssues(reported));
 }
 
 /** The `collection-conflict` of a record that several collections claim. */

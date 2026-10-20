@@ -104,8 +104,9 @@ function processEnvironment(environment: Partial<CliEnvironment>): CliEnvironmen
  * With `--json`, every outcome is one JSON object on stdout, `{"ok": true, "value": …, "issues": [...]}` or `{"ok": false,
  * "issues": [...]}`, whose issues start with the configuration's and the Unicode warning; a bug alone is reported on stderr.
  * Otherwise the value is printed as text on stdout and the issues on stderr, except that a command whose issues are its result
- * or part of its listing prints its own issues on stdout. `--quiet` leaves out warnings, except a command's whose issues are its
- * result.
+ * or part of its listing prints its own issues on stdout when it succeeds, capped as it says, followed by its trailer, such as
+ * `check`'s summary; a failure has no result, and its issues go to stderr. `--quiet` leaves out warnings, except a command's
+ * whose issues are its result.
  */
 export async function runCli(args: readonly string[], environment: Partial<CliEnvironment> = {}): Promise<CliResult> {
   try {
@@ -123,6 +124,10 @@ interface Report {
   readonly outcome: Outcome<unknown>;
   /** Writes a successful outcome's value; nothing is written for a failure. */
   readonly text: (value: unknown) => string | Uint8Array;
+  /** The most of the outcome's issues to print as text, or null for all of them; the issue list's default when absent. */
+  readonly issueLimit?: number | null;
+  /** Writes what follows the outcome's issues on stdout, for a successful outcome, such as a summary line. */
+  readonly trailer?: (value: unknown) => string;
   /** The details of the outcome's issues. */
   readonly details?: IssueDetailsSource;
   /** What the outcome's issues are, which decides where they are printed. */
@@ -137,7 +142,7 @@ interface Report {
 async function run(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
   checkCommands(env.commands);
   // Until the command line is read, `--json` is looked for among the arguments, so that a usage error is printed as asked.
-  const asked: GlobalOptions = { json: jsonAsked(args), quiet: false };
+  const asked: GlobalOptions = { json: jsonAsked(args), quiet: false, strict: false, noCache: false };
   const head = readCommandLineHead(args);
   if (head.kind === "usage") return render(usage(head.message, "try vmd --help"), asked);
   if (head.kind === "none") {
@@ -184,30 +189,45 @@ async function run(args: readonly string[], env: CliEnvironment): Promise<CliRes
           issueOutput: command.issueOutput ?? "diagnostics",
           storeIssues,
           ...(output.details === undefined ? {} : { details: output.details }),
+          ...(output.issueLimit === undefined ? {} : { issueLimit: output.issueLimit }),
+          ...(output.trailer === undefined ? {} : { trailer: output.trailer }),
         };
   return render({ ...report, ...(storeDetails === undefined ? {} : { storeDetails }) }, globals);
 }
 
+/** The local index a store is read over, or why there is none. */
+type IndexCacheLookup =
+  | { readonly kind: "cache"; readonly cache: FilesystemIndexCache }
+  | { readonly kind: "none"; readonly reason: string };
+
 /**
- * Gives the local index of a store in the per-user cache directory, or null: without cache settings, for a store root that
- * cannot be resolved, and for a cache directory that may not serve it (`cacheMayServe`), where what is committed could be
- * read as cache.
+ * Gives the local index of a store in the per-user cache directory, or why there is none: without cache settings, for a store
+ * root that cannot be resolved, and for a cache directory that may not serve it (`cacheMayServe`), where what is committed
+ * could be read as cache.
  */
-async function indexCacheOf(settings: CacheSettings | null, root: string): Promise<FilesystemIndexCache | null> {
-  if (settings === null) return null;
+async function indexCacheOf(settings: CacheSettings | null, root: string): Promise<IndexCacheLookup> {
+  if (settings === null) {
+    return { kind: "none", reason: "this vmd has no per-user cache directory: its build wrote no id, or there is no home" };
+  }
   let storeRoot: string;
+  let mayServe: boolean;
   try {
     storeRoot = await realpath(root);
-    if (!(await cacheMayServe(settings.directory, storeRoot, settings.explicit))) return null;
+    mayServe = await cacheMayServe(settings.directory, storeRoot, settings.explicit);
   } catch {
-    return null;
+    return { kind: "none", reason: "the store root cannot be resolved" };
   }
-  return createFilesystemIndexCache({
+  if (!mayServe) {
+    const where = settings.explicit ? "inside the store, or inside a git working tree that holds it" : "inside the store";
+    return { kind: "none", reason: `the cache directory is ${where}, where a checkout could forge it` };
+  }
+  const cache = createFilesystemIndexCache({
     directory: settings.directory,
     implementation: settings.implementation,
     storeRoot,
     ...(settings.now === undefined ? {} : { now: settings.now }),
   });
+  return { kind: "cache", cache };
 }
 
 /**
@@ -314,10 +334,16 @@ async function openCommandStore(
     }
     configuration = configurationFileSource(location.configurationFile, name, reading.content);
   }
-  const index = readsIndex ? await indexCacheOf(env.cache, location.root) : null;
+  const lookup: IndexCacheLookup = !readsIndex
+    ? { kind: "none", reason: "this command does not read the local index" }
+    : globals.noCache
+      ? { kind: "none", reason: "--no-cache turns it off" }
+      : await indexCacheOf(env.cache, location.root);
+  const index = lookup.kind === "cache" ? lookup.cache : null;
   const opened = await openStore(storage, {
     ...(configuration === undefined ? {} : { configuration }),
     ...(index === null ? {} : { index }),
+    readMode: globals.strict ? "strict" : "best-effort",
   });
   if (!opened.ok) {
     return {
@@ -333,6 +359,7 @@ async function openCommandStore(
       storage,
       store: opened.value,
       index,
+      ...(lookup.kind === "none" ? { noIndex: lookup.reason } : {}),
     },
     issues: opened.issues,
     details,
@@ -357,18 +384,25 @@ function render(report: Report, globals: GlobalOptions): CliResult {
     return { stdout: `${JSON.stringify(printed, jsonReplacer)}\n`, stderr: "", exitCode };
   }
   const value = outcome.ok ? report.text(outcome.value) : "";
-  if (report.issueOutput === "diagnostics") {
+  const trailer = outcome.ok && report.trailer !== undefined ? report.trailer(outcome.value) : "";
+  // A failure has no result, so its issues are diagnostics whatever the command lists on success.
+  if (report.issueOutput === "diagnostics" || !outcome.ok) {
     // One list on stderr, so that the cap and the line that counts every issue found, dropped warnings included, apply once.
     const storeIssues = new Set(report.storeIssues);
     const details: IssueDetailsSource = (issue) =>
       storeIssues.has(issue) ? report.storeDetails?.(issue) : report.details?.(issue);
     const stderr = formatIssues([...report.storeIssues, ...outcome.issues], { errorsOnly: quiet, details });
-    return { stdout: value, stderr, exitCode };
+    return { stdout: concatenate(value, trailer), stderr, exitCode };
   }
   // The store's issues go to stderr and the command's to stdout, each stream with its own cap and count.
   const storeText = formatIssues(report.storeIssues, { errorsOnly: quiet, ...withDetails(report.storeDetails) });
-  const ownText = formatIssues(outcome.issues, { errorsOnly: ownWarningsDropped, ...withDetails(report.details) });
-  return { stdout: concatenate(value, ownText), stderr: storeText, exitCode };
+  const limit = report.issueLimit === null ? Number.POSITIVE_INFINITY : report.issueLimit;
+  const ownText = formatIssues(outcome.issues, {
+    errorsOnly: ownWarningsDropped,
+    ...withDetails(report.details),
+    ...(limit === undefined ? {} : { limit }),
+  });
+  return { stdout: concatenate(value, ownText + trailer), stderr: storeText, exitCode };
 }
 
 /** Whether an issue is an error, which `--quiet` keeps. */
@@ -413,13 +447,15 @@ function generalHelp(commands: readonly Command[]): string {
       ? "  (none yet)\n"
       : commands.map((command) => `  ${command.name.padEnd(10)}${command.summary}\n`).join("");
   return (
-    "usage: vmd [--store DIR] [--config FILE] [--json] [--quiet] COMMAND [ARGS]\n" +
+    "usage: vmd [--store DIR] [--config FILE] [--json] [--quiet] [--strict] [--no-cache] COMMAND [ARGS]\n" +
     "       vmd --version | --help\n\n" +
     `commands:\n${list}\n` +
     "  --store DIR    the store root; by default the nearest directory upwards that holds .vmd/config.yaml\n" +
     "  --config FILE  a configuration used in place of the store's .vmd/config.yaml, with its schemas in schema/ beside it\n" +
     "  --json         print every outcome, a failure included, as one JSON object\n" +
-    "  --quiet        leave out warnings\n"
+    "  --quiet        leave out warnings, but check's, which are its result\n" +
+    "  --strict       the strict read mode: get, outline, ls and refs refuse a record that breaks its schema\n" +
+    "  --no-cache     neither read nor write the local index in the per-user cache directory\n"
   );
 }
 

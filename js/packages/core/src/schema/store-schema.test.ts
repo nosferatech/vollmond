@@ -55,7 +55,7 @@ describe("check with collection schemas", () => {
       ["collection-conflict", "tickets/both.json", ""],
       ["schema-violation", "tickets/wrong.json", "/status"],
     ]);
-    expect(checked.ok && checked.value).toEqual({ records: 6, unreadable: 0 });
+    expect(checked.ok && checked.value).toMatchObject({ records: 6, unreadable: 0 });
   });
 
   test("with records, validates only those", async () => {

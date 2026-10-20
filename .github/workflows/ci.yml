@@ -45,7 +45,7 @@ jobs:
         # An explicit bash runs with -eo pipefail, so a command that fails before its grep fails the step.
         shell: bash
         env:
-          # ls and outline write the local index; it goes to a directory of this run, never to ~/.cache, and no step restores
+          # ls, outline, check and index write the local index; it goes to a directory of this run, never to ~/.cache, and no step restores
           # a vmd cache, since a gate that trusted an earlier run's entries would trust what that run read.
           XDG_CACHE_HOME: ${{ runner.temp }}/vmd-cache
         run: |
@@ -58,6 +58,10 @@ jobs:
           node packages/cli/dist/main.js --store "$store" outline "$ticket" | grep -q '^  #done '
           node packages/cli/dist/main.js --store "$store" --json get "$ticket#done" --meta all | grep -q '"@address":"#done"'
           node packages/cli/dist/main.js --store "$store" grep -F 'clean root' | grep -q "^$ticket:"
+          node packages/cli/dist/main.js --store "$store" check | grep -q '^1 record (1 from the index), 0 references: 0 errors, 0 warnings$'
+          node packages/cli/dist/main.js --store "$store" index | grep -q '^1 record (0 parsed, 1 from the index), 0 references; cache '
+          # The decision records, a store of some 300 records that link to each other: check finds no issue.
+          node packages/cli/dist/main.js --store ../docs/decisions check | grep -q ': 0 errors, 0 warnings$'
       # The decision records are a vmd store: every record must read with no issue, and its supersessions and links must hold.
       - name: Read the decision records
         run: node scripts/check-decisions.mjs

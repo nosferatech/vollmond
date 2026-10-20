@@ -279,6 +279,33 @@ describe("eviction", () => {
     expect(existsSync(file)).toBe(false);
   });
 
+  test("runs whenever the last eviction ran when forced, as vmd index does, down to the bound", async () => {
+    const directory = temporaryDirectory();
+    const root = join(directory, "v1-abc");
+    const now = Date.UTC(2026, 9, 20);
+    expect(await evictCache({ directory, root, now, bound: 1 })).toBe(true);
+    const older = entry(root, "aa", 100, now, 2 * DAY);
+    const newer = entry(root, "bb", 100, now, DAY);
+    expect(await evictCache({ directory, root, now: now + 1, bound: 150 })).toBe(false);
+    expect(await evictCache({ directory, root, now: now + 1, bound: 150, force: true })).toBe(true);
+    expect([older, newer].map((file) => existsSync(file))).toEqual([false, true]);
+  });
+
+  test("of a cache, forced, and its size, which counts what is left", async () => {
+    const directory = temporaryDirectory();
+    const now = Date.UTC(2026, 9, 20);
+    const cache = createFilesystemIndexCache({ directory, implementation: "abc", storeRoot: "/s", now: () => now, bound: 150 });
+    await cache.write(`parse/${VERSION}.md`, bytes("p"));
+    const root = join(directory, "v1-abc");
+    const older = entry(root, "aa", 100, now, 2 * DAY);
+    entry(root, "bb", 100, now, DAY);
+    const before = await cache.size();
+    expect(before).toBeGreaterThan(200);
+    await cache.evict();
+    expect(existsSync(older)).toBe(false);
+    expect(await cache.size()).toBeLessThan(before);
+  });
+
   // From the independent review of #153.
   test("leaves a directory named like another implementation's that vmd did not write, such as a store", async () => {
     const directory = join(temporaryDirectory(), "vmd");

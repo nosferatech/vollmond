@@ -3,6 +3,7 @@
 
 import { describe, expect, test, vi } from "vitest";
 import { bindRecord as libraryBindRecord } from "../binding/binding.js";
+import type { CheckSummary } from "../check/check.js";
 import { parseRecord as libraryParseRecord } from "../format/parse-record.js";
 import { createMemoryIndexCache, type IndexCache, type MemoryIndexCache, SNAPSHOT_KEY } from "../index/cache.js";
 import { parseEntry } from "../index/entries.js";
@@ -97,6 +98,14 @@ function linkedStore(count: number): Files {
   return files;
 }
 
+/**
+ * A check's outcome with its counts of how the local index served it, the records parsed and those read from the index, set
+ * to 0: the one part of a check that differs with the index, which says how it was made.
+ */
+function served(outcome: Outcome<CheckSummary>): Outcome<CheckSummary> {
+  return outcome.ok ? { ...outcome, value: { ...outcome.value, parsed: 0, fromIndex: 0 } } : outcome;
+}
+
 describe("a check over the local index (the guard of the cache)", () => {
   test("parses no record the second time, and after one record changes, parses and binds exactly that one", async () => {
     const files = linkedStore(50);
@@ -109,14 +118,15 @@ describe("a check over the local index (the guard of the cache)", () => {
     expect(first.parsed).toHaveLength(50);
     const second = await counted(async () => {
       const outcome = await (await storeOf(files, cache)).check();
-      expect(outcome).toEqual(expected);
+      expect(served(outcome)).toEqual(served(expected));
     });
     expect(second).toEqual({ parsed: [], bound: [] });
     const changed = { ...files, "runs/r3.json": JSON.stringify({ doc: "../docs/d9.md#nothing", steps: [] }) };
     const expectedChanged = await (await storeOf(changed)).check();
     const third = await counted(async () => {
       const outcome = await (await storeOf(changed, cache)).check();
-      expect(outcome).toEqual(expectedChanged);
+      expect(served(outcome)).toEqual(served(expectedChanged));
+      expect(outcome.ok && [outcome.value.parsed, outcome.value.fromIndex]).toEqual([1, 49]);
     });
     expect(third).toEqual({ parsed: ["runs/r3.json"], bound: ["runs/r3.json"] });
   });
@@ -133,7 +143,7 @@ describe("a check over the local index (the guard of the cache)", () => {
     expect(expected.issues.some((issue) => issue.code === "ref-derived-anchor")).toBe(false);
     const run = await counted(async () => {
       const outcome = await (await storeOf(quieter, cache)).check();
-      expect(outcome).toEqual(expected);
+      expect(served(outcome)).toEqual(served(expected));
     });
     expect(run).toEqual({ parsed: [], bound: [] });
   });
@@ -149,7 +159,7 @@ describe("a check over the local index (the guard of the cache)", () => {
     const expected = await (await storeOf(stricter)).check();
     const run = await counted(async () => {
       const outcome = await (await storeOf(stricter, cache)).check();
-      expect(outcome).toEqual(expected);
+      expect(served(outcome)).toEqual(served(expected));
     });
     const runs = Object.keys(files)
       .filter((path) => path.startsWith("runs/"))
@@ -197,7 +207,7 @@ describe("a check over the local index (the guard of the cache)", () => {
     const expected = await (await storeOf(files)).check();
     const run = await counted(async () => {
       const outcome = await (await storeOf(files, cache)).check();
-      expect(outcome).toEqual(expected);
+      expect(served(outcome)).toEqual(served(expected));
     });
     expect(run.parsed).toEqual(["docs/d0.md"]);
   });
@@ -371,7 +381,7 @@ describe("the local index against what a store without it gives", () => {
       head: () => current.head(),
     };
     const expected = await successValue(await openStore(backend)).check();
-    expect(await successValue(await openStore(backend, { index: cache })).check()).toEqual(expected);
+    expect(served(await successValue(await openStore(backend, { index: cache })).check())).toEqual(served(expected));
   });
 
   test("a well-formed parse entry whose node path disagrees with its parent and key is a miss, not a crash", async () => {
@@ -386,7 +396,7 @@ describe("the local index against what a store without it gives", () => {
     const cache = createMemoryIndexCache();
     cache.entries.set(`parse/${version}.json`, new TextEncoder().encode(text));
     const expected = await (await storeOf(files)).check();
-    expect(await (await storeOf(files, cache)).check()).toEqual(expected);
+    expect(served(await (await storeOf(files, cache)).check())).toEqual(served(expected));
   });
 
   test("a snapshot whose target has no string path is not current, not a crash", async () => {
@@ -516,7 +526,7 @@ describe("an entry holding characters outside the Basic Multilingual Plane", () 
     await (await storeOf(files, cache)).check();
     const run = await counted(async () => {
       const outcome = await (await storeOf(files, cache)).check();
-      expect(JSON.stringify(outcome)).toBe(JSON.stringify(expected));
+      expect(JSON.stringify(served(outcome))).toBe(JSON.stringify(served(expected)));
     });
     expect(run.parsed).toEqual([]);
   });

@@ -17,7 +17,8 @@ import { argumentCountProblem, rangeJson, readWholeNumber, storeIssueDetails } f
  * after its line, one level below it, so that an outline is useful for every format. `--depth N` goes down at most N levels,
  * every level by default, so it bounds block anchors and members as it bounds sections. A node that is not a section has no
  * sections below it. Each line ends with its refs-in count, the references into the node and below it, when the local index
- * holds a snapshot of a full check that is still current; otherwise there is no count.
+ * holds a snapshot of a full check that is still current; otherwise there is no count, and for a store over the local index a
+ * last line says that `vmd index` brings it up to date.
  */
 export const OUTLINE_COMMAND: Command = {
   name: "outline",
@@ -38,7 +39,7 @@ export const OUTLINE_COMMAND: Command = {
     return {
       kind: "run",
       run: async (opened) => {
-        const { store } = opened as OpenedStore;
+        const { store, index } = opened as OpenedStore;
         const outline = await store.outline(address, {
           reading: { raw: true },
           ...(depth.value === undefined ? {} : { depth: depth.value }),
@@ -46,13 +47,20 @@ export const OUTLINE_COMMAND: Command = {
         const details = storeIssueDetails(store);
         if (!outline.ok) return outcomeOutput(outline, () => "", details);
         // The JSON output writes ranges as [start, end], as everywhere else; the text is written from the library's outline.
-        return outcomeOutput(succeed(jsonOutline(outline.value), outline.issues), () => formatOutline(outline.value), details);
+        const note = index !== null && outline.value.node.refsIn === undefined ? NO_COUNTS : "";
+        return outcomeOutput(
+          succeed(jsonOutline(outline.value), outline.issues),
+          () => formatOutline(outline.value) + note,
+          details,
+        );
       },
     };
   },
 };
 
-// TODO(#26): without a current snapshot, the outline is to say that `vmd index` gives the counts, once that command exists.
+/** The line an outline ends with when the store is over the local index and its snapshot is not current. */
+const NO_COUNTS = "no refs-in counts: the local index is not current; vmd index brings it up to date\n";
+
 /**
  * Writes an outline: the node's line, then its block anchors and a data record's members, then one line per section, each
  * followed by its block anchors one level deeper. The title column is left out when no line has a title, as for a data

@@ -53,7 +53,7 @@ describe("readCommandLine", () => {
     expect(line).toEqual({
       ok: true,
       value: {
-        globals: { store: "docs", config: "c.yaml", json: true, quiet: true },
+        globals: { store: "docs", config: "c.yaml", json: true, quiet: true, strict: false, noCache: false },
         version: false,
         help: false,
         options: { limit: "5", value: true },
@@ -64,7 +64,13 @@ describe("readCommandLine", () => {
 
   test("gives the defaults of the flags when no global option is given", () => {
     const line = readCommandLine(["get"], 0, options);
-    expect(line.ok && line.value.globals).toEqual({ json: false, quiet: false });
+    expect(line.ok && line.value.globals).toEqual({ json: false, quiet: false, strict: false, noCache: false });
+  });
+
+  test("reads --strict and --no-cache, before or after the command's name", () => {
+    const line = readCommandLine(["--strict", "get", "--no-cache"], 1, options);
+    expect(line.ok && line.value.globals).toEqual({ json: false, quiet: false, strict: true, noCache: true });
+    expect(readCommandLineHead(["--no-cache", "--strict", "ls"])).toEqual({ kind: "command", name: "ls", index: 2 });
   });
 
   test("keeps an argument after -- as an argument, even one that looks like an option", () => {
