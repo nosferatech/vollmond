@@ -40,11 +40,12 @@ is reached only through a title-derived name or a positional step, whatever its 
 **Agent's reading, for the owner to confirm.**
 
 1. The card's example has a duplicate anchor in vmd's terms: an explicit anchor `notes` and the derived anchor `notes` of another
-   heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). A Markdown example with a `multimap` level would
-   collide the same way, since every Markdown heading has a derived anchor. §9.3's example is therefore a YAML record, whose
-   sections have no derived anchors: a section with `$anchor: log` holds two sections, one with `$anchor: notes` and one with
-   `$title: Notes` and no anchor, at a level the schema declares `multimap`. `#log/notes` reaches `log` and the first `notes` by
-   explicit anchors, and the second only by the key its title gives, so the reference is breached by that target alone.
+   heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). The clash comes from the explicit anchor sitting
+   on a heading whose title differs; in Markdown, two `### Notes` headings, one with `<a id="notes"></a>`, give the second the
+   derived anchor `notes-1` and bind with no issue. §9.3's example is a YAML record, whose sections have no derived anchors at
+   all: a section with `$anchor: log` holds two sections, one with `$anchor: notes` and one with `$title: Notes` and no anchor, at
+   a level the schema declares `multimap`. `#log/notes` reaches `log` and the first `notes` by explicit anchors, and the second
+   only by the key its title gives, so the reference is breached by that target alone.
 2. "Only" is read as the I2 design's section 5.4 reads it for a reference to one node: a target that its step matched both by an
    explicit anchor and by a title-derived name, such as a heading `## Notes <a id="notes"></a>`, is reached through the explicit
    anchor and is allowed.

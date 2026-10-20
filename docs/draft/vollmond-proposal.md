@@ -982,7 +982,7 @@ top-level sections are declared `multimap`, `j.md#done` names the one node with 
 text, while `#monday`, where two top-level sections are titled `Monday`, is not singular. The lookup reads the names that a first
 step reaches (§7.3), not the values the address leads to. The proof's result comes first: a first step that names no node of such
 a journal, `#typo`, or `#done` after `done` was renamed, is not singular, so a reference written with it is `ambiguous`, and it is
-not resolved through the anchor aliases of §13.6, which apply only to an address the proof accepts.
+not resolved through the anchor aliases of §13.6, which apply to a singular address only when the proof accepts it.
 
 A step from a section that begins with `$`, such as `$body` or `$title`, names the section's own member (§7.3) and crosses no
 level, since no section key of a valid record begins with `$`: a heading's slug drops it (§6.3, step 5), and an anchor begins
