@@ -596,6 +596,13 @@ describe("a $ref object whose schema and whose $ref member's both declare x-vmd-
       properties: { o: { type: "object", "x-vmd-ref": {}, additionalProperties: member({ anchors: "explicit" }) } },
     };
     expect((await checked(unnamed)).problems).toEqual([expect.stringContaining(refusal)]);
+    // Compared as written, as declarations that meet at one location are: the defaults spelled out differ from none.
+    const spelledOut = {
+      properties: {
+        o: { type: "object", "x-vmd-ref": {}, properties: { $ref: member({ cardinality: "one", anchors: "any" }) } },
+      },
+    };
+    expect((await checked(spelledOut)).problems).toEqual([expect.stringContaining(refusal)]);
   });
 
   test("is accepted where they are equal, or where the member's schema does not take $ref", async () => {
@@ -605,13 +612,6 @@ describe("a $ref object whose schema and whose $ref member's both declare x-vmd-
       },
     };
     expect((await checked(equal)).problems).toEqual([]);
-    // Written differently, meaning the same: the defaults spelled out.
-    const same = {
-      properties: {
-        o: { type: "object", "x-vmd-ref": {}, properties: { $ref: member({ cardinality: "one", anchors: "any" }) } },
-      },
-    };
-    expect((await checked(same)).problems).toEqual([]);
     const named = {
       properties: {
         o: {

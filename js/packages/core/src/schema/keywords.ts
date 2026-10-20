@@ -110,15 +110,6 @@ export function readListDeclaration(value: ValueObject, location: SchemaLocation
   };
 }
 
-/** Whether two typed references' declarations mean the same: the same `targets` in the same order, `cardinality` and `anchors`. */
-export function sameRefDeclaration(one: RefDeclaration, other: RefDeclaration): boolean {
-  const sameTargets =
-    one.targets === null || other.targets === null
-      ? one.targets === other.targets
-      : one.targets.length === other.targets.length && one.targets.every((target, index) => target === other.targets?.[index]);
-  return sameTargets && one.cardinality === other.cardinality && one.anchors === other.anchors;
-}
-
 /** Reads an `x-vmd-ref` that {@link checkExtensionKeywords} accepted. */
 export function readRefDeclaration(value: ValueObject): RefDeclaration {
   return {

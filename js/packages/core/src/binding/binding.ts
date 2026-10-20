@@ -4,12 +4,12 @@ import { childPath } from "../record/exact-path.js";
 import type { NodeInfo } from "../record/node-index.js";
 import type { ParsedRecord } from "../record/record.js";
 import type { CollectionSchema, ListChecks } from "../schema/collection-schema.js";
-import { type ListDeclaration, type RefDeclaration, sameRefDeclaration } from "../schema/keywords.js";
+import type { ListDeclaration, RefDeclaration } from "../schema/keywords.js";
 import { LOGICAL_TYPES, type LogicalType } from "../schema/logical-types.js";
 import type { SchemaLocation } from "../schema/schema-set.js";
 import type { SchemaShape } from "../schema/spine.js";
 import type { NativeFailure } from "../schema/violations.js";
-import type { Value, ValueObject } from "../value/value.js";
+import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
 
 /**
  * An array whose items are identified by a key: a section's `$sections`, keyed by the section keys, or an array that its
@@ -80,7 +80,7 @@ type Place = "section" | "sections" | "value";
  *   the item, and an item is validated against its key's per-key schema, or `additional` when that is a schema;
  * - a member that two `patternProperties` patterns bring unequal declarations to is a `schema-violation`, and gets neither;
  * - a string whose shape declares `x-vmd-ref`, and that is a URI reference, is a typed reference;
- * - a JSON Reference whose shape and whose `$ref` member's declare `x-vmd-ref` with different meanings, which only a member
+ * - a JSON Reference whose shape and whose `$ref` member's declare `x-vmd-ref` differently as written, which only a member
  *   name in the data brings together, is a `schema-violation`, and gets neither;
  * - a `duplicate-key` the parse raised among the sections of a level declared `multimap` is dropped, unless a field of the
  *   section shares the name before it, and one at a level declared `map` is marked as declared.
@@ -218,7 +218,7 @@ class Binder {
   /**
    * Finds the declaration of the JSON Reference at `at`, whose shape is given: its own `x-vmd-ref`, or else its `$ref`
    * member's. None where either shape's declarations conflict, which has its `schema-violation` already, or where both
-   * declare and their declarations differ in meaning, which a member name in the data alone brought together, since the
+   * declare and their declarations differ as written, which a member name in the data alone brought together, since the
    * schema's check refuses them where the schema alone does: that object gets a `schema-violation` too.
    */
   #declareReference(at: string, shape: SchemaShape): void {
@@ -228,7 +228,7 @@ class Binder {
     const members = member.ref;
     // TODO(#24): which declaration applies where the two differ is an open question, recorded in
     // https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256; until it is answered neither does.
-    if (own !== null && members !== null && !sameRefDeclaration(own, members)) {
+    if (own !== null && members !== null && !valuesEqual(shape.refWritten as Value, member.refWritten as Value)) {
       this.#failures.push({
         at,
         message:

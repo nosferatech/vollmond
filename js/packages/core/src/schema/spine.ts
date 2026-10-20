@@ -1,13 +1,7 @@
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
 import { type Value, type ValueObject, valuesEqual } from "../value/value.js";
-import {
-  type ListDeclaration,
-  type RefDeclaration,
-  readListDeclaration,
-  readRefDeclaration,
-  sameRefDeclaration,
-} from "./keywords.js";
+import { type ListDeclaration, type RefDeclaration, readListDeclaration, readRefDeclaration } from "./keywords.js";
 import { locationKey, referenceKey, type SchemaLocation, type SchemaSet } from "./schema-set.js";
 import { isObject, isSchemaValue, subschemas } from "./walk.js";
 
@@ -48,6 +42,8 @@ export interface SchemaShape {
   listSchemas(key: string): readonly SchemaLocation[];
   /** The typed reference declared here; null when none is, or when unequal ones meet here (see `conflicts`). */
   readonly ref: RefDeclaration | null;
+  /** The value of the `x-vmd-ref` that gives `ref`, as the schema writes it, for comparing declarations as written. */
+  readonly refWritten: Value | null;
   /**
    * The schema locations of unequal declarations that meet here, which only a member name in the data can bring together, as
    * two `patternProperties` patterns that both match it do; empty otherwise. The location then gets neither declaration.
@@ -1222,18 +1218,17 @@ export class Spine {
 
   /**
    * The locations that a `$ref` member takes from `holder`, a location that applies beside `schema`, whose `x-vmd-ref` is
-   * unequal to the one `schema` gives: none where `schema` gives none.
+   * unequal to the one `schema` gives, compared as written, as declarations that meet at one location are: none where
+   * `schema` gives none.
    */
   #unequalRefMembers(schema: ValueObject, holder: SchemaLocation): SchemaLocation[] {
     if (!Object.hasOwn(schema, "x-vmd-ref")) return [];
-    // The question is which one applies, which does not arise for two that mean the same, however they are written.
-    const own = readRefDeclaration(schema["x-vmd-ref"] as ValueObject);
     return this.memberLocations(holder, "$ref").filter((member) => {
       const memberSchema = this.schemaAt(member);
       return (
         isObject(memberSchema) &&
         Object.hasOwn(memberSchema, "x-vmd-ref") &&
-        !sameRefDeclaration(readRefDeclaration(memberSchema["x-vmd-ref"] as ValueObject), own)
+        !valuesEqual(memberSchema["x-vmd-ref"] as Value, schema["x-vmd-ref"] as Value)
       );
     });
   }
@@ -1280,9 +1275,9 @@ export class Spine {
  * The refusal of an `x-vmd-ref` at a location that may hold a `$ref` object, beside an unequal one on its `$ref` member.
  *
  * TODO(#24): which of the two applies is an open question for the project owner, recorded in
- * https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256, with three options: declarations that differ in
- * meaning are refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no
- * record is read under a choice nobody made.
+ * https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256, with three options: unequal declarations are
+ * refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no record is
+ * read under a choice nobody made, and the two are compared as written, as declarations that meet at one location are.
  */
 function refMemberMessage(object: SchemaLocation, member: SchemaLocation): string {
   return `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`;
@@ -1457,6 +1452,7 @@ class Shape implements SchemaShape {
   readonly #children = new Map<string, Shape>();
   readonly list: ListDeclaration | null;
   readonly ref: RefDeclaration | null;
+  readonly refWritten: Value | null;
   readonly conflicts: readonly SchemaLocation[];
   readonly format: string | null;
   readonly summary: boolean | null;
@@ -1513,6 +1509,7 @@ class Shape implements SchemaShape {
     this.list =
       listsEqual && firstList !== undefined ? readListDeclaration(firstList.value as ValueObject, firstList.location) : null;
     this.ref = refsEqual && firstRef !== undefined ? readRefDeclaration(firstRef.value as ValueObject) : null;
+    this.refWritten = refsEqual && firstRef !== undefined ? firstRef.value : null;
     this.conflicts = conflicts;
     this.format = format;
     this.summary = summary;

@@ -717,7 +717,7 @@ record's links need no extra parse, since they come from its own.
 a valid `uri-reference`; an invalid one is the `schema-violation` and no reference (reading R5). A `$ref` object carries the
 declaration of its own schema, or else of its `$ref` member's: the object is the one reference, and an `x-vmd-ref` on its `$ref`
 member applies to it (the project owner's answer on card AN). Where the object's schema and its `$ref` member's both declare
-`x-vmd-ref` with different meanings, no card says which applies (question 22).
+`x-vmd-ref`, and the two differ, no card says which applies (question 22).
 
 ### 5.2 Resolving a target
 
@@ -1327,7 +1327,7 @@ refuses what the specification allows or changes what it states; the design's ch
 | R18 | under `anchors: explicit`, a step through a title-derived name raises both `ref-target-not-allowed` and `ref-derived-anchor` | §9.3, Appendix D |
 | R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets. A record alias makes a `many` reference `aliased`, with no targets where its fragment matches nothing in the record it leads to | §8.5, §13.6 |
 | R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…` | §8.2, §9.3 |
-| R21 | a `$ref` object's declaration and its `$ref` member's are compared by meaning, the defaults filled in, so `{}` and `{cardinality: one}` are one declaration (question 22); other declarations that meet are compared as written | §9.3 |
+| R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ (question 22); a conservative stopgap while the question is open | §9.3 |
 
 The first version listed 20 readings. Seven of them (its R1 and R4 to R8, and R20) refused or moved what the specification allows,
 and are now questions, with the value of `x-vmd-summary`, which no reading named: collection names (question 10), the schema
@@ -1475,7 +1475,7 @@ recommended, and go into a Draft v0.11 with their decision records before the pu
     the collection's data, and with (b) of question 12 it would not be detectable either. Consequence: §9.1's "Every addition is
     detectable" and Appendix D's `feature-unsupported` row change (*spec*, §9.1, Appendix D), and the answer depends on question
     12's.
-22. **A `$ref` object whose schema and whose `$ref` member's declare `x-vmd-ref` with different meanings.** Card AN makes the
+22. **A `$ref` object whose schema and whose `$ref` member's declare unequal `x-vmd-ref`.** Card AN makes the
     object the one reference, with its member's declaration, and does not say which applies when both declare. (a) They are
     refused: `schema-invalid` where the schema alone brings them together (the spine's check, section 3.3), and a
     `schema-violation` at the object, which then gets neither, where only a member name in the data does, as §9.3 has it for

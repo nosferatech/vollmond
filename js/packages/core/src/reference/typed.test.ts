@@ -270,13 +270,19 @@ describe("a $ref object with x-vmd-ref on its $ref member", () => {
     const alone = await patternStore(patterns, "a1: {$ref: ../docs/t.md}\n");
     expect(await shownRefs(alone)).toEqual(["/a1 other/** [ref-target-not-allowed]"]);
     expect(await checkedIssues(alone)).toEqual([]);
-    // Declarations that mean the same are no conflict, however they are written.
-    const same = await patternStore(
+    // Declarations are compared as written, as those that meet at one location are: the default spelled out differs.
+    const spelledOut = await patternStore(
       ['"^a": {type: object, x-vmd-ref: {}}', `"^ab": {type: object, properties: {$ref: ${typed("{cardinality: one}")}}}`],
       "abc: {$ref: ../docs/t.md}\n",
     );
-    expect(await shownRefs(same)).toEqual(["/abc none []"]);
-    expect(await checkedIssues(same)).toEqual([]);
+    expect(await shownRefs(spelledOut)).toEqual(["/abc none []"]);
+    expect(await checkedIssues(spelledOut)).toEqual(["schema-violation /abc"]);
+    // Written alike, they are one declaration.
+    const alike = await patternStore(
+      ['"^a": {type: object, x-vmd-ref: {}}', `"^ab": {type: object, properties: {$ref: ${typed("{}")}}}`],
+      "abc: {$ref: ../docs/t.md}\n",
+    );
+    expect(await checkedIssues(alike)).toEqual([]);
   });
 
   test("gets no declaration from its member where its own declarations conflict in the data", async () => {
