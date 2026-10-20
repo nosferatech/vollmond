@@ -146,6 +146,7 @@ export {
   type Outline,
   type OutlineEntry,
   openStore,
+  type ReadMode,
   type ReferencesQuery,
   type Store,
   type StoreEntry,

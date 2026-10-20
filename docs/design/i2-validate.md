@@ -627,6 +627,21 @@ every input it needs exists in I2: a strict store refuses a record with a struct
 a global `--strict` now, which §12.1 does not list, is question 11. `ref-target-not-allowed` needs references resolved, so a
 strict `get` of one record resolves that record's typed references.
 
+The refusal is the readers', not the store's shared read path (the project owner's answer on card AJ): a strict `get`, `outline`
+or `resolve` fails with the record's refusing issues, those only, but `Store.binding`, which the reference resolver and `check`
+read, binds the record in either mode. So a reference into a refused record has the status a best-effort store gives it, and
+`check` reports the same issues in both modes, as §9.5's validator reports every issue whatever the mode. §8.5's `unreadable` stays
+the status of a reference into a record every reader refuses.
+
+`references()` over every record (`refs` without `from`) reads as a query does (the project owner's answer on card AK): in the
+strict mode it returns the references of the records it can read, gives each refused record's refusing issues as errors of the
+outcome, and fails as a whole over a collection whose schema cannot be used. A best-effort store leaves both out silently, as
+before.
+
+The first pull request of the mode refuses the codes that exist then; `ref-target-not-allowed` comes with typed references
+(I2.4's second pull request, section 13), and with it the resolution of a strict read's typed references, recorded as a deviation
+in #23.
+
 ---
 
 ## 5. References (I2.4)
