@@ -49,6 +49,10 @@ export interface FilesystemIndexCache extends IndexCache {
   readonly root: string;
   /** How many writes failed, and were ignored. */
   readonly failedWrites: number;
+  /** Runs eviction now, whenever it last ran (see {@link evictCache}); never fails. */
+  evict(): Promise<void>;
+  /** Gives the bytes of this implementation's entries and snapshots, as the files below {@link root} take; 0 for none. */
+  size(): Promise<number>;
 }
 
 const VERSION = "[0-9a-f]{40}(?:[0-9a-f]{24})?";
@@ -117,6 +121,20 @@ export function createFilesystemIndexCache(options: FilesystemCacheOptions): Fil
     get failedWrites() {
       return failedWrites;
     },
+    evict: async () => {
+      await evictCache({
+        directory: options.directory,
+        root,
+        now: now(),
+        bound: options.bound ?? DEFAULT_CACHE_BOUND,
+        force: true,
+      });
+    },
+    size: async () => {
+      let total = 0;
+      for (const path of await filesBelow(root)) total += (await stat(path).catch(() => null))?.size ?? 0;
+      return total;
+    },
     read: async (key) => {
       const file = fileOf(key);
       if (file === null) return null;
@@ -161,10 +179,12 @@ export interface EvictionOptions {
   readonly root: string;
   readonly now: number;
   readonly bound: number;
+  /** Whether to run whenever the last eviction ran, rather than at most once a day; false by default. */
+  readonly force?: boolean;
 }
 
 /**
- * Evicts what the cache no longer needs, when the last eviction is more than a day old: the directories of other
+ * Evicts what the cache no longer needs, when the last eviction is more than a day old or `force` says to run now: the directories of other
  * implementations, those that hold the marker vmd writes in one; entries not read for 30 days; then the least recently read entries until those left take at most
  * `bound` bytes; and the snapshot of each store whose root no longer exists. The time of this eviction is written first, so
  * that two processes rarely run it at once; one that does finds files gone, which it ignores. Every failure is ignored, since
@@ -173,7 +193,7 @@ export interface EvictionOptions {
 export async function evictCache(options: EvictionOptions): Promise<boolean> {
   const marker = join(options.directory, "last-eviction");
   const last = await readFile(marker, "utf8").then(Number, () => Number.NaN);
-  if (Number.isFinite(last) && options.now - last < EVICTION_INTERVAL_MS) return false;
+  if (options.force !== true && Number.isFinite(last) && options.now - last < EVICTION_INTERVAL_MS) return false;
   try {
     await mkdir(options.directory, { recursive: true });
     await writeFile(marker, String(options.now));

@@ -22,12 +22,17 @@ function storeRoots(directory: string): string[] {
   return roots;
 }
 
-/** What a store gives that the index could change: a check, a listing, and every reference, as JSON text. */
+/**
+ * What a store gives that the index could change: a check, a listing, and every reference, as JSON text. The check's counts
+ * of the records it parsed and read from the index are left out, since saying how the index served it is their purpose.
+ */
 async function outputOf(store: Store): Promise<string> {
   const shown = (value: unknown) => JSON.stringify(value, (_, item) => (item instanceof Map ? [...item] : item));
   const listed = await store.list({ limit: 1000 });
   const listing = listed.ok ? { items: listed.value.items, issues: listed.issues } : listed;
-  return [shown(await store.check()), shown(listing), shown(await store.references())].join("\n");
+  const checked = await store.check();
+  const check = checked.ok ? { ...checked, value: { ...checked.value, parsed: null, fromIndex: null } } : checked;
+  return [shown(check), shown(listing), shown(await store.references())].join("\n");
 }
 
 async function opened(root: string, index?: IndexCache): Promise<Store | null> {

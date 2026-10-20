@@ -12,6 +12,7 @@ import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage } from "../storage/memory.js";
 import { openStore, type Store } from "../store/store.js";
 import { gitBlobId } from "../value/digest.js";
+import type { CheckSummary } from "./check.js";
 
 vi.mock("../format/parse-record.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../format/parse-record.js")>();
@@ -167,6 +168,14 @@ async function storeOf(state: State, index?: IndexCache): Promise<Store> {
   return opened.value;
 }
 
+/**
+ * A check's outcome with its counts of how the local index served it, the records parsed and those read from the index, set
+ * to 0: the one part of a check that differs with the index, which says how it was made.
+ */
+function served(outcome: Outcome<CheckSummary>): Outcome<CheckSummary> {
+  return outcome.ok ? { ...outcome, value: { ...outcome.value, parsed: 0, fromIndex: 0 } } : outcome;
+}
+
 describe("a check over the local index", () => {
   // About 2 s alone; the bound leaves room for a loaded machine running every test file at once.
   test("reports what a check without it reports, and parses only the records it has not seen", { timeout: 120_000 }, async () => {
@@ -200,7 +209,12 @@ describe("a check over the local index", () => {
           const indexed = await storeOf(state, cache);
           const outcome = await indexed.check();
           // As text, so that the order of members counts too, as it does in the command line's JSON.
-          expect(JSON.stringify(outcome)).toBe(JSON.stringify(expected));
+          expect(JSON.stringify(served(outcome))).toBe(JSON.stringify(served(expected)));
+          // And the counts say how it was served: each record parsed, and the others from the index.
+          expect(outcome.ok && [outcome.value.parsed, outcome.value.fromIndex]).toEqual([
+            expectedParses.size,
+            expected.ok ? expected.value.records - expectedParses.size : 0,
+          ]);
           const parsed = parseRecord.mock.calls.map(([path]) => path);
           expect(parsed.length).toBe(new Set(parsed).size);
           expect(new Set(parsed)).toEqual(expectedParses);

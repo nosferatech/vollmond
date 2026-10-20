@@ -45,9 +45,11 @@ To run the command from a checkout, build first and then, in `js/`, use `node pa
 `npx` would run that. The `vmd` link in `node_modules/.bin` appears only after a build followed by `npm rebuild` or a fresh
 `npm install`, because the link points at a file that `tsc` creates.
 
-`ls` and `outline` keep a local index of what they parse in the per-user cache directory (`$XDG_CACHE_HOME/vmd/` when that
-is set, otherwise `~/Library/Caches/vmd/` on macOS and `~/.cache/vmd/` elsewhere), never in the store. A build writes the id the
-index keys its entries by, so a changed build starts cold. The tests point `XDG_CACHE_HOME` at a temporary directory
+`check`, `index`, `ls` and `outline` keep a local index of what they parse in the per-user cache directory
+(`$XDG_CACHE_HOME/vmd/` when that is set, otherwise `~/Library/Caches/vmd/` on macOS and `~/.cache/vmd/` elsewhere), never in
+the store; `get`, `cat` and `grep` neither read nor write it, and `--no-cache` turns it off for any command. `vmd index` brings
+it up to date for the whole store, which gives `outline` its refs-in counts. A build writes the id the index keys its entries
+by, so a changed build starts cold. The tests point `XDG_CACHE_HOME` at a temporary directory
 (`js/vitest.setup.ts`), and so does CI's smoke run.
 
 `@vollmond/core` must not use Node APIs. Its `tsconfig.json` leaves out Node's types, and

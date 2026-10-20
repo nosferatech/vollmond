@@ -1,7 +1,9 @@
 import { CAT_COMMAND } from "./cat.js";
+import { CHECK_COMMAND } from "./check.js";
 import type { Command } from "./command.js";
 import { GET_COMMAND } from "./get.js";
 import { GREP_COMMAND } from "./grep.js";
+import { INDEX_COMMAND } from "./index-command.js";
 import { LS_COMMAND } from "./ls.js";
 import { OUTLINE_COMMAND } from "./outline.js";
 
@@ -12,4 +14,6 @@ export const BUILT_IN_COMMANDS: readonly Command[] = Object.freeze([
   GREP_COMMAND,
   OUTLINE_COMMAND,
   GET_COMMAND,
+  CHECK_COMMAND,
+  INDEX_COMMAND,
 ]);

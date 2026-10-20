@@ -19,6 +19,8 @@ export interface OpenedStore {
   readonly store: Store;
   /** The local index the store reads and writes, for a command that reads one and a cache that may serve the store; or null. */
   readonly index: FilesystemIndexCache | null;
+  /** Why the store is not over a local index, when it is not, for the user: "--no-cache turns it off". */
+  readonly noIndex?: string;
 }
 
 /** A command's command line, read: its arguments and options, and the global options. */
@@ -73,6 +75,14 @@ export type CommandOutput =
       readonly text: (value: unknown) => string | Uint8Array;
       /** Gives what the command knows of each issue beyond the issue itself, such as the semantic path of its node. */
       readonly details?: IssueDetailsSource;
+      /**
+       * The most of its own issues to print as text, or null for every one; the issue list's default, 20, when absent. It
+       * applies to a command whose issues are printed on stdout ({@link Command.issueOutput} `listing` or `result`); `--json`
+       * prints every issue.
+       */
+      readonly issueLimit?: number | null;
+      /** Writes the text that follows its own issues on stdout, for a successful outcome, such as a summary line. */
+      readonly trailer?: (value: unknown) => string;
     }
   /** A command line the command cannot read: printed as `usage-invalid`, with exit code 2. */
   | { readonly kind: "usage"; readonly message: string };
@@ -85,13 +95,24 @@ export function outcomeOutput<T>(
   outcome: Outcome<T>,
   text: (value: T) => string | Uint8Array,
   details?: IssueDetailsSource,
+  listing: OutputListing<T> = {},
 ): CommandOutput {
   return {
     kind: "outcome",
     outcome,
     text: text as (value: unknown) => string | Uint8Array,
     ...(details === undefined ? {} : { details }),
+    ...(listing.issueLimit === undefined ? {} : { issueLimit: listing.issueLimit }),
+    ...(listing.trailer === undefined ? {} : { trailer: listing.trailer as (value: unknown) => string }),
   };
+}
+
+/** How a command whose issues are printed on stdout lists them: how many, and what follows them. */
+export interface OutputListing<T> {
+  /** The most issues to print as text, or null for every one; 20 when absent. */
+  readonly issueLimit?: number | null;
+  /** Writes the text after the issues, for a successful outcome. */
+  readonly trailer?: (value: T) => string;
 }
 
 /** Gives the output of a command whose arguments are not ones it accepts, with a message for the user. */
@@ -126,7 +147,8 @@ export interface Command {
   readonly readsIndex?: boolean;
   /**
    * What the issues of its outcome are, which decides where they are printed without `--json`; the configuration's issues and
-   * the warning about the runtime's Unicode data go to stderr whatever this says.
+   * the warning about the runtime's Unicode data go to stderr whatever this says, and so do the issues of a failure, which has
+   * no result.
    *
    * - `diagnostics` (the default): about the result, on stderr; `--quiet` leaves out the warnings.
    * - `listing`: part of what the command lists, as `refs` lists references with their status, on stdout after the value;

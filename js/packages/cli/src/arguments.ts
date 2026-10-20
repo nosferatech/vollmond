@@ -19,6 +19,8 @@ export const GLOBAL_OPTIONS: Readonly<Record<string, OptionSpec>> = Object.freez
   config: Object.freeze({ type: "string" }),
   json: Object.freeze({ type: "boolean" }),
   quiet: Object.freeze({ type: "boolean" }),
+  strict: Object.freeze({ type: "boolean" }),
+  "no-cache": Object.freeze({ type: "boolean" }),
   version: Object.freeze({ type: "boolean" }),
   help: Object.freeze({ type: "boolean" }),
 });
@@ -33,6 +35,10 @@ export interface GlobalOptions {
   readonly json: boolean;
   /** Whether to leave out warnings. */
   readonly quiet: boolean;
+  /** Whether the store's readers use the strict read mode, refusing records that break their collection's schema. */
+  readonly strict: boolean;
+  /** Whether to neither read nor write the local index in the per-user cache directory. */
+  readonly noCache: boolean;
 }
 
 /** The command line read up to the command's name: the global options found before it, and where the name is. */
@@ -107,8 +113,13 @@ export function readCommandLine(
   } catch (error) {
     return { ok: false, message: errorMessage(error) };
   }
-  const { store, config, json, quiet, version, help, ...own } = parsed.values;
-  const globals: { -readonly [K in keyof GlobalOptions]: GlobalOptions[K] } = { json: json === true, quiet: quiet === true };
+  const { store, config, json, quiet, strict, "no-cache": noCache, version, help, ...own } = parsed.values;
+  const globals: { -readonly [K in keyof GlobalOptions]: GlobalOptions[K] } = {
+    json: json === true,
+    quiet: quiet === true,
+    strict: strict === true,
+    noCache: noCache === true,
+  };
   if (typeof store === "string") globals.store = store;
   if (typeof config === "string") globals.config = config;
   return {

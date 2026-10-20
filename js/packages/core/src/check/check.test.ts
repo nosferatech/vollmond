@@ -54,7 +54,7 @@ describe("Store.check", () => {
     });
     const outcome = await store.check();
     // A record the backend cannot read counts as checked and unreadable, as ls counts it; an asset it cannot read does not.
-    expect(successValue(outcome)).toEqual({ records: 4, unreadable: 2 });
+    expect(successValue(outcome)).toMatchObject({ records: 4, unreadable: 2 });
     expect(shown(outcome.issues)).toEqual([
       'syntax-error error bad.json ""',
       "storage-failed error locked.md null",
@@ -62,8 +62,8 @@ describe("Store.check", () => {
       'duplicate-anchor error twice.md "/$sections/1"',
       'duplicate-key error twice.md "/$sections/1"',
     ]);
-    expect(successValue(await store.check({ records: ["fine.md"] }))).toEqual({ records: 1, unreadable: 0 });
-    expect(successValue(await store.check({ records: ["locked.md"] }))).toEqual({ records: 1, unreadable: 1 });
+    expect(successValue(await store.check({ records: ["fine.md"] }))).toMatchObject({ records: 1, unreadable: 0 });
+    expect(successValue(await store.check({ records: ["locked.md"] }))).toMatchObject({ records: 1, unreadable: 1 });
   });
 
   test("checks the path rules over every listed path, assets with warnings, and leaves ignored paths alone", async () => {
@@ -118,7 +118,7 @@ describe("Store.check", () => {
       'duplicate-anchor error docs/a.md "/$sections/1"',
       'duplicate-key error docs/a.md "/$sections/1"',
     ]);
-    expect(successValue(outcome)).toEqual({ records: 2, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 2, unreadable: 0 });
   });
 
   test("with records, reports only their issues, and a schema's issue only when one of them is in its collection", async () => {
@@ -135,11 +135,11 @@ describe("Store.check", () => {
       'duplicate-anchor error other.md "/$sections/1"',
       'duplicate-key error other.md "/$sections/1"',
     ]);
-    expect(successValue(other)).toEqual({ records: 1, unreadable: 0 });
+    expect(successValue(other)).toMatchObject({ records: 1, unreadable: 0 });
     const docs = await store.check({ records: ["docs/a.md", "missing.md", "docs"] });
     expect(shown(docs.issues).map((line) => line.split(" ")[0])).toEqual(["schema-invalid", "duplicate-anchor", "duplicate-key"]);
-    expect(successValue(docs)).toEqual({ records: 1, unreadable: 0 });
-    expect(successValue(await store.check({ records: [] }))).toEqual({ records: 0, unreadable: 0 });
+    expect(successValue(docs)).toMatchObject({ records: 1, unreadable: 0 });
+    expect(successValue(await store.check({ records: [] }))).toMatchObject({ records: 0, unreadable: 0 });
   });
 
   test("reports a link into a journal whose top-level sections may repeat only where its first step names several nodes", async () => {
@@ -213,7 +213,7 @@ describe("Store.check", () => {
     const inner = createMemoryStorage({ files });
     const store = await storeOver(withList(inner, (query) => inner.list({ ...query, limit: Math.min(query.limit, 2) })));
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 5, unreadable: 1 });
+    expect(successValue(outcome)).toMatchObject({ records: 5, unreadable: 1 });
     expect(shown(outcome.issues)).toEqual(['syntax-error error r4.json ""']);
   });
 
@@ -257,7 +257,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
       }),
     );
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 0, unreadable: 0 });
     expect(counted(outcome.issues)).toEqual({ "path-invalid": COUNT });
   }, 60_000);
 
@@ -270,7 +270,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
       withList(inner, async () => succeed({ items: [], cursor: null, remaining: { count: 0, exact: true } }, failed)),
     );
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 0, unreadable: 0 });
     expect(counted(outcome.issues)).toEqual({ "storage-failed": COUNT });
   }, 60_000);
 
@@ -281,7 +281,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
       withList(inner, async () => succeed({ items, cursor: null, remaining: { count: 0, exact: true } })),
     );
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 0, unreadable: 0 });
     expect(outcome.issues).toEqual([]);
   }, 60_000);
 
@@ -289,7 +289,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
     const members = Array.from({ length: COUNT }, (_, index) => `"$m${index}":0`);
     const store = await storeOf({ ...CONFIGURATION, "r.json": `{${members.join(",")}}` });
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 1 });
+    expect(successValue(outcome)).toMatchObject({ records: 1, unreadable: 1 });
     expect(counted(outcome.issues)).toEqual({ "feature-unsupported": COUNT });
   }, 60_000);
 
@@ -300,7 +300,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
       "r.json": JSON.stringify({ a: Array(COUNT).fill(0) }),
     });
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 1, unreadable: 0 });
     expect(counted(outcome.issues)).toEqual({ "schema-violation": COUNT });
   }, 60_000);
 
@@ -308,7 +308,7 @@ describe("Store.check with more issues than a call takes arguments", () => {
     // $ref objects in a field rather than links in a $body, which would take seconds to parse as Markdown.
     const store = await storeOf({ ...CONFIGURATION, "r.json": JSON.stringify({ a: Array(COUNT).fill({ $ref: "x.md" }) }) });
     const outcome = await store.check();
-    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 0 });
+    expect(successValue(outcome)).toMatchObject({ records: 1, unreadable: 0 });
     expect(counted(outcome.issues)).toEqual({ "ref-dangling": COUNT });
   }, 60_000);
 });

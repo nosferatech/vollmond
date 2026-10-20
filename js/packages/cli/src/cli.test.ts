@@ -143,7 +143,9 @@ describe("without a command", () => {
   test("prints the help for --help, listing the commands", async () => {
     const result = await runText(["--help"], environment("/", [list]));
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("usage: vmd [--store DIR] [--config FILE] [--json] [--quiet] COMMAND");
+    expect(result.stdout).toContain(
+      "usage: vmd [--store DIR] [--config FILE] [--json] [--quiet] [--strict] [--no-cache] COMMAND",
+    );
     expect(result.stdout).toContain("  list      the list command of the tests\n");
   });
 
@@ -194,7 +196,7 @@ describe("the command line", () => {
     await runText(["--quiet", "echo", "x.md#a", "--value", "--store", root], environment("/", [echo]));
     expect(seen?.positionals).toEqual(["x.md#a"]);
     expect(seen?.options).toEqual({ value: true });
-    expect(seen?.globals).toEqual({ store: root, json: false, quiet: true });
+    expect(seen?.globals).toEqual({ store: root, json: false, quiet: true, strict: false, noCache: false });
     expect(seen?.store?.location.root).toBe(root);
     expect(seen?.store?.configuration).toMatchObject({ vmd: 1, declared: 1, uniqueness: "strict", collections: [] });
   });
