@@ -434,7 +434,7 @@ times. Each check is a small grammar over the string, never `Date.parse`, whose 
 | `date` | RFC 3339 `full-date`, with the days of each month and the Gregorian leap years | strings |
 | `time` | `full-time`: any fraction, `Z` or `z` or a numeric `±hh:mm` offset, `60` seconds only at 23:59 UTC after the offset (J1) | strings |
 | `date-time` | `full-date`, `T` or `t`, `full-time`; no space (H2.7) | strings |
-| `local-date-time` | `full-date`, `T`, `t` or a space, `partial-time` with any fraction; `60` seconds only at 23:59, taken as UTC (J1) | strings |
+| `local-date-time` | `full-date`, `T`, `t` or a space, `partial-time` with any fraction; `60` seconds in any minute, as the grammar allows (card AV) | strings |
 | `duration` | RFC 3339 Appendix A's ABNF exactly, without regard to case | strings |
 | `int64` | a number that is an integer-valued double in [−2^63, 2^63−1], compared as a `BigInt`; or a string matching `-?(0\|[1-9][0-9]*)` in that range, `"-0"` included | numbers and strings |
 | `bigint` | as `int64`, unbounded | numbers and strings |
@@ -1273,8 +1273,8 @@ As in I1 (I1 §8): Vitest unit tests per module, property tests with fast-check,
    validity, with core's `duplicate-key` standing for the compilation's `maxContains` failure. The oracle is the specification's
    own definition, run by a validator core does not write.
 2. **Dates and times.** Strings built from random components (year, month, day, hour, minute, second, fraction, offset), valid
-   exactly when the components are: the day against `Date.UTC`'s calendar for that month, a leap second against 23:59 UTC after
-   the offset computed with integer arithmetic. Mutations (a separator, a digit count, a case) are checked against the ABNF.
+   exactly when the components are: the day against `Date.UTC`'s calendar for that month, a zoned time's leap second against 23:59
+   UTC after the offset computed with integer arithmetic, and a local date-time's in any minute. Mutations (a separator, a digit count, a case) are checked against the ABNF.
    Durations from a generator of RFC 3339 Appendix A's grammar and from near misses (§4.3's examples). `int64`, `bigint` and
    `decimal` against `BigInt` and the XML Schema expression.
 3. **URI resolution.** For random citing paths and relative references that stay in the store, `resolveReferenceUri` gives the

@@ -11,8 +11,8 @@ import {
   readTime,
 } from "./logical-types.js";
 
-// The oracles are independent of the checks: the calendar is Date.UTC's, and so is a leap second's place, the time less its
-// offset taken to UTC by Date.UTC; and the lexical forms are regular expressions transcribed from RFC 3339's ABNF (section
+// The oracles are independent of the checks: the calendar is Date.UTC's, and so is a leap second's place in a zoned time, the
+// time less its offset taken to UTC by Date.UTC, while a local date-time takes a leap second in any minute; and the lexical forms are regular expressions transcribed from RFC 3339's ABNF (section
 // 5.6 and Appendix A), TOML 1.0.0's local date-time, XML Schema 1.1's decimal and §4.3's integer pattern, matched without regard to case where the
 // ABNF says so (RFC 5234, section 2.3).
 
@@ -82,6 +82,8 @@ const dateValid = (c: Components) => c.month >= 1 && c.month <= 12 && c.day >= 1
 const offsetValid = (c: Components) => c.offset === undefined || (c.offset.hours <= 23 && c.offset.minutes <= 59);
 const timeValid = (c: Components, offset: number) =>
   c.hour <= 23 && c.minute <= 59 && (c.second <= 59 || (c.second === 60 && leapAllowed(c.hour, c.minute, offset)));
+/** Whether a local date-time's time is valid: a leap second in any minute, since it has no zone. */
+const localTimeValid = (c: Components) => c.hour <= 23 && c.minute <= 59 && c.second <= 60;
 
 /** A mutation of a string: a character replaced, removed or doubled, or a letter's case changed. */
 const mutation = fc.record({
@@ -127,7 +129,7 @@ function timeComponentsValid(text: string, local: boolean): boolean {
     }
   }
   if (hour > 23 || minute > 59) return false;
-  return second <= 59 || (second === 60 && leapAllowed(hour, minute, offset));
+  return second <= 59 || (second === 60 && (local || leapAllowed(hour, minute, offset)));
 }
 
 describe("property test 2: dates and times against Date.UTC and RFC 3339's ABNF", () => {
@@ -170,7 +172,7 @@ describe("property test 2: dates and times against Date.UTC and RFC 3339's ABNF"
         const dateTime = `${dateText(c)}${c.separator}${partialText(c)}${offsetText(c)}`;
         expect(readDateTime(dateTime) !== null).toBe(dateValid(c) && offsetValid(c) && timeValid(c, offsetMinutes(c)));
         const local = `${dateText(c)}${localSeparator}${partialText(c)}`;
-        expect(readLocalDateTime(local) !== null).toBe(dateValid(c) && timeValid(c, 0));
+        expect(readLocalDateTime(local) !== null).toBe(dateValid(c) && localTimeValid(c));
       }),
       { numRuns: 4000 },
     );

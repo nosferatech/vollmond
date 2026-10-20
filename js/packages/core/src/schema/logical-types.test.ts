@@ -71,6 +71,7 @@ describe("readTime, RFC 3339 full-time", () => {
     "08:00:00+02:60",
     "08:00:00.Z",
     "12:30:60Z",
+    "12:30:60",
     "23:59:60+02:00",
     "23:58:60Z",
     "08:00:00 Z",
@@ -106,6 +107,7 @@ describe("readDateTime, RFC 3339 date-time", () => {
     "2026-02-30T08:00:00Z",
     "2026-10-09 08:00:00Z",
     "2026-10-09T12:00:60Z",
+    "2017-01-01T12:30:60Z",
     "2026-10-09TT08:00:00Z",
   ])("%j is not a date-time", (text) => {
     expect(readDateTime(text)).toBeNull();
@@ -121,6 +123,12 @@ describe("readLocalDateTime, TOML 1.0.0's local date-time", () => {
     "2026-10-09T08:00:00.5",
     "2026-10-09T08:00:00.123456789",
     "2026-12-31T23:59:60",
+    // A leap second in any minute: without a zone, the grammar's :60 is all there is to check.
+    "2016-12-31T23:59:60",
+    "2017-01-01T01:59:60",
+    "2017-01-01T12:30:60",
+    "2026-10-09T08:15:60",
+    "2026-10-09T08:15:60.5",
   ])("%s is a local date-time", (text) => {
     expect(readLocalDateTime(text)).not.toBeNull();
   });
@@ -131,7 +139,7 @@ describe("readLocalDateTime, TOML 1.0.0's local date-time", () => {
     "2026-10-09",
     "08:00:00",
     "2026-13-01T08:00:00",
-    "2026-10-09T08:15:60",
+    "2017-01-01T12:30:61",
     "2026-10-09  08:00:00",
   ])("%j is not a local date-time", (text) => {
     expect(readLocalDateTime(text)).toBeNull();
