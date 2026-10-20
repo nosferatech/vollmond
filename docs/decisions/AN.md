@@ -30,10 +30,10 @@ found twice, once as the object and once as the typed string."
 targets, cardinality and anchors that the member's declaration gives, and the member is not a second, typed reference to the same
 target.
 
-**Agent's reading, for the owner to confirm.** The card does not touch where a declaration may stand, so Draft v0.16 changes none
-of those rules: a declaration on a `$ref` member, which is a string, still needs `format: uri-reference`, or a `type` that allows
-no string, beside it on every path (§9.3, [AA4](AA4.md) item 2), and is still read only along the spine. The draft does not
-restate this beside the new paragraph.
+**Agent's reading, confirmed by the owner on [W8](W8.md) (2026-10-20), its item 5.** The card does not touch where a declaration
+may stand, so Draft v0.16 changes none of those rules: a declaration on a `$ref` member, which is a string, still needs `format:
+uri-reference`, or a `type` that allows no string, beside it on every path (§9.3, [AA4](AA4.md) item 2), and is still read only
+along the spine. Draft v0.16 did not restate this beside the new paragraph; Draft v0.17 does.
 
 ## Why
 
@@ -50,3 +50,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 Draft v0.16 (#148): §9.3 (the keyword table's "Where", and the paragraph "A declaration on a `$ref` member") and §8.1. The code
 and its suite cases come with the implementation pull request for this card, which also updates the I2 design.
+
+Draft v0.17: card [W8](W8.md) confirmed the reading above, and §9.3 states it. [AR](AR.md) decided the case of unequal
+declarations on the object and its member, which this decision left open: they are refused.

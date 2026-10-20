@@ -39,10 +39,10 @@ The card's example: "`vmd refs --to people/ana.md` on a strict store, where one 
 error, and fails as a whole when it would leave out the records of a collection whose schema cannot be used, as a query does
 (§9.5).
 
-**Agent's reading, for the owner to confirm.** Two cases of one record that the card leaves open, which Draft v0.16 states in
-§9.5: `vmd refs --from` a record that the strict mode refuses fails, as a strict `get` of it does, since the listing reads only
-that record; and `vmd refs --to` such a record lists the references into it, whose statuses stay as in the default mode, as
-[AJ](AJ.md) decided, since the listing reads the citing records, not the target.
+**Agent's reading, confirmed by the owner on [W7](W7.md) (2026-10-20), its item 6.** Two cases of one record that the card leaves
+open, which Draft v0.16 states in §9.5: `vmd refs --from` a record that the strict mode refuses fails, as a strict `get` of it
+does, since the listing reads only that record; and `vmd refs --to` such a record lists the references into it, whose statuses
+stay as in the default mode, as [AJ](AJ.md) decided, since the listing reads the citing records, not the target.
 
 ## Why
 
@@ -61,3 +61,7 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 Draft v0.16 (#148): §9.5, item 4 (`vmd refs` in the strict read mode, and the reading above). The code is #146, the strict read
 mode in core, which also states the rule in the I2 design's section 4.6; `--strict` on the command line comes with the commands of
 task I2.6.
+
+Draft v0.17: card [W7](W7.md) confirmed the reading above and #146's readings of the strict `refs`, which §9.5 now
+states: every record it cannot return is reported by every issue it was refused for, and the failure over an unusable schema
+names each such schema once.

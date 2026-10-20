@@ -712,7 +712,8 @@ member of a `$ref` object declares. Card AO comes from the independent review of
 the schema (#133): a link to an explicit anchor in a journal whose top-level sections may repeat. Card W6 confirms the agent's
 readings that the Draft v0.15 round marked for the owner. The project owner chose the recommended option on every card, with no
 note: (a) on AJ, AK, AM and AN, (b) on AL and AO, and (a) on W6 ("Confirm all eight"). Where the records fill in a detail the
-cards left open, they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.16.
+cards left open, they mark it as the agent's reading, for the owner to confirm; cards W7 and W8 (Draft v0.17) confirmed most of
+them, and AP and AQ decided the two that were open. Section numbers refer to Draft v0.16.
 
 - [AJ](../decisions/AJ.md) A reference's status does not depend on the read mode
 - [AK](../decisions/AK.md) In the strict read mode, a listing of references behaves as a query does
@@ -720,11 +721,12 @@ cards left open, they mark it as the agent's reading, for the owner to confirm. 
 - [AM](../decisions/AM.md) A many-reference under `anchors: explicit` is breached when any target is reached by a title or a
   position
 - [AN](../decisions/AN.md) An `x-vmd-ref` on the `$ref` member of a `$ref` object declares the object, one reference
-- [AO](../decisions/AO.md) The proof that an address names one node looks its first step up in the record
+- [AO](../decisions/AO.md) The proof that an address names one node looks its first step up in the record (superseded by AP)
 - [W6](../decisions/W6.md) The agent's readings in Draft v0.15 are confirmed
 
 Two more changes are applied without a decision of their own. Each is an agent's reading of a pull request that implements an
-earlier decision, which the draft now states, for the owner to confirm; the records of those decisions hold the label:
+earlier decision, which the draft now states, for the owner to confirm; the records of those decisions hold the label, and card
+W8 (Draft v0.17) confirmed both:
 
 - §9.3 and Appendix D's `schema-invalid` row: a value of `type`, `cardinality` or `anchors` in `x-vmd-list` or `x-vmd-ref` that is
   not a string, such as `type: 5`, is of the wrong form, `schema-invalid`, and not an unknown value; from the pull request that
@@ -732,6 +734,29 @@ earlier decision, which the draft now states, for the owner to confirm; the reco
 - §9.3: a position that `items: false`, or a `prefixItems` entry that is `false`, closes is no instance location, so no
   declarations meet there and a path through it needs no format; from the pull request for such positions (#136), recorded in
   [AA4](../decisions/AA4.md).
+
+## Decisions from cards AP to AS and W7 to W9 (Draft v0.17)
+
+Recorded 2026-10-20, and applied to Draft v0.17. Card AP follows AO: whether a link whose first step names no node of the record
+is `dangling` or `ambiguous`. Card AQ asks how far AM's title-derived warnings reach, and card AR what applies when a `$ref`
+object and its `$ref` member declare unequal typed references, a case the typed-references pull request (#149) refused for now.
+Card AS comes from the pull request that would have made the strict read mode refuse `ref-target-not-allowed` (#151, closed
+unmerged): such a break often comes from a change in another record. Cards W7, W8 and W9 confirm the agent's readings of the
+strict read mode (#146), of schema checks and single-place links (#130, #136, #147 and Draft v0.16), and of typed references
+(#149, the I2 design's readings R14 to R21). The project owner chose the recommended option on AP, with a note that asks a
+question, and on AQ, AR, W7 ("Confirm all six"), W8 and W9 ("Confirm all eight"), with no note; on AS the owner chose Other, with
+a note. Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm.
+Section numbers refer to Draft v0.17.
+
+- [AP](../decisions/AP.md) A first step that names no node of the record is proved, so the link is dangling and anchor aliases
+  apply
+- [AQ](../decisions/AQ.md) The title-derived warnings apply to every many-valued reference, as to single ones
+- [AR](../decisions/AR.md) Unequal typed-reference declarations on a `$ref` object and its `$ref` member are refused
+- [AS](../decisions/AS.md) Whether the strict read mode refuses a record for `ref-target-not-allowed` is the implementation's
+  choice
+- [W7](../decisions/W7.md) The agent's readings of the strict read mode are confirmed
+- [W8](../decisions/W8.md) The agent's readings of schema checks and single-place links are confirmed
+- [W9](../decisions/W9.md) The agent's readings of typed references are confirmed
 
 ## Decisions given in conversation
 

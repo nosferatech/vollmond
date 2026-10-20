@@ -54,7 +54,8 @@ define… is `feature-unsupported`", and the treatment of unknown configuration 
 
 When an unknown member or value stands beside other problems, `feature-unsupported` wins, as [AA4](AA4.md) (item 1) confirms.
 
-**Agent's reading, for the owner to confirm.** One detail that the pull request implementing this decision (#130) found open,
+**Agent's reading, confirmed by the owner on [W8](W8.md) (2026-10-20), its item 1.** One detail that the pull request
+implementing this decision (#130) found open,
 which Draft v0.16 states in §9.3 and Appendix D's `schema-invalid` row: a value of `type`, `cardinality` or `anchors` that is not
 a string, such as `type: 5`, is a value of the wrong form, `schema-invalid`, not an unknown value. The values these members define
 are strings, and a newer version would add a string, so only a string outside the set is unknown. #130 implements it so; the other
@@ -79,3 +80,5 @@ Draft v0.14 (#105): §9.1 ("A collection whose schema cannot be used", and "Ever
 (`js/packages/core/src/schema/keywords.ts`) and takes the four cases off the skip list.
 
 Draft v0.16: §9.3 and Appendix D's `schema-invalid` row state the reading above, from #130, for the owner to confirm.
+
+Draft v0.17: card [W8](W8.md) confirmed it; the draft's text keeps it as written.
