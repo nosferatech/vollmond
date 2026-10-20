@@ -20,7 +20,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@hyperjump/browser": "1.5.1",
+    "@hyperjump/browser": "1.6.0",
     "@hyperjump/json-schema": "1.18.0",
     "@hyperjump/json-schema-formats": "1.0.8",
     "jsonc-parser": "3.3.1",
