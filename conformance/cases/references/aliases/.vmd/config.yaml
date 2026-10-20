@@ -3,3 +3,6 @@ collections:
   journal:
     match: ["journal/*.md"]
     schema: journal.schema.yaml
+  many-refs:
+    match: ["refs/many.yaml"]
+    schema: many.schema.yaml

@@ -801,7 +801,9 @@ A live node always wins (§13.6), so an alias is consulted only when the live re
 declared `cardinality: many`, when it matches nothing: its first step, when it reaches no name of the record, follows the
 record's anchor aliases, as it would for a single reference (the project owner's answer on card AL, which follows §13.6's "a
 reference that resolves to no live node"). It is `aliased` when the alias leads to a match, and `ok` with no targets when it
-leads to none, as a single reference stays `dangling` then (reading R19). `alias-shadowed` warns for
+leads to none, as a single reference stays `dangling` then (reading R19). The same holds where a record alias leads it to a
+record in which its fragment matches nothing: it is `ok` with no targets, as for an old section name (the project owner's
+answer on card AU), and its `targets` are checked against the record the alias leads to. `alias-shadowed` warns for
 each live record path that equals a record alias's `from`, and for each node that a first step named by an anchor alias's `from`
 reaches, the same names that stop a chain: an anchor, a key of the root, as a JSON or YAML record's top-level key or a Markdown
 record's front matter key, or a child section of the root by its key (the project owner's answer on card AC). Writing the file is
@@ -1332,7 +1334,7 @@ refuses what the specification allows or changes what it states; the design's ch
 | R16 | `targets: []` allows no target; without `targets`, any is allowed; confirmed by the project owner on card W9 | §9.3 |
 | R17 | `anchors: explicit` on a reference resolved through an anchor alias checks the route after the alias renamed the first step; confirmed by the project owner on card W9 | §9.3, §13.6 |
 | R18 | under `anchors: explicit`, a step through a title-derived name raises both `ref-target-not-allowed` and `ref-derived-anchor`; confirmed by the project owner on card W9 | §9.3, Appendix D |
-| R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets (confirmed by the project owner on card W9). A record alias makes a `many` reference `aliased`, with no targets where its fragment matches nothing in the record it leads to (not on the card, still for the owner to confirm) | §8.5, §13.6 |
+| R19 | a `cardinality: many` reference whose anchor alias leads to a name where the later steps match nothing is `ok` with no targets, as a single reference through it stays `dangling`; the other reading is `aliased` with no targets (confirmed by the project owner on card W9). A record alias that leads a `many` reference to a record where its fragment matches nothing leaves it `ok` with no targets too, as for an old section name, a single reference through it staying `dangling` (the project owner's answer on card AU, 2026-10-20); one whose fragment matches there is `aliased` | §8.5, §13.6 |
 | R20 | a typed reference that leaves the store, a URL or a path above the store root, is not checked against `targets`, as §8.2 tracks nothing outside the store, so `targets: [tickets]` accepts `https://…`; confirmed by the project owner on card W9 | §8.2, §9.3 |
 | R21 | a `$ref` object's declaration and its `$ref` member's are compared as written, as declarations that meet at one location are, so `{}` and `{cardinality: one}` differ, the rule card AR keeps (question 22); confirmed by the project owner on card W9 | §9.3 |
 

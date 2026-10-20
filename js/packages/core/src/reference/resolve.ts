@@ -217,7 +217,9 @@ export class ReferenceResolver {
       const through = await this.#throughAliases(uri.path, uri.fragment, resolution, use);
       if (through !== null) {
         final = through;
-        aliased = true;
+        // A selector that a record alias leads to a record without a match is ok with nothing there, not aliased: a singular
+        // address through the same alias stays dangling. Its targets are still checked against the record it leads to.
+        aliased = !(through.status === "ok" && through.targets.length === 0);
       }
     }
     return this.#reference(record, occurrence, final, aliased);

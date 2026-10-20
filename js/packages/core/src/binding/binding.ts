@@ -226,13 +226,12 @@ class Binder {
     if (shape.conflicts.length > 0 || member.conflicts.length > 0) return;
     const own = shape.ref;
     const members = member.ref;
-    // TODO(#24): which declaration applies where the two differ is an open question, recorded in
-    // https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256; until it is answered neither does.
+    // Both apply to the one reference, so they must be equal, compared as written as the schema's check compares them.
     if (own !== null && members !== null && !valuesEqual(shape.refWritten as Value, member.refWritten as Value)) {
       this.#failures.push({
         at,
         message:
-          "its schema and its $ref member's declare unequal x-vmd-ref, which only this member's name brings together; which one applies is not decided, so it gets neither",
+          "its schema and its $ref member's declare unequal x-vmd-ref, which only this member's name brings together; declarations that meet must be equal, so it gets neither",
       });
       return;
     }
