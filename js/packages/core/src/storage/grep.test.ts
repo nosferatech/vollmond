@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
+import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { compileLineTest } from "./grep.js";
 import { checkPortableRegex, portableRegexToJavaScript } from "./portable-regex.js";
 import { candidatePatterns } from "./portable-regex.testkit.js";
@@ -96,14 +97,19 @@ describe("compileLineTest reads a pattern as RE2 does (§11.4)", () => {
 });
 
 describe("compileLineTest runs in time linear in the line", () => {
-  test("a class holding \\S is one class, not an alternation that backtracks", () => {
+  test("a class holding \\S is one class, not an alternation that backtracks", async () => {
+    // A line of 24 a and a space fails in about the time of one of 12: 1.3 to 1.6 times as long on a laptop under a load
+    // average of 24 to 70. Overlapping branches take time doubling with each a, 4,800 times as long; the lines are short so
+    // that they fail the test in a second, where 40 a would take days.
     const outcome = compileLineTest({ pattern: "^[a\\S]+$", mode: "regex" });
     if (!outcome.ok) expect.fail("not portable");
-    const start = performance.now();
-    expect(outcome.value(`${"a".repeat(40)} `)).toBe(false);
-    // Overlapping branches take time doubling with each a: about 700 ms at 26 of them, and days at 40. The bound is far from
-    // both, so that a loaded machine does not fail it: it tells milliseconds from days.
-    expect(performance.now() - start).toBeLessThan(5000);
+    const lineTest = outcome.value;
+    const testTime = (length: number) => {
+      const line = `${"a".repeat(length)} `;
+      expect(lineTest(line)).toBe(false);
+      return () => timeOf(() => lineTest(line));
+    };
+    expect(await leastTimeRatio(testTime(12), testTime(24))).toBeLessThan(4);
   });
 });
 

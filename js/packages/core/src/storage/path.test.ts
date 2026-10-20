@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { compileGlob } from "./path.js";
 
 // The glob syntax of §11.2, which list, grep, a collection's match and exclude, the configuration's ignore and VQL's @path share.
@@ -58,15 +59,23 @@ describe("compileGlob", () => {
     expect(globTest("a/**/**")("a")).toBe(false);
   });
 
-  test("matches in time linear in the path, whatever the globstars", () => {
-    const path = Array.from({ length: 25 }, () => "a").join("/");
-    const start = performance.now();
-    // A backtracking regex takes about 100 s on the first, which a merge alone would fix, and on the second, which it would not.
-    // The bound is far from both, so that a loaded machine does not fail it: it tells milliseconds from minutes.
-    expect(globTest(`${Array.from({ length: 12 }, () => "**").join("/")}/b`)(path)).toBe(false);
-    expect(globTest(`${Array.from({ length: 12 }, () => "**/a").join("/")}/b`)(path)).toBe(false);
-    expect(globTest(`${Array.from({ length: 12 }, () => "*a*").join("*/")}/b`)(path)).toBe(false);
-    expect(performance.now() - start).toBeLessThan(5000);
+  test("matches in time linear in the path, whatever the globstars", async () => {
+    // Three globs with `size` globstars or stars fail to match a path of twice as many segments. A backtracking regex takes
+    // time exponential in the globstars on the first, which a merge alone would fix, and on the second, which it would not.
+    // Matching takes time proportional to the path times the glob, so doubling both takes about 4 times as long: 3.2 to 3.6
+    // on a laptop under a load average of 24 to 70. A backtracking regex takes 640 times as long; the globs are short so that
+    // it fails the test in a second, where 12 globstars take about 100 s.
+    const tests = (size: number) => {
+      const path = Array.from({ length: 2 * size }, () => "a").join("/");
+      const globs = [
+        `${Array.from({ length: size }, () => "**").join("/")}/b`,
+        `${Array.from({ length: size }, () => "**/a").join("/")}/b`,
+        `${Array.from({ length: size }, () => "*a*").join("*/")}/b`,
+      ].map(globTest);
+      for (const test of globs) expect(test(path)).toBe(false);
+      return () => timeOf(() => globs.map((test) => test(path)));
+    };
+    expect(await leastTimeRatio(tests(5), tests(10))).toBeLessThan(16);
   });
 });
 
