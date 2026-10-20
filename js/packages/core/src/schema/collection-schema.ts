@@ -183,6 +183,17 @@ export async function loadCollectionSchema(
   return fail([schemaIssue(collection, set, problems, loading, unlisted)]);
 }
 
+/**
+ * Gives a problem as an issue's list shows it: after its file and position, or alone when it is about the whole file and its
+ * message starts with that file's name, as `x.json does not exist` does.
+ */
+export function listedProblem(problem: SchemaProblem): string {
+  if (problem.position !== undefined) {
+    return `${problem.file}:${problem.position.line}:${problem.position.col}: ${problem.message}`;
+  }
+  return problem.message.startsWith(`${problem.file} `) ? problem.message : `${problem.file}: ${problem.message}`;
+}
+
 // Deviation from the I2 design, recorded in issue #22: one issue per collection lists every problem, rather than one issue
 // per problem, since the specification reports a schema's issue once and the suite expects one for two YAML problems.
 /**
@@ -208,11 +219,7 @@ function schemaIssue(
   if (only !== undefined && only.file === set.root && only.position === undefined && only.message.startsWith(`${set.root} `)) {
     message = `the schema ${set.root} of the collection ${collection.name} ${only.message.slice(set.root.length + 1)}, ${consequence}`;
   } else {
-    const listed = problems.slice(0, MAX_LISTED).map((problem) => {
-      const where =
-        problem.position === undefined ? problem.file : `${problem.file}:${problem.position.line}:${problem.position.col}`;
-      return `${where}: ${problem.message}`;
-    });
+    const listed = problems.slice(0, MAX_LISTED).map(listedProblem);
     if (total > MAX_LISTED) listed.push(`and ${total - MAX_LISTED} more`);
     message = `the schema ${set.root} of the collection ${collection.name} cannot be used, ${consequence}: ${listed.join("; ")}`;
   }

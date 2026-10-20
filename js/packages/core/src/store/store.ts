@@ -32,6 +32,7 @@ import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
 import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
 import { MAX_SCHEMA_BYTES } from "../schema/schema-set.js";
+import { storageFailureReason } from "../storage/failure-reason.js";
 import { compareUtf8 } from "../storage/path.js";
 import type { CountedPage, FileInfo, GrepMatch, GrepQuery, OversizedFile, StorageReader } from "../storage/storage.js";
 import type { ByteRange } from "../text/source-text.js";
@@ -322,11 +323,11 @@ export function storeConfigurationSource(backend: StorageReader, content: Uint8A
       const file = await backend.read(stored, { maxBytes: MAX_SCHEMA_BYTES });
       if (file.ok) return succeed("oversized" in file.value ? file.value : file.value.content);
       if (!file.issues.every((issue) => issue.code === "address-not-found")) {
-        const named = `cannot read ${stored}: `;
         return fail(
-          file.issues.map((issue) =>
-            issue.message.startsWith(named) ? { ...issue, message: issue.message.slice(named.length) } : issue,
-          ),
+          file.issues.map((issue) => {
+            const reason = storageFailureReason(issue.message, stored);
+            return reason === issue.message ? issue : { ...issue, message: reason };
+          }),
         );
       }
       const below = await backend.list({ prefix: `${stored}/`, limit: 1 });
