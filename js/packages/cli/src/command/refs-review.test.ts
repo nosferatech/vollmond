@@ -102,6 +102,21 @@ describe("what refs --to names", () => {
     expect(raws(result.stdout)).toEqual(raws((await vmd(root, "refs", "a.md#intro")).stdout));
   });
 
+  test("fails with address-ambiguous for an address that matches several nodes, as get does, with the candidates", async () => {
+    const root = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": "vmd: 1\n",
+      "a.md": "# A\n\n## Twice\n\none\n\n## Twice\n\ntwo\n",
+      "b.md": "# B\n\n[x](a.md#twice-1)\n",
+    });
+    const result = await vmd(root, "refs", "a.md#twice");
+    expect(result.stderr).toMatch(/^a\.md error address-ambiguous: /);
+    expect(result.stderr).toMatch(/\n {2}candidates {2}#\/\$sections\/0 \(line 3, derived #twice\)\n/);
+    expect(result.stderr).toContain("  hint use the address of the candidate you mean");
+    expect(result.exitCode).toBe(1);
+    // The same failure as get's, word for word.
+    expect(result.stderr).toBe((await vmd(root, "get", "a.md#twice")).stderr);
+  });
+
   test("does not take a sibling whose exact path starts with the node's for a node below it", async () => {
     const sections = Array.from({ length: 11 }, (_, index) => `## S${index}\n\nText.\n`).join("\n");
     const root = writeFiles(temporaryDirectory(), {

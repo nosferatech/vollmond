@@ -897,7 +897,17 @@ class BackendStore implements Store {
       });
     }
     const node = await resolver.targetOf(path, formatFragment(fragment).slice(1));
-    if (!node.ok) return fail(node.issues);
+    if (!node.ok) {
+      // An ambiguity is reported as resolving the address in the record it was found in reports it, with its candidates and
+      // their hint, so that `refs` and `get` fail alike.
+      const ambiguity = node.issues[0];
+      if (ambiguity?.code === "address-ambiguous" && ambiguity.path !== null) {
+        const address = `${ambiguity.path}${formatFragment(fragment)}`;
+        const resolved = await resolveStoreAddress((record) => this.binding(record), address, "singular");
+        if (!resolved.ok && resolved.issues.some((issue) => issue.code === "address-ambiguous")) return fail(resolved.issues);
+      }
+      return fail(node.issues);
+    }
     return succeed((reference) => reference.targets.some((target) => isTargetIn(target, node.value)));
   }
 
