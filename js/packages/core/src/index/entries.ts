@@ -10,6 +10,7 @@ import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { declaredDuplicate, isDeclaredDuplicate } from "../issue/severity.js";
 import { type NodeIndex, NodeIndexBuilder, type NodeInfo, type ValueKind } from "../record/node-index.js";
 import {
+  type IgnoredAnchorElement,
   isParsedRecord,
   type ParsedRecord,
   type RecordFormat,
@@ -53,10 +54,10 @@ export function bindingEntryKey(version: string, format: RecordFormat, schema: C
 
 /**
  * Writes a record's parse outcome as a parse entry: for a record that parsed, its node index, anchors, tags, section keys,
- * the references it makes whatever its schema with the position of each one's issues, its JSON or YAML sections' title
- * slugs, and its validation issues; for one that did not, its structural errors. No row holds the record's path or a value
- * of it, but for the raw text of each reference, so one entry serves every path with these bytes. The last row counts the
- * others, so an entry cut short is never read as a smaller record.
+ * `<a id>` elements that anchor nothing, the references it makes whatever its schema with the position of each one's issues,
+ * its JSON or YAML sections' title slugs, and its validation issues; for one that did not, its structural errors. No row
+ * holds the record's path or a value of it, but for the raw text of each reference, so one entry serves every path with
+ * these bytes. The last row counts the others, so an entry cut short is never read as a smaller record.
  *
  * Gives null, and so no entry, for an outcome the index cannot keep without its path, one with an issue about another
  * path, and for an entry that would be larger than `limit` bytes, {@link MAX_ENTRY_BYTES} by default. Writing stops as
@@ -86,6 +87,7 @@ export function parseEntry(outcome: Outcome<ParsedRecord>, path?: string, limit 
     for (const node of preOrder(record.nodes)) writer.push(nodeRow(record, node, slugs.get(node.at)));
     for (const entry of record.anchors.anchors) writer.push(anchorRow(entry));
     for (const tag of record.anchors.tags) writer.push({ t: "tag", tag: tag.tag, at: tag.at });
+    for (const element of record.ignoredAnchorElements) writer.push(ignoredAnchorRow(element));
     for (const occurrence of schemaFreeOccurrences(record)) {
       writer.push(referenceRow(occurrence, positionOf(record, occurrence)));
     }
@@ -377,6 +379,22 @@ function anchorRow(entry: AnchorEntry): Row {
     : { t: "anchor", name: entry.name, kind: entry.kind, at: entry.at, slug: entry.slug };
 }
 
+/** Writes an `<a id>` element that anchors nothing as an `ignored_anchor` row. */
+function ignoredAnchorRow(element: IgnoredAnchorElement): Row {
+  const { offset, line, col } = element.position;
+  return { t: "ignored_anchor", name: element.name, at: element.at, position: [offset, line, col] };
+}
+
+/** Reads an `ignored_anchor` row. */
+function readIgnoredAnchor(row: Row): IgnoredAnchorElement {
+  shaped(row, ["name", "at", "position"]);
+  check(typeof row.name === "string" && typeof row.at === "string");
+  const value = row.position;
+  check(Array.isArray(value) && value.length === 3 && value.every((n) => Number.isSafeInteger(n)));
+  const position = Object.freeze({ offset: value[0] as number, line: value[1] as number, col: value[2] as number });
+  return Object.freeze({ name: row.name, at: row.at, position });
+}
+
 /** The place a reference's issue is put at, as resolution finds it: its destination, or else the start of its node. */
 function anchorOffsetOf(record: RecordStructure, occurrence: ReferenceOccurrence): number | undefined {
   return occurrence.destination?.start ?? record.nodes.node(occurrence.at)?.range.start;
@@ -520,6 +538,7 @@ function restoreParse(rows: Iterable<Row>, path: string): Outcome<RestoredRecord
   const titleSlugs = new Map<string, string>();
   const anchors: AnchorEntry[] = [];
   const tags: TagEntry[] = [];
+  const ignoredAnchorElements: IgnoredAnchorElement[] = [];
   const occurrences: ReferenceOccurrence[] = [];
   const positions = new Map<number, Position>();
   const issues: Issue[] = [];
@@ -528,7 +547,7 @@ function restoreParse(rows: Iterable<Row>, path: string): Outcome<RestoredRecord
       case "node": {
         shaped(row, ["at", "parent", "key", "kind", "range"], ["member", "depth", "heading", "section_key", "title_slug"]);
         check(typeof row.at === "string" && (row.kind === "section" || VALUE_KINDS.has(row.kind as string)));
-        check(issues.length === 0 && anchors.length === 0 && occurrences.length === 0);
+        check(issues.length === 0 && anchors.length === 0 && ignoredAnchorElements.length === 0 && occurrences.length === 0);
         const range = readRange(row.range);
         const heading = readHeading(row.heading);
         if (row.parent === null) {
@@ -565,6 +584,9 @@ function restoreParse(rows: Iterable<Row>, path: string): Outcome<RestoredRecord
         check(typeof row.tag === "string" && typeof row.at === "string");
         tags.push({ tag: row.tag, at: row.at });
         break;
+      case "ignored_anchor":
+        ignoredAnchorElements.push(readIgnoredAnchor(row));
+        break;
       case "ref": {
         const { occurrence, position } = readReference(row);
         check(occurrence.form !== "typed");
@@ -591,6 +613,7 @@ function restoreParse(rows: Iterable<Row>, path: string): Outcome<RestoredRecord
   }
   for (const entry of anchors) check(nodes.node(entry.at) !== undefined);
   for (const tag of tags) check(nodes.node(tag.at) !== undefined);
+  for (const element of ignoredAnchorElements) check(format === "md" && nodes.node(element.at)?.kind === "string");
   for (const occurrence of occurrences) check(nodes.node(occurrence.at) !== undefined);
   check(issues.every((issue) => issue.class !== "structural"));
   if (format !== "md") {
@@ -603,6 +626,7 @@ function restoreParse(rows: Iterable<Row>, path: string): Outcome<RestoredRecord
     anchors: anchorTableOf(anchors, tags),
     sectionKeys,
     issues: Object.freeze(issues),
+    ignoredAnchorElements: Object.freeze(ignoredAnchorElements),
     facts: Object.freeze({ occurrences: Object.freeze(occurrences), titleSlugs, positions }),
   });
   return succeed(record);

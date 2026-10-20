@@ -1,7 +1,7 @@
 import type { Nodes, Paragraph, RootContent } from "mdast";
 import type { IssueCode } from "../../issue/codes.js";
 import type { ByteRange, SourceText } from "../../text/source-text.js";
-import { anchorElementAt, anchorTagsWithIdIn, endOf, inlineHtmlOf, startOf } from "./anchor-element.js";
+import { type AnchorTagWithId, anchorElementAt, anchorTagsWithIdIn, endOf, inlineHtmlOf, startOf } from "./anchor-element.js";
 import type { TextRange } from "./heading.js";
 import { isBlank, isTrimmedSpace, lineEndOf, nextLineStart, withLfLineBreaks } from "./lines.js";
 
@@ -64,7 +64,8 @@ export interface BodyProblem {
  * - one there that has content or another attribute, or a second anchor element right after the first, is
  *   `anchor-element-invalid`;
  * - every other `<a>` open tag with an `id` in the body, in the middle of a paragraph, in a block quote, a heading, a table or
- *   an HTML block, is plain HTML and anchors nothing, and gets an `anchor-element-ignored`.
+ *   an HTML block, is plain HTML and anchors nothing, and gets an `anchor-element-ignored`; `ignored` holds each, in
+ *   document order.
  *
  * Each walk keeps its own stack, so the nesting of lists costs no recursion.
  */
@@ -74,21 +75,23 @@ export function readBlockAnchors(
   shift: number,
   body: Body,
   at: string,
-): { readonly anchors: BlockAnchor[]; readonly problems: BodyProblem[] } {
+): { readonly anchors: BlockAnchor[]; readonly problems: BodyProblem[]; readonly ignored: AnchorTagWithId[] } {
   const text = source.text;
   const offsets = new BodyOffsets(source, body.range);
   const anchors: BlockAnchor[] = [];
   const problems: BodyProblem[] = [];
+  const ignored: AnchorTagWithId[] = [];
   const raise = (code: IssueCode, message: string, index: number) => {
     problems.push({ code, message, index, offset: offsets.valueOffset(index) });
   };
   const ignoredIn = (nodes: readonly Nodes[]) => {
     for (const piece of inlineHtmlOf(nodes, shift)) {
-      for (const index of anchorTagsWithIdIn(text, piece.start, piece.end)) {
+      for (const tag of anchorTagsWithIdIn(text, piece.start, piece.end)) {
+        ignored.push(tag);
         raise(
           "anchor-element-ignored",
           "this <a id> is not at the start of a paragraph or a list item, and anchors nothing",
-          index,
+          tag.start,
         );
       }
     }
@@ -160,7 +163,7 @@ export function readBlockAnchors(
       ignoredIn([block]);
     }
   }
-  return { anchors, problems };
+  return { anchors, problems, ignored };
 }
 
 /** Converts indexes into the file's text inside a `$body`'s span to UTF-8 byte offsets into its value. */

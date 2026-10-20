@@ -28,6 +28,24 @@ export interface RecordStructure {
   readonly sectionKeys: ReadonlyMap<string, string>;
   /** The validation issues found while parsing, such as duplicate keys; never a structural error. */
   readonly issues: readonly Issue[];
+  /**
+   * The `<a id>` elements of a Markdown record's bodies that anchor nothing, each with its `anchor-element-ignored` among
+   * `issues`, in document order; empty for a JSON or YAML record.
+   */
+  readonly ignoredAnchorElements: readonly IgnoredAnchorElement[];
+}
+
+/**
+ * An `<a id>` element in a Markdown `$body` that is not at the start of a paragraph or a list item outside block quotes,
+ * and so is plain HTML that anchors nothing, though its author probably meant an anchor.
+ */
+export interface IgnoredAnchorElement {
+  /** Its `id`'s value as written. */
+  readonly name: string;
+  /** The exact path of the `$body` that holds it. */
+  readonly at: string;
+  /** Where its open tag starts in the file. */
+  readonly position: Position;
 }
 
 /** A record that parsed: it had no structural error. */

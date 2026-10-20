@@ -120,6 +120,33 @@ describe("a reference's status and targets", () => {
     expect((await one("guide.md#a%20%zz")).issues[0]?.message).toMatch(/is not an address/);
   });
 
+  test("dangling: a name that only an <a id> anchoring nothing has gets a hint naming the element's line and why", async () => {
+    const text = '# R\n\n[x](#x) and [y](#y)\n\nSome text <a id="x"></a> in a paragraph.\n';
+    const [x, y] = await refsOf(text);
+    expect(codes(x as Reference)).toEqual(["ref-dangling error"]);
+    expect(x?.issues[0]?.hint).toBe(
+      'the <a id="x"> at docs/r.md:5 is not at the start of a paragraph or a list item outside block quotes, so it anchors nothing',
+    );
+    // Its near miss: no element has the name, so the plain message stands alone.
+    expect(codes(y as Reference)).toEqual(["ref-dangling error"]);
+    expect(y?.issues[0]?.message).toMatch(/matches no node/);
+    expect(y?.issues[0]?.hint).toBeUndefined();
+  });
+
+  test("dangling: the hint names every such element of the target record, and none when the name reaches a node", async () => {
+    const files = {
+      "docs/c.md":
+        '# C\n\n> <a id="q"></a>Quoted.\n\n<div><a id="q"></a></div>\n\n## Elsewhere <a id="here"></a>\n\nA <a id="here"></a>.\n',
+    };
+    const reference = await one("c.md#q", files);
+    expect(reference.issues[0]?.hint).toBe(
+      'the <a id="q"> elements at docs/c.md:3, docs/c.md:5 are not at the start of a paragraph or a list item outside block ' +
+        "quotes, so they anchor nothing",
+    );
+    // A name that reaches a node elsewhere in the record, with a later step that does not: the element is not the cause.
+    expect((await one("c.md#here/nothing", files)).issues[0]?.hint).toBeUndefined();
+  });
+
   test("ambiguous: a singular reference whose step matches several nodes, with them as its targets", async () => {
     const reference = await one("twin.md#notes");
     expect(reference.status).toBe("ambiguous");

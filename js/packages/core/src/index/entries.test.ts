@@ -73,6 +73,7 @@ function readOf(subject: RecordStructure | RecordBinding): unknown {
     named: record.anchors.anchors.map((entry) => record.anchors.named(entry.name).length),
     of: allNodes(record).map((node) => record.anchors.of(node.at)),
     tags: record.anchors.tags,
+    ignoredAnchorElements: record.ignoredAnchorElements,
     // A map read by path alone, whose order nothing reads.
     sectionKeys: [...record.sectionKeys].sort(([a], [b]) => (a < b ? -1 : 1)),
     issues: record.issues.map(shown),
@@ -100,7 +101,7 @@ const MARKDOWN = [
   "",
   "## Notes",
   "",
-  "Some notes: é and 𝄞 before [a link](#notes-1).",
+  'Some notes: é and 𝄞 before [a link](#notes-1), and an <a id="stray"></a> that anchors nothing.',
   "",
   "## Notes",
   "",
@@ -346,6 +347,24 @@ describe("a parse entry is a miss, never a different record, when a row is not w
       "docs/design.md",
       MARKDOWN,
       (rows) => rows.map((row) => (row.t === "ref" ? { ...row, at: "/nowhere" } : row)),
+    ],
+    [
+      "an <a id> that anchors nothing at no node",
+      "docs/design.md",
+      MARKDOWN,
+      (rows) => rows.map((row) => (row.t === "ignored_anchor" ? { ...row, at: "/nowhere" } : row)),
+    ],
+    [
+      "an <a id> that anchors nothing with a position that is not three integers",
+      "docs/design.md",
+      MARKDOWN,
+      (rows) => rows.map((row) => (row.t === "ignored_anchor" ? { ...row, position: [1, 2] } : row)),
+    ],
+    [
+      "an <a id> that anchors nothing in a JSON record, whose bodies are not read for anchor elements",
+      "runs/r.json",
+      JSON_RECORD,
+      (rows) => [...rows, { t: "ignored_anchor", name: "x", at: "/$sections/0/$body", position: [0, 1, 1] }],
     ],
     [
       "a structural error in a readable record",

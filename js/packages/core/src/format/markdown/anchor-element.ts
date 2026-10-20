@@ -85,16 +85,23 @@ export function anchorElementAt(text: string, pieces: readonly InlineHtml[], ind
   };
 }
 
+/** The open tag of an `<a>` element with an `id` attribute: where it starts in the file's text, and its first `id`'s value. */
+export interface AnchorTagWithId {
+  readonly start: number;
+  /** The value as written, character references not decoded. */
+  readonly id: string;
+}
+
 /**
  * Finds the open tags of `<a>` elements with an `id` attribute in raw HTML, a piece of inline HTML or an HTML block, from
- * `start` to `end` of the file's `text`, and returns the index of each, in order.
+ * `start` to `end` of the file's `text`, and returns each, in order.
  */
-export function anchorTagsWithIdIn(text: string, start: number, end: number): number[] {
+export function anchorTagsWithIdIn(text: string, start: number, end: number): AnchorTagWithId[] {
   const html = text.slice(start, end);
-  const found: number[] = [];
+  const found: AnchorTagWithId[] = [];
   for (const match of html.matchAll(/<a(?=[ \t\r\n/>])/gi)) {
-    const tag = readOpenTag(html, match.index);
-    if (tag?.attributes.some((attribute) => attribute.name === "id")) found.push(start + match.index);
+    const id = readOpenTag(html, match.index)?.attributes.find((attribute) => attribute.name === "id");
+    if (id !== undefined) found.push({ start: start + match.index, id: id.value });
   }
   return found;
 }

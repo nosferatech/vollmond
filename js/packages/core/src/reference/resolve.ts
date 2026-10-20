@@ -536,9 +536,13 @@ export class ReferenceResolver {
         );
         break;
       }
-      case "dangling":
-        issues.push(issue({ code: "ref-dangling", message: `${shown}: ${resolution.message}` }));
+      case "dangling": {
+        const hint = resolution.inRecord === undefined ? null : ignoredAnchorHint(resolution.inRecord);
+        issues.push(
+          issue({ code: "ref-dangling", message: `${shown}: ${resolution.message}`, ...(hint === null ? {} : { hint }) }),
+        );
         break;
+      }
     }
     const refusal = occurrence.declaration === undefined ? null : this.#notAllowed(occurrence.declaration, resolution);
     if (refusal !== null) issues.push(issue({ ...refusal, message: `${shown} ${refusal.message}` }));
@@ -657,6 +661,24 @@ async function liveEndOfAliasChain(
 /** Whether a semantic path whose only step is `name` matches anything in a record: a node, or a block anchor. */
 function firstStepReaches(record: RecordStructure, name: string): boolean {
   return firstStepTargets(record, name).length > 0;
+}
+
+/**
+ * Gives the hint for a fragment that matched nothing in a record because its first step's name is only the `id` of `<a id>`
+ * elements there that anchor nothing: it names each element by its line, and says why it anchors nothing. Gives null for
+ * any other fragment, one whose first step reaches a node or a block included.
+ */
+function ignoredAnchorHint({ record, fragment }: InRecord): string | null {
+  if (fragment.kind !== "semantic") return null;
+  const name = fragment.steps[0];
+  const elements = record.ignoredAnchorElements.filter((element) => element.name === name);
+  if (name === undefined || elements.length === 0 || firstStepReaches(record, name)) return null;
+  const places = elements.map((element) => `${record.path}:${element.position.line}`).join(", ");
+  const tag = `<a id=${JSON.stringify(name)}>`;
+  const rule = "not at the start of a paragraph or a list item outside block quotes";
+  return elements.length === 1
+    ? `the ${tag} at ${places} is ${rule}, so it anchors nothing`
+    : `the ${tag} elements at ${places} are ${rule}, so they anchor nothing`;
 }
 
 /** Gives what a semantic path whose only step is `name` matches in a record, nodes and block anchors, in document order. */

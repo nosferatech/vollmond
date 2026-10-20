@@ -850,7 +850,7 @@ The four tables of §14.2, in the row format of the portable index (§14.4, C28)
 
 | Entry | Keyed by | Holds |
 |---|---|---|
-| a file version's parse | blob id, format, implementation id | the `records` row without path or collection; the `RecordStructure` as `nodes` and anchor rows; the reference occurrences; the parse's issues (validation ones, or the structural errors of an unreadable record) |
+| a file version's parse | blob id, format, implementation id | the `records` row without path or collection; the `RecordStructure` as `nodes` and anchor rows, and its `<a id>` elements that anchor nothing, for `ref-dangling`'s hint (section 7.1); the reference occurrences; the parse's issues (validation ones, or the structural errors of an unreadable record) |
 | a file version's binding | the same, and the collection's name and schema digest | the keyed lists, the typed references, the binding's issues, the collection key |
 | the snapshot of the last full check | (one per store) | each path's version, and each reference's resolved exact path and status: the "previous index" of §13.5 |
 
@@ -863,6 +863,7 @@ index of I7 writes both. Severities are never stored (section 2.5).
 {"t":"record","format":"md","size":672719,"tokens":168180,"title":"Minimal Log","readable":true}
 {"t":"node","at":"/$sections/0","parent":"","key":0,"kind":"section","range":[1301,2914],"depth":1,"section_key":"vocabulary","heading":{"level":2,"range":[1301,1345],"slug":"0-vocabulary","derived":"0-vocabulary"}}
 {"t":"anchor","name":"vocabulary","kind":"explicit","at":"/$sections/0"}
+{"t":"ignored_anchor","name":"no-stall","at":"/$sections/12/$body","position":[61234,1319,3]}
 {"t":"ref","form":"link","at":"","offset":411,"raw":"#what-each-extension-adds","uri":"#what-each-extension-adds","destination":[820,846]}
 {"t":"issue","code":"anchor-element-ignored","severity":"warning","at":"/$sections/12/$body","position":{"offset":61234,"line":1319,"col":3}}
 ```
@@ -1037,14 +1038,19 @@ does not.
 $ vmd --store ~/vampiredb/docs --config examples/vampiredb/config.yaml check
 design/Concurrency_Primitives.md:857:41 error ref-dangling: Minimal_Log.md#no-stall matches no node
   in   #ring-ordering/$body  (exact #/$sections/7/$sections/2/$body)
-  hint the anchor element at Minimal_Log.md:1301 starts a list item's second paragraph, so it anchors nothing (§6.2)
+  hint the <a id="no-stall"> at Minimal_Log.md:1301 is not at the start of a paragraph or a list item outside block quotes, so it anchors nothing
 ...
 57 issues, 37 not shown: 40 ref-dangling, 17 anchor-element-ignored
 37 records (0 from the index), 1,965 references: 40 errors, 17 warnings
 ```
 
 (The positions and the section path are illustrative.) The hint is worth its code: a `ref-dangling` whose name is an `<a id>` that
-raised `anchor-element-ignored` in the target says so, since that is the cause in all 40 of vampiredb's cases (M).
+raised `anchor-element-ignored` in the target says so, since that is the cause in all 40 of vampiredb's cases (M). Precisely: when
+a fragment matches nothing in a record, its first step reaches no node and no block there, and that step is the `id` of one or
+more such elements of the record, the hint names each by its path and line (`b.md:3, b.md:9 are …, so they anchor nothing` for
+several) and states the rule of draft §6.2 that it breaks. The rule is stated as a whole rather than by where the element stands
+(mid-paragraph, block quote, HTML block), which the parse does not record. The parse entry keeps each such element (section 6.1),
+so a check from the index gives the same hint.
 
 ### 7.2 `vmd refs ADDR [--to | --from] [--context N] [-n N] [--cursor C]`
 

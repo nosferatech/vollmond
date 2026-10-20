@@ -6,7 +6,7 @@ import { type Issue, makeIssue } from "../../issue/issue.js";
 import type { Outcome } from "../../issue/outcome.js";
 import { childPath } from "../../record/exact-path.js";
 import { NodeIndexBuilder } from "../../record/node-index.js";
-import { type ParsedRecord, parseOutcome } from "../../record/record.js";
+import { type IgnoredAnchorElement, type ParsedRecord, parseOutcome } from "../../record/record.js";
 import { nameRecord } from "../../record/record-names.js";
 import type { ReferenceOccurrence } from "../../reference/reference.js";
 import type { ByteRange, SourceText } from "../../text/source-text.js";
@@ -43,6 +43,8 @@ export interface MarkdownReading {
   readonly headings: readonly MarkdownHeading[];
   /** The block anchors of every `$body`, in document order. */
   readonly blockAnchors: readonly BlockAnchor[];
+  /** The `<a id>` elements of every `$body` that anchor nothing, in document order. */
+  readonly ignoredAnchorElements: readonly IgnoredAnchorElement[];
   /** The links, images and link reference definitions of every `$title` and `$body`, in document order. */
   readonly links: readonly ReferenceOccurrence[];
 }
@@ -106,7 +108,16 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const position = source.position(source.byteOffset(index));
     issues.push(makeIssue({ code, path, at, message, position, ...(offset === undefined ? {} : { offset }) }));
   };
-  const nothing = (): MarkdownReading => ({ path, source, issues, root: null, headings: [], blockAnchors: [], links: [] });
+  const nothing = (): MarkdownReading => ({
+    path,
+    source,
+    issues,
+    root: null,
+    headings: [],
+    blockAnchors: [],
+    ignoredAnchorElements: [],
+    links: [],
+  });
 
   const afterBom = source.hasBom ? 1 : 0;
   const frontMatter = findFrontMatter(text, afterBom);
@@ -136,6 +147,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   const blocks = tree.root.children;
   const headings: MarkdownHeading[] = [];
   const blockAnchors: BlockAnchor[] = [];
+  const ignoredAnchorElements: IgnoredAnchorElement[] = [];
   const links: ReferenceOccurrence[] = [];
   /** Adds the links of `nodes`, which a `$title` or a `$body` at `at` holds, with `offsetOf` giving a place's offset in it. */
   const addLinks = (nodes: readonly Nodes[], at: string, offsetOf: (index: number) => number) => {
@@ -199,6 +211,9 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const bodyBlocks = blocks.slice(firstIndex, nextIndex);
     const found = readBlockAnchors(source, bodyBlocks, shift, body, bodyAt);
     for (const anchor of found.anchors) blockAnchors.push(anchor);
+    for (const tag of found.ignored) {
+      ignoredAnchorElements.push({ name: tag.id, at: bodyAt, position: source.position(source.byteOffset(tag.start)) });
+    }
     for (const problem of found.problems) raise(problem.code, bodyAt, problem.message, problem.index, problem.offset);
     const offsets = new BodyOffsets(source, body.range);
     addLinks(bodyBlocks, bodyAt, (index) => offsets.valueOffset(index));
@@ -277,7 +292,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     readBodyOf(draft, nextLineStart(text, after), index + 1, next);
     index = next;
   }
-  return { path, source, issues, root, headings, blockAnchors, links };
+  return { path, source, issues, root, headings, blockAnchors, ignoredAnchorElements, links };
 }
 
 // Deviation from the I1 design, recorded in issue #14: the derived anchors are computed here, after the structural check,
@@ -363,7 +378,7 @@ export function buildMarkdownRecord(reading: MarkdownReading): Outcome<ParsedRec
     const nodes = builder.build(derivedAnchors);
     return nameRecord(
       { path, format: "md", value, source, nodes, issues, links: reading.links },
-      { headingSlugs, blockAnchors: reading.blockAnchors },
+      { headingSlugs, blockAnchors: reading.blockAnchors, ignoredAnchorElements: reading.ignoredAnchorElements },
     );
   });
 }
