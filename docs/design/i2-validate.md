@@ -1176,7 +1176,8 @@ The files are the reference; in prose, the schema says:
   - a Status from its four;
   - Implemented only for a Design;
   - a Component row for a Design, Investigation, Analysis or Report;
-  - a Scope row for a Convention, Guideline or Record.
+  - a Scope row for a Convention, Guideline or Record;
+  - at most ten Components, counted before the ` — ` as `docs.sh` counts them, as a `not` of a pattern.
 
   The rules between rows are an `if`/`then` on the `$body` string, off the spine.
 - **In a document that has an anchor somewhere, every numbered heading carries one.** That covers every level, and a numbered
@@ -1187,14 +1188,37 @@ The files are the reference; in prose, the schema says:
 - **Every level's `$sections` is `x-vmd-list: {type: map, keys: ["@key"]}`**, on the spine. The conditional subschemas carry
   no `x-vmd-*`, so the spine rule of §9.3 accepts them.
 
-Left out:
+**Where it differs from `docs.sh`.** The review of the trial planted each of these cases in a copy of the docs and ran
+both tools on it. None of the cases occurs in today's docs (M).
 
-- the Component slugs of `docs/components.md`, a list the schema cannot read;
-- `docs.sh`'s window of a file's first 12 lines for the header.
-
-An `<a id="` inside code in a `$body` counts as an anchor for the heading rule, where `docs.sh` masks code. A heading that is a
-number alone (`## 3`) is numbered for `docs.sh` and not here, and `## Appendix A: Notes` the other way round. No document has
-any of the three today (M).
+- *Which files the heading rule covers.* `docs.sh` applies it to every tracked `.md` file of the repository that has an anchor,
+  `TODO.md` and the READMEs included. The schema applies it only to the collection's documents, so a numbered heading without
+  an anchor in an anchored `TODO.md` is reported by `docs.sh` alone.
+- *The header's place.* `docs.sh` reads the header only in a file's first 12 lines, and the schema reads the root's whole
+  `$body`, the text before the first `##`. A Type row further down passes here and fails there.
+- *The first row only.* `docs.sh` reads only the first row of each name. With two Type rows, the first unknown and the second
+  valid, `docs.sh` fails and the schema passes.
+- *A keyword with a bare em dash.* `| **Status** | Accepted — |` fails in `docs.sh`, which splits the keyword at ` — ` with a
+  space after it. The schema passes it.
+- *An empty Scope cell.* `| **Scope** | |` passes in `docs.sh`, which reads the cell as `|`. The schema refuses it.
+- *Component slugs.* `docs.sh` checks each slug against `docs/components.md`; the schema only asks for a lowercase letter or
+  digit first, so an unknown slug passes it. Its limit of ten Components is in the schema too, counted as `docs.sh` counts
+  them: slugs before the ` — `, empty ones not counted.
+- *Line endings.* A document with CRLF line endings fails `docs.sh`'s header check, whose rows then end in a carriage return.
+  The schema passes the same document.
+- *Headings `docs.sh`'s pattern skips.* `docs.sh` reads `## ` followed by a number at the very start of a line. vmd reads
+  every ATX heading, so `##  99. Fake` (two spaces) and ` ## 99. Fake` (indented) need an anchor here and not there.
+- *`~~~` fences.* `docs.sh` knows only fences of backticks, so a numbered heading inside a `~~~` fence needs an anchor for it.
+  vmd reads the fence as code.
+- *Code.* An `<a id="` inside code in a section's text, a code span or a fenced block, counts as an anchor for the heading
+  rule here, while `docs.sh` masks code.
+- *The heading pattern's edges.* A heading that is a number alone (`## 3`) is numbered for `docs.sh` and not here, and
+  `## Appendix A: Notes` is numbered here and not for `docs.sh`.
+- *Anchor elements, by vmd's own rules (§6.2).* An `<a id="x">X</a>` with content is a structural error in vmd
+  (`anchor-element-invalid`), which `docs.sh` does not look at. An `<a id>` in the middle of a paragraph anchors nothing in vmd
+  (the warning `anchor-element-ignored`), while `docs.sh` counts it, so a duplicate id there is an error in `docs.sh` alone.
+- *Everything else `docs.sh` checks*: links, shown numbers and labels, ticket citations, file names and the Decision Log's rows.
+  I2.8 compares those.
 
 **Two departures from this section as first proposed, recorded on [#27](https://github.com/nosferatech/vollmond/issues/27).**
 
@@ -1231,8 +1255,8 @@ configuration over a made-up store in CI, each rule firing once and each near mi
 | links and code-comment references from outside `docs/` (the repository's `README.md`, `.rs` files) | read: among its 2,290 references | outside the store, not seen |
 | links from `docs/` to outside it | not checked | outside the store, not checked (§8.2); autolinks are not references |
 | a duplicate anchor id | yes | `duplicate-anchor` |
-| a numbered heading without an anchor, in a document with anchors | yes | `schema-violation` (section 8.2) |
-| header fields: Type, Status, Implemented only for a Design, Component and Scope present | yes | `schema-violation`, as patterns on prose (section 8.2) |
+| a numbered heading without an anchor, in a document with anchors | yes, in every tracked `.md` file | `schema-violation` in the collection's documents only (section 8.2) |
+| header fields: Type, Status, Implemented only for a Design, Component and Scope present, at most ten Components | yes | `schema-violation`, as patterns on prose, with the differences of section 8.2 |
 | header fields: Component slugs from `docs/components.md` | yes | no |
 | a document whose parts are level-1 headings | not looked at | `multiple-h1`, and its header is not seen (section 8.2) |
 | the shown number or label of a link (`[§4.6](…)`) | yes, and `--fix-refs` | no: label templates are deferred (§8.4, §20's open question 3) |

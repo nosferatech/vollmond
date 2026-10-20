@@ -119,10 +119,12 @@ node examples/vampiredb/check.mjs ~/vampiredb
 ```
 
 [`check.mjs`](check.mjs) runs `vmd --json check --all` twice in fresh processes, cold and then warm, with the local index in a
-temporary cache directory of its own, so that the user's cache is not used. It prints every issue and the counts per code. It
-then checks that the store's files are unchanged (a digest before and after) and that no `.vmd/` was created. It exits with 1
-when the configuration or the schema cannot be used, when the warm run disagrees with the cold one, or when the store changed.
-Otherwise it exits with 0, whatever the documents' issues are, since those are the trial's result.
+temporary cache directory of its own, so that the user's cache is not used; it refuses to start when the system's temporary
+directory is inside the checkout. It prints every issue and the counts per code. It then checks that the store is unchanged, by
+a digest before and after of every entry under its root (files, directories and symbolic links), and that no `.vmd/` was
+created. It exits with 1 when vmd fails (printing vmd's stderr), when the configuration or the schema cannot be used, when the
+warm run disagrees with the cold one or does not read every record from the index, or when the store changed. Otherwise it
+exits with 0, whatever the documents' issues are, since those are the trial's result.
 [`vampiredb-trial.test.ts`](../../js/packages/cli/src/command/vampiredb-trial.test.ts) runs this configuration in CI over a
 small made-up store in the same shape: each rule fires once, and its near miss passes.
 
@@ -143,26 +145,48 @@ document's form, as far as a schema of the value view can say it:
   - Status is one of Draft, Accepted, Implemented and Deprecated;
   - Implemented is only for a Design;
   - a Design, Investigation, Analysis or Report names a Component;
+  - no document names more than ten Components;
   - a Convention, Guideline or Record has a Scope.
 - **A numbered heading carries an anchor** (`## 4. Writing <a id="writing"></a>`), at every level: a heading numbered `4.`,
   `4.6 ` or `A.3 `, or an `Appendix` heading. As in `docs.sh`, the rule applies only to a document that has an anchor somewhere,
   either an explicit anchor on a heading or an anchor element in a section's text. Only 8 of the 39 documents have one; in the
-  31 others, `docs.sh` reads links as plain Markdown, and 17 of them have numbered headings without anchors.
+  31 others, `docs.sh` reads links as plain Markdown, and 17 of them have numbered headings without anchors. `docs.sh` applies
+  the rule to every tracked Markdown file with an anchor, not only to these 39 documents (below).
 - **Each level of sections is a keyed list** (`x-vmd-list`, `type: map`, keyed by `@key`), so that two sibling sections with
   the same key are an error. Uniqueness is strict by default anyway (§5.7); the declaration makes it a schema violation, which
   the strict read mode refuses (§9.5).
 
-**What it leaves out**, and so where it differs from `docs.sh`:
+**Where it differs from `docs.sh`.** The review of the trial planted each of these cases in a copy of the docs and ran
+both tools on it. None of the cases occurs in today's docs.
 
-- the Component slugs, which would copy `docs/components.md`, a list the schema cannot read;
-- `docs.sh` reads a header only in a file's first 12 lines, and the schema reads the root's whole `$body`, the text before the
-  first `##`;
-- an `<a id="` inside code in a section's text counts as an anchor for the heading rule, while `docs.sh` masks code. No document
-  without anchors has such text today;
-- the heading pattern differs at two edges: a heading that is a number alone (`## 3`) is numbered for `docs.sh` and not here,
-  and `## Appendix A: Notes` is numbered here and not for `docs.sh`. No document has either today;
-- everything else `docs.sh` checks: links, shown numbers and labels, ticket citations and the Decision Log's rows. I2.8 compares
-  those.
+- *Which files the heading rule covers.* `docs.sh` applies it to every tracked `.md` file of the repository that has an anchor,
+  `TODO.md` and the READMEs included. The schema applies it only to the collection's documents, so a numbered heading without
+  an anchor in an anchored `TODO.md` is reported by `docs.sh` alone.
+- *The header's place.* `docs.sh` reads the header only in a file's first 12 lines, and the schema reads the root's whole
+  `$body`, the text before the first `##`. A Type row further down passes here and fails there.
+- *The first row only.* `docs.sh` reads only the first row of each name. With two Type rows, the first unknown and the second
+  valid, `docs.sh` fails and the schema passes.
+- *A keyword with a bare em dash.* `| **Status** | Accepted — |` fails in `docs.sh`, which splits the keyword at ` — ` with a
+  space after it. The schema passes it.
+- *An empty Scope cell.* `| **Scope** | |` passes in `docs.sh`, which reads the cell as `|`. The schema refuses it.
+- *Component slugs.* `docs.sh` checks each slug against `docs/components.md`; the schema only asks for a lowercase letter or
+  digit first, so an unknown slug passes it. Its limit of ten Components is in the schema too, counted as `docs.sh` counts
+  them: slugs before the ` — `, empty ones not counted.
+- *Line endings.* A document with CRLF line endings fails `docs.sh`'s header check, whose rows then end in a carriage return.
+  The schema passes the same document.
+- *Headings `docs.sh`'s pattern skips.* `docs.sh` reads `## ` followed by a number at the very start of a line. vmd reads
+  every ATX heading, so `##  99. Fake` (two spaces) and ` ## 99. Fake` (indented) need an anchor here and not there.
+- *`~~~` fences.* `docs.sh` knows only fences of backticks, so a numbered heading inside a `~~~` fence needs an anchor for it.
+  vmd reads the fence as code.
+- *Code.* An `<a id="` inside code in a section's text, a code span or a fenced block, counts as an anchor for the heading
+  rule here, while `docs.sh` masks code.
+- *The heading pattern's edges.* A heading that is a number alone (`## 3`) is numbered for `docs.sh` and not here, and
+  `## Appendix A: Notes` is numbered here and not for `docs.sh`.
+- *Anchor elements, by vmd's own rules (§6.2).* An `<a id="x">X</a>` with content is a structural error in vmd
+  (`anchor-element-invalid`), which `docs.sh` does not look at. An `<a id>` in the middle of a paragraph anchors nothing in vmd
+  (the warning `anchor-element-ignored`), while `docs.sh` counts it, so a duplicate id there is an error in `docs.sh` alone.
+- *Everything else `docs.sh` checks*: links, shown numbers and labels, ticket citations, file names and the Decision Log's rows.
+  I2.8 compares those.
 
 **A departure from the I2 design as first written.** The design ([`i2-validate.md`](../../docs/design/i2-validate.md), section
 8.2) applied the heading rule to every document, and said it would narrow `match` should a document have numbered headings and
@@ -200,18 +224,34 @@ The issues:
 heading pattern, applied to all 39 documents as if each had anchors, finds the same 348 headings without an anchor that the
 first draft of the schema reported, line for line. Editing a schema file in place changed the cached results, as it should.
 
-**The checks fail when they should.** Each rule of the schema and each part of the configuration was removed once, and the
-test failed each time:
+**The checks fail when they should.** Each rule of the schema and each part of the configuration was broken once, 23
+mutations in all, and the test failed each time:
 
 - the heading rule made unconditional;
 - each of the three ways the schema finds an anchor;
 - the rule's recursion into lower levels;
-- the `Appendix` pattern;
-- the Type pattern as first drafted, with `\b`;
+- the `Appendix` and the `A.n` patterns;
+- the Type pattern as first drafted, with `\b`, and without its start-of-line anchor;
+- a Type keyword and a Status keyword removed;
+- the Status row's end loosened to accept a further cell;
 - the Implemented, Component and Scope rules;
+- Report dropped from the Component rule, and Record from the Scope rule;
+- the ten-Component limit removed, set one lower, and counting the commas of the prose after ` — `;
 - `required: [$title, $body]`;
 - the recursive globs;
 - the README exclusion.
 
-In `check.mjs`, an unknown `x-vmd-` keyword planted in the schema gives `feature-unsupported` and exit 1, and a checkout
-without `docs/` gives exit 2.
+Each guard of `check.mjs` fired once, on copies of the docs:
+
+| fault | result |
+|---|---|
+| an unknown `x-vmd-` keyword planted in the schema | `feature-unsupported` and exit 1 |
+| a directory created in the store during the run | exit 1 |
+| a symbolic link created in the store during the run | exit 1 |
+| a warm run given an empty cache | exit 1 |
+| vmd's entry point missing | its stderr printed, and exit 1 |
+| a checkout without `docs/` | exit 2 |
+| a temporary directory inside the checkout | exit 2 |
+
+The near miss passes: a temporary directory beside the checkout whose name starts with the checkout's. An issue without a
+position prints as its path alone.

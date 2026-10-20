@@ -37,6 +37,8 @@ properties:
         then: { pattern: "(?:^|\\n)\\| \\*\\*Component\\*\\* \\| `?[a-z0-9]" }                       # names its Component
       - if: { pattern: "(?:^|\\n)\\| \\*\\*Type\\*\\* \\| `?(?:Convention|Guideline|Record)`?(?: — | \\|(?:\\n|$))" }
         then: { pattern: "(?:^|\\n)\\| \\*\\*Scope\\*\\* \\| [^|\\s]" }                              # says where it applies
+      - not:                                   # at most ten Components, counted before the prose that follows ` — `
+          pattern: "(?:^|\\n)\\| \\*\\*Component\\*\\* \\| (?!—)(?:[ \\t]*[^,|\\n\\s](?:(?! — )[^,|\\n])*,(?:[ \\t]*,)*){10}[ \\t]*[^,|\\n\\s]"
   $sections: { type: array, items: { $ref: "#/$defs/section" }, x-vmd-list: { type: map, keys: ["@key"] } }
 if: { $ref: "#/$defs/has-anchor" }
 then: { properties: { $sections: { items: { $ref: "#/$defs/numbered-headings-anchored" } } } }

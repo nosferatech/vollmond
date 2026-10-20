@@ -48,6 +48,28 @@ const NEAR_MISSES: Record<string, string> = {
   "TODO.md": "# TODO\n\n## 1. Later\n",
 };
 
+/** One document per Type keyword and per Status keyword, each with the rows its Type asks for: each keyword is a near miss. */
+const KEYWORD_NEAR_MISSES: Record<string, string> = {
+  ...Object.fromEntries(
+    ["Design", "Investigation", "Analysis", "Report", "Convention", "Guideline", "Record"].map((type) => [
+      `design/Type-${type}.md`,
+      doc(type, header({ Type: type, Status: "Draft", Component: "db", Scope: "every component" })),
+    ]),
+  ),
+  ...Object.fromEntries(
+    ["Draft", "Accepted", "Implemented", "Deprecated"].map((status) => [
+      `design/Status-${status}.md`,
+      doc(status, header({ Type: "Design", Status: `${status} — prose`, Component: "db" })),
+    ]),
+  ),
+  // ten components, the most docs.sh allows, and commas in the prose after the keyword, which are not components
+  "design/Ten.md": doc("Ten", header({ Type: "Design", Status: "Draft", Component: Array(10).fill("db").join(", ") })),
+  "design/Prose.md": doc(
+    "Prose",
+    header({ Type: "Design", Status: "Draft", Component: "db, perf — a, b, c, d, e, f, g, h, i, j, k" }),
+  ),
+};
+
 /** The documents that each break one rule, with the line of the issue and the schema location that its message names. */
 const FAULTS: Record<string, { readonly file: string; readonly line: number; readonly rule: string }> = {
   "a numbered heading without an anchor, two levels down, in a document with anchors": {
@@ -64,6 +86,16 @@ const FAULTS: Record<string, { readonly file: string; readonly line: number; rea
     file: doc("Appendix", DESIGN, '\n## 1. One <a id="one"></a>\n\n## Appendix B More\n'),
     line: 11,
     rule: "#/$defs/numbered-headings-anchored/then/required",
+  },
+  "an A.n heading without an anchor, in a document with anchors": {
+    file: doc("Annex", DESIGN, '\n## 1. One <a id="one"></a>\n\n## A.3 More\n'),
+    line: 11,
+    rule: "#/$defs/numbered-headings-anchored/then/required",
+  },
+  "a Type row that does not start its line": {
+    file: doc("Midline", "| | |\n| --- | --- |\nSee | **Type** | Design |\n| **Status** | Draft |\n| **Component** | db |\n"),
+    line: 3,
+    rule: "#/properties/$body/allOf/0/pattern",
   },
   "a Type that is not a keyword": {
     file: doc("Designs", header({ Type: "Designs", Status: "Draft", Component: "db" })),
@@ -85,6 +117,11 @@ const FAULTS: Record<string, { readonly file: string; readonly line: number; rea
     line: 3,
     rule: "#/properties/$body/allOf/1/pattern",
   },
+  "a Status row with a cell after the keyword": {
+    file: doc("Cells", "| | |\n| --- | --- |\n| **Type** | Design |\n| **Status** | Draft | extra |\n| **Component** | db |\n"),
+    line: 3,
+    rule: "#/properties/$body/allOf/1/pattern",
+  },
   "Implemented on a Guideline": {
     file: doc("Implemented", header({ Type: "Guideline", Status: "Implemented", Scope: "all code" })),
     line: 3,
@@ -94,6 +131,21 @@ const FAULTS: Record<string, { readonly file: string; readonly line: number; rea
     file: doc("Componentless", header({ Type: "Design", Status: "Draft" })),
     line: 3,
     rule: "#/properties/$body/allOf/3/then/pattern",
+  },
+  "a Report without a Component": {
+    file: doc("Report", header({ Type: "Report", Status: "Draft" })),
+    line: 3,
+    rule: "#/properties/$body/allOf/3/then/pattern",
+  },
+  "eleven Components, more than docs.sh allows": {
+    file: doc("Eleven", header({ Type: "Design", Status: "Draft", Component: Array(11).fill("db").join(", ") })),
+    line: 3,
+    rule: "#/properties/$body/allOf/5/not",
+  },
+  "a Record without a Scope": {
+    file: doc("Record", header({ Type: "Record", Status: "Accepted" })),
+    line: 3,
+    rule: "#/properties/$body/allOf/4/then/pattern",
   },
   "a Guideline without a Scope": {
     file: doc("Scopeless", header({ Type: "Guideline", Status: "Accepted" })),
@@ -127,7 +179,7 @@ async function check(root: string): Promise<{ exitCode: number; issues: Issue[];
 
 describe("the vampiredb trial configuration", () => {
   test("loads with its schema, and passes every near miss", async () => {
-    const root = writeFiles(temporaryDirectory(), NEAR_MISSES);
+    const root = writeFiles(temporaryDirectory(), { ...NEAR_MISSES, ...KEYWORD_NEAR_MISSES });
     const result = await check(root);
     expect(result).toEqual({ exitCode: 0, issues: [], stderr: "" });
   });
