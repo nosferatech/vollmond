@@ -35,7 +35,7 @@ from the name it leaves, so links written with either name reach the node; the l
 locked name. This settles a case AC's record left open, under AC's own decision ("vmd's own writes refuse to create a new `a`",
 in the proposal the owner accepted), which a rename back does not do, so it does not supersede AC.
 
-**Agent's reading, for the owner to confirm.**
+**Agent's reading, confirmed by the owner on [W6](W6.md) (2026-10-13), its items 7 and 8.**
 
 1. "Back" is read as the node that the alias's chain leads to taking the alias's old name again, so after `a` → `b` → `c`,
    renaming `c` to `a` is a rename back: it drops `a` → `b` and records `c` → `a`, and `b` → `c` still leads on to `a`.
@@ -58,3 +58,6 @@ The owner chose (a), with no note.
 
 Draft v0.15 (#122): §13.6 (the lock) and AC's record, whose reading 3 now points here. The code comes with the rename operation
 in phase I5; the suite has no write operations before I4, so there is no case yet.
+
+Draft v0.16: card [W6](W6.md) confirmed the agent's readings above (2026-10-13); Draft v0.15 states them as rules without a
+label, so the draft's text keeps them as written.

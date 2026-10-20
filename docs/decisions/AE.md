@@ -55,26 +55,29 @@ for now and a ticket for the classification.
 
 For now, a schema is refused only by the existing rules: the size bound of 1 MiB ([U20](U20.md)), the rules for a valid schema
 (§9.2), and those of the spine and of declarations that meet (§9.3). No complexity limit is added for now; whether "schemas where
-it's obvious they should be refused" meant a further cap is asked of the owner (the agent's reading below). A crafted schema can
-make loading or validation slow; a service that validates untrusted data needs its own time budget for each operation (#111).
-Classifying schemas by cost, provably cheap, plainly too expensive, and a warned grey area between them, is future work: #119.
+it's obvious they should be refused" meant a further cap was asked of the owner as the agent's reading below, and the owner
+confirmed on [W6](W6.md) (item 6) that it meant none. A crafted schema can make loading or validation slow; a service that
+validates untrusted data needs its own time budget for each operation (#111). Classifying schemas by cost, provably cheap, plainly
+too expensive, and a warned grey area between them, is future work: #119.
 
 The size bound limits what reading a schema file costs, not what using it costs: #111's schema of 109 bytes makes validation
 exponential in a record's depth. U20's reason, "A larger schema is a mistake or an attack on a validating service", stands as
 the card's words, and its record now says that the bound does not protect a service's time.
 
-**Agent's reading, for the owner to confirm.** What "schema rejection for schemas where it's obvious they should be refused" means:
+**Agent's reading, confirmed by the owner on [W6](W6.md) (2026-10-13), its item 6.** What "schema rejection for schemas where it's
+obvious they should be refused" means:
 
 - Draft v0.15 reads it as the refusals vmd already has, and adds none. A schema over 1 MiB, one that is not a valid 2020-12
   schema under vmd's narrowings, and one whose vmd keywords break the spine's rules are each refused at load, with
   `schema-invalid` or `feature-unsupported`, and no other schema is. "Otherwise we can pretend that problem doesn't exist, and
   shift responsibility on the user" is §9.2's sentence that a service validating untrusted data needs a time budget of its own,
   which the draft does not define, as §5.4 does not for records.
-- Alternatives considered and not taken, since each adds a refusal that no answer agreed to: the card's (c), a cap on the parts
-  that hold or lead to a vmd keyword, which refuses legitimate generated schemas; the card's (a), whose refusals above the floor
-  depend on each implementation's budget; the card's (d), a count the spec defines; and a size bound smaller than 1 MiB, which
-  #111 shows would not bound the time either. Which schemas are "obviously" too expensive is the "just bad" class of the owner's
-  first note, which #119 is to define.
+- Not part of W6's item 6, which confirms the first bullet only, and still the agent's reasoning for it: alternatives considered
+  and not taken, since each adds a refusal that no answer agreed to: the card's (c), a cap on the parts that hold or lead to a vmd
+  keyword, which refuses legitimate generated schemas; the card's (a), whose refusals above the floor depend on each
+  implementation's budget; the card's (d), a count the spec defines; and a size bound smaller than 1 MiB, which #111 shows would
+  not bound the time either. Which schemas are "obviously" too expensive is the "just bad" class of the owner's first note, which
+  #119 is to define.
 
 ## Why
 
@@ -111,3 +114,6 @@ I2 design's section 9 ("Crafted schemas"); [U20](U20.md)'s record. Suite case `v
 #111's schema, with `type: object` added so that a record can fail it, is used, and of two records nested three levels deep the
 one whose innermost `x` is a number is a `schema-violation` and its near miss is valid; main passes it. The classification is
 #119.
+
+Draft v0.16: card [W6](W6.md) confirmed the agent's readings above (2026-10-13); Draft v0.15 states them as rules without a
+label, so the draft's text keeps them as written.
