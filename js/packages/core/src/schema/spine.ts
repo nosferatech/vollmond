@@ -230,9 +230,10 @@ export class Spine {
   }
 
   /**
-   * How many locations the last {@link Spine.check} took up while finding whether every index at which a keyed list's item
-   * can stand gives the format: for each array and each time what applies beside it changed, the locations beside it, and
-   * those it looked at, index by index, for one giving the item the format. Not counted in {@link Spine.mustSteps}.
+   * How many steps the last {@link Spine.check} took while finding whether every index at which a keyed list's item can
+   * stand gives the format: once for each location beside such an array, its indexes, each read for one giving the item the
+   * format; and for each array and each time what applies beside it changed, each location beside it with the words of
+   * indexes it adds. Not counted in {@link Spine.mustSteps}.
    */
   get keyedIndexSteps(): number {
     return this.#keyedIndexSteps;
@@ -416,8 +417,9 @@ export class Spine {
    * of either location, or of what their `allOf` and `$ref` bring, lets none stand, since no valid record holds one there. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
    * could give it, which in the worst case is quadratic too. Whether every index at which a keyed list's item can stand gives
-   * the format is found once per array and change of what applies beside it, whatever the keys: at most the indexes up to
-   * the longest `prefixItems` beside it times the locations beside it, stopping at the first index that lacks it.
+   * the format takes, once for each location beside such an array, its `prefixItems` and `items`; and once per array and
+   * change of what applies beside it, whatever the keys, a word per 32 indexes up to the longest `prefixItems` for each
+   * location beside it.
    *
    * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
    * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
@@ -715,7 +717,8 @@ export class Spine {
    * So a step to a keyed item also gives a mark of its own, beside the locations, when at every such index some location
    * that the parent's Must brings to the item gives the format or a type without strings. The mark says that the item's own
    * instance location has one on every path, though no single location does, so it passes through `allOf` and `$ref` and no
-   * further. Whether a parent gives the mark is found once for each parent's Must, not once for each key.
+   * further. The indexes at which a location gives the format are read once per location, and whether a parent gives the
+   * mark is their union, found once for each parent's Must, not once for each key.
    */
   #checkRefFormats(report: (location: SchemaLocation, message: string) => void): void {
     this.#mustSteps = 0;
@@ -786,9 +789,29 @@ export class Spine {
       const schema = this.schemaAt(location);
       return isObject(schema) && Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
     };
+    // The indexes at which a location brings to an item one that gives the format or a type without strings: bit i for its
+    // prefixItems entry i, and the bit after them for its items, which applies at every index from there on. Memoized per
+    // location, since many arrays may share it.
+    const givenIndexes = new Map<string, Uint32Array>();
+    const indexesGiven = (location: SchemaLocation): Uint32Array => {
+      const key = locationKey(location);
+      let bits = givenIndexes.get(key);
+      if (bits === undefined) {
+        const prefix = prefixOf(location);
+        bits = new Uint32Array((prefix + 1 + 31) >>> 5);
+        for (let index = 0; index <= prefix; index++) {
+          this.#keyedIndexSteps += 1;
+          if (this.itemLocations(location, index, undefined).some((closed) => guardsRefs(this.schemaAt(closed)))) {
+            bits[index >>> 5] = (bits[index >>> 5] as number) | (1 << (index & 31));
+          }
+        }
+        givenIndexes.set(key, bits);
+      }
+      return bits;
+    };
     // Whether at each index below `closed`, the first at which no item can stand, some location in a parent's Must `above`
-    // brings to an item one that gives the format or a type without strings. Memoized by `above`, which a parent's Must
-    // replaces when it changes, so it is found once per parent and change, whatever the keys of its list.
+    // gives the format there, by the union of the indexes each gives. Memoized by `above`, which a parent's Must replaces
+    // when it changes, so it is found once per parent and change, whatever the keys of its list.
     const indexesGuarded = new Map<string, { readonly above: Uint32Array; readonly guarded: boolean }>();
     const guardsEveryIndex = (parent: SchemaLocation, above: Uint32Array, closed: number): boolean => {
       const key = locationKey(parent);
@@ -802,16 +825,21 @@ export class Spine {
         besides.push(beside);
         longest = Math.max(longest, prefixOf(beside));
       });
-      this.#keyedIndexSteps += besides.length;
       // From the longest prefixItems on, each location gives every item its items alike, so that index stands for the rest.
-      const last = Math.min(closed - 1, longest);
-      let guarded = true;
-      for (let index = 0; index <= last && guarded; index++) {
-        guarded = besides.some((beside) => {
-          this.#keyedIndexSteps += 1;
-          return this.itemLocations(beside, index, undefined).some((location) => guardsRefs(this.schemaAt(location)));
-        });
+      const open = Math.min(closed, longest + 1);
+      const covered = new Uint32Array((open + 31) >>> 5);
+      for (const beside of besides) {
+        const given = indexesGiven(beside);
+        const prefix = prefixOf(beside);
+        const words = Math.min(given.length, covered.length);
+        this.#keyedIndexSteps += 1 + words;
+        for (let word = 0; word < words; word++) covered[word] = (covered[word] as number) | (given[word] as number);
+        // Its items, where it gives the format, covers every index from the end of its prefixItems on.
+        if (prefix + 1 < open && ((given[prefix >>> 5] as number) >>> (prefix & 31)) & 1) {
+          this.#keyedIndexSteps += setRange(covered, prefix + 1, open);
+        }
       }
+      const guarded = coversRange(covered, open);
       indexesGuarded.set(key, { above, guarded });
       return guarded;
     };
@@ -1244,6 +1272,28 @@ function forEachBit(bits: Uint32Array, visit: (index: number) => void): void {
   bits.forEach((word, at) => {
     for (let rest = word; rest !== 0; rest &= rest - 1) visit(at * 32 + (31 - Math.clz32(rest & -rest)));
   });
+}
+
+/** Sets the bits from `from` to before `to` in a bitset that holds them, and gives how many words it wrote. */
+function setRange(bits: Uint32Array, from: number, to: number): number {
+  let written = 0;
+  for (let index = from; index < to; written++) {
+    const offset = index & 31;
+    const count = Math.min(32 - offset, to - index);
+    const mask = (0xffffffff >>> (32 - count)) << offset;
+    bits[index >>> 5] = (bits[index >>> 5] as number) | mask;
+    index += count;
+  }
+  return written;
+}
+
+/** Whether a bitset has every bit below `length` set; it reads the words in order and stops at the first that lacks one. */
+function coversRange(bits: Uint32Array, length: number): boolean {
+  for (let word = 0; word < length >>> 5; word++) if (bits[word] !== 0xffffffff) return false;
+  const rest = length & 31;
+  if (rest === 0) return true;
+  const mask = 0xffffffff >>> (32 - rest);
+  return ((bits[length >>> 5] as number) & mask) >>> 0 === mask;
 }
 
 /** The number of bits set in a bitset. */

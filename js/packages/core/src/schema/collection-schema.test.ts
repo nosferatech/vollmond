@@ -609,6 +609,26 @@ describe("the spine", () => {
           expect((await unusable(file(keyedArray({ prefixItems: [uri, uri] })))).message).toContain(formatAt);
         });
 
+        // The indexes are read 32 to a word, so these cross a word's end.
+        test("over many indexes, where a branch's items gives it past its prefixItems, but not with one index lacking", async () => {
+          const open = (count: number) => Array.from({ length: count }, () => true);
+          await usable(keyedArray({ prefixItems: Array.from({ length: 32 }, () => uri), items: false }));
+          await usable(
+            keyedArray({
+              prefixItems: open(40),
+              items: false,
+              allOf: [{ prefixItems: [uri] }, { prefixItems: [true], items: uri }],
+            }),
+          );
+          const holeAt33 = Array.from({ length: 40 }, (_, index) => (index === 33 ? true : uri));
+          const issue = await unusable(
+            file(keyedArray({ prefixItems: open(40), items: false, allOf: [{ prefixItems: holeAt33 }] })),
+          );
+          expect(issue.message).toContain(formatAt);
+          const lastLacking = Array.from({ length: 32 }, (_, index) => (index === 31 ? true : uri));
+          expect((await unusable(file(keyedArray({ prefixItems: lastLacking, items: false })))).message).toContain(formatAt);
+        });
+
         // Conservative: only the item's own instance location is read index by index. A reference below a key's schema takes
         // only what applies at every index, so entries that each give the format at a member do not give it there.
         test("while a reference below a key's schema still takes only what every index shares", async () => {

@@ -364,11 +364,30 @@ describe("the work of finding the format at each index a keyed item can stand at
     expect(many.spine.keyedIndexSteps).toBe(one.spine.keyedIndexSteps);
   });
 
-  test("stops at the first index that lacks it", async () => {
-    const { spine, problems } = await checked(keyed(200, [true, ...Array.from({ length: 50 }, () => uri)]));
-    expect(problems).toHaveLength(200);
-    expect(spine.keyedIndexSteps).toBeGreaterThan(0);
-    expect(spine.keyedIndexSteps).toBeLessThanOrEqual(2);
+  // Review of the per-index check: arrays that share one definition each have their own parent, so a memo per parent alone
+  // scanned the definition's indexes and branches again for each array, arrays × prefixItems × branches in all.
+  test("reads the indexes a location gives once, however many arrays it applies beside", async () => {
+    /** `arrays` keyed lists, each with a $ref to one definition whose branch j alone gives the format at index j. */
+    const shared = (arrays: number) => {
+      const size = 64;
+      const allOf = Array.from({ length: size }, (_, branch) => ({
+        prefixItems: Array.from({ length: size }, (_, index) => (index === branch ? uri : true)),
+      }));
+      const properties = Object.fromEntries(
+        Array.from({ length: arrays }, (_, array) => [
+          `l${array}`,
+          { $ref: "#/$defs/a", "x-vmd-list": { type: "map", keys: ["name"], items: { foo: { $ref: "#/$defs/s" } } } },
+        ]),
+      );
+      const a = { type: "array", prefixItems: Array.from({ length: size }, () => true), items: false, allOf };
+      return { type: "object", properties, $defs: { a, s: { type: "string", "x-vmd-ref": {} } } };
+    };
+    const one = await checked(shared(1));
+    const many = await checked(shared(21));
+    expect(one.problems).toEqual([]);
+    expect(many.problems).toEqual([]);
+    // Each further array costs the 66 locations beside it, each taken up once and with the two words of its 64 indexes.
+    expect(many.spine.keyedIndexSteps - one.spine.keyedIndexSteps).toBeLessThanOrEqual(20 * 66 * 4);
   });
 });
 
