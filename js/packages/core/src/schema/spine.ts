@@ -162,6 +162,7 @@ export class Spine {
   readonly #patterns = new Map<string, RegExp | null>();
   readonly #marks = new Map<string, SubtreeMarks>();
   readonly #matchesBySource = new Map<string, Uint32Array>();
+  readonly #closedFromByLocation = new Map<string, number>();
   #pairsVisited = 0;
   #mustSteps = 0;
   #stepsComputed = 0;
@@ -400,7 +401,8 @@ export class Spine {
    * In the worst case, two groups of co-applying locations with unequal declarations, the pairs grow with the product of the
    * groups' sizes, so quadratically in the schema. A pair takes a keyed list's item for each key it names at each index of
    * the longest `prefixItems` and past it, so its steps, and the pairs they lead to, grow with the keys times the
-   * `prefixItems`: still at most quadratic, but reached with less schema. The locations that apply beside a typed reference
+   * `prefixItems`: still at most quadratic, but reached with less schema. It takes no item at an index where an `items: false`
+   * of either location, or of what their `allOf` and `$ref` bring, lets none stand, since no valid record holds one there. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
    * could give it, which in the worst case is quadratic too.
    *
@@ -942,16 +944,16 @@ export class Spine {
   }
 
   /**
-   * The steps a pair follows: the members either location's `properties` names and the items, and every other name the
-   * schema lists anywhere that both locations take, through a pattern or `additionalProperties`. Such a name is in the
-   * schema, so two declarations that meet there meet without the data's help. This is conservative: the name may be listed
-   * where the pair does not apply.
+   * The steps a pair follows: the members either location's `properties` names and the items at the indexes where an item
+   * can stand, and every other name the schema lists anywhere that both locations take, through a pattern or
+   * `additionalProperties`. Such a name is in the schema, so two declarations that meet there meet without the data's help.
+   * This is conservative: the name may be listed where the pair does not apply.
    *
    * Of the other names, one stands for all those that the two locations take the same way, since they step to the same
    * locations; the walk's result, and its order, are those of stepping over every one.
    */
   #checkSteps(one: SchemaLocation, first: ValueObject, other: SchemaLocation, second: ValueObject): CheckStep[] {
-    const steps = namedSteps(first, second);
+    const steps = namedSteps(first, second, Math.min(this.#closedFrom(one), this.#closedFrom(other)));
     const takesUnnamed = (schema: ValueObject) =>
       isObject(schema.patternProperties) || isSchemaValue(schema.additionalProperties);
     if (!takesUnnamed(first) || !takesUnnamed(second)) return steps;
@@ -962,6 +964,30 @@ export class Spine {
       }
     }
     return steps;
+  }
+
+  /**
+   * The first index at which no item can stand where a location applies, because it, or what its `allOf` and `$ref` bring,
+   * gives `items: false` past its `prefixItems`; infinite where none does. An item there fails that `false` whatever it
+   * holds, so declarations that meet only there meet in no valid record.
+   */
+  #closedFrom(location: SchemaLocation): number {
+    const key = locationKey(location);
+    let closed = this.#closedFromByLocation.get(key);
+    if (closed === undefined) {
+      closed = Number.POSITIVE_INFINITY;
+      // Only the literal `false` is read. A schema that admits nothing, such as {not: {}}, also closes the index, but telling
+      // such schemas apart is deciding whether a schema is satisfiable, which the check does not attempt; it stays
+      // conservative there and refuses what meets past them. So does an `items: false` of a third location that applies
+      // beside the pair without being brought by either, since the walk keeps pairs, not every set that applies together.
+      for (const applied of this.closure([location])) {
+        const schema = this.schemaAt(applied);
+        if (!isObject(schema) || schema.items !== false) continue;
+        closed = Math.min(closed, Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0);
+      }
+      this.#closedFromByLocation.set(key, closed);
+    }
+    return closed;
   }
 
   /**
@@ -1242,9 +1268,10 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
 
 /**
  * The steps that two schema objects name, which both follow together: the members `properties` names, the items at each
- * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes.
+ * index `prefixItems` gives and past them, and the items of each key a keyed list names, at each of those indexes; of the
+ * indexes, only those below `closed`, the first at which no item can stand.
  */
-function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
+function namedSteps(first: ValueObject, second: ValueObject, closed: number): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
   let prefix = 0;
@@ -1256,9 +1283,10 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
     if (isObject(list) && isObject(list.items)) for (const key of Object.keys(list.items)) keys.add(key);
   }
   for (const name of names) steps.push({ kind: "member", name });
-  for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
-  // An item with a key can stand at any index, so its key's schema meets each prefixItems entry as well as items.
-  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
+  const last = Math.min(prefix, closed - 1);
+  for (let index = 0; index <= last; index++) steps.push({ kind: "item", index });
+  // An item with a key can stand at any open index, so its key's schema meets each prefixItems entry as well as items.
+  for (const key of keys) for (let index = 0; index <= last; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 

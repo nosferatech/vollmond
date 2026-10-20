@@ -478,6 +478,63 @@ describe("the spine", () => {
       await usable(list(item("many"), { prefixItems: [item("many"), item("many")] }));
       await usable(list(item("many"), { prefixItems: [{ type: "object" }], items: { type: "object" } }));
     });
+
+    // Issue #116: past prefixItems, items: false lets no item stand, yet the check still compared a key's schema with what
+    // a sibling gives at that index, and refused the schema for a conflict no record can hold.
+    describe("but not past the prefixItems where items: false lets no item stand", () => {
+      /** The keyed list of `list`, with `extra`, beside a sibling whose second prefixItems entry declares "one". */
+      const besideSibling = (extra: object, sibling: object = { prefixItems: [true, item("one")] }) => ({
+        type: "object",
+        properties: { l: { allOf: [list(item("many"), extra).properties.l, sibling] } },
+      });
+
+      test("so the schema is valid", async () => {
+        await usable(besideSibling({ prefixItems: [item("many")], items: false }));
+      });
+
+      test("nor where items: false comes from what a $ref brings", async () => {
+        await usable({
+          ...besideSibling({ $ref: "#/$defs/pair" }),
+          $defs: { pair: { prefixItems: [item("many")], items: false } },
+        });
+      });
+
+      test("while the same conflict at an index the prefixItems give is schema-invalid", async () => {
+        const issue = await unusable(file(besideSibling({ prefixItems: [item("many"), true], items: false })));
+        expect(issue.message).toContain("unequal x-vmd-ref declarations");
+        expect(issue.message).toContain("allOf/1/prefixItems/1");
+      });
+
+      test("and so is the conflict past the prefixItems where items is a schema", async () => {
+        const issue = await unusable(file(besideSibling({ prefixItems: [item("many")], items: { type: "object" } })));
+        expect(issue.message).toContain("allOf/1/prefixItems/1");
+      });
+
+      // Only the literal false is read: a schema that admits nothing, such as {not: {}}, is not worked out.
+      test("and so is the conflict past items that admits nothing without being false", async () => {
+        const issue = await unusable(file(besideSibling({ prefixItems: [item("many")], items: { not: {} } })));
+        expect(issue.message).toContain("allOf/1/prefixItems/1");
+      });
+
+      // additional: false keeps out the keys the list does not name; the check at load steps only by the keys it names.
+      test("and additional: false does not close a key the list names", async () => {
+        const closed = list(item("many"), { prefixItems: [item("many")], items: { type: "object" } }).properties.l;
+        const issue = await unusable(
+          file({
+            type: "object",
+            properties: {
+              l: {
+                allOf: [
+                  { ...closed, "x-vmd-list": { ...closed["x-vmd-list"], additional: false } },
+                  { prefixItems: [true, item("one")] },
+                ],
+              },
+            },
+          }),
+        );
+        expect(issue.message).toContain("allOf/1/prefixItems/1");
+      });
+    });
   });
 
   test("a member named in properties that a pattern also matches gets both declarations, so unequal ones are schema-invalid", async () => {

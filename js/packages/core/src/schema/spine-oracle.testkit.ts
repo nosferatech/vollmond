@@ -1,7 +1,7 @@
 // The spine's check as it stood before its costs were reduced, kept as the oracle of the differential tests: the new check
 // must report what this one reports, over random schemas small enough for this one to finish. Only the check is kept; the
-// shapes are the spine's own. It carries one change of behaviour made with the check, marked where it stands: a keyed
-// list's item meets the prefixItems entry of every index.
+// shapes are the spine's own. It carries two changes of behaviour made with the check, marked where they stand: a keyed
+// list's item meets the prefixItems entry of every index, and a pair takes no item where an items: false lets none stand.
 
 import { childPath } from "../record/exact-path.js";
 import { jcs } from "../value/jcs.js";
@@ -592,7 +592,7 @@ export class OracleSpine {
    * where the pair does not apply.
    */
   #checkSteps(one: SchemaLocation, first: ValueObject, other: SchemaLocation, second: ValueObject): CheckStep[] {
-    const steps = namedSteps(first, second);
+    const steps = namedSteps(first, second, Math.min(this.#closedFrom(one), this.#closedFrom(other)));
     const takesUnnamed = (schema: ValueObject) =>
       isObject(schema.patternProperties) || isSchemaValue(schema.additionalProperties);
     if (!takesUnnamed(first) || !takesUnnamed(second)) return steps;
@@ -604,6 +604,21 @@ export class OracleSpine {
       }
     }
     return steps;
+  }
+
+  /**
+   * The first index at which no item can stand where a location applies, because it, or what its `allOf` and `$ref` bring,
+   * gives `items: false` past its `prefixItems`; infinite where none does.
+   */
+  // Changed with the check: an item past an items: false fails it whatever it holds, so nothing meets there.
+  #closedFrom(location: SchemaLocation): number {
+    let closed = Number.POSITIVE_INFINITY;
+    for (const applied of this.closure([location])) {
+      const schema = this.schemaAt(applied);
+      if (!isObject(schema) || schema.items !== false) continue;
+      closed = Math.min(closed, Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0);
+    }
+    return closed;
   }
 
   /** Every member name a `properties` of the schema set lists, in any schema object. */
@@ -677,8 +692,11 @@ function guardsRefs(schema: ValueObject | boolean | undefined): boolean {
   return Array.isArray(type) ? !type.includes("string") : type !== "string";
 }
 
-/** The steps that two schema objects name, which both follow together: the members `properties` names, and the items. */
-function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
+/**
+ * The steps that two schema objects name, which both follow together: the members `properties` names, and the items at the
+ * indexes below `closed`, the first at which no item can stand.
+ */
+function namedSteps(first: ValueObject, second: ValueObject, closed: number): CheckStep[] {
   const steps: CheckStep[] = [];
   const names = new Set<string>();
   let prefix = 0;
@@ -690,9 +708,11 @@ function namedSteps(first: ValueObject, second: ValueObject): CheckStep[] {
     if (isObject(list) && isObject(list.items)) for (const key of Object.keys(list.items)) keys.add(key);
   }
   for (const name of names) steps.push({ kind: "member", name });
-  for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index });
+  // Changed with the check: no index from `closed` on.
+  const last = Math.min(prefix, closed - 1);
+  for (let index = 0; index <= last; index++) steps.push({ kind: "item", index });
   // Changed with the check: an item with a key can stand at any index, so its key's schema meets each prefixItems entry.
-  for (const key of keys) for (let index = 0; index <= prefix; index++) steps.push({ kind: "item", index, key });
+  for (const key of keys) for (let index = 0; index <= last; index++) steps.push({ kind: "item", index, key });
   return steps;
 }
 
