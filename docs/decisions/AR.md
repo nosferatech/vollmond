@@ -57,7 +57,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.17: §9.3 ("A declaration on a `$ref` member"). The code is #149, which refuses the case both at load and in the data.
-Its comments that mark the case as an open question, `TODO(#24)` in `js/packages/core/src/schema/spine.ts` and
-`js/packages/core/src/binding/binding.ts`, stay until a code change removes them; the I2 design's question 22 still reads as
-open.
+Draft v0.17 (#155): §9.3 ("A declaration on a `$ref` member"). The code is #149, which refuses the case both at load and in the
+data. Its comments that mark the case as an open question, `TODO(#24)` in `js/packages/core/src/schema/spine.ts` and
+`js/packages/core/src/binding/binding.ts`, stay until a code change removes them; the I2 design's question 22 still reads as open.

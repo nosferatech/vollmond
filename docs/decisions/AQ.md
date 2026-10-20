@@ -52,6 +52,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.17: §6.3 and Appendix D's `ref-derived-anchor` and `ref-derived-repeat` rows, unchanged from Draft v0.16; AM's record,
-whose reading 4 now points here. The code of typed references (#149) already gives the warnings for any target of a
+Draft v0.17 (#155): §6.3 and Appendix D's `ref-derived-anchor` and `ref-derived-repeat` rows, unchanged from Draft v0.16; AM's
+record, whose reading 4 now points here. The code of typed references (#149) already gives the warnings for any target of a
 reference reached only through its title, whatever the reference's `anchors` setting.

@@ -82,7 +82,7 @@ On the card, choosing Other:
 
 ## Applied in
 
-Draft v0.17: §9.5, item 4 (`ref-target-not-allowed` leaves the codes the mode refuses, and a strict reader need not refuse such a
-record), Appendix D `ref-target-not-allowed`; [G7](G7.md)'s record. The strict read mode's code (#146) already leaves the code
-out; its comment `TODO(#24)` in `js/packages/core/src/store/store.ts`, which says the mode refuses it too, stays until a code
+Draft v0.17 (#155): §9.5, item 4 (`ref-target-not-allowed` leaves the codes the mode refuses, and a strict reader need not refuse
+such a record), Appendix D `ref-target-not-allowed`; [G7](G7.md)'s record. The strict read mode's code (#146) already leaves the
+code out; its comment `TODO(#24)` in `js/packages/core/src/store/store.ts`, which says the mode refuses it too, stays until a code
 change removes it.

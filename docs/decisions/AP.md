@@ -80,6 +80,6 @@ On the card, choosing (b):
 
 ## Applied in
 
-Draft v0.17: §7.4 (a first step that names no node is proved, the journal example, and the nuance for later steps), §8.5 (the
-exceptions at the first step), §13.6 (the example of `#done` after a rename), Appendix D `ref-ambiguous`; [AO](AO.md)'s record.
-The code, with the I2 design's section 4.4 and suite cases in `addresses/cardinality` and `references/aliases`, is #154.
+Draft v0.17 (#155): §7.4 (a first step that names no node is proved, the journal example, and the nuance for later steps), §8.5
+(the exceptions at the first step), §13.6 (the example of `#done` after a rename), Appendix D `ref-ambiguous`; [AO](AO.md)'s
+record. The code, with the I2 design's section 4.4 and suite cases in `addresses/cardinality` and `references/aliases`, is #154.
