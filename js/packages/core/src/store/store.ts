@@ -29,6 +29,7 @@ import type { NodeInfo } from "../record/node-index.js";
 import { blockText, valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
 import { ALIASES_PATH, aliasFileTooLarge, MAX_ALIAS_FILE_BYTES, NO_ALIASES, readAliases } from "../reference/aliases.js";
+import { occurrencesOf } from "../reference/extract.js";
 import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
 import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
@@ -76,7 +77,8 @@ export interface ConfigurationSource {
 /**
  * How a store's readers treat a record that does not validate. `best-effort` reads every record without a structural error;
  * `strict` also refuses one whose data breaks its collection's schema: a `schema-violation`, a `duplicate-key` at a level the
- * schema declares `type: map`, or a `filename-mismatch`.
+ * schema declares `type: map`, a reference the schema declares whose target it does not allow (`ref-target-not-allowed`), or
+ * a `filename-mismatch`.
  */
 export type ReadMode = "best-effort" | "strict";
 
@@ -225,7 +227,8 @@ export interface Store {
   /**
    * Resolves an address in the record's binding, read with {@link Store.binding}, and fails as that read does. In the strict
    * read mode, also fails with the issues the mode refuses the record for, when it has any, and with those only (see
-   * {@link ReadMode}).
+   * {@link ReadMode}). There, a record whose schema declares references among its values has them resolved, which reads the
+   * store's file list and alias file once per store, and fails as {@link Store.references} does when those cannot be read.
    */
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>>;
   /**
@@ -446,8 +449,33 @@ class BackendStore implements Store {
   async #readerBinding(path: string): Promise<Outcome<RecordBinding> | null> {
     const bound = await this.binding(path);
     if (this.readMode !== "strict" || bound === null || !bound.ok) return bound;
-    const refusals = strictRefusals(bound.value, collectionOfRecord(this.classify(path)));
+    const notAllowed = await this.#targetsNotAllowed(bound.value);
+    if (!notAllowed.ok) return fail(notAllowed.issues);
+    const refusals = strictRefusals(bound.value, notAllowed.value, collectionOfRecord(this.classify(path)));
     return refusals.length > 0 ? fail(refusals) : bound;
+  }
+
+  /**
+   * Resolves the references a bound record's schema declares, its typed strings and its declared `$ref` objects, and gives
+   * the `ref-target-not-allowed` of each whose target the declaration does not allow, in document order. A record that
+   * declares none needs no resolving. Fails as {@link BackendStore.referenceResolver} does, only for a record that declares
+   * some.
+   */
+  async #targetsNotAllowed(binding: RecordBinding): Promise<Outcome<Issue[]>> {
+    const issues: Issue[] = [];
+    if (binding.declaredReferences.length === 0) return succeed(issues);
+    // Each declared reference is looked up at its own node, so that no prose of the record is parsed for links.
+    const start = (at: string) => binding.record.nodes.node(at)?.range.start ?? 0;
+    const declared = [...binding.declaredReferences]
+      .sort((a, b) => start(a) - start(b))
+      .flatMap((at) => occurrencesOf(binding, at).filter((found) => found.at === at && found.declaration !== undefined));
+    const resolver = await this.referenceResolver();
+    if (!resolver.ok) return fail(resolver.issues);
+    for (const occurrence of declared) {
+      const reference = await resolver.value.resolve(binding, occurrence);
+      for (const issue of reference?.issues ?? []) if (issue.code === "ref-target-not-allowed") issues.push(issue);
+    }
+    return succeed(issues);
   }
 
   // Deviation from the I2 design, recorded in issue #21: every read of a record of a collection with a schema reads the schema
@@ -701,15 +729,17 @@ class BackendStore implements Store {
 }
 
 /**
- * Gives the issues that the strict read mode refuses a bound record for, in the binding's order and then the file name's: its
- * schema violations, its repeated keys at levels the schema declares `type: map`, and its file name when its collection's rule
- * rejects it. Empty for a record the mode reads.
+ * Gives the issues that the strict read mode refuses a bound record for, in the binding's order, then the references', then
+ * the file name's: its schema violations, its repeated keys at levels the schema declares `type: map`, `notAllowed`, the
+ * `ref-target-not-allowed` of its declared references, and its file name when its collection's rule rejects it. Empty for a
+ * record the mode reads.
  */
-// TODO(#24): the mode refuses `ref-target-not-allowed` too, which typed references raise, and they are not extracted yet.
-function strictRefusals(binding: RecordBinding, collection: Collection | undefined): Issue[] {
+function strictRefusals(binding: RecordBinding, notAllowed: readonly Issue[], collection: Collection | undefined): Issue[] {
   const refusals = binding.issues.filter((issue) => issue.code === "schema-violation" || isDeclaredDuplicate(issue));
+  for (const issue of notAllowed) refusals.push(issue);
   const mismatch = collection === undefined ? null : filenameMismatch(binding.record.path, collection);
-  return mismatch === null ? refusals : [...refusals, mismatch];
+  if (mismatch !== null) refusals.push(mismatch);
+  return refusals;
 }
 
 /** Gives a resolved node in a form, or fails with `usage-invalid` for a body the node does not have. */

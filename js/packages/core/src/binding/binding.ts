@@ -48,6 +48,11 @@ export interface RecordBinding {
    */
   readonly typedReferences: readonly string[];
   /**
+   * The exact paths of every reference the schema declares, in no particular order: the typed references, and the JSON
+   * References that have a declaration (see {@link RecordBinding.declarationOf}). Empty for a record bound without a schema.
+   */
+  readonly declaredReferences: readonly string[];
+  /**
    * Gives the `x-vmd-ref` declaration of the reference at an exact path: a typed string's; a JSON Reference's own, or else
    * its `$ref` member's, none where declarations conflict there or the two differ; null for any other node.
    */
@@ -106,6 +111,7 @@ export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null
     record,
     lists: binder.lists,
     typedReferences: Object.freeze(binder.typed),
+    declaredReferences: Object.freeze([...declarations.keys()]),
     declarationOf: (at: string) => declarations.get(at) ?? null,
     shape: (at: string) => shapes.get(at) ?? null,
     issues: Object.freeze(issues),

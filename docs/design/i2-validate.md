@@ -663,9 +663,13 @@ implementing agent's readings, for the project owner to confirm (in #146): a ref
 refused for, not by one error per record; a record with a structural error, and one the backend cannot read (`storage-failed`),
 are reported as well; and the failure gives the issue of each collection whose schema cannot be used, once each.
 
-The first pull request of the mode refuses the codes that exist then; `ref-target-not-allowed` comes with typed references
-(I2.4's second pull request, section 13), and with it the resolution of a strict read's typed references, recorded as a deviation
-in #23.
+A strict read resolves only the references a record's schema declares, its typed strings and its declared `$ref` objects, each
+looked up at its own node, and only for a record that has one: a record without one costs nothing more, and no prose is parsed
+for links. That reads the store's file list and alias file once per store, as `@refs` does, so a strict read of a record that
+declares references fails as `references()` does when they cannot be read, with `alias-file-invalid` for one (the implementing
+agent's reading, for the project owner to confirm). A strict `ls` therefore resolves each listed record's declared references:
+linear in them, with no index or cache of its own. Measured in the pull request that added it, a strict `ls` of 800 records
+that each declare one, beside 800 they point at, took about 20 % longer than a best-effort one.
 
 ---
 

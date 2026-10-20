@@ -17,6 +17,9 @@ const config = (uniqueness: "strict" | "lenient") =>
     "  book:",
     '    match: ["book/*.md"]',
     "    schema: book.schema.json",
+    "  linked:",
+    '    match: ["linked/*.json"]',
+    "    schema: linked.schema.json",
     "  tickets:",
     '    match: ["tickets/*.md"]',
     '    filename: "^[0-9]{4}-"',
@@ -37,11 +40,31 @@ const RUN_SCHEMA = {
 };
 // The root's sections are a map: two child sections of the root with one key are a declared duplicate.
 const BOOK_SCHEMA = { properties: { $sections: { "x-vmd-list": { type: "map", keys: ["@key"] } } } };
+/** A typed reference whose `x-vmd-ref` is `ref`. */
+const typed = (ref: object) => ({ type: "string", format: "uri-reference", "x-vmd-ref": ref });
+const LINKED_SCHEMA = {
+  properties: {
+    doc: typed({ targets: ["docs/**"] }),
+    exact: typed({ anchors: "explicit" }),
+    obj: { type: "object", "x-vmd-ref": { targets: ["docs/**"] } },
+  },
+};
 
 const files = (uniqueness: "strict" | "lenient") => ({
   ".vmd/config.yaml": config(uniqueness),
   ".vmd/schema/run.schema.json": JSON.stringify(RUN_SCHEMA),
   ".vmd/schema/book.schema.json": JSON.stringify(BOOK_SCHEMA),
+  ".vmd/schema/linked.schema.json": JSON.stringify(LINKED_SCHEMA),
+  "docs/a.md": "# A\n\n## Setup\n\nText.\n",
+  // Typed references whose targets the schema does not allow: by its targets, by anchors: explicit, and as a $ref object.
+  "linked/bad.json": JSON.stringify({ doc: "../runs/ok.json" }),
+  "linked/fragile.json": JSON.stringify({ exact: "../docs/a.md#setup" }),
+  "linked/bad-object.json": JSON.stringify({ obj: { $ref: "../runs/ok.json" } }),
+  // Two, which a refusal gives in document order.
+  "linked/two.json": JSON.stringify({ doc: "../runs/ok.json", exact: "../docs/a.md#setup", obj: { $ref: "../runs/ok.json" } }),
+  // An allowed typed reference, and a dangling one, which does not refuse.
+  "linked/ok.json": JSON.stringify({ doc: "../docs/a.md#setup", exact: "../docs/a.md" }),
+  "linked/dangling.json": JSON.stringify({ doc: "../docs/missing.md" }),
   // Valid, with a repeat at a multimap level, which is allowed.
   "runs/ok.json": JSON.stringify({ started: "2026-10-19", groups: [{ name: "g" }, { name: "g" }] }),
   "runs/violation.json": JSON.stringify({ benchmarks: [{ name: "read-4k" }] }),
@@ -61,7 +84,7 @@ const files = (uniqueness: "strict" | "lenient") => ({
   "links.md": "# L\n\nSee [x](missing.md#a).\n",
   // Links below the root of records a strict store refuses.
   "cites.md":
-    "# C\n\n[v](runs/violation.json#benchmarks), [d](runs/bad-date.json#started) and [t](book/twice.md#/$sections/0).\n",
+    "# C\n\n[v](runs/violation.json#benchmarks), [d](runs/bad-date.json#started), [t](book/twice.md#/$sections/0) and [l](linked/bad.json#doc).\n",
   "broken.json": "{",
 });
 
@@ -97,10 +120,28 @@ const REFUSED: Readonly<Record<string, readonly string[]>> = {
   "runs/mixed.json": ["error schema-violation runs/mixed.json /benchmarks/0"],
   "book/twice.md": ["error duplicate-key book/twice.md /$sections/1"],
   "tickets/a.md": ["error filename-mismatch tickets/a.md "],
+  "linked/bad.json": ["error ref-target-not-allowed linked/bad.json /doc"],
+  "linked/fragile.json": ["error ref-target-not-allowed linked/fragile.json /exact"],
+  "linked/bad-object.json": ["error ref-target-not-allowed linked/bad-object.json /obj"],
+  "linked/two.json": [
+    "error ref-target-not-allowed linked/two.json /doc",
+    "error ref-target-not-allowed linked/two.json /exact",
+    "error ref-target-not-allowed linked/two.json /obj",
+  ],
 };
 
 /** Records a strict store reads, though each is near a refused one or has an error that strict reading does not refuse. */
-const READ = ["runs/ok.json", "runs/both.json", "book/once.md", "tickets/0001-a.md", "loose.md", "anchors.json", "links.md"];
+const READ = [
+  "runs/ok.json",
+  "runs/both.json",
+  "book/once.md",
+  "tickets/0001-a.md",
+  "loose.md",
+  "anchors.json",
+  "links.md",
+  "linked/ok.json",
+  "linked/dangling.json",
+];
 
 describe("the strict read mode", () => {
   test("a store reads best-effort unless opened strict", async () => {
@@ -155,14 +196,15 @@ describe("the strict read mode", () => {
   test("a link into a refused record has the status it has in a best-effort store", async () => {
     const statuses = async (readMode: ReadMode) =>
       successValue(await (await store(readMode)).references({ from: "cites.md" })).map((reference) => reference.status);
-    expect(await statuses("best-effort")).toEqual(["ok", "ok", "ok"]);
-    expect(await statuses("strict")).toEqual(["ok", "ok", "ok"]);
+    expect(await statuses("best-effort")).toEqual(["ok", "ok", "ok", "ok"]);
+    expect(await statuses("strict")).toEqual(["ok", "ok", "ok", "ok"]);
   });
 
   test("check reports the same issues in either mode", async () => {
     const strict = shown(await (await store("strict")).check());
     expect(strict).toEqual(shown(await (await store("best-effort")).check()));
     expect(strict).toContain("error schema-violation runs/violation.json /benchmarks/0");
+    expect(strict).toContain("error ref-target-not-allowed linked/bad.json /doc");
   });
 
   test("references of every record leave out a refused record's, with its refusing issues as errors", async () => {
@@ -209,6 +251,15 @@ describe("the strict read mode", () => {
     expect(issues).toHaveLength(2);
     expect(issues[0]).toMatch(/^schema-invalid null .*missing\.schema\.json/);
     expect(issues[1]).toMatch(/^schema-invalid null .*gone\.schema\.json/);
+  });
+
+  test("a strict read of a record that declares references fails when its references cannot be resolved", async () => {
+    const badAliases = { ".vmd/aliases.jsonl": "not json\n" };
+    const strict = await store("strict", "strict", badAliases);
+    expect(shown(await strict.get("linked/ok.json")).map((line) => line.split(" ")[1])).toEqual(["alias-file-invalid"]);
+    // A record that declares no references needs no resolving, and a best-effort read resolves none.
+    successValue(await strict.get("runs/ok.json"));
+    successValue(await (await store("best-effort", "strict", badAliases)).get("linked/ok.json"));
   });
 
   test("a strict listing counts refused records as unreadable, without reporting their issues", async () => {
