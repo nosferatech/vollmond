@@ -26,8 +26,8 @@ const UTF8 = new TextEncoder();
  * is parsed. The root's `$schema` is stored data, and is not looked into.
  *
  * In a record bound to its collection's schema, the typed strings the binding found are references too, each with its
- * declaration, and a `$ref` object carries the declaration of its schema, or else of its `$ref` member's; a record alone, or
- * one bound without a schema, has neither.
+ * declaration, and a `$ref` object carries the declaration of its schema, or else of its `$ref` member's, which a usable
+ * schema makes equal where both declare one; a record alone, or one bound without a schema, has neither.
  */
 export function occurrencesOf(subject: ResolutionSubject, under = ""): ReferenceOccurrence[] {
   const record = subjectRecord(subject);

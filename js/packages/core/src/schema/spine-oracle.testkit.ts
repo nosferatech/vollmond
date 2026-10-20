@@ -677,6 +677,19 @@ export class OracleSpine {
         `unequal ${keyword} declarations apply to one instance location, from ${a}, ${b}; declarations that meet must be equal`,
       );
     }
+    // An x-vmd-ref of one location, beside an unequal one on the $ref member the other takes.
+    for (const [object, schema, holder] of [[one, first, other] as const, [other, second, one] as const]) {
+      if (!Object.hasOwn(schema, "x-vmd-ref")) continue;
+      for (const member of this.memberLocations(holder, "$ref")) {
+        const memberSchema = this.schemaAt(member);
+        if (!isObject(memberSchema) || !Object.hasOwn(memberSchema, "x-vmd-ref")) continue;
+        if (valuesEqual(memberSchema["x-vmd-ref"] as Value, schema["x-vmd-ref"] as Value)) continue;
+        report(
+          at(object, "x-vmd-ref"),
+          `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`,
+        );
+      }
+    }
     for (const [list, beside] of [[first, other] as const, [second, one] as const]) {
       const besideSchema = this.schemaAt(beside);
       if (Object.hasOwn(list, "x-vmd-list") && isObject(besideSchema) && Object.hasOwn(besideSchema, "unevaluatedItems")) {

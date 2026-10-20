@@ -715,7 +715,9 @@ record's links need no extra parse, since they come from its own.
 "ref-object"`, `at` the object. **Typed strings** come from the binding: a string whose spine location has `x-vmd-ref` and that is
 a valid `uri-reference`; an invalid one is the `schema-violation` and no reference (reading R5). A `$ref` object carries the
 declaration of its own schema, or else of its `$ref` member's: the object is the one reference, and an `x-vmd-ref` on its `$ref`
-member applies to it (the project owner's answer on card AN).
+member applies to it (the project owner's answer on card AN). Where the object's schema and its `$ref` member's both declare
+`x-vmd-ref`, unequal, no card says which applies, so for now the schema is `schema-invalid` (the spine's check, section 3.3),
+pending the project owner's choice among refusing them, the member's winning and the object's winning.
 
 ### 5.2 Resolving a target
 

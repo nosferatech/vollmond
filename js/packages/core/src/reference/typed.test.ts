@@ -220,6 +220,23 @@ describe("a $ref object with x-vmd-ref on its $ref member", () => {
     const allowed = await refsOf("member: {$ref: ../docs/t.md}\n");
     expect(codes(allowed[0] as Reference)).toEqual([]);
   });
+
+  test("makes the schema unusable where the object's schema declares an unequal x-vmd-ref, which applies being undecided", async () => {
+    const schema = (objectTargets: string) =>
+      `type: object\nproperties:\n  both: {type: object, x-vmd-ref: {targets: ["${objectTargets}"]}, properties: {$ref: ${typed('{targets: ["docs/**"]}')}}}\n`;
+    const files = (objectTargets: string) => ({
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  both:\n    match: ["both/*.yaml"]\n    schema: both.schema.yaml\n',
+      ".vmd/schema/both.schema.yaml": schema(objectTargets),
+      "both/b.yaml": "both: {$ref: ../docs/t.md}\n",
+      "docs/t.md": "# T\n",
+    });
+    const unequal = successValue(await openStore(createMemoryStorage({ files: files("other/**") })));
+    expect((await unequal.references({ from: "both/b.yaml" })).issues.map((issue) => issue.code)).toEqual(["schema-invalid"]);
+    expect((await unequal.check()).issues.map((issue) => issue.code)).toEqual(["schema-invalid"]);
+    const equal = successValue(await openStore(createMemoryStorage({ files: files("docs/**") })));
+    const refs = successValue(await equal.references({ from: "both/b.yaml" }));
+    expect(refs.map(({ form, declaration }) => [form, declaration?.targets])).toEqual([["ref-object", ["docs/**"]]]);
+  });
 });
 
 describe("cardinality: many", () => {
