@@ -165,6 +165,7 @@ export class Spine {
   readonly #closedFromByLocation = new Map<string, number>();
   #pairsVisited = 0;
   #mustSteps = 0;
+  #keyedIndexSteps = 0;
   #stepsComputed = 0;
   #nameSteps = 0;
   #nameGroupings = 0;
@@ -226,6 +227,15 @@ export class Spine {
    */
   get mustSteps(): number {
     return this.#mustSteps;
+  }
+
+  /**
+   * How many locations the last {@link Spine.check} took up while finding whether every index at which a keyed list's item
+   * can stand gives the format: for each array and each time what applies beside it changed, the locations beside it, and
+   * those it looked at, index by index, for one giving the item the format. Not counted in {@link Spine.mustSteps}.
+   */
+  get keyedIndexSteps(): number {
+    return this.#keyedIndexSteps;
   }
 
   /**
@@ -388,7 +398,8 @@ export class Spine {
    *   `properties`, and through a pattern that matches it or an `additionalProperties` that takes it;
    * - `unevaluatedItems` that meets an `x-vmd-list` at one instance location, since it would fail items the list evaluates;
    * - `x-vmd-ref` where some path lets a string stand without `format: uri-reference`: the format, or a `type` without
-   *   strings, must apply beside the declaration on every path that reaches it.
+   *   strings, must apply beside the declaration on every path that reaches it. A keyed list's item may stand at any index
+   *   where an item can, and has the format when each such index gives it, from whichever location.
    *
    * What the root does not reach is not checked: a shared file's `$defs` may hold declarations other collections use.
    *
@@ -404,7 +415,9 @@ export class Spine {
    * `prefixItems`: still at most quadratic, but reached with less schema. It takes no item at an index where an `items: false`
    * of either location, or of what their `allOf` and `$ref` bring, lets none stand, since no valid record holds one there. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
-   * could give it, which in the worst case is quadratic too.
+   * could give it, which in the worst case is quadratic too. Whether every index at which a keyed list's item can stand gives
+   * the format is found once per array and change of what applies beside it, whatever the keys: at most the indexes up to
+   * the longest `prefixItems` beside it times the locations beside it, stopping at the first index that lacks it.
    *
    * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
    * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
@@ -697,9 +710,16 @@ export class Spine {
    * and holds only the locations whose spine below gives the format or such a type, as a bitset over those. A step to an
    * item where no item can stand, as {@link Spine.#closedFrom} tells from the parent, is no way of reaching the child, and a
    * reference that only such steps reach needs no format.
+   *
+   * A keyed list's item can stand at any index where an item can, and at each a different location may give it the format.
+   * So a step to a keyed item also gives a mark of its own, beside the locations, when at every such index some location
+   * that the parent's Must brings to the item gives the format or a type without strings. The mark says that the item's own
+   * instance location has one on every path, though no single location does, so it passes through `allOf` and `$ref` and no
+   * further. Whether a parent gives the mark is found once for each parent's Must, not once for each key.
    */
   #checkRefFormats(report: (location: SchemaLocation, message: string) => void): void {
     this.#mustSteps = 0;
+    this.#keyedIndexSteps = 0;
     const locationOf = (key: string) => (this.#set.schemas.get(key) as { readonly location: SchemaLocation }).location;
     const needy: SchemaLocation[] = [];
     for (const [key, marks] of this.#marks) {
@@ -741,7 +761,9 @@ export class Spine {
       usefulIds.set(key, usefulLocations.length);
       usefulLocations.push(locationOf(key));
     }
-    const words = (usefulLocations.length + 31) >>> 5;
+    // The bit after them is the mark that every index a keyed item can stand at gives the format.
+    const everyIndex = usefulLocations.length;
+    const words = (everyIndex + 1 + 31) >>> 5;
     const add = (found: Uint32Array, location: SchemaLocation) => {
       const id = usefulIds.get(locationKey(location));
       if (id !== undefined) found[id >>> 5] = (found[id >>> 5] as number) | (1 << (id & 31));
@@ -764,6 +786,35 @@ export class Spine {
       const schema = this.schemaAt(location);
       return isObject(schema) && Array.isArray(schema.prefixItems) ? schema.prefixItems.length : 0;
     };
+    // Whether at each index below `closed`, the first at which no item can stand, some location in a parent's Must `above`
+    // brings to an item one that gives the format or a type without strings. Memoized by `above`, which a parent's Must
+    // replaces when it changes, so it is found once per parent and change, whatever the keys of its list.
+    const indexesGuarded = new Map<string, { readonly above: Uint32Array; readonly guarded: boolean }>();
+    const guardsEveryIndex = (parent: SchemaLocation, above: Uint32Array, closed: number): boolean => {
+      const key = locationKey(parent);
+      const known = indexesGuarded.get(key);
+      if (known !== undefined && known.above === above) return known.guarded;
+      const besides: SchemaLocation[] = [];
+      let longest = 0;
+      forEachBit(above, (id) => {
+        if (id === everyIndex) return;
+        const beside = usefulLocations[id] as SchemaLocation;
+        besides.push(beside);
+        longest = Math.max(longest, prefixOf(beside));
+      });
+      this.#keyedIndexSteps += besides.length;
+      // From the longest prefixItems on, each location gives every item its items alike, so that index stands for the rest.
+      const last = Math.min(closed - 1, longest);
+      let guarded = true;
+      for (let index = 0; index <= last && guarded; index++) {
+        guarded = besides.some((beside) => {
+          this.#keyedIndexSteps += 1;
+          return this.itemLocations(beside, index, undefined).some((location) => guardsRefs(this.schemaAt(location)));
+        });
+      }
+      indexesGuarded.set(key, { above, guarded });
+      return guarded;
+    };
     // What a step from a parent gives beside the child on every path; undefined, as for every location, while the parent's
     // is not known, and for a step to an item where none can stand, which is on no path that a valid record takes.
     const given = (parent: SchemaLocation, edge: SpineEdge): Uint32Array | undefined => {
@@ -777,6 +828,7 @@ export class Spine {
       const found = new Uint32Array(words);
       if (edge.kind === "unnamed") return found;
       forEachBit(above, (id) => {
+        if (id === everyIndex) return;
         this.#mustSteps += 1;
         const beside = usefulLocations[id] as SchemaLocation;
         // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
@@ -796,6 +848,9 @@ export class Spine {
                 : [];
         for (const location of locations) add(found, location);
       });
+      if (edge.kind === "keyed" && guardsEveryIndex(parent, above, closed)) {
+        found[everyIndex >>> 5] = (found[everyIndex >>> 5] as number) | (1 << (everyIndex & 31));
+      }
       return found;
     };
     for (let changed = true; changed; ) {
@@ -830,7 +885,7 @@ export class Spine {
       if (beside === undefined) continue;
       let guarded = false;
       forEachBit(beside, (id) => {
-        guarded ||= guardsRefs(this.schemaAt(usefulLocations[id] as SchemaLocation));
+        guarded ||= id === everyIndex || guardsRefs(this.schemaAt(usefulLocations[id] as SchemaLocation));
       });
       if (guarded) continue;
       report(

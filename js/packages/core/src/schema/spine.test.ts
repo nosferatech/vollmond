@@ -340,6 +340,38 @@ describe("the work of walking single locations", () => {
   });
 });
 
+// Issue #138's predicted cost: a keyed list's item may stand at any open index, so the format is looked for at each index,
+// which must be done once for the array, not again for each key that needs it.
+describe("the work of finding the format at each index a keyed item can stand at", () => {
+  const uri = { format: "uri-reference" };
+  /** A keyed list of `keys` keys whose schemas lack the format, under `prefixItems` and `items: false`. */
+  const keyed = (keys: number, prefixItems: readonly unknown[]) => {
+    const items = Object.fromEntries(Array.from({ length: keys }, (_, key) => [`k${key}`, { type: "string", "x-vmd-ref": {} }]));
+    return {
+      type: "object",
+      properties: { l: { type: "array", prefixItems, items: false, "x-vmd-list": { type: "map", keys: ["name"], items } } },
+    };
+  };
+
+  test("is done once per array, however many keys need it", async () => {
+    const prefix = Array.from({ length: 50 }, () => uri);
+    const one = await checked(keyed(1, prefix));
+    const many = await checked(keyed(200, prefix));
+    expect(one.problems).toEqual([]);
+    expect(many.problems).toEqual([]);
+    expect(one.spine.keyedIndexSteps).toBeGreaterThanOrEqual(50);
+    expect(one.spine.keyedIndexSteps).toBeLessThanOrEqual(2 * 50);
+    expect(many.spine.keyedIndexSteps).toBe(one.spine.keyedIndexSteps);
+  });
+
+  test("stops at the first index that lacks it", async () => {
+    const { spine, problems } = await checked(keyed(200, [true, ...Array.from({ length: 50 }, () => uri)]));
+    expect(problems).toHaveLength(200);
+    expect(spine.keyedIndexSteps).toBeGreaterThan(0);
+    expect(spine.keyedIndexSteps).toBeLessThanOrEqual(2);
+  });
+});
+
 describe("the order of the problems", () => {
   const where = (problems: readonly SpineProblem[]) => problems.map((problem) => problem.location.pointer);
 

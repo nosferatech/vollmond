@@ -569,12 +569,80 @@ describe("the spine", () => {
       });
       const formatAt = "x-vmd-ref stands where a path lets a string stand without format: uri-reference";
 
-      // Conservative, pinned until issue #138: a keyed item takes the format only from an items schema that applies at every
-      // index, so prefixItems entries that each give it, closed by items: false, are not read as giving it. The schema is
-      // valid, and refusing it is a false refusal that #138's per-index check is to remove.
-      test("but a key's schema under prefixItems that each give the format, closed by items: false, is still refused", async () => {
-        const closed = await unusable(file(keyedArray({ prefixItems: [{ format: "uri-reference" }], items: false })));
-        expect(closed.message).toContain(formatAt);
+      // Issue #138: a keyed item can stand at any open index, so it has the format when every open index gives it, though a
+      // different location gives it at each. The check took the format only from an items schema that applies at every index.
+      describe("so a key's schema has the format where every index an item can stand at gives it", () => {
+        const uri = { format: "uri-reference" };
+
+        test("from prefixItems entries that each give it, closed by items: false", async () => {
+          await usable(keyedArray({ prefixItems: [uri], items: false }));
+          await usable(keyedArray({ prefixItems: [uri, uri], items: false }));
+        });
+
+        test("from two allOf branches that give it at different indexes", async () => {
+          await usable(
+            keyedArray({
+              prefixItems: [true, true],
+              items: false,
+              allOf: [{ prefixItems: [uri] }, { prefixItems: [true, uri] }],
+            }),
+          );
+        });
+
+        test("from a definition a $ref brings, at each index or for the whole array", async () => {
+          const uriRef = { $ref: "#/$defs/uri" };
+          await usable({ ...keyedArray({ prefixItems: [uriRef, uriRef], items: false }), $defs: { uri } });
+          await usable({ ...keyedArray({ $ref: "#/$defs/pair" }), $defs: { pair: { prefixItems: [uri, uri], items: false } } });
+        });
+
+        test("but not where one index an item can stand at lacks it", async () => {
+          expect((await unusable(file(keyedArray({ prefixItems: [uri, true], items: false })))).message).toContain(formatAt);
+          const sameIndex = { prefixItems: [true, true], items: false, allOf: [{ prefixItems: [uri] }, { prefixItems: [uri] }] };
+          expect((await unusable(file(keyedArray(sameIndex)))).message).toContain(formatAt);
+        });
+
+        test("nor where items past the prefixItems is a schema without it", async () => {
+          expect((await unusable(file(keyedArray({ prefixItems: [uri, uri], items: {} })))).message).toContain(formatAt);
+        });
+
+        test("nor where a position past the prefixItems is open", async () => {
+          expect((await unusable(file(keyedArray({ prefixItems: [uri, uri] })))).message).toContain(formatAt);
+        });
+
+        // Conservative: only the item's own instance location is read index by index. A reference below a key's schema takes
+        // only what applies at every index, so entries that each give the format at a member do not give it there.
+        test("while a reference below a key's schema still takes only what every index shares", async () => {
+          const member = { properties: { a: uri } };
+          const deep = {
+            type: "object",
+            properties: {
+              l: {
+                type: "array",
+                prefixItems: [member, member],
+                items: false,
+                "x-vmd-list": { type: "map", keys: ["name"], items: { foo: { properties: { a: bare } } } },
+              },
+            },
+          };
+          expect((await unusable(file(deep))).message).toContain(formatAt);
+        });
+
+        // What every index gives the item itself says nothing of a member below it.
+        test("and a reference at a member of the key's schema needs its own format, though the item has it", async () => {
+          const itemAndMember = {
+            type: "object",
+            properties: {
+              l: {
+                type: "array",
+                prefixItems: [uri, uri],
+                items: false,
+                "x-vmd-list": { type: "map", keys: ["name"], items: { foo: { ...bare, properties: { a: bare } } } },
+              },
+            },
+          };
+          // The key's schema alone is usable under these prefixItems, so what is refused is the member's reference.
+          expect((await unusable(file(itemAndMember))).message).toContain(formatAt);
+        });
       });
 
       test("and none where no item stands at all, while one item needs it", async () => {
