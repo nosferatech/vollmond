@@ -8,6 +8,7 @@ import type { Outcome } from "../issue/outcome.js";
 import { definitionLabelsOfRecord } from "../record/definition-labels.js";
 import { valueAt } from "../record/node-value.js";
 import type { ParsedRecord } from "../record/record.js";
+import { storageFailureReason } from "../storage/failure-reason.js";
 import type { ValueObject } from "../value/value.js";
 import type { AliasTable } from "./aliases.js";
 import { occurrencesOf } from "./extract.js";
@@ -358,15 +359,24 @@ export class ReferenceResolver {
           }),
         );
         break;
-      case "unreadable":
+      case "unreadable": {
+        // The storage's message names the record, which this one names already; a structural error's is kept whole.
+        const inner = resolution.issues[0];
+        const why =
+          inner === undefined
+            ? ""
+            : inner.code === "storage-failed"
+              ? storageFailureReason(inner.message, resolution.path)
+              : inner.message;
         issues.push(
           issue({
             code: "ref-target-unreadable",
-            message: `${shown} points into ${resolution.path}, which cannot be read, so its target cannot be resolved: ${resolution.issues[0]?.message ?? ""}`,
+            message: `${shown} points into ${resolution.path}, which cannot be read, so its target cannot be resolved: ${why}`,
             hint: `fix ${resolution.path} as its own issues say; a reference to the record itself, without a fragment, needs only the file`,
           }),
         );
         break;
+      }
       case "dangling":
         issues.push(issue({ code: "ref-dangling", message: `${shown}: ${resolution.message}` }));
         break;

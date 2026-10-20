@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { listedProblem } from "./collection-schema.js";
 import { load, record, unusable, usable, violationsAt } from "./schema.testkit.js";
 
 /** A schema file `s.json` holding `schema` as JSON. */
@@ -174,6 +175,25 @@ describe("loading a schema: files and references", () => {
     const issue = await unusable({ "s.json": '{"$id": "x", "properties": {"a": {"x-vmd-summary": 1}}}' });
     expect(issue.message).toContain("s.json:1:2: a schema has no $id");
     expect(issue.message).toContain("s.json:1:35: x-vmd-summary must be true or false");
+  });
+
+  // Predicted bug: a problem whose message starts with its file was listed as "x.json: x.json does not exist".
+  test("several problems list a file's own message once, and keep the file before a message that does not start with it", async () => {
+    const issue = await unusable({ "s.json": '{"$id": "x", "properties": {"a": {"$ref": "x.json"}}}' });
+    expect(issue.message).toMatch(/: s\.json:1:2: a schema has no \$id: [^;]*; x\.json does not exist$/);
+    // Its near misses keep the file before the message: a message about another file, or one that names its file further on
+    // or at a position.
+    const listed = (file: string, message: string, line?: number) =>
+      listedProblem({
+        code: "schema-invalid",
+        file,
+        message,
+        ...(line === undefined ? {} : { position: { offset: 0, line, col: 1 } }),
+      });
+    expect(listed("a.json", "x.json does not exist")).toBe("a.json: x.json does not exist");
+    expect(listed("x.json", "x.jsonl does not exist")).toBe("x.json: x.jsonl does not exist");
+    expect(listed("a.json", "the anchor n is defined twice in a.json")).toBe("a.json: the anchor n is defined twice in a.json");
+    expect(listed("a.json", "a.json is odd", 2)).toBe("a.json:2:1: a.json is odd");
   });
 
   test("a schema that is missing, too large, or cannot be read keeps the message of the configuration's reading", async () => {

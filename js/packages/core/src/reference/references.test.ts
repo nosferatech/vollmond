@@ -149,6 +149,24 @@ describe("a reference's status and targets", () => {
     }
   });
 
+  // Predicted bug: the storage's message, `cannot read <path>: <reason>`, named the file the reference's message names already.
+  test("unreadable: a fragment into a record the backend cannot read names the record once, with the storage's reason", async () => {
+    const reference = await one("/notes/a.md#part", { "notes/a.md": { content: "# A\n\n## Part\n", unreadable: true } });
+    expect(reference.status).toBe("unreadable");
+    expect(reference.issues[0]?.message).toBe(
+      '"/notes/a.md#part" points into notes/a.md, which cannot be read, so its target cannot be resolved: permission denied',
+    );
+    // Its near misses keep their whole message: a structural error, and a storage failure that is not the record's own, of a
+    // collection whose schema cannot be read.
+    expect((await one("/data/broken.json#a")).issues[0]?.message).toBe(
+      '"/data/broken.json#a" points into data/broken.json, which cannot be read, so its target cannot be resolved: the member "a" is repeated',
+    );
+    const locked = { ".vmd/schema/missing.schema.json": { content: "{}", unreadable: true } };
+    expect((await one("/refused/r.md#part", locked)).issues[0]?.message).toContain(
+      "so its target cannot be resolved: the schema missing.schema.json of the collection refused cannot be read: permission denied, so",
+    );
+  });
+
   test("leaves out references that leave the store: a scheme, an authority, a path above the root", async () => {
     const refs = await refsOf("# R\n\n[a](https://x.y/a.md) [b](//host/b.md) [c](../../c.md) [d](mailto:a@b.c) [e](guide.md)\n");
     expect(refs.map((reference) => reference.raw)).toEqual(["guide.md"]);
