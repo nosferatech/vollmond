@@ -31,17 +31,24 @@ export interface RefDeclaration {
 export interface KeywordProblem {
   readonly pointer: string;
   readonly message: string;
-  /** True for a keyword this version does not define, which may come from a newer minor version. */
+  /**
+   * True for a construct this version does not define, which may come from a newer minor version: an `x-vmd-*` keyword, or a
+   * member or a value inside `x-vmd-list` or `x-vmd-ref`.
+   */
   readonly unsupported?: boolean;
 }
+
+/** A problem inside the value of `x-vmd-list` or `x-vmd-ref`, without the keyword's place. */
+type MemberProblem = Omit<KeywordProblem, "pointer">;
 
 const LIST_MEMBERS: ReadonlySet<string> = new Set(["type", "keys", "required", "items", "additional"]);
 const REF_MEMBERS: ReadonlySet<string> = new Set(["targets", "cardinality", "anchors"]);
 
 /**
- * Checks the extension keywords of one schema object at `pointer`, as far as the object alone can tell: an `x-vmd-*` keyword
- * this version does not define (`unsupported`), and the form of each defined one. Where a keyword stands, which only the
- * schema's spine shows, is checked elsewhere.
+ * Checks the extension keywords of one schema object at `pointer`, as far as the object alone can tell: a construct this
+ * version does not define (`unsupported`), which is an `x-vmd-*` keyword, a member of `x-vmd-list` or `x-vmd-ref`, or a string
+ * value of `type`, `cardinality` or `anchors` outside the set the member defines; and the form of each defined one, whose
+ * problems are not `unsupported`. Where a keyword stands, which only the schema's spine shows, is checked elsewhere.
  *
  * - `x-vmd-list`: a mapping of `type` (`map` or `multimap`) and `keys`, both required, and optionally `required`, `items` and
  *   `additional`. `keys` holds exactly one entry, a key member: `@key`, a JSON Pointer of one reference token, or a member
@@ -53,15 +60,19 @@ const REF_MEMBERS: ReadonlySet<string> = new Set(["targets", "cardinality", "anc
 export function checkExtensionKeywords(object: ValueObject, pointer: string): KeywordProblem[] {
   const problems: KeywordProblem[] = [];
   const problem = (at: string, message: string) => problems.push({ pointer: at, message });
+  const inside = (at: string, keyword: string, found: readonly MemberProblem[]) => {
+    for (const { message, unsupported } of found)
+      problems.push({ pointer: at, message: `${keyword} ${message}`, ...(unsupported === true ? { unsupported } : {}) });
+  };
   for (const [keyword, value] of Object.entries(object)) {
     if (!keyword.startsWith("x-vmd-")) continue;
     const at = childPath(pointer, keyword);
     switch (keyword) {
       case "x-vmd-list":
-        for (const message of listProblems(value)) problem(at, `x-vmd-list ${message}`);
+        inside(at, keyword, listProblems(value));
         break;
       case "x-vmd-ref":
-        for (const message of refProblems(value)) problem(at, `x-vmd-ref ${message}`);
+        inside(at, keyword, refProblems(value));
         break;
       case "x-vmd-summary":
         if (typeof value !== "boolean") problem(at, `x-vmd-summary must be true or false, not ${JSON.stringify(value)}`);
@@ -108,29 +119,25 @@ export function readRefDeclaration(value: ValueObject): RefDeclaration {
   };
 }
 
-function listProblems(value: Value): string[] {
-  if (!isObject(value)) return [`must be a mapping, not ${JSON.stringify(value)}`];
+function listProblems(value: Value): MemberProblem[] {
+  if (!isObject(value)) return [{ message: `must be a mapping, not ${JSON.stringify(value)}` }];
   const problems = unknownMembers(value, LIST_MEMBERS);
-  if (value.type !== "map" && value.type !== "multimap") {
-    problems.push(
-      value.type === undefined
-        ? "has no type: map or multimap"
-        : `type must be map or multimap, not ${JSON.stringify(value.type)}`,
-    );
-  }
+  const invalid = (message: string) => problems.push({ message });
+  if (value.type === undefined) invalid("has no type: map or multimap");
+  else enumerated(problems, "type", value.type, ["map", "multimap"]);
   const keys = value.keys;
   if (keys === undefined) {
-    problems.push("has no keys: the key member of its items");
+    invalid("has no keys: the key member of its items");
   } else if (!Array.isArray(keys) || keys.length === 0 || !keys.every((key) => typeof key === "string")) {
-    problems.push("keys must be a list of one key member");
+    invalid("keys must be a list of one key member");
   } else if (keys.length > 1) {
-    problems.push(`keys has ${keys.length} entries: a keyed list has one key member, and composite keys are not supported`);
+    invalid(`keys has ${keys.length} entries: a keyed list has one key member, and composite keys are not supported`);
   } else {
     const key = keys[0] as string;
     if (key.startsWith("/")) {
       const tokens = pointerTokens(key);
       if (tokens === null || tokens.length !== 1) {
-        problems.push(`key ${JSON.stringify(key)} must be a JSON Pointer of one member, such as "/@key"`);
+        invalid(`key ${JSON.stringify(key)} must be a JSON Pointer of one member, such as "/@key"`);
       }
     }
   }
@@ -138,48 +145,66 @@ function listProblems(value: Value): string[] {
     value.required !== undefined &&
     (!Array.isArray(value.required) || !value.required.every((key) => typeof key === "string"))
   ) {
-    problems.push("required must be a list of keys");
+    invalid("required must be a list of keys");
   }
   if (value.items !== undefined) {
     if (!isObject(value.items)) {
-      problems.push("items must be a mapping from keys to schemas");
+      invalid("items must be a mapping from keys to schemas");
     } else {
       for (const [name, schema] of Object.entries(value.items)) {
-        if (!isSchemaValue(schema)) problems.push(`items ${JSON.stringify(name)} must be a schema`);
+        if (!isSchemaValue(schema)) invalid(`items ${JSON.stringify(name)} must be a schema`);
       }
     }
   }
   if (value.additional !== undefined && !isSchemaValue(value.additional)) {
-    problems.push("additional must be true, false or a schema");
+    invalid("additional must be true, false or a schema");
   }
   return problems;
 }
 
-function refProblems(value: Value): string[] {
-  if (!isObject(value)) return [`must be a mapping, not ${JSON.stringify(value)}`];
+function refProblems(value: Value): MemberProblem[] {
+  if (!isObject(value)) return [{ message: `must be a mapping, not ${JSON.stringify(value)}` }];
   const problems = unknownMembers(value, REF_MEMBERS);
+  const invalid = (message: string) => problems.push({ message });
   const targets = value.targets;
   if (targets !== undefined) {
     if (!Array.isArray(targets) || !targets.every((target) => typeof target === "string")) {
-      problems.push("targets must be a list of collection names and globs");
+      invalid("targets must be a list of collection names and globs");
     } else {
       for (const target of targets as string[]) {
         const glob = compileGlob(target);
-        if (!glob.ok) problems.push(`targets has ${glob.issues[0]?.message}`);
+        if (!glob.ok) invalid(`targets has ${glob.issues[0]?.message}`);
       }
     }
   }
-  if (value.cardinality !== undefined && value.cardinality !== "one" && value.cardinality !== "many") {
-    problems.push(`cardinality must be one or many, not ${JSON.stringify(value.cardinality)}`);
-  }
-  if (value.anchors !== undefined && value.anchors !== "any" && value.anchors !== "explicit") {
-    problems.push(`anchors must be any or explicit, not ${JSON.stringify(value.anchors)}`);
-  }
+  if (value.cardinality !== undefined) enumerated(problems, "cardinality", value.cardinality, ["one", "many"]);
+  if (value.anchors !== undefined) enumerated(problems, "anchors", value.anchors, ["any", "explicit"]);
   return problems;
 }
 
-function unknownMembers(value: ValueObject, known: ReadonlySet<string>): string[] {
+/** The members of `value` that this version does not define, which may come from a newer minor version. */
+function unknownMembers(value: ValueObject, known: ReadonlySet<string>): MemberProblem[] {
   return Object.keys(value)
     .filter((name) => !known.has(name))
-    .map((name) => `has the member ${JSON.stringify(name)}, which it does not define`);
+    .map((name) => ({
+      message: `has the member ${JSON.stringify(name)}, which this version of vmd does not define`,
+      unsupported: true,
+    }));
+}
+
+/**
+ * Checks a member whose value is one of the two strings `defined`. Another string is a value this version does not define,
+ * which may come from a newer minor version; a value that is not a string has the wrong form.
+ */
+function enumerated(problems: MemberProblem[], member: string, value: Value, defined: readonly [string, string]): void {
+  if (typeof value === "string" && defined.includes(value)) return;
+  const [first, second] = defined;
+  problems.push(
+    typeof value === "string"
+      ? {
+          message: `${member} ${JSON.stringify(value)} is a value this version of vmd does not define, which defines ${first} and ${second}`,
+          unsupported: true,
+        }
+      : { message: `${member} must be ${first} or ${second}, not ${JSON.stringify(value)}` },
+  );
 }

@@ -191,6 +191,7 @@ describe("the extension keywords", () => {
     expect(issue.code).toBe("feature-unsupported");
     expect(issue.class).toBe("operation");
     expect(issue.message).toContain("x-vmd-future");
+    expect(issue.message).toContain("the schema may need a newer version of vmd");
     expect(issue.message).toContain("the store declares format version 1.2");
   });
 
@@ -207,7 +208,7 @@ describe("the extension keywords", () => {
   test.each([
     [5, "must be a mapping"],
     [{ keys: ["k"] }, "has no type"],
-    [{ type: "set", keys: ["k"] }, "type must be map or multimap"],
+    [{ type: 5, keys: ["k"] }, "type must be map or multimap"],
     [{ type: "map" }, "has no keys"],
     [{ type: "map", keys: [] }, "keys must be a list of one key member"],
     [{ type: "map", keys: "k" }, "keys must be a list of one key member"],
@@ -218,7 +219,6 @@ describe("the extension keywords", () => {
     [{ type: "map", keys: ["k"], items: [] }, "items must be a mapping"],
     [{ type: "map", keys: ["k"], items: { a: 5 } }, 'items "a" must be a schema'],
     [{ type: "map", keys: ["k"], additional: "yes" }, "additional must be true, false or a schema"],
-    [{ type: "map", keys: ["k"], unique: true }, 'has the member "unique"'],
   ])("x-vmd-list %j is schema-invalid: %s", async (declaration, why) => {
     const issue = await unusable(list(declaration));
     expect(issue.code).toBe("schema-invalid");
@@ -242,9 +242,8 @@ describe("the extension keywords", () => {
     [{ targets: "tickets" }, "targets must be a list"],
     [{ targets: [5] }, "targets must be a list"],
     [{ targets: ["docs//x"] }, "malformed"],
-    [{ cardinality: "some" }, "cardinality must be one or many"],
-    [{ anchors: "none" }, "anchors must be any or explicit"],
-    [{ target: ["tickets"] }, 'has the member "target"'],
+    [{ cardinality: 2 }, "cardinality must be one or many"],
+    [{ anchors: true }, "anchors must be any or explicit"],
   ])("x-vmd-ref %j is schema-invalid: %s", async (declaration, why) => {
     const issue = await unusable(ref(declaration));
     expect(issue.code).toBe("schema-invalid");
@@ -258,17 +257,45 @@ describe("the extension keywords", () => {
     },
   );
 
+  // A member or a value that this version does not define may come from a newer minor version, as an unknown keyword may.
+  test.each([
+    ['x-vmd-list has the member "unique"', list({ type: "map", keys: ["k"], unique: true })],
+    ['x-vmd-list type "set"', list({ type: "set", keys: ["k"] })],
+    ['x-vmd-ref has the member "target"', ref({ target: ["tickets"] })],
+    ['x-vmd-ref cardinality "some"', ref({ cardinality: "some" })],
+    ['x-vmd-ref anchors "none"', ref({ anchors: "none" })],
+  ])("%s is feature-unsupported", async (what, files) => {
+    const issue = await unusable(files, "s.json", 1.2);
+    expect(issue.code).toBe("feature-unsupported");
+    expect(issue.class).toBe("operation");
+    expect(issue.message).toContain(what);
+    expect(issue.message).toContain("this version of vmd does not define");
+    expect(issue.message).toContain("the schema may need a newer version of vmd");
+    expect(issue.message).toContain("the store declares format version 1.2");
+  });
+
+  test("an unknown member or value beside another problem gives feature-unsupported, listing both", async () => {
+    const value = await unusable(list({ type: "set", keys: "k" }));
+    expect(value.code).toBe("feature-unsupported");
+    expect(value.message).toContain('type "set"');
+    expect(value.message).toContain("keys must be a list of one key member");
+    const member = await unusable(file({ $id: "x", properties: { p: { "x-vmd-ref": { order: "asc" } } } }));
+    expect(member.code).toBe("feature-unsupported");
+    expect(member.message).toContain("$id");
+    expect(member.message).toContain('has the member "order"');
+  });
+
   test("x-vmd-summary must be a boolean", async () => {
-    expect((await unusable(file({ properties: { p: { "x-vmd-summary": "yes" } } }))).message).toContain(
-      "x-vmd-summary must be true or false",
-    );
+    const summary = await unusable(file({ properties: { p: { "x-vmd-summary": "yes" } } }));
+    expect(summary.code).toBe("schema-invalid");
+    expect(summary.message).toContain("x-vmd-summary must be true or false");
     await usable({ properties: { p: { "x-vmd-summary": false }, q: { "x-vmd-summary": true } } });
   });
 
   test("x-vmd-ordered must be asc or desc, beside an enum", async () => {
-    expect((await unusable(file({ properties: { p: { enum: ["a"], "x-vmd-ordered": "up" } } }))).message).toContain(
-      "x-vmd-ordered must be asc or desc",
-    );
+    const ordered = await unusable(file({ properties: { p: { enum: ["a"], "x-vmd-ordered": "up" } } }));
+    expect(ordered.code).toBe("schema-invalid");
+    expect(ordered.message).toContain("x-vmd-ordered must be asc or desc");
     expect((await unusable(file({ properties: { p: { "x-vmd-ordered": "asc" } } }))).message).toContain("beside an enum");
     await usable({
       properties: { p: { enum: ["Low", "High"], "x-vmd-ordered": "asc" }, q: { enum: [1], "x-vmd-ordered": "desc" } },

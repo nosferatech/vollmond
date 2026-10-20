@@ -71,9 +71,9 @@ const MAX_LISTED = 10;
  * and compiles them with the validator. Gives null for a collection without a schema.
  *
  * Fails with one issue about the collection, with no path and no node, whose message lists every problem found, each with its
- * file and position: `storage-failed` when a file cannot be read; otherwise `feature-unsupported` when the schema uses an
- * `x-vmd-*` keyword this version does not define, which may come from a newer minor version, naming the store's declared
- * version; otherwise `schema-invalid`, for a schema that is missing, too large, not a valid 2020-12 schema, or breaks one of
+ * file and position: `storage-failed` when a file cannot be read; otherwise `feature-unsupported` when the schema uses a
+ * construct this version does not define, an `x-vmd-*` keyword or a member or value inside `x-vmd-list` or `x-vmd-ref`,
+ * which may come from a newer minor version, naming the store's declared version; otherwise `schema-invalid`, for a schema that is missing, too large, not a valid 2020-12 schema, or breaks one of
  * vmd's rules (`$id`, YAML anchors, references out of the directory, extension keywords malformed or off the spine). Every
  * reader refuses the collection's records with that issue.
  *
@@ -217,7 +217,7 @@ function schemaIssue(
     message = `the schema ${set.root} of the collection ${collection.name} cannot be used, ${consequence}: ${listed.join("; ")}`;
   }
   if (code === "feature-unsupported") {
-    message += `; an x-vmd-* keyword this vmd does not define may come from a newer minor version, and the store declares format version ${loading.declared}`;
+    message += `; a construct this vmd does not define, an x-vmd-* keyword or a member or value inside x-vmd-list or x-vmd-ref, may come from a newer minor version, so the schema may need a newer version of vmd, and the store declares format version ${loading.declared}`;
   }
   const hints = [`schemas are in the schema/ directory beside ${loading.configurationName}`];
   for (const problem of problems) if (problem.hint !== undefined && !hints.includes(problem.hint)) hints.push(problem.hint);
