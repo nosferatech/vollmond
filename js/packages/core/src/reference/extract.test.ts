@@ -60,7 +60,8 @@ describe("the cost of a record's link reference definitions", () => {
 describe("a record with more occurrences than a call takes arguments", () => {
   // Node 24 takes about 125,000 arguments in a call. The links are empty and side by side, with no text around them: the
   // Markdown library's search for autolink literals takes time that grows faster than the text nodes of a tree, and each
-  // character of a link's text or destination costs time too.
+  // character of a link's text or destination costs time too. One paragraph holds them all; links.test.ts covers a text of
+  // more top-level blocks than a call takes arguments.
   test("gives every link of a $body of 150,000 links", () => {
     const outcome = parseRecord("a.json", bytes(JSON.stringify({ $body: "[]()".repeat(150_000) })));
     if (!outcome.ok) throw new Error("the record does not read");

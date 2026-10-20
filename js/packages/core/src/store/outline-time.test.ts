@@ -21,11 +21,12 @@ const ANCHORED_ITEMS = 4;
 /** How many times smaller the document whose outline gives the baseline time is. */
 const SCALE = 8;
 /** How many times each document is outlined; the least time of each is compared. */
-const RUNS = 2;
+const RUNS = 3;
 /**
  * The most that outlining the document may cost, as a multiple of outlining the one {@link SCALE} times smaller. The multiple
- * is about {@link SCALE} when the cost is linear in the text, and grows toward its square when a step is quadratic: 7 to 8
- * on a laptop, at a load average of 3 to 40, and 26 to 29 with a loop over the whole text for each line.
+ * is about {@link SCALE} when the cost is linear in the text, and grows toward its square when a step is quadratic: 5.2 to
+ * 8.05 on a laptop under a load average of up to 40, and 26 to 29 with a loop over the whole text for each line. A step
+ * that encodes the text before each line again gives 11 to 16, and passes.
  */
 const MAX_RATIO = 2 * SCALE;
 
@@ -127,7 +128,8 @@ describe("the outline of a large document", () => {
     // machine's speed nor a steady load decides the outcome; only a load that changes between the two sizes does. The runs
     // alternate between the sizes, and the least of each leaves out a pause for the garbage collector or another process.
     // It catches a step of vmd's own whose cost grows with the square of the text, such as a loop over the whole text for
-    // each line.
+    // each line. Both documents have the same 48 sections and 240 anchored blocks, so a step quadratic in the headings or
+    // the anchors is not caught.
     // Deviation from the I1 design, recorded in issue #20: the design bounds the time at 1.5 s, which is close to what CI
     // takes, and a fixed bound fails on a busy machine.
     const large = new TextEncoder().encode(designDocument(DOCUMENT_BYTES));

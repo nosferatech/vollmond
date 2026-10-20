@@ -1,8 +1,10 @@
+import type { Nodes } from "mdast";
 import { describe, expect, test } from "vitest";
 import type { ParsedRecord } from "../../record/record.js";
 import type { ReferenceOccurrence } from "../../reference/reference.js";
 import { parseRecord } from "../parse-record.js";
 import { parseMarkdownTree } from "./library.js";
+import { collectLinks } from "./links.js";
 
 const utf8 = new TextEncoder();
 
@@ -136,5 +138,27 @@ describe("the links of a Markdown record", () => {
         ],
       }),
     );
+  });
+});
+
+describe("collectLinks over more nodes than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call. The tree is built without a parse, which would take seconds: 150,000
+  // top-level paragraphs of one link each, over a text where each link starts with its `[`.
+  test("gives the link of each of 150,000 top-level paragraphs", () => {
+    const unit = "[](b)\n\n";
+    const paragraphs: Nodes[] = Array.from({ length: 150_000 }, (_, i) => ({
+      type: "paragraph",
+      children: [
+        {
+          type: "link",
+          url: "b",
+          children: [],
+          position: { start: { line: 2 * i + 1, column: 1, offset: i * unit.length }, end: { line: 2 * i + 1, column: 6 } },
+        },
+      ],
+    }));
+    const links = collectLinks(paragraphs, unit.repeat(150_000), 0);
+    expect(links).toHaveLength(150_000);
+    expect(links.at(-1)).toEqual({ form: "link", start: 149_999 * unit.length, url: "b", destination: null });
   });
 });
