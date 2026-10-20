@@ -139,7 +139,7 @@ export function summarizeSchema(collection: string, root: SchemaShape, schemaAt:
       return;
     }
     const objects = objectsOf(shape);
-    const key = schemaKey(shape, objects);
+    const key = schemaKey(shape, schemaAt);
     const earlier = firstPath.get(key);
     const deep = objects.some(hasMembersOrItems);
     if (earlier !== undefined && deep) {
@@ -210,7 +210,7 @@ export function summarizeSchema(collection: string, root: SchemaShape, schemaAt:
 
   const rootObjects = objectsOf(root);
   // The record itself is the first field of its schema, at the path "", so that a member that refers back to it says so.
-  firstPath.set(schemaKey(root, rootObjects), "");
+  firstPath.set(schemaKey(root, schemaAt), "");
   members(root, rootObjects, "", [""], 0);
   const notShown = notShownIn(root, rootObjects);
   return {
@@ -231,12 +231,13 @@ function hasMembersOrItems(object: SchemaObject): boolean {
 
 /**
  * The key of a shape's schema: the locations that apply there but those that hold only `$ref` and annotations beside it, which
- * add nothing of their own, so that two fields that refer to one definition have one key.
+ * add nothing of their own, so that two fields that refer to one definition have one key. Each location's own value is read,
+ * so that a boolean schema among them, which is no object, cannot shift which location is looked at.
  */
-function schemaKey(shape: SchemaShape, objects: readonly SchemaObject[]): string {
-  const kept = shape.locations.filter((_, index) => {
-    const object = objects[index];
-    return object === undefined || !Object.keys(object).every((name) => ANNOTATIONS.has(name));
+function schemaKey(shape: SchemaShape, schemaAt: SchemaValueAt): string {
+  const kept = shape.locations.filter((location) => {
+    const value = schemaAt(location);
+    return !isObject(value) || !Object.keys(value).every((name) => ANNOTATIONS.has(name));
   });
   return kept.map(locationKey).sort().join("\n");
 }

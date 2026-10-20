@@ -4,7 +4,9 @@ import { describe, expect, test } from "vitest";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage } from "../storage/memory.js";
 import { openStore } from "../store/store.js";
+import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { type CollectionSchema, spineOf } from "./collection-schema.js";
+import { summarizeSchema } from "./summary.js";
 
 function successValue<T>(outcome: Outcome<T> | null): T {
   if (outcome === null) expect.fail("expected a schema");
@@ -231,17 +233,166 @@ describe("a schema's summary, true to the schema", () => {
     ]);
   });
 
-  test("reads the names of many members in time linear in them, and cuts the fields at 10,000", async () => {
-    const properties = Object.fromEntries(Array.from({ length: 70_000 }, (_, index) => [`f${index}`, true]));
-    const schema = await schemaOf({ "ticket.schema.json": { properties } });
-    const start = performance.now();
-    const summary = schema.summary();
-    // Cut at 10,000 fields, which says so.
+  test("collects member names in time linear in them, and cuts the fields at 10,000 without stepping past them", async () => {
+    /** A schema of `count` members, and a run of its summary that gives its time. */
+    const timed = async (count: number) => {
+      const properties = Object.fromEntries(Array.from({ length: count }, (_, index) => [`f${index}`, true]));
+      const value = { properties };
+      const schema = await schemaOf({ "ticket.schema.json": value });
+      const at = (location: { readonly pointer: string }) =>
+        location.pointer === "" ? value : (properties[location.pointer.split("/").pop() as string] as boolean);
+      return { schema, run: () => timeOf(() => summarizeSchema("tickets", schema.root, at)) };
+    };
+    const small = await timed(35_000);
+    const large = await timed(70_000);
+    // Twice the members, about twice the time; the quadratic collection of names gave 4.
+    expect(await leastTimeRatio(small.run, large.run, 3)).toBeLessThan(3);
+    const summary = large.schema.summary();
     expect(summary.fields.length).toBe(10_000);
     expect(summary.truncated).toBe(true);
     // And the members past the cut are not stepped to: nothing is built that the summary does not give.
-    expect(spineOf(schema)?.stepsComputed).toBeLessThan(20_000);
-    // The quadratic version took 1.7 s here at 70,000 members, a set a few tens of milliseconds.
-    expect(performance.now() - start).toBeLessThan(1000);
-  }, 60_000);
+    expect(spineOf(large.schema)?.stepsComputed).toBeLessThan(20_000);
+  }, 120_000);
+
+  test("takes the required sections from the record's own $sections, not from a member's keyed by a field", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          properties: {
+            x: {
+              properties: {
+                $sections: { type: "array", "x-vmd-list": { type: "map", keys: ["id"], required: ["zz"] } },
+              },
+            },
+          },
+        },
+      })
+    ).summary();
+    expect(summary.sections).toEqual([]);
+    expect(summary.lists.map((list) => list.path)).toEqual(["x.$sections"]);
+  });
+
+  test("marks no empty patternProperties as not shown, and marks one with a pattern", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          properties: {
+            p: { type: "object", patternProperties: {} },
+            q: { type: "object", patternProperties: { "^x": { type: "string" } } },
+          },
+        },
+      })
+    ).summary();
+    expect(summary.fields).toEqual([
+      { path: "p", types: ["object"], required: false },
+      { path: "q", types: ["object"], required: false, notShown: ["patternProperties"] },
+    ]);
+  });
+
+  test("merges only fields whose members are the same, over generated schemas that share definitions", async () => {
+    let wrong = 0;
+    let merges = 0;
+    for (let seed = 1; seed <= 150; seed++) {
+      const generated = generatedSchema(seed);
+      const summary = (await schemaOf({ "ticket.schema.json": generated })).summary();
+      for (const field of summary.fields) {
+        if (field.sameAs === undefined || field.recursive === true) continue;
+        merges += 1;
+        const own = membersBelow(generated, nodesAt(generated, field.path), 3);
+        const first = membersBelow(generated, nodesAt(generated, field.sameAs), 3);
+        if (JSON.stringify(own) !== JSON.stringify(first)) wrong += 1;
+      }
+    }
+    expect(merges).toBeGreaterThan(50);
+    expect(wrong).toBe(0);
+  }, 120_000);
 });
+
+// A generator of schemas that share definitions through `$ref` and `allOf`, with `true` schemas among them, and an oracle of
+// the member paths below a field that reads the schema itself, without the spine.
+
+type Schema = Record<string, unknown> | boolean;
+
+/** Gives the schema of a seed: members of up to three levels, their values `$ref`s, `allOf`s, `true` or strings. */
+function generatedSchema(seed: number): Record<string, unknown> {
+  let state = seed;
+  const random = (n: number) => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) % n;
+  };
+  const definitions = 5;
+  const value = (depth: number): Schema => {
+    const choice = random(9);
+    if (choice === 0) return true;
+    if (choice === 1 || choice === 2) return { $ref: `#/$defs/D${random(definitions)}` };
+    if (choice === 3) return { allOf: [true, { $ref: `#/$defs/D${random(definitions)}` }] };
+    if (choice === 4) return { $ref: `#/$defs/D${random(definitions)}`, title: "t" };
+    if (choice === 5 && depth < 2) return { properties: members(depth + 1) };
+    if (choice === 6) return { allOf: [{ $ref: "#/$defs/B" }, { $ref: `#/$defs/D${random(definitions)}` }] };
+    if (choice === 7 && depth < 2) {
+      return { allOf: [true, { properties: members(depth + 1) }, { $ref: `#/$defs/D${random(definitions)}` }] };
+    }
+    return { type: "string" };
+  };
+  const members = (depth: number): Record<string, Schema> => {
+    const found: Record<string, Schema> = {};
+    const count = 1 + random(3);
+    for (let index = 0; index < count; index++) found[`m${random(4)}`] = value(depth);
+    return found;
+  };
+  const defs: Record<string, Schema> = { B: true };
+  for (let index = 0; index < definitions; index++) defs[`D${index}`] = random(4) === 0 ? true : { properties: members(1) };
+  return { properties: members(0), $defs: defs };
+}
+
+/** Every schema that applies with `nodes`: themselves, and what their `allOf` and `$ref` bring, each once. */
+function closure(root: Record<string, unknown>, nodes: readonly Schema[]): Schema[] {
+  const found: Schema[] = [];
+  const seen = new Set<Schema>();
+  const pending = [...nodes];
+  for (let next = pending.shift(); next !== undefined; next = pending.shift()) {
+    if (seen.has(next)) continue;
+    seen.add(next);
+    found.push(next);
+    if (typeof next !== "object") continue;
+    if (Array.isArray(next.allOf)) pending.push(...(next.allOf as Schema[]));
+    if (typeof next.$ref === "string") {
+      pending.push((root.$defs as Record<string, Schema>)[next.$ref.split("/").pop() as string] as Schema);
+    }
+  }
+  return found;
+}
+
+/** The member paths below `nodes`, to `depth` levels, sorted, those a `false` forbids left out. */
+function membersBelow(root: Record<string, unknown>, nodes: readonly Schema[], depth: number): string[] {
+  if (depth === 0) return [];
+  const names = new Map<string, Schema[]>();
+  for (const node of closure(root, nodes)) {
+    if (typeof node !== "object" || typeof node.properties !== "object" || node.properties === null) continue;
+    for (const [name, schema] of Object.entries(node.properties as Record<string, Schema>)) {
+      names.set(name, [...(names.get(name) ?? []), schema]);
+    }
+  }
+  const paths: string[] = [];
+  for (const [name, schemas] of names) {
+    if (schemas.some((schema) => schema === false)) continue;
+    paths.push(name);
+    for (const below of membersBelow(root, schemas, depth - 1)) paths.push(`${name}.${below}`);
+  }
+  return paths.sort();
+}
+
+/** The schemas at a member path, `.` between members. */
+function nodesAt(root: Record<string, unknown>, path: string): Schema[] {
+  let nodes: Schema[] = [root];
+  for (const step of path === "" ? [] : path.split(".")) {
+    nodes = closure(root, nodes).flatMap((node) =>
+      typeof node === "object" && typeof node.properties === "object" && node.properties !== null && step in node.properties
+        ? [(node.properties as Record<string, Schema>)[step] as Schema]
+        : [],
+    );
+  }
+  return nodes;
+}
