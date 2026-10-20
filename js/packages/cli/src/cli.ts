@@ -455,7 +455,7 @@ function generalHelp(commands: readonly Command[]): string {
     "  --config FILE  a configuration used in place of the store's .vmd/config.yaml, with its schemas in schema/ beside it\n" +
     "  --json         print every outcome, a failure included, as one JSON object\n" +
     "  --quiet        leave out warnings, but check's, which are its result\n" +
-    "  --strict       the strict read mode: get, outline and ls refuse a record that breaks its schema\n" +
+    "  --strict       the strict read mode: get, outline, ls and refs refuse a record that breaks its schema\n" +
     "  --no-cache     neither read nor write the local index in the per-user cache directory\n"
   );
 }

@@ -182,18 +182,19 @@ describe("the strict read mode", () => {
     const strict = await (await store("strict", "strict", UNUSABLE_SCHEMA)).references();
     expect(strict.ok).toBe(false);
     expect(strict.issues.map((issue) => `${issue.code} ${issue.path}`)).toEqual(["schema-invalid null"]);
+    // The default mode reads on, and reports the schema it could not use, so that its records do not vanish silently.
     const lenient = await (await store("best-effort", "strict", UNUSABLE_SCHEMA)).references();
     expect(lenient.ok).toBe(true);
-    expect(shown(lenient)).toEqual([]);
+    expect(shown(lenient)).toEqual(["error schema-invalid null null"]);
   });
 
-  test("references of every record report a record the backend cannot read in a strict store only", async () => {
+  test("references of every record report a record the backend cannot read, in either read mode", async () => {
     const locked = { "runs/locked.json": { content: "{}", unreadable: true } };
     const strict = await (await store("strict", "strict", locked)).references();
     expect(strict.ok).toBe(true);
     expect(shown(strict)).toContain("error storage-failed runs/locked.json null");
     const lenient = await (await store("best-effort", "strict", locked)).references();
-    expect(shown(lenient)).toEqual([]);
+    expect(shown(lenient)).toContain("error storage-failed runs/locked.json null");
   });
 
   test("references of every record fail with the issue of each collection whose schema cannot be used", async () => {

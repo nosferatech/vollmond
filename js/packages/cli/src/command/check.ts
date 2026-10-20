@@ -279,7 +279,11 @@ async function recordsMatching(store: Store, glob: string): Promise<Outcome<read
  * Gives the details of the issues to print, the first `limit` of them or all for null: the semantic path of each one's node,
  * read through the store as the check read the record, and an ambiguity's candidates as other commands give them.
  */
-async function checkIssueDetails(store: Store, issues: readonly Issue[], limit: number | null): Promise<IssueDetailsSource> {
+export async function checkIssueDetails(
+  store: Store,
+  issues: readonly Issue[],
+  limit: number | null,
+): Promise<IssueDetailsSource> {
   const semantic = new Map<Issue, string>();
   for (const issue of limit === null ? issues : issues.slice(0, limit)) {
     if (issue.path === null || issue.at === null || issue.at === "") continue;

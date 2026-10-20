@@ -1,4 +1,4 @@
-import type { AddressReading } from "../address/address.js";
+import { type AddressReading, formatFragment, parseAddress } from "../address/address.js";
 import {
   type AddressUse,
   blockAnchorAddress,
@@ -25,6 +25,7 @@ import { parseRecord, recordTooLarge } from "../format/parse-record.js";
 import { entryBound, type IndexCache, MAX_ENTRY_BYTES, SNAPSHOT_KEY } from "../index/cache.js";
 import { bindingEntry, bindingEntryKey, parseEntry, parseEntryKey, restoreBinding, restoreStructure } from "../index/entries.js";
 import {
+  isTargetIn,
   type RefsInCounts,
   readSnapshot,
   refsInCounts,
@@ -42,6 +43,7 @@ import { type ParsedRecord, type RecordStructure, recordFormatOf } from "../reco
 import { ALIASES_PATH, aliasFileTooLarge, MAX_ALIAS_FILE_BYTES, NO_ALIASES, readAliases } from "../reference/aliases.js";
 import type { Reference } from "../reference/reference.js";
 import { ReferenceResolver } from "../reference/resolve.js";
+import { resolveReferenceUri } from "../reference/uri.js";
 import { type CollectionSchema, loadCollectionSchema } from "../schema/collection-schema.js";
 import { MAX_SCHEMA_BYTES } from "../schema/schema-set.js";
 import { storageFailureReason } from "../storage/failure-reason.js";
@@ -119,14 +121,29 @@ export interface StorePage extends CountedPage<StoreEntry> {
   readonly unreadable: UnreadableCount;
 }
 
-// Deviation from the I2 design, recorded in issue #24: references are queried by where they are made (`from`) only; the
-// references into a node (`to`) come with the commands and counts that need them.
-/** What {@link Store.references} gives the references of. */
+/** What {@link Store.references} gives the references of: those made in a node, those into a node, or every one. */
 export interface ReferencesQuery {
   /** The references made in the node this singular address names and below it; every record's when absent. */
   readonly from?: string;
-  /** How `from` is read: `raw` takes characters outside a fragment's as themselves, as the command line does. */
+  /**
+   * The references into the node this singular address names and below it, whatever their status, of every record that the
+   * listing of the whole store reads: for an address with a fragment, those with a target at the node or below it, a block
+   * anchor's own; for a path alone, those whose URI names that path, or with a target there, whether a record, an asset or
+   * nothing is there.
+   */
+  readonly to?: string;
+  /** How `from` or `to` is read: `raw` takes characters outside a fragment's as themselves, as the command line does. */
   readonly reading?: AddressReading;
+}
+
+/** The references a listing gives, and the records it left out. */
+export interface ReferenceListing {
+  readonly references: readonly Reference[];
+  /** How many records the listing could not read, and of those, how many of each collection whose schema cannot be used. */
+  readonly unreadable: {
+    readonly count: number;
+    readonly schemas: readonly { readonly collection: string; readonly count: number }[];
+  };
 }
 
 /** The query of {@link Store.list}: the backend's, without the prefix and the paths to leave out, which the store sets. */
@@ -292,6 +309,14 @@ export interface Store {
    * than `MAX_ALIAS_FILE_BYTES`, which is refused by its size before it is read, and as the backend's `list` and `read` do.
    */
   references(query?: ReferencesQuery): Promise<Outcome<readonly Reference[]>>;
+  /**
+   * Gives what {@link Store.references} gives, with the records the listing left out counted, so that none vanishes silently
+   * (§9.5): without `from`, every record it could not read, in either read mode, and among them those of each collection whose
+   * schema cannot be used. In the default read mode the outcome's issues are then those `list` reports for such records: a
+   * file the backend could not read, and each unusable schema's issue once; a structural error is counted and not reported,
+   * since it is the record's own. With `from`, nothing is left out.
+   */
+  referenceListing(query?: ReferencesQuery): Promise<Outcome<ReferenceListing>>;
   /**
    * Gives the canonical address of the node at an exact path of a record, as a fragment with its `#`, or `""` for the root:
    * what an issue's `in` line names the node by. The record is read as checks read it, from the local index where it holds
@@ -756,6 +781,8 @@ class BackendStore implements Store {
         ...(cursor === null ? {} : { cursor }),
       });
       if (!page.ok) return fail(page.issues);
+      // The versions the listing gives are what the local index looks entries up by, as a check's listing gives them.
+      this.listed(page.value.items);
       for (const file of page.value.items) files.push(file.path);
       // A file the backend could not read when listing it is still there, for a reference to it.
       for (const issue of page.issues) if (issue.code === "storage-failed" && issue.path !== null) files.push(issue.path);
@@ -792,35 +819,96 @@ class BackendStore implements Store {
   }
 
   async references(query: ReferencesQuery = {}): Promise<Outcome<readonly Reference[]>> {
+    const listing = await this.referenceListing(query);
+    return listing.ok ? succeed(listing.value.references, listing.issues) : listing;
+  }
+
+  async referenceListing(query: ReferencesQuery = {}): Promise<Outcome<ReferenceListing>> {
+    if (query.from !== undefined && query.to !== undefined) throw new RangeError("references takes from or to, not both");
     const resolver = await this.referenceResolver();
     if (!resolver.ok) return fail(resolver.issues);
+    if (query.to !== undefined) {
+      const into = await this.#into(resolver.value, query.to, query.reading);
+      if (!into.ok) return fail(into.issues);
+      const every = await this.referenceListing();
+      if (!every.ok) return every;
+      const references = every.value.references.filter((reference) => into.value(reference));
+      return succeed({ ...every.value, references }, every.issues);
+    }
     if (query.from === undefined) {
       const references: Reference[] = [];
-      const refusals: Issue[] = [];
+      const issues: Issue[] = [];
       // The issues of the collections whose schemas cannot be used, once each: they have no record path.
       const schemaIssues: Issue[] = [];
+      let count = 0;
+      const bySchema = new Map<string, number>();
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
         const read = this.readMode === "strict" ? await this.#readerBinding(path) : await this.indexedBinding(path);
         if (read === null) continue;
         if (read.ok) {
           for (const reference of await resolver.value.referencesOf(read.value)) references.push(reference);
-        } else if (this.readMode === "strict") {
-          for (const issue of read.issues) {
-            if (issue.path !== null) refusals.push(issue);
-            else if (!schemaIssues.includes(issue)) schemaIssues.push(issue);
+          continue;
+        }
+        count += 1;
+        for (const issue of read.issues) {
+          if (issue.path === null) {
+            if (!schemaIssues.includes(issue)) schemaIssues.push(issue);
+            const collection = collectionOfRecord(this.classify(path));
+            if (collection !== undefined) bySchema.set(collection.name, (bySchema.get(collection.name) ?? 0) + 1);
+          } else if (this.readMode === "strict" || issue.code === "storage-failed") {
+            issues.push(issue);
           }
         }
       }
-      return schemaIssues.length > 0 ? fail(schemaIssues) : succeed(references, refusals);
+      if (this.readMode === "strict" && schemaIssues.length > 0) return fail(schemaIssues);
+      const schemas = [...bySchema].map(([collection, records]) => ({ collection, count: records }));
+      return succeed({ references, unreadable: { count, schemas } }, [...issues, ...schemaIssues]);
     }
     const resolved = await this.resolve(query.from, "singular", query.reading);
     if (!resolved.ok) return fail(resolved.issues);
     const { record, targets } = resolved.value;
     const target = targets[0] as Target;
-    const references = await resolver.value.referencesOf(resolved.value.binding ?? record, target.at);
+    const made = await resolver.value.referencesOf(resolved.value.binding ?? record, target.at);
     const range = target.range;
-    if (range === undefined) return succeed(references);
-    return succeed(references.filter((reference) => inBlock(reference, target.at, range)));
+    const references = range === undefined ? made : made.filter((reference) => inBlock(reference, target.at, range));
+    return succeed({ references, unreadable: { count: 0, schemas: [] } });
+  }
+
+  // Reading R24 of the I2 design, for the project owner to confirm: what a listing of the references into a node gives.
+  /**
+   * Gives the test of whether a reference is into what `to` names (see {@link ReferencesQuery.to}). An address with a fragment
+   * is resolved as a link to it resolves, through a record alias from an old path or an anchor alias included, whatever the
+   * read mode, since the references into a record the strict mode refuses are still listed; it fails when it names no node.
+   * The node's test is the refs-in counts' (`isTargetIn`), whatever the reference's status.
+   */
+  async #into(
+    resolver: ReferenceResolver,
+    to: string,
+    reading: AddressReading | undefined,
+  ): Promise<Outcome<(reference: Reference) => boolean>> {
+    const parsed = parseAddress(to, reading);
+    if (!parsed.ok) return fail(parsed.issues);
+    const { record: path, fragment } = parsed.value;
+    if (fragment === null) {
+      return succeed((reference) => {
+        const named = resolveReferenceUri(reference.from.path, reference.uri);
+        if (named.kind === "store" && named.path === path) return true;
+        return reference.targets.some((target) => target.path === path);
+      });
+    }
+    const node = await resolver.targetOf(path, formatFragment(fragment).slice(1));
+    if (!node.ok) {
+      // An ambiguity is reported as resolving the address in the record it was found in reports it, with its candidates and
+      // their hint, so that `refs` and `get` fail alike.
+      const ambiguity = node.issues[0];
+      if (ambiguity?.code === "address-ambiguous" && ambiguity.path !== null) {
+        const address = `${ambiguity.path}${formatFragment(fragment)}`;
+        const resolved = await resolveStoreAddress((record) => this.binding(record), address, "singular");
+        if (!resolved.ok && resolved.issues.some((issue) => issue.code === "address-ambiguous")) return fail(resolved.issues);
+      }
+      return fail(node.issues);
+    }
+    return succeed((reference) => reference.targets.some((target) => isTargetIn(target, node.value)));
   }
 
   resolve(address: string, use: AddressUse, reading?: AddressReading): Promise<Outcome<StoreResolution>> {

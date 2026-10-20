@@ -1,7 +1,7 @@
 import type { StepMatch, Target } from "../address/resolve.js";
 import type { Issue } from "../issue/issue.js";
 import type { RefDeclaration } from "../schema/keywords.js";
-import type { ByteRange } from "../text/source-text.js";
+import type { ByteRange, Position } from "../text/source-text.js";
 
 /**
  * The form of a reference: a Markdown inline link, a link reference definition or an image, in a `$body` or a
@@ -46,9 +46,17 @@ export type ReferenceTarget = Target | { readonly path: string; readonly kind: "
 
 /** A reference of a record, resolved in its store. */
 export interface Reference extends ReferenceOccurrence {
-  /** Where the reference is: the citing record's path, the node of {@link ReferenceOccurrence.at}, and a link's offset. */
-  readonly from: { readonly path: string; readonly at: string; readonly offset?: number };
+  /**
+   * Where the reference is: the citing record's path, the node of {@link ReferenceOccurrence.at} and its canonical address,
+   * and a link's offset.
+   */
+  readonly from: { readonly path: string; readonly at: string; readonly address: string; readonly offset?: number };
   readonly status: ReferenceStatus;
+  /**
+   * Where the reference is in its file, by line and column, as its issues report it: where its destination starts for a
+   * Markdown link, the value's position for a typed string or a `$ref`. Absent where the record has no source position for it.
+   */
+  readonly position?: Position;
   /**
    * The targets: one for an `ok` or `aliased` reference; for an `ambiguous` one, the nodes of the step that matched several,
    * or none for one whose address could cross a level declared `multimap` and was not evaluated; none for a `dangling` or

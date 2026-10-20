@@ -531,3 +531,28 @@ describe("an entry holding characters outside the Basic Multilingual Plane", () 
     expect(run.parsed).toEqual([]);
   });
 });
+describe("references over the local index", () => {
+  test("a listing of the references into a record parses no record the second time, without a listing of the store before it", async () => {
+    const files = linkedStore(10);
+    const cache = createMemoryIndexCache();
+    const first = await counted(async () => {
+      expect((await (await storeOf(files, cache)).references({ to: "docs/d0.md" })).ok).toBe(true);
+    });
+    expect(first.parsed.length).toBeGreaterThan(0);
+    const second = await counted(async () => {
+      expect((await (await storeOf(files, cache)).references({ to: "docs/d0.md" })).ok).toBe(true);
+    });
+    expect(second.parsed).toEqual([]);
+  });
+  test("near miss: after a listing of the store, the same second run parses nothing", async () => {
+    const files = linkedStore(10);
+    const cache = createMemoryIndexCache();
+    await (await storeOf(files, cache)).references({ to: "docs/d0.md" });
+    const second = await counted(async () => {
+      const store = await storeOf(files, cache);
+      await store.list({ limit: 1000 });
+      expect((await store.references({ to: "docs/d0.md" })).ok).toBe(true);
+    });
+    expect(second.parsed).toEqual([]);
+  });
+});

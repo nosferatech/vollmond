@@ -42,8 +42,9 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 
 /** Gives a reference as the snapshot keeps it. */
 export function snapshotReference(reference: Reference): SnapshotReference {
+  const { path, at, offset } = reference.from;
   return {
-    from: reference.from,
+    from: offset === undefined ? { path, at } : { path, at, offset },
     form: reference.form,
     raw: reference.raw,
     uri: reference.uri,
@@ -177,22 +178,32 @@ const REACHING: ReadonlySet<ReferenceStatus> = new Set(["ok", "aliased"]);
  * target is that block. The root's count is every reference into the record by a node of it.
  */
 export function refsInCounts(snapshot: Snapshot, path: string): RefsInCounts {
-  const targets: { readonly at: string; readonly range?: ByteRange }[][] = [];
-  for (const reference of snapshot.references) {
-    if (!REACHING.has(reference.status)) continue;
-    const into = reference.targets.filter(
-      (target): target is { path: string; at: string; range?: ByteRange } => target.path === path && "at" in target,
-    );
-    if (into.length > 0) targets.push(into);
-  }
-  return {
-    node: (at) =>
-      targets.filter((into) => into.some((target) => at === "" || target.at === at || target.at.startsWith(`${at}/`))).length,
-    block: (at, range) =>
-      targets.filter((into) =>
-        into.some((target) => target.at === at && target.range?.start === range.start && target.range?.end === range.end),
-      ).length,
-  };
+  const reaching = snapshot.references.filter(
+    (reference) => REACHING.has(reference.status) && reference.targets.some((target) => target.path === path),
+  );
+  const count = (node: TargetNode) =>
+    reaching.filter((reference) => reference.targets.some((target) => isTargetIn(target, node))).length;
+  return { node: (at) => count({ path, at }), block: (at, range) => count({ path, at, range }) };
+}
+
+/** A node of a record, or a block anchor of its `$body` at `at` with its range, that references may have as a target. */
+export interface TargetNode {
+  readonly path: string;
+  readonly at: string;
+  readonly range?: ByteRange;
+}
+
+/**
+ * Whether a reference's target is the node or below it: for a block anchor, the same block; for a node, the node itself or a
+ * node or block anchor whose exact path is below it, the record's root holding them all. What the refs-in counts count and
+ * what `refs --to` lists, by one rule, so that they cannot drift apart.
+ */
+export function isTargetIn(target: SnapshotTarget | ReferenceTarget, node: TargetNode): boolean {
+  if (target.path !== node.path || !("at" in target)) return false;
+  const range = node.range;
+  if (range !== undefined) return target.at === node.at && target.range?.start === range.start && target.range?.end === range.end;
+  // Every exact path but the root's starts with `/`, so the root holds every node.
+  return target.at === node.at || target.at.startsWith(`${node.at}/`);
 }
 
 /** The refs-in counts of one record's nodes and block anchors. */
