@@ -38,8 +38,10 @@ export interface CollectionListing {
 /** What `vmd schema` without a name gives. */
 export interface CollectionsListing {
   readonly collections: readonly CollectionListing[];
-  /** How many records no collection claims, or several do. */
+  /** How many records no collection claims. */
   readonly unclaimed: number;
+  /** How many records several collections claim, which are read as records of none (`collection-conflict`). */
+  readonly conflicted: number;
 }
 
 /** What `vmd schema COLLECTION` gives: the schema's summary, with the collection's schema file and record count. */
@@ -69,6 +71,7 @@ export const SCHEMA_COMMAND: Command = {
     if (problem !== null) return usagePlan(problem);
     const name = positionals[0];
     const all = options.all === true;
+    if (all && name === undefined) return usagePlan("--all prints a collection's whole summary: name the collection");
     return {
       kind: "run",
       run: async (opened) => {
@@ -84,6 +87,7 @@ export const SCHEMA_COMMAND: Command = {
               records: counts.value.byCollection.get(collection) ?? 0,
             })),
             unclaimed: counts.value.unclaimed,
+            conflicted: counts.value.conflicted,
           };
           return outcomeOutput(succeed(listing, counts.issues), formatListing);
         }
@@ -109,12 +113,14 @@ export const SCHEMA_COMMAND: Command = {
 interface RecordCounts {
   readonly byCollection: ReadonlyMap<Collection, number>;
   readonly unclaimed: number;
+  readonly conflicted: number;
 }
 
 /** Counts the store's records by the collection that claims each, from the listing alone, without reading a record. */
 async function recordCounts(store: Store): Promise<Outcome<RecordCounts>> {
   const byCollection = new Map<Collection, number>();
   let unclaimed = 0;
+  let conflicted = 0;
   let cursor: string | null = null;
   do {
     const page = await store.backend.list({ prefix: "", limit: LIST_PAGE, ...(cursor === null ? {} : { cursor }) });
@@ -127,12 +133,13 @@ async function recordCounts(store: Store): Promise<Outcome<RecordCounts>> {
       const found = store.classify(path);
       if (found.kind !== "record") continue;
       const collection = collectionOfRecord(found);
-      if (collection === undefined) unclaimed += 1;
+      if (found.collections.length > 1) conflicted += 1;
+      else if (collection === undefined) unclaimed += 1;
       else byCollection.set(collection, (byCollection.get(collection) ?? 0) + 1);
     }
     cursor = page.value.cursor;
   } while (cursor !== null);
-  return succeed({ byCollection, unclaimed });
+  return succeed({ byCollection, unclaimed, conflicted });
 }
 
 /** The failure for a collection name the configuration does not have, naming those it has. */
@@ -162,18 +169,25 @@ function formatListing(listing: CollectionsListing): string {
     }),
   );
   const unclaimed = listing.unclaimed === 0 ? "" : `${counted(listing.unclaimed, "record")} in no collection\n`;
-  return formatColumns(rows) + unclaimed;
+  const conflicted =
+    listing.conflicted === 0 ? "" : `${counted(listing.conflicted, "record")} claimed by several collections, so by none\n`;
+  return formatColumns(rows) + unclaimed + conflicted;
 }
 
 /** Writes a schema's summary, one line per field and keyed list, under their headings. */
 function formatSummary(summary: SchemaSummary): string {
   let text = "";
+  const root = [
+    ...(summary.closed === true ? ["no members but these"] : []),
+    ...(summary.notShown === undefined ? [] : [`not shown: ${summary.notShown.join(", ")}`]),
+  ];
+  if (root.length > 0) text += `record  ${oneLine(root.join("  "))}\n`;
   if (summary.fields.length > 0) {
     text += `fields\n${formatColumns(summary.fields.map(fieldRow))}`;
   }
   if (summary.lists.length > 0) text += `keyed lists\n${formatColumns(summary.lists.map(listRow))}`;
   if (summary.sections.length > 0) text += `required sections\n  ${oneLine(summary.sections.join(", "))}\n`;
-  if (summary.truncated) text += "(the schema refers back to itself, or goes deeper than eight levels, where this stops)\n";
+  if (summary.truncated) text += "(cut: the schema goes deeper than eight levels, or past 10,000 fields)\n";
   return text;
 }
 
@@ -192,6 +206,12 @@ function fieldRow(field: FieldSummary): ColumnRow {
     notes.push(`${many}${targets}${field.ref.anchors === "explicit" ? ", explicit anchors" : ""}`);
   }
   if (field.summary === true) notes.push("summary");
+  if (field.closed === true) notes.push("no other members");
+  if (field.sameAs !== undefined) {
+    const as = field.sameAs === "" ? "the record" : field.sameAs;
+    notes.push(`${field.recursive === true ? "recursive, " : ""}members as ${as}`);
+  }
+  if (field.notShown !== undefined) notes.push(`not shown: ${field.notShown.join(", ")}`);
   return {
     cells: [field.path, field.types.join(" | "), field.required ? "required" : "", notes.join("  ")],
     depth: 1,

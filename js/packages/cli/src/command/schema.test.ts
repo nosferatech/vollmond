@@ -1,5 +1,7 @@
 // `vmd schema [COLLECTION] [--all]`: the collections, or one collection's schema in one screen.
 
+import { chmodSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { type CliEnvironment, runCli } from "../cli.js";
 import { temporaryDirectory, writeFiles } from "../directories.testkit.js";
@@ -72,6 +74,7 @@ describe("schema without a name", () => {
         { name: "tickets", match: ["tickets/*.md"], schema: "ticket.schema.json", records: 2 },
       ],
       unclaimed: 1,
+      conflicted: 0,
     });
   });
 });
@@ -128,5 +131,87 @@ describe("schema COLLECTION", () => {
     expect(result.stderr).toMatch(/^error address-not-found: the configuration has no collection named tickts\n/);
     expect(result.stderr).toContain("hint the collections are notes, tickets\n");
     expect(result.exitCode).toBe(1);
+  });
+});
+
+describe("schema's text, every declaration it writes", () => {
+  test("writes descending values, many-valued and explicit references, keyed lists' keys and closed objects", async () => {
+    const root = store({
+      type: "object",
+      additionalProperties: false,
+      anyOf: [{ required: ["level"] }],
+      properties: {
+        level: { enum: ["high", "low"], "x-vmd-ordered": "desc" },
+        links: { type: "string", format: "uri-reference", "x-vmd-ref": { cardinality: "many", anchors: "explicit" } },
+        meta: { type: "object", additionalProperties: false, properties: { a: { type: "string" } } },
+        copy: { $ref: "#/properties/meta" },
+        steps: {
+          type: "array",
+          items: { type: "object", properties: { name: { type: "string" } } },
+          "x-vmd-list": { type: "map", keys: ["name"], items: { build: { type: "object" } }, additional: false },
+        },
+      },
+    });
+    expect((await vmd(root, "schema", "tickets")).stdout).toBe(
+      "tickets  ticket.schema.json  2 records\n" +
+        "record  no members but these  not shown: anyOf\n" +
+        "fields\n" +
+        "  level                   enum high > low\n" +
+        "  links         string    uri-reference  refs, explicit anchors\n" +
+        "  meta          object    no other members\n" +
+        "  meta.a        string\n" +
+        "  copy          object    no other members  members as meta\n" +
+        "  steps         array     not shown: x-vmd-list items\n" +
+        "  steps[]       object\n" +
+        "  steps[].name  string\n" +
+        "keyed lists\n" +
+        "  steps  map by name  items build  no other keys\n",
+    );
+  });
+
+  test("says that a recursive schema is recursive, and that a summary cut short is cut", async () => {
+    const recursive = store({ type: "object", properties: { node: { $ref: "#" } } });
+    expect((await vmd(recursive, "schema", "tickets")).stdout).toContain("  node  object    recursive, members as the record\n");
+    let deep: Record<string, unknown> = { type: "string" };
+    for (let level = 0; level < 10; level++) deep = { type: "object", properties: { m: deep } };
+    expect((await vmd(store(deep), "schema", "tickets")).stdout).toContain(
+      "(cut: the schema goes deeper than eight levels, or past 10,000 fields)\n",
+    );
+  });
+
+  test("counts the records of every page of the listing, those the backend cannot read included", async () => {
+    const files: Record<string, string> = {};
+    for (let index = 0; index < 1001; index++) files[`tickets/${index}.md`] = "# T\n";
+    const root = writeFiles(store(), files);
+    chmodSync(join(root, "tickets", "1.md"), 0o000);
+    try {
+      expect((await vmd(root, "schema")).stdout).toContain(
+        "tickets  tickets/*.md              ticket.schema.json  1,001 records\n",
+      );
+    } finally {
+      chmodSync(join(root, "tickets", "1.md"), 0o644);
+    }
+  });
+
+  test("counts apart the records no collection claims and those several do, and writes neither line for none", async () => {
+    const both = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  a:\n    match: ["*.md"]\n  b:\n    match: ["x*.md"]\n',
+      "x1.md": "# X\n",
+      "y.md": "# Y\n",
+    });
+    expect((await vmd(both, "schema")).stdout).toBe(
+      "a  *.md   (no schema)  1 record\nb  x*.md  (no schema)  0 records\n1 record claimed by several collections, so by none\n",
+    );
+    const none = writeFiles(temporaryDirectory(), {
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  a:\n    match: ["*.md"]\n',
+      "y.md": "# Y\n",
+    });
+    expect((await vmd(none, "schema")).stdout).toBe("a  *.md  (no schema)  1 record\n");
+  });
+
+  test("refuses --all without a collection", async () => {
+    const result = await vmd(store(), "schema", "--all");
+    expect(result.stderr).toMatch(/^error usage-invalid: --all prints a collection's whole summary/);
+    expect(result.exitCode).toBe(2);
   });
 });

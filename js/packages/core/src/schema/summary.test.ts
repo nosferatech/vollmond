@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import type { Outcome } from "../issue/outcome.js";
 import { createMemoryStorage } from "../storage/memory.js";
 import { openStore } from "../store/store.js";
-import type { CollectionSchema } from "./collection-schema.js";
+import { type CollectionSchema, spineOf } from "./collection-schema.js";
 
 function successValue<T>(outcome: Outcome<T> | null): T {
   if (outcome === null) expect.fail("expected a schema");
@@ -92,7 +92,9 @@ describe("a schema's summary", () => {
       })
     ).summary();
     expect(summary.fields.map((field) => field.path)).toEqual(["node", "node.name", "node.child"]);
-    expect(summary.truncated).toBe(true);
+    expect(summary.fields[2]).toMatchObject({ path: "node.child", sameAs: "node", recursive: true });
+    // Recursion is shown, not cut: nothing is left out.
+    expect(summary.truncated).toBe(false);
   });
 
   test("goes down eight levels of members at most", async () => {
@@ -116,4 +118,130 @@ describe("a schema's summary", () => {
     const summary = (await schemaOf({ "ticket.schema.json": {} })).summary();
     expect(summary).toEqual({ collection: "tickets", fields: [], lists: [], sections: [], truncated: false });
   });
+});
+
+describe("a schema's summary, true to the schema", () => {
+  test("a mixin applied at the root and at a member is no cycle", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          allOf: [{ $ref: "#/$defs/base" }],
+          properties: { child: { $ref: "#/$defs/base" } },
+          $defs: { base: { properties: { name: { type: "string" } } } },
+        },
+      })
+    ).summary();
+    expect(summary.fields.map((field) => field.path)).toEqual(["child", "child.name", "name"]);
+    expect(summary.truncated).toBe(false);
+  });
+
+  test("a schema of a few kilobytes that shares definitions gives a bounded summary, each one summarized once", async () => {
+    const defs: Record<string, unknown> = {};
+    for (let level = 0; level < 9; level++) {
+      const next = level < 8 ? { $ref: `#/$defs/d${level + 1}` } : { type: "string" };
+      defs[`d${level}`] = { type: "object", properties: Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`p${i}`, next])) };
+    }
+    const summary = (await schemaOf({ "ticket.schema.json": { $ref: "#/$defs/d0", $defs: defs } })).summary();
+    expect(summary.fields.length).toBeLessThan(100);
+    expect(summary.fields.find((field) => field.path === "p1")).toMatchObject({ sameAs: "p0" });
+    expect(summary.fields.find((field) => field.path === "p1")?.recursive).toBeUndefined();
+  });
+
+  test("an array of arrays gives its items' items, and an array of objects its items' members", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          properties: {
+            m: { type: "array", items: { type: "array", items: { properties: { cell: { type: "number" } } } } },
+            rows: { type: "array", items: { type: "object", properties: { id: { type: "string" } } } },
+            pair: { type: "array", prefixItems: [{ type: "string" }] },
+          },
+        },
+      })
+    ).summary();
+    expect(summary.fields.map((field) => field.path)).toEqual([
+      "m",
+      "m[]",
+      "m[][]",
+      "m[][].cell",
+      "rows",
+      "rows[]",
+      "rows[].id",
+      "pair",
+      "pair[]",
+    ]);
+  });
+
+  test("intersects allOf: types as the types every branch allows, enum as the values every branch allows", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          properties: {
+            n: { allOf: [{ type: ["number", "string"] }, { type: "integer" }, { type: "integer" }] },
+            s: { allOf: [{ enum: ["a", "b", "c"] }, { enum: ["c", "b"] }] },
+            k: { allOf: [{ const: "x" }, { enum: ["x", "y"] }] },
+          },
+        },
+      })
+    ).summary();
+    expect(summary.fields).toEqual([
+      { path: "n", types: ["integer"], required: false },
+      { path: "s", types: [], required: false, enum: ["b", "c"] },
+      { path: "k", types: [], required: false, enum: ["x"] },
+    ]);
+  });
+
+  test("lists no member a schema forbids, and says which objects allow no other members", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          additionalProperties: false,
+          properties: { a: { type: "string" }, x: false, o: { type: "object", additionalProperties: false } },
+        },
+      })
+    ).summary();
+    expect(summary.fields.map((field) => field.path)).toEqual(["a", "o"]);
+    expect(summary.closed).toBe(true);
+    expect(summary.fields[1]).toMatchObject({ path: "o", closed: true });
+  });
+
+  test("marks what it does not show: conditional branches, patterns, other members' schemas, keyed list items", async () => {
+    const summary = (
+      await schemaOf({
+        "ticket.schema.json": {
+          anyOf: [{ properties: { z: { type: "string" } } }],
+          properties: {
+            // A schema's `then` keyword, as data: an object literal with a `then` member reads as a thenable to the linter.
+            c: {
+              oneOf: [{ type: "string" }, { type: "number" }],
+              if: { type: "string" },
+              ...JSON.parse('{"then": {"minLength": 1}}'),
+            },
+            p: { type: "object", patternProperties: { "^x": { type: "string" } }, additionalProperties: { type: "number" } },
+            steps: { type: "array", "x-vmd-list": { type: "map", keys: ["name"], items: { build: { type: "object" } } } },
+          },
+        },
+      })
+    ).summary();
+    expect(summary.notShown).toEqual(["anyOf"]);
+    expect(summary.fields).toEqual([
+      { path: "c", types: [], required: false, notShown: ["oneOf", "if", "then"] },
+      { path: "p", types: ["object"], required: false, notShown: ["patternProperties", "additionalProperties"] },
+      { path: "steps", types: ["array"], required: false, notShown: ["x-vmd-list items"] },
+    ]);
+  });
+
+  test("reads the names of many members in time linear in them, and cuts the fields at 10,000", async () => {
+    const properties = Object.fromEntries(Array.from({ length: 70_000 }, (_, index) => [`f${index}`, true]));
+    const schema = await schemaOf({ "ticket.schema.json": { properties } });
+    const start = performance.now();
+    const summary = schema.summary();
+    // Cut at 10,000 fields, which says so.
+    expect(summary.fields.length).toBe(10_000);
+    expect(summary.truncated).toBe(true);
+    // And the members past the cut are not stepped to: nothing is built that the summary does not give.
+    expect(spineOf(schema)?.stepsComputed).toBeLessThan(20_000);
+    // The quadratic version took 1.7 s here at 70,000 members, a set a few tens of milliseconds.
+    expect(performance.now() - start).toBeLessThan(1000);
+  }, 60_000);
 });
