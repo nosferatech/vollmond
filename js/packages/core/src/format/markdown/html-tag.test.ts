@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { leastTimeRatio, timeOf } from "../../timing.testkit.js";
 import { classTokens, readClosingTagName, readOpenTag } from "./html-tag.js";
 
 describe("readOpenTag", () => {
@@ -36,14 +37,24 @@ describe("readOpenTag", () => {
     expect(readOpenTag(text, 0)).toBeNull();
   });
 
-  test("reads in linear time, however much white space a tag holds", () => {
-    const space = " \t\r\n".repeat(50_000);
-    const started = performance.now();
-    expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}x`, 0)).toBeNull();
-    expect(readOpenTag(`<a${space}id${space}=${space}"x"${space}/>`, 0)?.selfClosing).toBe(true);
-    // A read that scans the white space again for each attempt takes time growing with its square: hours for 400,000
-    // characters. The bound is far from both, so that a loaded machine does not fail it.
-    expect(performance.now() - started).toBeLessThan(5000);
+  test("reads in linear time, however much white space a tag holds", async () => {
+    // Two tags with four runs of 20,000 white space characters, one closed and one not, are read in the time of tags with
+    // SCALE times less. The ratio is about SCALE when the read is linear, and about its square when the read scans a run
+    // again for each of its characters: 7.0 to 8.9 on a laptop under a load average of 24 to 70, and 70 with such a step,
+    // which then takes seconds; longer runs would make it take minutes.
+    const SCALE = 8;
+    const tags = (repeats: number): [string, string] => {
+      const space = " \t\r\n".repeat(repeats);
+      return [`<a${space}id${space}=${space}"x"${space}x`, `<a${space}id${space}=${space}"x"${space}/>`];
+    };
+    const readTime =
+      ([open, closed]: [string, string]) =>
+      () =>
+        timeOf(() => [readOpenTag(open, 0), readOpenTag(closed, 0)]);
+    const [open, closed] = tags(5000);
+    expect(readOpenTag(open, 0)).toBeNull();
+    expect(readOpenTag(closed, 0)?.selfClosing).toBe(true);
+    expect(await leastTimeRatio(readTime(tags(5000 / SCALE)), readTime([open, closed]))).toBeLessThan(3 * SCALE);
   });
 });
 

@@ -1,3 +1,4 @@
+import { parse as libraryParse } from "micromark";
 import { describe, expect, test } from "vitest";
 import { ISSUE_CODES, type IssueCode } from "../../issue/codes.js";
 import type { Issue } from "../../issue/issue.js";
@@ -10,6 +11,47 @@ import { MAX_NESTING } from "../limits.js";
 import { type MarkdownReading, parseMarkdownRecord, readMarkdown } from "./markdown.js";
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
+
+/** A construct of the Markdown library, the type its package does not export by name. */
+type Construct = Extract<NonNullable<ReturnType<typeof libraryParse>["constructs"]["document"][number]>, { tokenize: unknown }>;
+
+/**
+ * The Markdown library's construct `name` among those it tries at `character` in `content`: one object that every parse uses,
+ * so that counting the calls of its methods counts the work of every parse.
+ */
+function libraryConstruct(content: "document" | "text", character: string, name: string): Construct {
+  const entry = libraryParse().constructs[content][character.charCodeAt(0)];
+  const construct = (Array.isArray(entry) ? entry : [entry]).find((candidate) => candidate?.name === name);
+  if (construct === undefined) throw new Error(`the Markdown library has no ${name} at ${character}`);
+  return construct;
+}
+
+/** A method of the Markdown library's, as {@link callsDuring} wraps it. */
+type LibraryMethod = (this: never, ...args: never[]) => unknown;
+
+/**
+ * Counts the calls of `object`'s method `method` while `run` runs, and restores the method. Unlike a spy, it keeps no call's
+ * arguments, so that millions of calls cost no memory.
+ */
+function callsDuring<K extends string>(
+  object: { [key in K]?: LibraryMethod | undefined },
+  method: K,
+  run: () => unknown,
+): number {
+  const original = object[method];
+  if (original === undefined) throw new Error(`no method ${method}`);
+  let calls = 0;
+  object[method] = function (this: never, ...args: never[]) {
+    calls += 1;
+    return original.apply(this, args);
+  };
+  try {
+    run();
+  } finally {
+    object[method] = original;
+  }
+  return calls;
+}
 
 function decoded(text: string): SourceText {
   const outcome = decodeSource("r.md", utf8(text));
@@ -237,12 +279,19 @@ describe("nesting", () => {
   const indentedList = (depth: number) => Array.from({ length: depth }, (_, i) => `${"  ".repeat(i)}- x`).join("\n");
 
   test("a thousand levels of list indentation are refused at the first item too deep, before the rest is parsed", () => {
+    // The library continues each open list on each line, so the lists it continues grow with the square of the depth, and
+    // parsed to the end, these 980 KB take about 20 s. So they are counted rather than timed: as many as for the lines up
+    // to the first item too deep alone, 33,153, which shows that it reads no line after it, where parsed to the end they are
+    // 500,500.
+    const continuation = libraryConstruct("document", "-", "list").continuation as Construct;
     const text = `${indentedList(1000)}\n`;
-    const started = performance.now();
-    const issue = parse(text).issues[0];
-    // Parsed to the end, these 980 KB take about 25 s, growing with the square of the depth; refused at level 257, the 66
-    // KB before it take a few hundred milliseconds. The bound is far from both, so that a loaded machine does not fail it.
-    expect(performance.now() - started).toBeLessThan(5000);
+    let issue: Issue | undefined;
+    const continuedInText = callsDuring(continuation, "tokenize", () => {
+      issue = parse(text).issues[0];
+    });
+    const continuedBeforeRefusal = callsDuring(continuation, "tokenize", () => parse(`${indentedList(MAX_NESTING + 1)}\n`));
+    expect(continuedBeforeRefusal).toBeGreaterThan(0);
+    expect(continuedInText).toBe(continuedBeforeRefusal);
     expect([issue?.code, issue?.at]).toEqual(["syntax-error", ""]);
     expect(issue?.position).toEqual({ offset: bytesOf(text, "- x", MAX_NESTING).start, line: MAX_NESTING + 1, col: 513 });
   });
@@ -323,10 +372,18 @@ describe("emphasis runs", () => {
   });
 
   test("ten thousand nested emphasis levels are refused before the library resolves them", () => {
-    const started = performance.now();
-    expect(issuesOf(`${"*a ".repeat(10_000)}b${" a*".repeat(10_000)}\n`)).toEqual([["syntax-error", ""]]);
-    // Resolved, the emphasis takes about 45 s; refused at run 4,097, a few milliseconds. The bound is far from both.
-    expect(performance.now() - started).toBeLessThan(5000);
+    // Resolved, the emphasis takes about 17 s, growing with the square of the runs; refused at run 4,097, a few
+    // milliseconds. So the library's resolutions of emphasis are counted rather than timed: some for a paragraph under the
+    // limit, none here, where resolved they are 10,001.
+    const attention = libraryConstruct("text", "*", "attention");
+    const resolvedUnderLimit = callsDuring(attention, "resolveAll", () => {
+      expect(issuesOf(`${"*a ".repeat(100)}b${" a*".repeat(100)}\n`)).toEqual([]);
+    });
+    const resolvedBeyondLimit = callsDuring(attention, "resolveAll", () => {
+      expect(issuesOf(`${"*a ".repeat(10_000)}b${" a*".repeat(10_000)}\n`)).toEqual([["syntax-error", ""]]);
+    });
+    expect(resolvedUnderLimit).toBeGreaterThan(0);
+    expect(resolvedBeyondLimit).toBe(0);
   });
 });
 

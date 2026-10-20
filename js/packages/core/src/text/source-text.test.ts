@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
+import { leastTimeRatio, timeOf } from "../timing.testkit.js";
 import { decodeSource, firstInvalidUtf8, type SourceText } from "./source-text.js";
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
@@ -90,17 +91,21 @@ describe("positions", () => {
     expect(() => text.position(4)).toThrow(RangeError);
   });
 
-  test("cost does not grow with the length of the line", () => {
-    // A 2 MB single line with characters of every width; 20,000 positions near its end would take minutes at one step per
-    // character, and take milliseconds through the table. The bound is far from both, so that a loaded machine does not
-    // fail it.
-    const line = "a\u{E9}\u{20AC}\u{1F600}".repeat(200_000);
-    const text = source(line);
-    const end = text.bytes.length;
-    const started = performance.now();
-    for (let k = 0; k < 20_000; k++) text.position(end - 10 * k);
-    expect(performance.now() - started).toBeLessThan(5000);
-    expect(text.position(end)).toEqual({ offset: end, line: 1, col: 4 * 200_000 + 1 });
+  test("cost does not grow with the length of the line", async () => {
+    // 2,000 positions near the end of a 1 MB single line with characters of every width take about as long as near the end
+    // of one SCALE times shorter: 1.3 to 1.5 times as long on a laptop under a load average of 24 to 50. At one step per
+    // character of the line they take about SCALE times as long, 19.
+    const SCALE = 16;
+    const positionTime = (repeats: number) => {
+      const text = source("a\u{E9}\u{20AC}\u{1F600}".repeat(repeats));
+      const end = text.bytes.length;
+      expect(text.position(end)).toEqual({ offset: end, line: 1, col: 4 * repeats + 1 });
+      return () =>
+        timeOf(() => {
+          for (let k = 0; k < 2000; k++) text.position(end - 10 * k);
+        });
+    };
+    expect(await leastTimeRatio(positionTime(100_000 / SCALE), positionTime(100_000))).toBeLessThan(6);
   });
 
   test("the empty file has one position", () => {

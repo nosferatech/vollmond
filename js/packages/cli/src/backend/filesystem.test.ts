@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
+import { type FileHandle, open } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitBlobId, type Outcome } from "@vollmond/core";
 import { describeStorageContract } from "@vollmond/core/testkit";
-import { afterAll, describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import { createFilesystemStorage } from "./filesystem.js";
 
 /** Whether the tests run as root, who can read a file whatever its mode. */
@@ -69,13 +70,28 @@ describe("createFilesystemStorage", () => {
     writeFiles(root, { "big.md": "" });
     truncateSync(join(root, "big.md"), 3 * 1024 ** 3);
     const storage = createFilesystemStorage(root);
-    const started = performance.now();
-    expect(successValue(await storage.read("big.md", { maxBytes: 1024 }))).toEqual({
-      path: "big.md",
-      oversized: true,
-      size: 3 * 1024 ** 3,
+    // The reads of open files are counted rather than timed: a backend that read the whole file in parts before refusing it
+    // takes a few hundred milliseconds on a laptop, since the file's blocks are holes, and makes thousands of reads.
+    const opened = await open(join(root, "big.md"));
+    const handlePrototype: FileHandle = Object.getPrototypeOf(opened);
+    await opened.close();
+    const reads = (["read", "readv", "readFile", "readLines", "createReadStream", "readableWebStream"] as const).map((method) =>
+      vi.spyOn(handlePrototype, method),
+    );
+    const refused = await storage.read("big.md", { maxBytes: 1024 });
+    const readCalls = reads.reduce((sum, spy) => sum + spy.mock.calls.length, 0);
+    for (const spy of reads) spy.mockRestore();
+    expect(successValue(refused)).toEqual({ path: "big.md", oversized: true, size: 3 * 1024 ** 3 });
+    expect(readCalls).toBe(0);
+    // A read within a bound the file is under reads it, so the spies would have seen it.
+    writeFiles(root, { "small.md": "small\n" });
+    const read = vi.spyOn(handlePrototype, "read");
+    expect(successValue(await storage.read("small.md", { maxBytes: 1024 }))).toMatchObject({
+      content: new TextEncoder().encode("small\n"),
     });
-    expect(performance.now() - started).toBeLessThan(1000);
+    const smallReads = read.mock.calls.length;
+    read.mockRestore();
+    expect(smallReads).toBeGreaterThan(0);
     // A read without the bound reads the whole file, which Node cannot hold in one buffer.
     expect((await storage.read("big.md")).issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });

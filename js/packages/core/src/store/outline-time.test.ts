@@ -2,6 +2,7 @@ import { fromMarkdown as libraryFromMarkdown } from "mdast-util-from-markdown";
 import { describe, expect, test, vi } from "vitest";
 import { createMemoryStorage } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
+import { leastTimeRatio } from "../timing.testkit.js";
 import { openStore, type Store } from "./store.js";
 
 // The Markdown library's parse, counted.
@@ -20,7 +21,7 @@ const SUBSECTIONS = 3;
 const ANCHORED_ITEMS = 4;
 /** How many times smaller the document whose outline gives the baseline time is. */
 const SCALE = 8;
-/** How many times each document is outlined; the least time of each is compared. */
+/** How many times each document is outlined after a first outline of the smaller one; the least time of each is compared. */
 const RUNS = 3;
 /**
  * The most that outlining the document may cost, as a multiple of outlining the one {@link SCALE} times smaller. The multiple
@@ -124,23 +125,20 @@ describe("the outline of a large document", () => {
   }, 60_000);
 
   test("outlines 673 KB in time far from quadratic", async () => {
-    // The time is compared with that of a document SCALE times smaller, measured in the same run, so that neither the
-    // machine's speed nor a steady load decides the outcome; only a load that changes between the two sizes does. The runs
-    // alternate between the sizes, and the least of each leaves out a pause for the garbage collector or another process.
-    // It catches a step of vmd's own whose cost grows with the square of the text, such as a loop over the whole text for
-    // each line. Both documents have the same 48 sections and 240 anchored blocks, so a step quadratic in the headings or
-    // the anchors is not caught.
+    // The time is compared with that of a document SCALE times smaller, the least of RUNS runs each. It catches a step of
+    // vmd's own whose cost grows with the square of the text, such as a loop over the whole text for each line. Both
+    // documents have the same 48 sections and 240 anchored blocks, so a step quadratic in the headings or the anchors is not
+    // caught.
     // Deviation from the I1 design, recorded in issue #20: the design bounds the time at 1.5 s, which is close to what CI
     // takes, and a fixed bound fails on a busy machine.
     const large = new TextEncoder().encode(designDocument(DOCUMENT_BYTES));
     const small = new TextEncoder().encode(designDocument(DOCUMENT_BYTES / SCALE));
-    await outlineTime(small);
-    let largeTime = Number.POSITIVE_INFINITY;
-    let smallTime = Number.POSITIVE_INFINITY;
-    for (let run = 0; run < RUNS; run++) {
-      smallTime = Math.min(smallTime, await outlineTime(small));
-      largeTime = Math.min(largeTime, await outlineTime(large));
-    }
-    expect(largeTime / smallTime).toBeLessThan(MAX_RATIO);
+    expect(
+      await leastTimeRatio(
+        () => outlineTime(small),
+        () => outlineTime(large),
+        RUNS,
+      ),
+    ).toBeLessThan(MAX_RATIO);
   }, 60_000);
 });
