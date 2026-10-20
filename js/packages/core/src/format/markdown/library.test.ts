@@ -189,9 +189,11 @@ describe("parseInlineContent", () => {
 });
 
 describe("a title with more inline nodes than a call takes arguments", () => {
-  // Node 24 takes about 125,000 arguments in a call; each line gives a text node and a hard line break.
-  test("gives every node of a title of 150,000 lines", () => {
-    const content = parseInlineContent("a\\\n".repeat(150_000), []);
-    expect(content?.filter((node) => node.type === "break")).toHaveLength(149_999);
-  }, 120_000);
+  // Node 24 takes about 125,000 arguments in a call. The links are empty and side by side, with no text around them, since
+  // the Markdown library's search for autolink literals takes time that grows faster than the text nodes of a tree.
+  test("gives every node of a title of 150,000 links", () => {
+    const content = parseInlineContent("[]()".repeat(150_000), []);
+    expect(content).toHaveLength(150_000);
+    expect(content?.every((node) => node.type === "link")).toBe(true);
+  }, 60_000);
 });
