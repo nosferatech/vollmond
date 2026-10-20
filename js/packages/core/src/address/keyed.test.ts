@@ -370,14 +370,24 @@ describe("the proof that a singular address names one node", () => {
       expect(canonicalAddress(binding, "/$sections/2")).toBe("#monday-1");
     });
 
-    test("a first step that names several nodes in the record, or none, stays unprovable", async () => {
+    test("a first step that names several nodes in the record stays unprovable", async () => {
       const binding = await bound("j.md", text, journal);
       expect(singular(binding, "#monday")).toBe("address-not-singular j.md null");
       expect(singular(binding, "#monday/$body")).toBe("address-not-singular j.md null");
-      expect(singular(binding, "#nothing")).toBe("address-not-singular j.md null");
       expect(selected(binding, "#monday")).toEqual(["/$sections/1", "/$sections/2"]);
       // The first Monday's derived anchor is also the key of both, so its canonical address is its exact path.
       expect(canonicalAddress(binding, "/$sections/1")).toBe("#/$sections/1");
+    });
+
+    // Card AP (project owner, 2026-10-20): a first step that names no node is not ambiguous, so the address is not found, and
+    // a reference written with it is dangling, which the anchor aliases resolve.
+    test("a first step that names no node in the record is proved, and the address is not found, whatever follows it", async () => {
+      const binding = await bound("j.md", text, journal);
+      expect(singular(binding, "#tpyo")).toBe("address-not-found j.md null");
+      // No node is there to prove later steps from, and evaluation finds nothing at the first step.
+      expect(singular(binding, "#tpyo/later")).toBe("address-not-found j.md null");
+      expect(singular(binding, "#tpyo/$body")).toBe("address-not-found j.md null");
+      expect(selected(binding, "#tpyo/later")).toEqual([]);
     });
 
     test("the steps after the first are still proved from the schema", async () => {
@@ -436,7 +446,7 @@ describe("the proof that a singular address names one node", () => {
       expect(singular(binding, "#notes/a")).toBe("/notes/a #notes/a");
       // Log is the one root section keyed log, and its child sections are declared multimap all the same.
       expect(singular(binding, "#log/a")).toBe("address-not-singular r.json null");
-      expect(singular(binding, "#nothing/a")).toBe("address-not-singular r.json null");
+      expect(singular(binding, "#nothing/a")).toBe("address-not-found r.json null");
     }
   });
 
@@ -452,7 +462,7 @@ describe("the proof that a singular address names one node", () => {
     expect(singular(binding, "#done/later")).toBe("address-not-singular j.md null");
   });
 
-  test("an unprovable address says how many nodes its first step names in the record, and which", async () => {
+  test("an unprovable address says how many nodes its first step names in the record, and which; none is proved", async () => {
     const schema = { properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } } };
     const both = '# J\n\n## Done\n\nA.\n\n## Week\n\n### Finished <a id="done"></a>\n\nB.\n';
     const message = (outcome: ReturnType<typeof proveSingular>) => (outcome.ok ? "proved" : outcome.issues[0]?.message);
@@ -460,9 +470,7 @@ describe("the proof that a singular address names one node", () => {
     expect(message(proveSingular(binding, fragmentOf("#done")))).toBe(
       'j.md#done: its step 1, "done", crosses a level its schema declares multimap, where keys may repeat, and it names 2 nodes in the record, /$sections/0 and /$sections/1/$sections/0, so it cannot be proved to name one node',
     );
-    expect(message(proveSingular(binding, fragmentOf("#nothing")))).toBe(
-      'j.md#nothing: its step 1, "nothing", crosses a level its schema declares multimap, where keys may repeat, and it names no node in the record, so it cannot be proved to name one node',
-    );
+    expect(message(proveSingular(binding, fragmentOf("#nothing")))).toBe("proved");
   });
 
   test("two patterns that bring a multimap and a map to one member make a step through it unprovable", async () => {

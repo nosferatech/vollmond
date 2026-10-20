@@ -610,26 +610,32 @@ The modes change severities only (I1 §4.2, section 2.5), and the declarations c
 - A location the schema does not constrain has no declarations below it, so nothing there is rejected. Lenient mode and duplicate
   data are not rejected either: they are §7.4's cases that fail at evaluation.
 - Where the schema alone cannot prove the address, whichever step fails, the record decides its first step (card AO): the proof
-  looks the step up as evaluation matches it, in the anchor table, the root's member of that name and the root's `$sections`
-  keyed list (`indexesOf`), a node that several of them name counting once. If the step names exactly one node there, an
-  explicit anchor that no top-level key repeats or a unique top-level key, the proof proves the steps after it from that node's
-  shape alone. If it names several, or none, the address fails as `address-not-singular` at the step the schema found, and the
-  message says how many nodes the first step names in the record and lists their exact paths. A first step that begins with `$`
-  already reaches one place in the schema, the root's own member, so the record is not asked. This makes no address harder to
-  prove than before, and declaring a level `multimap` never makes one easier. So in a journal whose top-level sections may
-  repeat, `#done` and `#done/$body` are singular where `done` is the explicit anchor of one node and no other top-level section
-  has the key `done`. `#monday` over two `## Monday` sections is not singular, and neither is `#done` where a top-level `## Done`
-  and another node's explicit anchor `done` are both there (§7.3's ambiguity, which the record shows). A derived anchor counts as
-  any anchor does: `#monday-1` names the second Monday alone, and so does a block anchor that names one block. The case is not
-  only a `multimap` root's. In `{"$title": "R", "notes": {"a": 1}}`, where the root's sections are a map but their own child
-  sections are declared `multimap`, the schema cannot tell the field `notes` from a root section `notes`. So `#notes/a` is
-  proved only because the record has the field and no such section. Canonical addresses follow (section 4.5): such a node's
-  explicit anchor, or a repeated section's unique derived anchor, becomes its canonical address in place of its exact path. The
-  suite's `addresses/cardinality` cases `repeating-root-*` and `map-root-*` hold these examples.
+  looks the step up as evaluation matches it, in the anchor table, the root's member of that name and the root's `$sections` keyed
+  list (`indexesOf`), a node that several of them name counting once. If the step names exactly one node there, an explicit anchor
+  that no top-level key repeats or a unique top-level key, the proof proves the steps after it from that node's shape alone. If it
+  names several, the address fails as `address-not-singular` at the step the schema found, and the message says how many nodes the
+  first step names in the record and lists their exact paths. If it names none, the address is proved (card AP): it names no node,
+  whatever follows the first step, and is not ambiguous, so evaluation finds it `address-not-found` and a reference written with
+  it is `dangling`, which the anchor aliases of section 5.5 then resolve. `#tpyo` and `#tpyo/later` are not found, and `#done`
+  after `done` was renamed `finished`, with the alias `done` to `finished`, is `aliased` to `#finished`. The address an alias
+  gives, `#finished/$body` for `#done/$body`, is proved again as any address is. A first step that begins with `$` already reaches
+  one place in the schema, the root's own member, so the record is not asked. This makes no address harder to prove than before,
+  and declaring a level `multimap` never makes one easier. So in a journal whose top-level sections may repeat, `#done` and
+  `#done/$body` are singular where `done` is the explicit anchor of one node and no other top-level section has the key `done`.
+  `#monday` over two `## Monday` sections is not singular, and neither is `#done` where a top-level `## Done` and another node's
+  explicit anchor `done` are both there (§7.3's ambiguity, which the record shows). A derived anchor counts as any anchor does:
+  `#monday-1` names the second Monday alone, and so does a block anchor that names one block. The case is not only a `multimap`
+  root's. In `{"$title": "R", "notes": {"a": 1}}`, where the root's sections are a map but their own child sections are declared
+  `multimap`, the schema cannot tell the field `notes` from a root section `notes`. So `#notes/a` is proved only because the
+  record has the field and no such section. Canonical addresses follow (section 4.5): such a node's explicit anchor, or a repeated
+  section's unique derived anchor, becomes its canonical address in place of its exact path. The suite's `addresses/cardinality`
+  cases `repeating-root-*` and `map-root-*` hold these examples, and its `references/aliases` cases `*-repeating-root` the aliased
+  and dangling links.
 
 So `journal/week-41.md#log/entry-1` fails as `address-not-singular` although no Entry has the key `entry-1`, and
-`#log/nothing-here` fails the same way, whether or not a `log` section exists: the declaration of the level decides (the suite's
-`multimap-suffix-not-singular`). The cost is a few map lookups per step.
+`#log/nothing-here` fails the same way: where the record has the one `log` section, the declaration of its level decides (the
+suite's `multimap-suffix-not-singular`). Where it has no `log` section, the address names nothing and is not found. The cost is a
+few map lookups per step.
 
 ### 4.5 Canonical addresses and `@key`
 

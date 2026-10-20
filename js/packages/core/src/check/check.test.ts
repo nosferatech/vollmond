@@ -156,6 +156,34 @@ describe("Store.check", () => {
     expect(outcome.issues[0]?.message).toContain("#monday");
   });
 
+  // Card AP (project owner, 2026-10-20): a first step that names no node is not ambiguous, so the link is dangling, and the
+  // anchor aliases apply.
+  test("follows an anchor alias into a journal whose top-level sections may repeat, and reports a name nothing has as dangling", async () => {
+    const store = await storeOf({
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  journal: {match: ["journal/*.md"], schema: journal.schema.json}\n',
+      ".vmd/schema/journal.schema.json": JSON.stringify({
+        properties: { $sections: { "x-vmd-list": { type: "multimap", keys: ["@key"] } } },
+      }),
+      ".vmd/aliases.jsonl": `${JSON.stringify({ kind: "anchor", record: "journal/j.md", from: "done", to: "finished", at: "2026-10-20T08:00:00Z" })}\n`,
+      "journal/j.md": '# J\n\n## Finished <a id="finished"></a>\n\nDone.\n\n## Monday\n\nOne.\n\n## Monday\n\nTwo.\n',
+      "r.md": "# R\n\n[a](journal/j.md#done) [b](journal/j.md#tpyo) [c](journal/j.md#monday) [d](journal/j.md#done/$body)\n",
+    });
+    const outcome = await store.check({ records: ["r.md"] });
+    expect(shown(outcome.issues)).toEqual([
+      'ref-aliased warning r.md "/$body"',
+      'ref-dangling error r.md "/$body"',
+      'ref-ambiguous error r.md "/$body"',
+      // The alias renames the first step, and the step after it is proved from the node finished names.
+      'ref-aliased warning r.md "/$body"',
+    ]);
+    expect(outcome.issues.map((issue) => issue.message)).toEqual([
+      expect.stringContaining("#done"),
+      expect.stringContaining("#tpyo"),
+      expect.stringContaining("#monday"),
+      expect.stringContaining("#done/$body"),
+    ]);
+  });
+
   test("gives the issues the configuration's severities: lenient uniqueness, and the issues entries", async () => {
     const config = 'vmd: 1\nuniqueness: lenient\nissues:\n  duplicate-key: "off"\n  heading-html: error\n';
     const store = await storeOf({ ".vmd/config.yaml": config, "twice.md": TWICE, "html.md": "# H\n\n## S <u>u</u>\n" });
