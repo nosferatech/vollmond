@@ -211,9 +211,13 @@ const SCANS = [
 describe("the cost of typed references", () => {
   test("grows linearly with their count, in the binding's walk and in their extraction", async () => {
     /**
-     * Counts the elements that binding a record of `count` typed strings and extracting them hand to the arrays' own scans,
-     * the record and its schema read once: each call of a scanning method adds its array's length. A scan per string, such
-     * as an `includes` before each push or an `indexOf` per occurrence, adds the strings so far each time.
+     * Counts the elements that binding a record of `count` typed strings and extracting them visit through arrays' own
+     * scans, the record and its schema read once: each call of a scanning method adds its array's length, and each element
+     * an array's iterator yields, to a `for…of` or a spread, adds one. A scan per string, such as an `includes` before each
+     * push, an `indexOf` per occurrence or a `for…of` over the strings so far, adds the strings so far each time.
+     *
+     * It cannot see an indexed `for (let i…)` loop over an array, which reads elements by index, nor a scan of a `Map` or a
+     * `Set`, whose iterators are not wrapped.
      */
     const scannedFor = async (count: number): Promise<number> => {
       const list = Array.from({ length: count }, (_, i) => `../docs/t${i}.md`);
@@ -229,9 +233,27 @@ describe("the cost of typed references", () => {
           return original.apply(this, args);
         });
       });
+      // `values` is the same function as the iterator, and is counted with it.
+      const iterate = Array.prototype[Symbol.iterator];
+      const counted = function (this: unknown[]): IterableIterator<unknown> {
+        const inner = iterate.call(this);
+        const outer: IterableIterator<unknown> = {
+          next() {
+            const step = inner.next();
+            if (step.done !== true) scanned += 1;
+            return step;
+          },
+          [Symbol.iterator]() {
+            return outer;
+          },
+        };
+        return outer;
+      };
+      Array.prototype[Symbol.iterator] = counted as typeof iterate;
       try {
         expect(occurrencesOf(bindRecord(record, schema))).toHaveLength(count);
       } finally {
+        Array.prototype[Symbol.iterator] = iterate;
         for (const spy of spies) spy.mockRestore();
       }
       return scanned;
