@@ -38,7 +38,8 @@ is reached only through a title-derived name or a positional step, whatever its 
 "also makes the title-derived warnings (`ref-derived-anchor`) apply to many-references"; how far that reaches is reading 4 below.
 
 **Agent's reading.** Readings 2 and 3 were confirmed by the owner on [W8](W8.md) (2026-10-20), items 3 and 4, and reading 4
-was decided by [AQ](AQ.md). Reading 1, how Draft v0.16 chose its example, was on no card and is still for the owner to confirm.
+was decided by [AQ](AQ.md). Reading 1, how Draft v0.16 chose its example, was confirmed on [W10](W10.md) (2026-10-20), its item
+6.
 
 1. The card's example has a duplicate anchor in vmd's terms: an explicit anchor `notes` and the derived anchor `notes` of another
    heading collide (§6.3, step 7, "a collision with one is a duplicate anchor"). The clash comes from the explicit anchor sitting
@@ -82,3 +83,5 @@ Draft v0.17: card [W8](W8.md) confirmed readings 2 and 3, and [AQ](AQ.md) decide
 the text of §6.3 and Appendix D stays. §9.3 now says that a target matched both by an explicit anchor and by its title is reached
 through the explicit anchor (reading 2), and that a step through a title-derived name under `anchors: explicit` raises both the
 refusal and the warning.
+
+Draft v0.19: card [W10](W10.md) confirmed reading 1 (item 6), so every reading of this record is now confirmed or decided.

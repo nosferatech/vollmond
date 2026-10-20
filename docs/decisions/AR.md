@@ -39,10 +39,11 @@ member name in the data does, a `schema-violation` at the object, which then get
 are compared as written, so `{}` and `{cardinality: one}` differ, as the I2 design's reading R21 has it, which card [W9](W9.md)
 confirmed (its item 8). This settles a case AN left open, under AN's own decision, so it does not supersede AN.
 
-**Agent's reading, for the owner to confirm.** The card speaks of refusing the schema. Where only a member name in the data brings
-the two declarations together, as with a pattern that matches `$ref`, the schema cannot be refused at load, so Draft v0.17 applies
-§9.3's rule for declarations that meet only in the data: that object gets a `schema-violation` and neither declaration, and the
-rest of the collection is unaffected. #149 does it so, and its description gives the case as part of this option.
+**Agent's reading, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 2.** The card speaks of refusing the schema.
+Where only a member name in the data brings the two declarations together, as with a pattern that matches `$ref`, the schema
+cannot be refused at load, so Draft v0.17 applies §9.3's rule for declarations that meet only in the data: that object gets a
+`schema-violation` and neither declaration, and the rest of the collection is unaffected. #149 does it so, and its description
+gives the case as part of this option.
 
 ## Why
 
@@ -62,3 +63,5 @@ data.
 
 #157 removed the code's comments that marked the case as an open question (`TODO(#24)` in `js/packages/core/src/schema/spine.ts`
 and `js/packages/core/src/binding/binding.ts`); its refusal now says that declarations that meet must be equal.
+
+Draft v0.19: card [W10](W10.md) confirmed the reading above (item 2); the draft's text keeps it as written.

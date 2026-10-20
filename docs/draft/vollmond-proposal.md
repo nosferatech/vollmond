@@ -1,12 +1,13 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.18 (2026-10-20). Supersedes Draft v0.17 (commit `cc69d43`), Draft v0.16 (commit `181f8c5`), Draft v0.15 (commit
-`e94e840`), Draft v0.14 (commit `796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit
-`938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit
-`c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
-`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions
-applied to the draft. Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
-[vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
+Status: Draft v0.19 (2026-10-20). Supersedes Draft v0.18 (commit `1eae833`), Draft v0.17 (commit `cc69d43`), Draft v0.16 (commit
+`181f8c5`), Draft v0.15 (commit `e94e840`), Draft v0.14 (commit `796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit
+`3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit
+`26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
+`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
+rises with each round of decisions applied to the draft. Each decision is a record in [`docs/decisions/`](../decisions/), with its
+options and reasons, and [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the
+decisions by round.
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
 humans and programs alike, from a plain directory, a git repository, or a service that stores records in a database.
@@ -249,11 +250,13 @@ is not an error.
   is upper case. The space that a note in RFC 3339, section 5.6, lets applications use between date and time is not part of the
   `date-time` production and is not accepted there. TOML's local date-time accepts it, as TOML 1.0.0 permits it for every
   date-time "for the sake of readability".
-- **Leap seconds.** A seconds field of `60` is accepted only at 23:59 UTC, after the offset is applied, as Ajv's `ajv-formats`
-  accepts it, so `23:59:60Z` and `01:59:60+02:00` are valid and `12:30:60Z` is not. A local date-time has no offset and is taken
-  as UTC, as `ajv-formats`' lenient formats `iso-time` and `iso-date-time` take a missing offset as zero, so `23:59:60` is
-  valid there. There is no table of leap seconds: the check does not ask whether a leap second was in fact inserted on that day.
-  For comparison, `23:59:60` falls after `23:59:59` and before the next midnight.
+- **Leap seconds.** In a `time` or a `date-time`, which have an offset, a seconds field of `60` is accepted only at 23:59 UTC,
+  after the offset is applied, as Ajv's `ajv-formats` accepts it, so `23:59:60Z` and `01:59:60+02:00` are valid and `12:30:60Z` is
+  not. A local date-time has no offset, so vmd cannot tell where UTC's last minute of the day falls in it, and it accepts `60` in
+  any minute, as RFC 3339's grammar does: `2016-12-31T23:59:60`, `2017-01-01T01:59:60` and `2017-01-01T12:30:60` are all valid,
+  and a `:60` typo there is not caught. A seconds field of `61` is refused everywhere. There is no table of leap seconds: the
+  check does not ask whether a leap second was in fact inserted on that day. For comparison, `hh:mm:60` falls after `hh:mm:59` and
+  before the next minute's `:00`, so `23:59:60` falls before the next midnight.
 
   Ajv's `ajv-formats` agrees with this on leap seconds (the `time` check in
   [`src/formats.ts`](https://github.com/ajv-validator/ajv-formats/blob/master/src/formats.ts)), but it departs elsewhere: its
@@ -1786,9 +1789,9 @@ vmd grep PATTERN [GLOB] [-F] [-C N] [-n N]    search file text
 vmd outline ADDR [--depth N]                  keys, anchors, titles, sizes, refs-in counts; no content
 vmd get ADDR [--value|--body|--source] [--fields F,..] [--max-chars N] [--meta F,..|all] [--no-value]   computed fields (§5.10)
 vmd query [COLLECTION] 'VQL' [--nodes|--records] [--fields F,..] [--sort F[:desc]] [-n N] [--cursor C]
-vmd refs ADDR [--to|--from] [--context N]     backlinks (default) or outgoing references
-vmd schema [COLLECTION]                       fields, types, enum values, required sections, in one screen
-vmd check [PATHS|--changed REV] [--fix]       validate; issues grouped and capped
+vmd refs ADDR [--to|--from] [--context N] [-n N] [--cursor C]   backlinks (default) or outgoing references
+vmd schema [COLLECTION] [--all]               fields, types, enum values, required sections, in one screen
+vmd check [PATHS..|--changed REV] [-n N|--all] [--fix]   validate; issues grouped and capped
 vmd new PATH [--set K=V].. [--body-file F]    create a record
 vmd set ADDR VALUE [--json-value] / vmd delete ADDR / vmd body ADDR --file F
 vmd rename ADDR NEW-ANCHOR|--title TITLE      rename an anchor or retitle, and rewrite references
@@ -1805,7 +1808,8 @@ Global options:
 - `--config PATH`: a configuration to use in place of the store's `.vmd/config.yaml`, as the suite's `config` input does
   ([Configuration override](../../conformance/README.md#configuration-override); decision K3). Its schemas are in the `schema/`
   directory beside the file (§9.1). A path that does not exist or cannot be read is `config-invalid`.
-- `--strict`: the strict read mode (§9.5), for `get`, `outline`, `ls`, `refs` and `query`.
+- `--strict`: the strict read mode (§9.5), for `get`, `outline`, `ls`, `refs` and `query`; `check` reports the same in either
+  mode.
 - `--no-cache`: neither read nor write the local index's cache (§14.3).
 - `--json`: results and failures as JSON (§12.3).
 - `--quiet`: leaves out warnings, the warning about the runtime's Unicode data included (`unicode-runtime-older`, §6.3), on stderr
@@ -1813,6 +1817,41 @@ Global options:
 
 `get --body` on a node that is not a section is `usage-invalid`, with a hint, since the address is fine and the option does not
 apply to it. `get --source` prints the node's source text (§5.10), also under `--json`, where `get` otherwise returns the value.
+
+**`check`** prints at most 20 issues, or `-n N`, or all of them with `--all`, then the counts per code when some were not
+printed, and a line counting the records, references, errors and warnings (§12.3). `PATHS` are store paths or globs: only their
+records' issues are reported, and their references still resolve into the whole store. A path or glob that matches no record, an
+asset included, fails with `address-not-found`, naming each one, and a directory gets a hint with the glob that checks the records
+below it, since "0 records, 0 errors" for a mistyped path would read as a pass. `--fix` is a usage error until phase I5 (§21).
+
+**`check --changed REV`** checks what changed since a git revision: every store file whose git blob id differs from the one in
+REV's tree, files REV does not have included, and every record that cites a path that differs, so a link into a file deleted or
+moved with `git mv` is reported as dangling. A record cites a path when the path its reference's URI names is that path, or one of
+its targets is there, or either is a directory above it. Which records cite a changed path comes from the snapshot of the last
+full check (§14.3), for each record still at the version the snapshot lists, and from the record itself otherwise. A change to the
+configuration in use, a file of its `schema/` directory, `.vmd/aliases.jsonl`, or a path that an alias names makes it a check of
+the whole store, since any reference may depend on it; so a stale snapshot costs work and never hides a record. vmd reads REV's
+tree with git's plumbing alone, so nothing of the working tree runs: no fsmonitor, clean filter or external diff, and files git
+ignores or cannot see are compared too. It needs git 2.30 or later, whose `git rev-parse` has `--end-of-options` (the release
+notes of git 2.30.0: ""git rev-parse" learned the "--end-of-options"", [github.com/git/git,
+`Documentation/RelNotes/2.30.0.adoc`](https://github.com/git/git/blob/master/Documentation/RelNotes/2.30.0.adoc), read on
+2026-10-20). `PATHS` with `--changed`, a REV that begins with `-`, and a range (`..`, `...`) are usage errors; a store outside a
+git repository, a revision git does not have, and a missing git fail with `storage-failed`.
+
+**`refs`** groups the references by the record that makes them, 50 to a page unless `-n N`, then the `--cursor` to resume after
+the page's last reference; `--context N` prints N lines of the citing file around each one. The listed references' issues follow
+the listing, capped at 20, with their configured severities, so the exit code is `4` when one is an error. `--to ADDR`, the
+default, lists every reference with a target at the node or below it; for a path without a fragment, every reference whose URI
+names that path or with a target there, dangling ones included, so it also works for an asset or a deleted file.
+
+**`schema`** without a collection lists the collections, each with its globs, its schema file and its number of records, and the
+records in no collection; it loads no schema, so an unusable one does not fail the listing. `schema NAME` prints at most 40 lines
+unless `--all`; a schema that cannot be used fails with its issue, and a name the configuration does not have with
+`address-not-found`.
+
+**`index`** checks the whole store over the local index, writes each record's entries and the snapshot, and evicts at once. It
+reports only the files it could not read, never validation issues. `--publish` is a usage error until phase I7, and so is
+`--no-cache`, since the command exists to write the local index the option turns off.
 
 ### 12.2 Output
 
@@ -1884,13 +1923,16 @@ usage, `3` conflict (re-read and retry), `4` validation failed, meaning at least
 succeeds can still carry an issue of severity `error`, such as an unreadable file that `list` or `grep` leaves out (§11.2), and
 the command then exits with `4`.
 
-**Where issues go.** Issues are printed on stderr and the result on stdout. `check`, whose result is its issues, and `refs`,
-whose result lists references with their status, print those on stdout; configuration issues and the warning about the runtime's
-Unicode data still go to stderr for them. Under `--json`, every outcome is one JSON object on stdout, a failure included:
-`{"ok": true, "value": …, "issues": [...]}` on success and `{"ok": false, "issues": [...]}` on failure, whether the failure is a
-usage error (`usage-invalid`, exit code `2`), a store that cannot be found (`store-not-found`, exit code `1`) or any other. The
-warning about the runtime's Unicode data is then an issue of the object too (`unicode-runtime-older`). An internal error of the
-implementation, a bug, is the one failure without an issue code: it is reported as a bug, with exit code `1`.
+**Where issues go.** Issues are printed on stderr and the result on stdout. `check`, whose result is its issues, and `refs`, whose
+result lists references with their status, print those on stdout when they succeed; configuration issues and the warning about the
+runtime's Unicode data still go to stderr for them. A failed `check` or `refs`, such as one whose configuration or alias file
+cannot be read, or whose path matches no record, has no result, so its issues go to stderr, as every other command's failure does
+(the reference implementation's deviation, recorded on #26, for the owner to confirm). Under `--json`, every outcome is one JSON
+object on stdout, a failure included: `{"ok": true, "value": …, "issues": [...]}` on success and `{"ok": false, "issues": [...]}`
+on failure, whether the failure is a usage error (`usage-invalid`, exit code `2`), a store that cannot be found
+(`store-not-found`, exit code `1`) or any other. The warning about the runtime's Unicode data is then an issue of the object too
+(`unicode-runtime-older`). An internal error of the implementation, a bug, is the one failure without an issue code: it is
+reported as a bug, with exit code `1`.
 
 ### 12.4 Shell safety
 
@@ -1979,11 +2021,14 @@ anchors into semantic paths, since derived anchors exist only in Markdown (§6.3
 ### 13.5 Retitles and moves made with plain tools
 
 When a heading's title changes in a plain edit, its derived anchor changes and references to it break, and so may references to
-other headings whose repeat numbering it shifts. `vmd check` compares
-against the previous index. If a section disappeared and a new one appeared at the same exact path with the same node version
-apart from its title, it suggests the rename, and `vmd check --fix` applies it. A file moved with `git mv` is detected the same way,
-by an unchanged file version at a new path. `vmd check` also reports every reference whose resolved exact path differs from the
-one in the previous index (`ref-retargeted`), since such a reference still resolves but may now mean another node.
+other headings whose repeat numbering it shifts. `vmd check` compares against the previous index. If a section disappeared and a
+new one appeared at the same exact path with the same node version apart from its title, it suggests the rename, and
+`vmd check --fix` applies it. A file moved with `git mv` is detected the same way, by an unchanged file version at a new path.
+`vmd check` also reports every reference whose resolved exact path differs from the one in the previous index (`ref-retargeted`),
+since such a reference still resolves but may now mean another node. The previous index is the snapshot of the last full check
+(§14.3); `vmd check --changed REV` uses it to find the records that cite a changed path (§12.1). The rename suggestions and
+`--fix` come with phase I5 (§21), and `ref-retargeted` is not yet reported
+([#161](https://github.com/nosferatech/vollmond/issues/161)).
 
 ### 13.6 Aliases
 
@@ -2089,12 +2134,14 @@ store root, or at or below any git working tree that encloses the store: every d
 filesystem's root that holds a `.git` entry, a directory or a file, so a submodule's working tree, a nested clone's and the
 repository that holds them all count. The default directory is always used, unless it lies at or below the store root, since the
 user's home is not a CI workspace: a home kept in git for its dotfiles keeps its default cache, and one whose `XDG_CACHE_HOME` is
-set inside that checkout gets none. A cache that is not used is as if `--no-cache` were given. Reading a store such as vampiredb's
-`docs/` with `--config` writes nothing into it (decision K3). Entries are content-addressed by file version, so an unchanged file
-is never re-parsed, a checkout of an old commit reuses every entry it can, and every store, branch and worktree shares them; each
-store keeps one snapshot, by its real path, and the cache is evicted to a bound. `--no-cache` neither reads nor writes it (§12.1).
-A file's version is the hash of the bytes the backend returns (§11.3). The storage engine is an implementation choice. The
-reference implementation keeps rows in the portable index's line format (§14.4), without paths, which needs no native modules.
+set inside that checkout gets none. A cache that is not used is as if `--no-cache` were given, with no warning; `vmd index` then
+still checks the whole store and says why nothing was kept, while `vmd index --no-cache` is a usage error (§12.1). Reading a store
+such as vampiredb's `docs/` with `--config` writes nothing into it (decision K3). Entries are content-addressed by file version,
+so an unchanged file is never re-parsed, a checkout of an old commit reuses every entry it can, and every store, branch and
+worktree shares them; each store keeps one snapshot, by its real path, and the cache is evicted to a bound. `--no-cache` neither
+reads nor writes it (§12.1). A file's version is the hash of the bytes the backend returns (§11.3). The storage engine is an
+implementation choice. The reference implementation keeps rows in the portable index's line format (§14.4), without paths, which
+needs no native modules.
 
 Where the index lives depends on the setup, as the project owner stated on the review of the I2 design (decisions U4 and W1). In a
 lightweight setup, whose backend is a plain git repository, the index stays local, in this per-user cache, since an index

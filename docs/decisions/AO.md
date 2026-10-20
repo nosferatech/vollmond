@@ -57,7 +57,8 @@ proof still works from the schema alone" in the same direction, fewer false refu
 AD's rule for a `$` step from a section stands, and is still proved from the schema alone. The decision record R4 is not touched.
 
 **Agent's reading.** Reading 1 was decided otherwise by [AP](AP.md); readings 2 and 3 were confirmed by the owner on
-[W8](W8.md) (2026-10-20), items 6 and 8, reading 3 for its U3 part only.
+[W8](W8.md) (2026-10-20), items 6 and 8, reading 3 for its U3 part, and its part about AD on [W10](W10.md) (2026-10-20),
+item 7.
 
 1. A first step that names no node of the record, or several, is proved from the schema as before, so `#monday` is not singular in
    the card's journal, and in a store whose root level is a `type: map`, a first step that matches a root member and another
@@ -74,7 +75,7 @@ AD's rule for a `$` step from a section stands, and is still proved from the sch
 2. "Names exactly one node" counts every name a first step reaches (§7.3): root members, the root's child sections by key,
    section members, and anchors, explicit and derived. The card's parenthesis gives two examples; a derived anchor that names
    one node, such as `#monday-1`, is singular by the same rule.
-3. (W8, item 8, confirms the part about U3; that AO supersedes AD is the agent's reading, which the card does not cover.) AO
+3. (W8, item 8, confirms the part about U3, and W10, item 7, the part about AD.) AO
    supersedes AD rather than leaving it standing as [AH](AH.md) left [AC](AC.md): AD's decision says the proof works from the
    schema alone, which AO changes, as [AC](AC.md) superseded [W4](W4.md) for one of its items. It does not supersede [U3](U3.md),
    whose decision, "a reference through a `multimap` level has the status `ambiguous` and the issue `ref-ambiguous`", is read as
@@ -106,3 +107,5 @@ lookup.
 Draft v0.17: [AP](AP.md) proves a first step that names no node of the record, which reading 1 had kept not singular, so this
 record is superseded; its rule for a first step that names exactly one node stands. Card [W8](W8.md) confirmed readings 2 and 3
 (items 6 and 8), and §7.4 now gives a derived or block anchor that names one node as an example.
+
+Draft v0.19: card [W10](W10.md) confirmed reading 3's part about AD (item 7), that AO supersedes AD.

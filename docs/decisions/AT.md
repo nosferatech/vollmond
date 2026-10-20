@@ -49,8 +49,8 @@ The card's example: "`/work/outer/.git`, the store at `/work/outer/inner/store` 
 working tree that encloses the store, every directory from the store root up to the filesystem's root that holds a `.git` entry.
 The default directory in the user's home is always used (reading 1 below for the store root).
 
-**Agent's reading, for the owner to confirm.** Two details of how Draft v0.18 states it in §14.3, both as #153 implements it
-(`js/packages/cli/src/cache/cache-directory.ts`):
+**Agent's reading, confirmed by the owner on [W11](W11.md) (2026-10-20), its items 1 to 3.** Two details of how Draft v0.18 states
+it in §14.3, both as #153 implements it (`js/packages/cli/src/cache/cache-directory.ts`):
 
 1. A `.git` entry marks a working tree whether it is a directory or a file, and no git process is run; the default directory is
    still refused at or below the store root, which the card's "always used" does not say but the design's rule that the cache is
@@ -77,3 +77,6 @@ The project owner chose (c) on the review desk on 2026-10-20, with no note.
 
 #153 (`02044ed`): the I2 design's section 6.2.1 and `js/packages/cli/src/cache/cache-directory.ts`. Draft v0.18 (#159): §14.3 (the
 cache's location, `XDG_CACHE_HOME`, and the guard).
+
+Draft v0.19: card [W11](W11.md) confirmed both readings (items 1 to 3), so an unusable cache stays silent; the draft's text
+keeps them as written.

@@ -59,10 +59,10 @@ conversation: "Yes. … one nuance: past the first step, a step through a level 
 one match today, since the schema says it could have more." That answer is the engineering manager's, not the owner's. Draft v0.17
 states the nuance in §7.4, where it was already the rule for later steps.
 
-**Agent's reading, for the owner to confirm.** A first step that names no node makes the whole address proved, whatever steps
-follow: nothing in the record is there to prove them from, and evaluation finds nothing at the first step, so `#tpyo/later` is
-`dangling` like `#tpyo`. An alias on `tpyo` applies to it, and the address it leads to is proved again from its first step. This
-is #154's reading 1, and Draft v0.17 states it in §7.4.
+**Agent's reading, confirmed by the owner on [W10](W10.md) (2026-10-20), its item 1.** A first step that names no node makes the
+whole address proved, whatever steps follow: nothing in the record is there to prove them from, and evaluation finds nothing at
+the first step, so `#tpyo/later` is `dangling` like `#tpyo`. An alias on `tpyo` applies to it, and the address it leads to is
+proved again from its first step. This is #154's reading 1, and Draft v0.17 states it in §7.4.
 
 ## Why
 
@@ -83,3 +83,5 @@ On the card, choosing (b):
 Draft v0.17 (#155): §7.4 (a first step that names no node is proved, the journal example, and the nuance for later steps), §8.5
 (the exceptions at the first step), §13.6 (the example of `#done` after a rename), Appendix D `ref-ambiguous`; [AO](AO.md)'s
 record. The code, with the I2 design's section 4.4 and suite cases in `addresses/cardinality` and `references/aliases`, is #154.
+
+Draft v0.19: card [W10](W10.md) confirmed the reading above (item 1); the draft's text keeps it as written.
