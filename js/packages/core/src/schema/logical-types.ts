@@ -89,14 +89,14 @@ export function readDateTime(text: string): DateTimeParts | null {
 
 /**
  * Reads TOML 1.0.0's local date-time: a full-date, `T`, `t` or a space, and a partial-time with any fraction and no offset. A
- * leap second is valid only at 23:59, the time being taken as UTC.
+ * seconds field of 60 is valid in any minute: without a zone, where UTC's 23:59 falls is unknown, so only the grammar applies.
  */
 export function readLocalDateTime(text: string): DateTimeParts | null {
   if (text.length < 19 || (text[10] !== "T" && text[10] !== "t" && text[10] !== " ")) return null;
   const date = dateAt(text, 0);
   const partial = partialTimeAt(text, 11);
   if (date === null || partial === null || partial.end !== text.length) return null;
-  return leapSecondAllowed(partial.time, 0) ? { date, time: { ...partial.time, offset: null } } : null;
+  return { date, time: { ...partial.time, offset: null } };
 }
 
 /**
