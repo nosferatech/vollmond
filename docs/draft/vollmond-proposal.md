@@ -1,11 +1,11 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.17 (2026-10-20). Supersedes Draft v0.16 (commit `181f8c5`), Draft v0.15 (commit `e94e840`), Draft v0.14 (commit
-`796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10 (commit
-`d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit
-`c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit
-`5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft. Each
-decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
+Status: Draft v0.18 (2026-10-20). Supersedes Draft v0.17 (commit `cc69d43`), Draft v0.16 (commit `181f8c5`), Draft v0.15 (commit
+`e94e840`), Draft v0.14 (commit `796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit
+`938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit
+`c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit
+`5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version rises with each round of decisions
+applied to the draft. Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
 [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
 
 Vollmond MD is a record format and an access framework over Markdown, YAML and JSON files. It is meant to be used by agents,
@@ -1092,8 +1092,9 @@ The target is a URI reference, resolved by RFC 3986 against the citing record's 
 - **Store-root**, `/docs/design/x.md#a`, is resolved against the store root. GitHub resolves it against the repository root; some
   local previewers do not.
 - **Inside the store**, a target that is a record must resolve as a singular address (§7.4), unless the schema declares
-  `cardinality: many`. The record part of a reference is always singular, so a reference declared `cardinality: many` whose
-  record does not exist is dangling too (`ref-dangling`). A target that is an asset or a directory must exist.
+  `cardinality: many`. The record part of a reference is always singular, so a reference declared `cardinality: many` whose record
+  does not exist, and that no record alias leads on (§13.6), is dangling too (`ref-dangling`). A target that is an asset or a
+  directory must exist.
 - **Outside the store** (an absolute URL, or a relative path that climbs above the store root), a link is an ordinary link. vmd
   does not check it, rewrite it, or track it. A user who wants references tracked and kept up to date brings the collections into
   one store, preferably on one backend, since there are no transactions across backends.
@@ -1125,17 +1126,20 @@ alike. A reference declared `cardinality: many` whose selector matches nothing i
 one node is (§13.6): when its first step reaches no name of the record and an anchor alias has that step as its `from`, the
 reference follows the alias, and is `aliased`, with the nodes it matches there. Where the alias leads to a name at which the later
 steps match nothing, as `#setup/nothing` does after `setup` was renamed to `install`, the reference is `ok`, with no targets, as a
-reference to one node through the same alias stays `dangling`. A record alias makes such a reference `aliased`, with no targets
-where its fragment matches nothing in the record it leads to. Otherwise, in a record that exists, it is valid: `ok`, with no
-targets. A reference into a record that readers refuse in every read mode cannot be resolved below the root: a record with a
-structural error, which has no value view, or a record of a collection whose schema cannot be used (§9.1). It is not dangling but
-`unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors, or the issue its
-collection's schema got (`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A reference's status does
-not depend on the read mode (§9.5): the strict read mode changes what readers return, not which records a reference can be
-resolved into, so a reference into a record that only the strict mode refuses, for a schema violation, say, is resolved as in the
-default mode, and `vmd check` reports the same statuses in either mode. A reference whose address is the record's root (no
-fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address (§7.4)
-still fails, since a resolve returns the node's value, while a reference's status only says whether its target exists.
+reference to one node through the same alias stays `dangling`. A record alias leads such a reference to the record its old path
+moved to: it is `aliased` where its fragment matches there, and `ok`, with no targets, where it matches nothing, as for an old
+section name, since a reference to one node is `dangling` there too. Such a reference no longer says that its record moved, and
+once `vmd alias prune` removes the record alias it becomes `dangling`, with no warning before. Otherwise, in a record that exists,
+it is valid: `ok`, with no targets. A reference into a record that readers refuse in every read mode cannot be resolved below the
+root: a record with a structural error, which has no value view, or a record of a collection whose schema cannot be used (§9.1).
+It is not dangling but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors,
+or the issue its collection's schema got (`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A
+reference's status does not depend on the read mode (§9.5): the strict read mode changes what readers return, not which records a
+reference can be resolved into, so a reference into a record that only the strict mode refuses, for a schema violation, say, is
+resolved as in the default mode, and `vmd check` reports the same statuses in either mode. A reference whose address is the
+record's root (no fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as
+an address (§7.4) still fails, since a resolve returns the node's value, while a reference's status only says whether its target
+exists.
 
 ---
 
@@ -1992,8 +1996,9 @@ one in the previous index (`ref-retargeted`), since such a reference still resol
 
 `rename` and `mv` record an alias on every move and every rename of an anchor or title. An alias resolves an old address that the
 rewrite could not see, such as a reference added on a branch opened before the move, which merges without a textual conflict, a
-published URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5),
-and `vmd check --fix` rewrites such a reference to the current address.
+published URL, the website's redirects, and links outside the store. A reference that reaches a node through an alias is reported
+as `aliased` (§8.5), and `vmd check --fix` rewrites it to the current address. A reference declared `cardinality: many` that an
+alias leads to no match is `ok`, with no targets, so neither applies to it (§8.5).
 
 A reference that resolves to no live node is resolved through the aliases, and so is one declared `cardinality: many` whose
 selector matches nothing (§8.5): after `## Setup` is renamed to `## Install`, `related: "notes.md#setup"` with `cardinality: many`
@@ -2071,17 +2076,25 @@ used (§9.1), is listed in `records` with its issues and has no nodes. A referen
 
 ### 14.3 Local index
 
-The local index is a cache in the per-user cache directory, outside every store: `$XDG_CACHE_HOME/vmd/`, or `~/.cache/vmd/` when
-`XDG_CACHE_HOME` is unset (the XDG Base Directory Specification: "a default equal to $HOME/.cache should be used",
-[specifications.freedesktop.org/basedir/latest](https://specifications.freedesktop.org/basedir/latest/), read on 2026-10-11),
-and `~/Library/Caches/vmd/` on macOS (U: not checked against Apple's documentation). Nothing in a checkout is ever read as cache,
-so a pull request cannot commit a forged cache that would make CI's `vmd check` pass a broken store, and reading a store such as
-vampiredb's `docs/` with `--config` writes nothing into it (decision K3). Entries are content-addressed by file version, so an
-unchanged file is never re-parsed, a checkout of an old commit reuses every entry it can, and every store, branch and worktree
-shares them; each store keeps one snapshot, by its real path, and the cache is evicted to a bound (512 MB in the reference
-implementation). `--no-cache` neither reads nor writes it (§12.1). A file's version is the hash of the bytes the backend returns
-(§11.3). The storage engine is an implementation choice. The reference implementation uses JSONL files in the portable index's
-format (§14.4), which needs no native modules.
+The local index is a cache in the per-user cache directory, outside every store: `$XDG_CACHE_HOME/vmd/` when `XDG_CACHE_HOME` is
+set to an absolute path, on every platform; otherwise `~/Library/Caches/vmd/` on macOS (U: not checked against Apple's
+documentation) and `~/.cache/vmd/` elsewhere. A relative `XDG_CACHE_HOME` is ignored. The XDG Base Directory Specification says:
+"If $XDG_CACHE_HOME is either not set or empty, a default equal to $HOME/.cache should be used", and "If an implementation
+encounters a relative path in any of these variables it should consider the path invalid and ignore it"
+([specifications.freedesktop.org/basedir/latest](https://specifications.freedesktop.org/basedir/latest/), read on 2026-10-20).
+Since `vmd check` trusts an entry without re-reading the file, a cache that a pull request could write would let a forged entry
+make CI's `vmd check` pass a broken store. So a cache directory set with `XDG_CACHE_HOME` is not used when it lies at or below the
+store root, or at or below any git working tree that encloses the store: every directory from the store root up to `/` that holds
+a `.git` entry, a directory or a file, so a submodule's working tree, a nested clone's and the repository that holds them all
+count. The default directory is always used, unless it lies at or below the store root, since the user's home is not a CI
+workspace: a home kept in git for its dotfiles keeps its default cache, and one whose `XDG_CACHE_HOME` is set inside that checkout
+gets none. A cache that is not used is as if `--no-cache` were given. Reading a store such as vampiredb's `docs/` with `--config`
+writes nothing into it (decision K3). Entries are content-addressed by file version, so an unchanged file is never re-parsed, a
+checkout of an old commit reuses every entry it can, and every store, branch and worktree shares them; each store keeps one
+snapshot, by its real path, and the cache is evicted to a bound (512 MB in the reference implementation). `--no-cache` neither
+reads nor writes it (§12.1). A file's version is the hash of the bytes the backend returns (§11.3). The storage engine is an
+implementation choice. The reference implementation uses JSONL files in the portable index's format (§14.4), which needs no native
+modules.
 
 Where the index lives depends on the setup, as the project owner stated on the review of the I2 design (decisions U4 and W1). In a
 lightweight setup, whose backend is a plain git repository, the index stays local, in this per-user cache, since an index
@@ -2673,7 +2686,7 @@ The columns:
 | `path-case-conflict` | error; warning for assets outside collections | validation | §3.2 | two paths that differ only by case, or whose directory prefixes do, every prefix compared case-insensitively; each path after the first in byte order |
 | `collection-conflict` | error | validation | §9.1 | a record that the globs of two or more collections match; it is read unschematized; the record |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
-| `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
+| `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist and that no record alias leads on (§13.6), or one to an asset or directory that does not exist; the reference |
 | `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); a record that only the strict read mode refuses does not count, since a reference's status does not depend on the read mode; the reference |
 | `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets, or one whose address crosses a level declared `multimap`, which cannot be proved singular, except at a first step that names exactly one node of the record or none (§7.4); it then has no targets, and where its first step names several nodes, its message names them; the reference |
 | `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step, for a reference declared `cardinality: many` as soon as one of its targets is reached only through such a step, the route through an anchor alias being checked after the alias. Not raised for a `dangling` reference or one that leaves the store; a strict reader need not refuse its record (§9.5); the reference |
@@ -2685,7 +2698,7 @@ The columns:
 | `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target, or one of its targets under `cardinality: many`, only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is not repeated in the record; the reference |
 | `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target, or one of its targets under `cardinality: many`, only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
-| `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
+| `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias and reaches a node there; a reference declared `cardinality: many` that an alias leads to no match is `ok`, with no targets, and gets none (§8.5); the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live record path, or a live name that an address's first step reaches (§7.3), that has the old name of an alias: an anchor, a key of the root (a JSON or YAML record's top-level key, or a Markdown record's front matter key), or a child section of the root by its key; the node, or the record |
 | `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
 | `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, does not hold an object, or is not a valid schema; it has `$id`, an identifier with a string value inside data, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` reached off the spine, `$dynamicRef` included, even where the spine reaches it too; unequal declarations that apply together, those on a `$ref` object and on its `$ref` member included; `x-vmd-ref` where a string can stand without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; a member of `x-vmd-list` or `x-vmd-ref` whose value has the wrong form, a `type`, `cardinality` or `anchors` that is not a string included; an `x-vmd-summary` that is not a boolean, or an `x-vmd-ordered` that is not `asc` or `desc`. A construct this version does not define, an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is `feature-unsupported` instead, also beside other problems, and a file that cannot be read `storage-failed`, which wins over both. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |

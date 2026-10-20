@@ -756,7 +756,8 @@ file counts as one, reading R7); a directory, which exists when a listed path is
 | a record, singular, no match | `dangling`, unless an alias resolves it (section 5.5) | none | `ref-dangling` |
 | a record, singular, several matches | `ambiguous` | the matches (reading R8) | `ref-ambiguous`, with the candidates |
 | a record, `cardinality: many` | `ok`, also with no match (G5), unless an alias resolves it (section 5.5) | every match | none |
-| through an alias | `aliased` | the alias's target | `ref-aliased` (warning) |
+| through an alias, to a match | `aliased` | the alias's target | `ref-aliased` (warning) |
+| `cardinality: many`, through an alias, to no match | `ok` (reading R19; card AU) | none | none |
 
 The proof applies to every reference of cardinality one, whatever its form: a Markdown link through a level declared `multimap` is
 `ambiguous` exactly as a typed string is (question 3). E1 resolves links before D exists; no level can be declared then, so the
