@@ -207,7 +207,6 @@ describe("a configuration source", () => {
     return {
       reads,
       content: new TextEncoder().encode(content),
-      name: "elsewhere/config.yaml",
       schemaDirectory: "elsewhere/schema/",
       readSchema: async (path): Promise<Outcome<Uint8Array>> => {
         reads.push(path);

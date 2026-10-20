@@ -42,13 +42,12 @@ export async function readConfigurationFile(path: string): Promise<Configuration
  * Gives the configuration source of a configuration file that has been read: its bytes, and the `schema/` directory beside
  * the file, from which each schema is read as {@link readConfigurationFile} reads the configuration, at most one byte more
  * than `MAX_SCHEMA_BYTES`. A schema that does not exist fails with `address-not-found`; one that cannot be read, or is not a
- * regular file, with `storage-failed`. `name` is the file as messages name it, and messages name the schema directory beside it.
+ * regular file, with `storage-failed`. `name` is the file as messages name it, from which the source names the schema directory beside it.
  */
 export function configurationFileSource(file: string, name: string, content: Uint8Array): ConfigurationSource {
   const directory = join(dirname(file), "schema");
   return {
     content,
-    name,
     schemaDirectory: `${join(dirname(name), "schema")}${sep}`,
     readSchema: async (path): Promise<Outcome<Uint8Array>> => {
       const reading = await readBoundedFile(join(directory, ...path.split("/")), MAX_SCHEMA_BYTES);

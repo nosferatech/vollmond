@@ -55,9 +55,10 @@ export { MAX_SCHEMA_BYTES };
 export interface ConfigurationSource {
   /** The configuration file's bytes. */
   readonly content: Uint8Array;
-  /** The configuration file as messages name it: `.vmd/config.yaml`, or the path a caller was given. */
-  readonly name: string;
-  /** The schema directory as messages name it, ending in a separator: `.vmd/schema/`, or the `schema/` beside `name`. */
+  /**
+   * The schema directory as messages name it, ending in a separator: `.vmd/schema/` for a store's own configuration, or the
+   * `schema/` directory beside a configuration file a caller was given, such as `examples/schema/`.
+   */
   readonly schemaDirectory: string;
   /**
    * Reads a file of the schema directory by its path relative to that directory, which has no `.` or `..` segment. Fails with
@@ -309,17 +310,12 @@ export async function openStore(
  * larger than {@link MAX_SCHEMA_BYTES} is refused by its size before it is read. A schema that the backend finds no file for
  * fails with `address-not-found`, whose hint says that a backend may refuse a path reached through a symbolic link, unless
  * files lie below its path, which makes it a directory: that fails with `storage-failed`, since the file is there but cannot
- * be read as one. A backend that cannot read the file fails with its own issue, less the `cannot read <path>: ` that vmd's
- * backends start such a message with, since the store's message about the schema names the file.
+ * be read as one. A backend that cannot read the file fails with its own issue, less the `cannot read <path>: ` that
+ * {@link StorageReader} starts such a message with, since the store's message about the schema names the file.
  */
-export function storeConfigurationSource(
-  backend: StorageReader,
-  content: Uint8Array,
-  name: string = CONFIGURATION_PATH,
-): ConfigurationSource {
+export function storeConfigurationSource(backend: StorageReader, content: Uint8Array): ConfigurationSource {
   return {
     content,
-    name,
     schemaDirectory: `${SCHEMA_DIRECTORY}/`,
     readSchema: async (path) => {
       const stored = `${SCHEMA_DIRECTORY}/${path}`;

@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, rmSync, symlinkSync, truncateSync } from "node:fs";
 import { createServer, type Server } from "node:net";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { MAX_SCHEMA_BYTES } from "@vollmond/core";
 import { describe, expect, test } from "vitest";
 import { type CliEnvironment, type CliResult, runCli } from "../cli.js";
@@ -130,7 +130,7 @@ describe("--config", () => {
     const result = await vmd(home, "--store", "store", "--config", "examples/store/config.yaml", "get", "tickets/0001.md");
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/schema-invalid: the schema ticket\.schema\.json of the collection tickets does not exist/);
-    expect(result.stderr).toContain("hint schemas are in examples/store/schema/");
+    expect(result.stderr).toContain(`hint schemas are in ${join("examples", "store", "schema")}${sep}`);
   });
 
   test("refuses a schema larger than a mebibyte, and reads one of exactly a mebibyte", async () => {
@@ -266,7 +266,8 @@ describe("a schema that cannot be read", () => {
   const runsAsRoot = process.getuid?.() === 0;
   const CONFIG = 'vmd: 1\ncollections:\n  t: {match: ["t/*.md"], schema: t.json}\n';
   const STORE_HINT = "  hint schemas are in .vmd/schema/\n";
-  const CONFIG_HINT = "  hint schemas are in examples/schema/\n";
+  // The command line names the directory beside --config with the platform's separator, as it names paths it was given.
+  const CONFIG_HINT = `  hint schemas are in ${join("examples", "schema")}${sep}\n`;
   const FIFO = "the schema t.json of the collection t cannot be read: it is a FIFO, not a regular file, so";
   const LOCKED = "the schema t.json of the collection t cannot be read: EACCES, so the collection's records cannot be read";
   const MISSING = "the schema t.json of the collection t does not exist, so the collection's records cannot be read";

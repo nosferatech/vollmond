@@ -170,9 +170,10 @@ export interface StorageHistory {
  * assets and ignored paths, so a backend needs no vmd configuration.
  *
  * Expected failures are values. A path that names no file fails with `address-not-found`; a read the backend cannot complete,
- * such as one refused by a permission error, fails with `storage-failed`, since the file may exist. A path that is not a store
- * path (empty, absolute, or with an empty, `.` or `..` segment) fails with `address-malformed`. A query whose numbers are out
- * of range is a caller's bug and throws a `RangeError`.
+ * such as one refused by a permission error, fails with `storage-failed`, since the file may exist. The message of that issue,
+ * from `stat` or from `read` at the current version, reads `cannot read <path>: <reason>`, so that a caller whose own message
+ * names the file can give the reason alone. A path that is not a store path (empty, absolute, or with an empty, `.` or `..`
+ * segment) fails with `address-malformed`. A query whose numbers are out of range is a caller's bug and throws a `RangeError`.
  */
 export interface StorageReader {
   /**

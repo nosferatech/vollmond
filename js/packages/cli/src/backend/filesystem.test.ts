@@ -96,6 +96,23 @@ describe("createFilesystemStorage", () => {
     expect((await storage.read("big.md")).issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
 
+  test("says `cannot read <path>: <reason>` for an error that gives neither a code nor a message", async () => {
+    const root = temporaryDirectory();
+    writeFiles(root, { "a.md": "a\n" });
+    const opened = await open(join(root, "a.md"));
+    const handlePrototype: FileHandle = Object.getPrototypeOf(opened);
+    await opened.close();
+    const read = vi.spyOn(handlePrototype, "readFile").mockRejectedValue(new Error(""));
+    try {
+      const failed = await createFilesystemStorage(root).read("a.md");
+      expect(failed.issues.map((issue) => [issue.code, issue.message])).toEqual([
+        ["storage-failed", "cannot read a.md: no reason given"],
+      ]);
+    } finally {
+      read.mockRestore();
+    }
+  });
+
   test.skipIf(process.platform === "win32")("does not follow symbolic links", async () => {
     const outside = temporaryDirectory();
     writeFiles(outside, { "secret.md": "outside the store\n" });
