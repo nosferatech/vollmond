@@ -64,7 +64,7 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §9.3 (`anchors: explicit` with `cardinality: many`, and the example), §6.3 (the title-derived warnings for a
+Draft v0.16 (#148): §9.3 (`anchors: explicit` with `cardinality: many`, and the example), §6.3 (the title-derived warnings for a
 many-reference), Appendix D `ref-target-not-allowed`, `ref-derived-anchor` and `ref-derived-repeat`. The code, which has to record
 how each match was made, and its suite cases come with the implementation pull request for this card, which also updates the I2
 design.

@@ -57,6 +57,6 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §8.5 (a reference's status and the read mode), §9.5 (item 2, `vmd check` reports the same in either read mode, and
-item 4, the mode changes what readers return), Appendix D `ref-target-unreadable`. The code is #146, the strict read mode, which
-also states the rule in the I2 design's section 4.6.
+Draft v0.16 (#148): §8.5 (a reference's status and the read mode), §9.5 (item 2, `vmd check` reports the same in either read mode,
+and item 4, the mode changes what readers return), Appendix D `ref-target-unreadable`. The code is #146, the strict read mode,
+which also states the rule in the I2 design's section 4.6.

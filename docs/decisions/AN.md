@@ -48,5 +48,5 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §9.3 (the keyword table's "Where", and the paragraph "A declaration on a `$ref` member") and §8.1. The code and its
-suite cases come with the implementation pull request for this card, which also updates the I2 design.
+Draft v0.16 (#148): §9.3 (the keyword table's "Where", and the paragraph "A declaration on a `$ref` member") and §8.1. The code
+and its suite cases come with the implementation pull request for this card, which also updates the I2 design.

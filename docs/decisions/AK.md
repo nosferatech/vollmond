@@ -53,5 +53,5 @@ The project owner chose (a) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §9.5, item 4 (`vmd refs` in the strict read mode). The code is #146, the strict read mode in core, which also
+Draft v0.16 (#148): §9.5, item 4 (`vmd refs` in the strict read mode). The code is #146, the strict read mode in core, which also
 states the rule in the I2 design's section 4.6; `--strict` on the command line comes with the commands of task I2.6.

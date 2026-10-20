@@ -86,7 +86,7 @@ The project owner chose (b) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §7.4 (the first step looked up in the record, the journal example, and the `$` step's part of the proof needing only
-the schema), §8.5 (a first step that names one node), Appendix D `ref-ambiguous`; [AD](AD.md)'s record. The code, with the I2
-design's section 4.4 and its suite cases, is #147, which reads the record only where the schema cannot prove the first step; the
-result is the same, since a first step the schema proves singular needs no lookup (its reading 4).
+Draft v0.16 (#148): §7.4 (the first step looked up in the record, the journal example, and the `$` step's part of the proof
+needing only the schema), §8.5 (a first step that names one node), Appendix D `ref-ambiguous`; [AD](AD.md)'s record. The code,
+with the I2 design's section 4.4 and its suite cases, is #147, which reads the record only where the schema cannot prove the first
+step; the result is the same, since a first step the schema proves singular needs no lookup (its reading 4).

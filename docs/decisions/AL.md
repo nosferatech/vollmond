@@ -56,6 +56,6 @@ The project owner chose (b) on the review desk on 2026-10-20, with no note.
 
 ## Applied in
 
-Draft v0.16: §8.5 (a many-reference that matches nothing follows the aliases, else is `ok`), §13.6 (the example), and the
+Draft v0.16 (#148): §8.5 (a many-reference that matches nothing follows the aliases, else is `ok`), §13.6 (the example), and the
 conformance README's `targets` of `refs`. The I2 design's section 5.5, which consults aliases only for a `dangling` reference,
 gets the sentence with the implementation pull request for this card, which also brings the code and its suite cases.
