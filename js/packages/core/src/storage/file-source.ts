@@ -204,7 +204,7 @@ class FileSourceReader implements StorageReader {
       });
       filesRead += 1;
       matchesFound += found.count;
-      items.push(...found.matches);
+      for (const match of found.matches) items.push(match);
       const beyond = found.count - room;
       if (beyond > 0) {
         // The files not read yet are estimated at the rate of matches per file read so far.

@@ -254,6 +254,24 @@ describe("the cost of a long list", { timeout: 120_000 }, () => {
   });
 });
 
+describe("a binding with more issues than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  test("gives the schema-violation of each of 150,000 failing items", async () => {
+    const schema = await usable({ properties: { a: { items: { type: "string" } } } });
+    const binding = bindRecord(record(JSON.stringify({ a: Array(150_000).fill(0) })), schema);
+    expect(binding.issues).toHaveLength(150_000);
+    expect(binding.issues.every((issue) => issue.code === "schema-violation")).toBe(true);
+  }, 60_000);
+
+  test("gives the duplicate-key of each of 150,000 items after the first with one key", async () => {
+    const schema = await usable(benchmarks({ type: "map", keys: ["name"] }));
+    const items = Array.from({ length: 150_001 }, () => ({ name: "same" }));
+    const binding = bindRecord(record(JSON.stringify({ benchmarks: items })), schema);
+    expect(binding.issues).toHaveLength(150_000);
+    expect(binding.issues.at(-1)?.at).toBe("/benchmarks/150000");
+  }, 60_000);
+});
+
 /** How many shape steps the schema's spine has computed so far. */
 function stepsOf(schema: CollectionSchema): number {
   return spineOf(schema)?.stepsComputed ?? Number.NaN;

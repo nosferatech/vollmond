@@ -111,7 +111,9 @@ export function parseJsonRecord(path: string, source: SourceText): Outcome<Parse
   const nodes = builder.build();
   const issues = [...unit.issues];
   const value = unit.value;
-  if (value !== null) issues.push(...checkShape("record", value, "", { path, locate: nodeLocator(nodes, source) }));
+  if (value !== null) {
+    for (const issue of checkShape("record", value, "", { path, locate: nodeLocator(nodes, source) })) issues.push(issue);
+  }
   return parseOutcome(issues, (recordIssues) =>
     nameRecord({ path, format: "json", value: value ?? createValueObject(), source, nodes, issues: recordIssues }),
   );

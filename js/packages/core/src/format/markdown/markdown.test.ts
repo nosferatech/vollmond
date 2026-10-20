@@ -1025,3 +1025,25 @@ describe("issues", () => {
     expect(outcome.issues[0]?.position).toEqual({ offset: 11, line: 5, col: 1 });
   });
 });
+
+describe("a record with more issues or block anchors than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  const members = (count: number, form: (index: number) => string) => Array.from({ length: count }, (_, i) => form(i));
+
+  test("gives the feature-unsupported of each of 150,000 $ members of the front matter", () => {
+    const issues = issuesOf(`---\n${members(150_000, (i) => `$m${i}: 0\n`).join("")}---\n# R\n`);
+    expect(issues).toHaveLength(150_000);
+    expect(issues.every(([code]) => code === "feature-unsupported")).toBe(true);
+  }, 60_000);
+
+  test("gives the feature-unsupported of each of 150,000 $ members of a JSON data block", () => {
+    const issues = issuesOf(`# R\n\n## A\n\n\`\`\`json data\n{${members(150_000, (i) => `"$m${i}":0`).join(",")}}\n\`\`\`\n`);
+    expect(issues).toHaveLength(150_000);
+    expect(issues.every(([code]) => code === "feature-unsupported")).toBe(true);
+  }, 60_000);
+
+  test("gives each of 150,000 block anchors of a $body", () => {
+    const reading = read(`# R\n\n${members(150_000, (i) => `<a id="b${i}"></a>\n\n`).join("")}`);
+    expect(reading.blockAnchors).toHaveLength(150_000);
+  }, 60_000);
+});

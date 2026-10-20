@@ -144,7 +144,7 @@ export function parseDataBlock(
       const start = starts.get(node) ?? (node === at ? source.byteOffset(fence.contentStart) : undefined);
       return start === undefined ? undefined : source.position(start);
     };
-    issues.push(...checkShape("data-block", json.value, at, { path, locate }));
+    for (const issue of checkShape("data-block", json.value, at, { path, locate })) issues.push(issue);
   }
   return { value: json.value, nodes, issues };
 }

@@ -528,7 +528,7 @@ class BackendStore implements Store {
       const references: Reference[] = [];
       for (const path of resolver.value.recordPaths().sort(compareUtf8)) {
         const read = await this.record(path);
-        if (read?.ok === true) references.push(...(await resolver.value.referencesOf(read.value)));
+        if (read?.ok === true) for (const reference of await resolver.value.referencesOf(read.value)) references.push(reference);
       }
       return succeed(references);
     }

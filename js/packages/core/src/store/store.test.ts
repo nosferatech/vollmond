@@ -445,3 +445,13 @@ describe("Store.grep", () => {
     expect(page.items.map((match) => match.path)).toEqual(["notes.txt"]);
   });
 });
+
+describe("Store.references over more references than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call. The references are $ref objects in a field rather than links in a
+  // $body, which would take seconds to parse as Markdown.
+  test("gives each of the 150,000 references of a record", async () => {
+    const record = JSON.stringify({ a: Array(150_000).fill({ $ref: "x.md" }) });
+    const store = await storeOf({ ".vmd/config.yaml": CONFIG, "r.json": record });
+    expect(successValue(await store.references())).toHaveLength(150_000);
+  }, 60_000);
+});

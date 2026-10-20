@@ -40,3 +40,13 @@ describe("createMemoryStorage", () => {
     expect(() => createMemoryStorage({ files: { "a/b.md": "a" } })).not.toThrow();
   });
 });
+
+describe("a grep page with more matches than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  test("gives each of 150,000 matching lines of one file", async () => {
+    const storage = createMemoryStorage({ files: { "a.txt": "x\n".repeat(150_000) } });
+    const page = await storage.grep({ pattern: "x", mode: "literal", context: 0, limit: 150_000 });
+    expect(page.ok && page.value.items.length).toBe(150_000);
+    expect(page.ok && page.value.cursor).toBeNull();
+  }, 60_000);
+});

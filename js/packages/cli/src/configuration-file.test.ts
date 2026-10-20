@@ -41,4 +41,11 @@ describe("configurationFileSource", () => {
     makeDirectories(root, "schema/dir.json");
     expect((await source.readSchema("dir.json")).issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
   });
+
+  // Node 24 takes about 125,000 arguments in a call; a schema's $ref can name a path of that many segments.
+  test("fails with storage-failed for a schema path of 150,000 segments, which the system refuses", async () => {
+    const { source } = sourceIn({});
+    const read = await source.readSchema(`${"a/".repeat(150_000)}t.json`);
+    expect(read.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
+  });
 });

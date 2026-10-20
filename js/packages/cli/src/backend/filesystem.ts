@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { constants, type Dirent } from "node:fs";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
   createStorageReader,
   type FileSource,
@@ -88,7 +88,7 @@ class FilesystemFileSource implements FileSource {
         return isMissing(error) ? { kind: "absent" } : { kind: "failed", cause: error };
       }
     }
-    const absolute = join(this.#realRoot, ...segments);
+    const absolute = join(this.#realRoot, segments.join(sep));
     if (segments.length === 0) return { kind: "found", absolute };
     let real: string;
     try {

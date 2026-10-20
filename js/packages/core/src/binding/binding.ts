@@ -76,7 +76,10 @@ export function bindRecord(record: ParsedRecord, schema: CollectionSchema | null
     binder.walk(schema.root);
   }
   const issues = binder.adjustedParseIssues();
-  if (schema !== null) issues.push(...schema.validate(record, binder.checks), ...binder.duplicates);
+  if (schema !== null) {
+    for (const issue of schema.validate(record, binder.checks)) issues.push(issue);
+    for (const issue of binder.duplicates) issues.push(issue);
+  }
   const shapes = binder.shapes;
   return Object.freeze({
     record,

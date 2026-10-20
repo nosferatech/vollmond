@@ -119,7 +119,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
   if (frontMatter.kind === "closed") {
     const unit = sliceUnitText(text, frontMatter.contentStart, frontMatter.contentEnd);
     const yaml = parseYamlUnit(source, unit, { path, at: "", unit: "front-matter" });
-    issues.push(...yaml.issues);
+    for (const issue of yaml.issues) issues.push(issue);
     if (yaml.value !== undefined) rootFields = { value: yaml.value, nodes: yaml.nodes };
     bodyStart = frontMatter.bodyStart;
   }
@@ -198,7 +198,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     const bodyAt = childPath(draft.at, "$body");
     const bodyBlocks = blocks.slice(firstIndex, nextIndex);
     const found = readBlockAnchors(source, bodyBlocks, shift, body, bodyAt);
-    blockAnchors.push(...found.anchors);
+    for (const anchor of found.anchors) blockAnchors.push(anchor);
     for (const problem of found.problems) raise(problem.code, bodyAt, problem.message, problem.index, problem.offset);
     const offsets = new BodyOffsets(source, body.range);
     addLinks(bodyBlocks, bodyAt, (index) => offsets.valueOffset(index));
@@ -256,7 +256,7 @@ export function readMarkdown(path: string, source: SourceText): MarkdownReading 
     if (fence?.marker === "yaml" || fence?.marker === "json") {
       if (fence.closed) {
         const dataBlock: DataBlock = parseDataBlock(path, source, { ...fence, marker: fence.marker }, draft.at);
-        issues.push(...dataBlock.issues);
+        for (const issue of dataBlock.issues) issues.push(issue);
         if (dataBlock.value !== null) draft.fields = { value: dataBlock.value, nodes: dataBlock.nodes };
       } else {
         raise("syntax-error", draft.at, UNCLOSED_MESSAGE, fence.start);

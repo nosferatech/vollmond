@@ -472,3 +472,13 @@ describe("the node index", () => {
     expect(parsed.source.text).toBe("{}");
   });
 });
+
+describe("a record with more issues than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  test("gives the feature-unsupported of each of 150,000 $ members", () => {
+    const members = Array.from({ length: 150_000 }, (_, index) => `"$m${index}":0`);
+    const issues = failure(`{${members.join(",")}}`);
+    expect(issues).toHaveLength(150_000);
+    expect(issues.every(([code]) => code === "feature-unsupported")).toBe(true);
+  }, 60_000);
+});

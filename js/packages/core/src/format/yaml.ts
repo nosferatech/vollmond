@@ -189,8 +189,8 @@ class YamlUnitReader {
       problems.push({ index: warning.pos[0], message: firstLine(warning.message) });
     }
     const directives = this.#directives(doc);
-    problems.push(...directives.problems);
-    if (problems.length === 0) problems.push(...this.#charactersOutsideQuotes(doc));
+    for (const problem of directives.problems) problems.push(problem);
+    if (problems.length === 0) for (const problem of this.#charactersOutsideQuotes(doc)) problems.push(problem);
     if (problems.length > 0) return this.#syntaxError(problems);
     if (directives.unsupportedAt !== null) {
       this.#raise("yaml-version-unsupported", at, "vmd reads YAML 1.2 only", directives.unsupportedAt);
@@ -221,7 +221,7 @@ class YamlUnitReader {
         const start = this.#starts.get(path);
         return start === undefined ? undefined : this.#source.position(start);
       };
-      this.#issues.push(...checkShape(this.#place.unit, value, at, { path: this.#place.path, locate }));
+      for (const issue of checkShape(this.#place.unit, value, at, { path: this.#place.path, locate })) this.#issues.push(issue);
     }
     return value === undefined
       ? { nodes: this.#nodes, issues: this.#issues }
