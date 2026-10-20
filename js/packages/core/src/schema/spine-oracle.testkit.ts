@@ -476,16 +476,6 @@ export class OracleSpine {
         for (const key of above) {
           this.#mustSteps += 1;
           const beside = locationOf(key);
-          // Changed with the check: where the items end at `closed`, what a location gives at every index before it.
-          if (closed !== Number.POSITIVE_INFINITY) {
-            let common: Set<string> | undefined;
-            for (let index = 0; index < closed; index++) {
-              const atIndex = new Set(this.itemLocations(beside, index, undefined).filter(useful).map(locationKey));
-              common = common === undefined ? atIndex : new Set([...common].filter((item) => atIndex.has(item)));
-            }
-            for (const item of common ?? []) found.add(item);
-            continue;
-          }
           const schema = this.schemaAt(beside);
           if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) continue;
           for (const location of this.closure([at(beside, "items")])) if (useful(location)) found.add(locationKey(location));

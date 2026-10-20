@@ -404,9 +404,7 @@ export class Spine {
    * `prefixItems`: still at most quadratic, but reached with less schema. It takes no item at an index where an `items: false`
    * of either location, or of what their `allOf` and `$ref` bring, lets none stand, since no valid record holds one there. The locations that apply beside a typed reference
    * on every path are kept only for references whose own schema object lacks the format, and only of the locations that
-   * could give it, which in the worst case is quadratic too. Where a `false` ends the items of an array with a keyed list,
-   * the step to its items takes, for each location beside it, what each index before that end gives, so it grows with the
-   * `prefixItems` as well.
+   * could give it, which in the worst case is quadratic too.
    *
    * Memory: linear in the schema, but for bitsets and the waiting pairs. The pairs met take a bit for each pair of locations
    * whose spine below holds a declaration or `unevaluatedItems`, in a row for the first of the pair once it is met. The
@@ -781,21 +779,8 @@ export class Spine {
       forEachBit(above, (id) => {
         this.#mustSteps += 1;
         const beside = usefulLocations[id] as SchemaLocation;
+        // Every item of a keyed list, whatever its index, gets the items schema of a location without prefixItems.
         if (edge.kind === "keyed") {
-          // An item of a keyed list stands at any index before `closed`, and gets what a location gives at each of them.
-          if (closed !== Number.POSITIVE_INFINITY) {
-            let common: Uint32Array | undefined;
-            for (let index = 0; index < closed; index++) {
-              const atIndex = new Uint32Array(words);
-              for (const location of this.itemLocations(beside, index, undefined)) add(atIndex, location);
-              if (common === undefined) common = atIndex;
-              else for (let word = 0; word < words; word++) common[word] = (common[word] as number) & (atIndex[word] as number);
-            }
-            for (let word = 0; word < words; word++)
-              found[word] = (found[word] as number) | ((common as Uint32Array)[word] as number);
-            return;
-          }
-          // At any index at all, it gets the items schema of a location without prefixItems.
           const schema = this.schemaAt(beside);
           if (prefixOf(beside) !== 0 || !isObject(schema) || !isSchemaValue(schema.items)) return;
           for (const location of this.closure([at(beside, "items")])) add(found, location);
