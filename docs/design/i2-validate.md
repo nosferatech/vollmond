@@ -84,14 +84,14 @@ case's configuration, so that schemas apply; today they call `resolveStoreAddres
 
 ### 1.4 Dependencies
 
-`core` gains `@hyperjump/json-schema` 1.18.0, its peer `@hyperjump/browser` 1.5.1, and `@hyperjump/json-schema-formats` 1.0.8 as a
+`core` gains `@hyperjump/json-schema` 1.18.0, its peer `@hyperjump/browser` 1.6.0, and `@hyperjump/json-schema-formats` 1.0.8 as a
 direct dependency for four identifier formats (section 3.4), if question 1 is answered as recommended. All are pure JavaScript.
 Their licences are to be confirmed at adoption, as for I1's (npm gives MIT for `@hyperjump/json-schema`; D: registry metadata).
 
 - **Node APIs.** `@hyperjump/browser` imports `node:fs`, `node:process` and `node:url` in two modules, and its `package.json` maps
-  both to browser variants through the `browser` field (M: read from the 1.5.1 package). Bundlers for the browser use those.
-  Whether its type declarations reference Node's types, which core's `no-node-types` guard forbids, is U: the guard says so on
-  adoption.
+  both to browser variants through the `browser` field (M: read from the 1.5.1 package, and again from 1.6.0). Bundlers for
+  the browser use those. Whether its type declarations reference Node's types, which core's `no-node-types` guard forbids, is U:
+  the guard says so on adoption.
 - **No network, no disk.** The guarantee is core's own: before anything is compiled, every `$ref` of every schema file must name a
   file of the schema directory or a location inside one (section 3.2, step 3), so the validator is never asked to retrieve
   anything. As a second line of defense, the CLI, and later vmd's own Lambda functions, remove the `http`, `https` and `file` URI
