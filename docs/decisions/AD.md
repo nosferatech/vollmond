@@ -3,7 +3,8 @@ id: AD
 title: "A `$` step from a section names the section's own member, so `#summary/$body` is singular wherever the section is"
 round: "AD"
 date: "2026-10-12"
-status: accepted
+status: superseded
+superseded_by: [AO.md]
 sections: ["§7.4", "§7.5"]
 decided_by: owner
 sources:
@@ -66,3 +67,9 @@ form 3, which lists the same cases. The code and the I2 design's sentence in sec
 `multimap-name-step-after-section-not-singular` and `multimap-repeated-section-body-not-singular`; and
 `dollar-anchor-ambiguous-json`, `dollar-anchor-ambiguous-md` and `dollar-anchor-check`, with the near miss
 `valid-anchor-body-singular`. #117's code passes every one of them.
+
+Draft v0.16: [AO](AO.md) takes up the lookup of option (c), which this decision left aside because nothing needed it yet: the
+proof now looks an address's first step up in the record, so a link to an explicit anchor in a journal whose top-level sections
+may repeat can be singular. That amends this decision's "The proof still works from the schema alone" in the same direction, and
+so supersedes this record; its rule for a `$` step from a section stands, and that part of the proof still needs only the
+schema (§7.4).

@@ -10,7 +10,7 @@ decided_by: owner
 sources:
   card: "AA2"
   design: ["docs/design/i2-validate.md, section 3.3"]
-  prs: [97, 105]
+  prs: [97, 105, 130]
 ---
 
 ## Question
@@ -54,6 +54,13 @@ define… is `feature-unsupported`", and the treatment of unknown configuration 
 
 When an unknown member or value stands beside other problems, `feature-unsupported` wins, as [AA4](AA4.md) (item 1) confirms.
 
+**Agent's reading, for the owner to confirm.** One detail that the pull request implementing this decision (#130) found open,
+which Draft v0.16 states in §9.3 and Appendix D's `schema-invalid` row: a value of `type`, `cardinality` or `anchors` that is not
+a string, such as `type: 5`, is a value of the wrong form, `schema-invalid`, not an unknown value. The values these members define
+are strings, and a newer version would add a string, so only a string outside the set is unknown. #130 implements it so; the other
+reading, which would make `type: 5` `feature-unsupported`, is a one-line change in `enumerated` in
+`js/packages/core/src/schema/keywords.ts`, #130 says.
+
 ## Why
 
 The card's reason: "The message matters to the person fixing it: a schema from a newer vmd isn't broken. And it matches how
@@ -70,3 +77,5 @@ Draft v0.14 (#105): §9.1 ("A collection whose schema cannot be used", and "Ever
 `list-keys-wrong-form`. The four cases of unknown members and values were skipped in the TypeScript runner's declaration while
 #97's code (`f74bc12`) made them `schema-invalid`. The follow-up, #130, changes the TypeScript code
 (`js/packages/core/src/schema/keywords.ts`) and takes the four cases off the skip list.
+
+Draft v0.16: §9.3 and Appendix D's `schema-invalid` row state the reading above, from #130, for the owner to confirm.

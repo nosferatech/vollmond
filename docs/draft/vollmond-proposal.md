@@ -1,10 +1,10 @@
 # Vollmond MD (vmd): Records, Addresses, Queries and Storage
 
-Status: Draft v0.15 (2026-10-12). Supersedes Draft v0.14 (commit `796121d`), Draft v0.13 (commit `801aaf2`), Draft v0.12 (commit
-`3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9 (commit `75c8728`), Draft v0.8 (commit
-`26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5 (commit `d0d1424`), Draft v0.4 (commit
-`1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1 (commit `b7c8a52`). The minor version
-rises with each round of decisions applied to the draft.
+Status: Draft v0.16 (2026-10-20). Supersedes Draft v0.15 (commit `e94e840`), Draft v0.14 (commit `796121d`), Draft v0.13
+(commit `801aaf2`), Draft v0.12 (commit `3a4a3f7`), Draft v0.11 (commit `938a76e`), Draft v0.10 (commit `d1e0a60`), Draft v0.9
+(commit `75c8728`), Draft v0.8 (commit `26a1a55`), Draft v0.7 (commit `c3032a6`), Draft v0.6 (commit `c3879b7`), Draft v0.5
+(commit `d0d1424`), Draft v0.4 (commit `1043a6c`), Draft v0.3 (commit `5b0819b`), Draft v0.2 (commit `5998461`) and Draft v0.1
+(commit `b7c8a52`). The minor version rises with each round of decisions applied to the draft.
 Each decision is a record in [`docs/decisions/`](../decisions/), with its options and reasons, and
 [vollmond-proposal-review.md](vollmond-proposal-review.md) holds the review of v0.1 and the index of the decisions by round.
 
@@ -893,7 +893,8 @@ tools (§13.5). `vmd check` therefore warns about a reference that reaches its t
 instead. That covers the unsuffixed anchor and the suffixed ones alike (`#notes` and `#notes-1`, while two `## Notes` exist), since
 inserting, removing or retitling one of those headings renumbers the others (§13.4). Both warnings also cover a reference whose
 first step reaches a JSON or YAML section only by its key, when the key is the slug of its `$title` (§5.5), since that key changes
-with the title as a derived anchor does. A store used as a database can require
+with the title as a derived anchor does. A reference declared `cardinality: many` gets them too, when one of its targets is
+reached only in such a way, whatever its other targets are. A store used as a database can require
 explicit anchors in its typed references (`x-vmd-ref` with `anchors: explicit`, §9.3).
 
 Derived anchors exist only for Markdown headings. JSON and YAML have no headings, so their objects have only explicit anchors.
@@ -972,14 +973,20 @@ of a different node, the address is ambiguous.
 
 An address is **singular** when it must resolve to exactly one node: every reference, and the target of every write. It is valid
 only if each of its steps crosses a level whose keys are unique, by declaration (`type: map`) or by the strict default. The checker
-proves this from the schema before evaluating anything, for the levels the address crosses (`address-not-singular` otherwise).
+proves this before evaluating the address, for the levels the address crosses (`address-not-singular` otherwise). It looks the
+first step up in the record: a first step that names exactly one node there, such as an explicit anchor that no top-level key
+repeats, or a top-level key that is unique in the record, is singular whatever the root's level declares. The rest of the address
+is proved from the schema, from the node that the first step names, and so is a first step that names no node or several. In a
+journal whose top-level sections are declared `multimap`, `j.md#done` names the one node with the explicit anchor `done`, and
+`#done/$body` its text, while `#monday`, where two top-level sections are titled `Monday`, is not singular. The lookup reads the
+names that a first step reaches (§7.3), not the values the address leads to.
 
 A step from a section that begins with `$`, such as `$body` or `$title`, names the section's own member (§7.3) and crosses no
 level, since no section key of a valid record begins with `$`: a heading's slug drops it (§6.3, step 5), and an anchor begins
 with a letter (§6.2). So `#summary/$body` is singular wherever the section `summary` is, also where its child sections are
 declared `multimap`, while `#log/entry/$body` is not where `entry` crosses such a level. `$sections` is the section's own member
 too, but the step after it is a key of the child sections and crosses their level. A `$` step into a keyed list of data is a key
-like any other, since a key member may hold any string. The proof still works from the schema alone.
+like any other, since a key member may hold any string. This part of the proof needs only the schema.
 
 The proof cannot cover three cases, so a singular address can still fail as ambiguous when it is evaluated, in exactly these:
 
@@ -1059,11 +1066,13 @@ Shorthands are never written into records.
 
 A `$ref` object with other members, or whose `$ref` is not a string, is a structural error (`ref-malformed`) at the object, so
 references are detectable without a schema. The object's other members are still checked, and their own issues reported, so that
-one run shows everything to fix (C2). Wikilinks are not supported: GitHub does not render them. A link inside an HTML comment is
-not a reference, since CommonMark reads a comment as an HTML block or as inline raw HTML, which binds more tightly than link
-brackets ([CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore
-removes it from validation. A reference link in a JSON or YAML record uses the link reference definitions of every `$body` of the
-record (§5.4), so its definition, which is the reference, may stand in another section.
+one run shows everything to fix (C2). A schema may declare `x-vmd-ref` on the `$ref` member of such an object instead of on the
+object: the declaration then applies to the object, which stays the one reference, so the link is counted once (§9.3). Wikilinks
+are not supported: GitHub does not render them. A link inside an HTML comment is not a reference, since CommonMark reads a comment
+as an HTML block or as inline raw HTML, which binds more tightly than link brackets ([CommonMark
+0.31.2](https://spec.commonmark.org/0.31.2/), sections 4.6, 6.3 and 6.6). Commenting a link out therefore removes it from
+validation. A reference link in a JSON or YAML record uses the link reference definitions of every `$body` of the record (§5.4),
+so its definition, which is the reference, may stand in another section.
 
 ### 8.2 Resolving targets
 
@@ -1099,14 +1108,20 @@ Each reference inside the store resolves to one of `ok`, `dangling` (no target, 
 a singular reference, `ref-ambiguous`), `aliased` (resolved through an alias, §13.6, `ref-aliased`), or `unreadable` (into a
 record that readers refuse, `ref-target-unreadable`). A singular reference whose address crosses a level declared `multimap` is
 `ambiguous` too, without being evaluated, since §7.4's proof cannot make it singular: its `ref-ambiguous` says that it cannot be
-proved singular. That holds for every form of reference, Markdown links, `$ref` objects and typed strings alike. A reference
-declared `cardinality: many` whose selector matches nothing, in a record that exists, is valid. It is `ok`, with no targets. A
-reference into a record that readers refuse cannot be resolved below the root: a record with a structural error, which has no
-value view, or a record of a collection whose schema cannot be used (§9.1). It is not dangling but `unreadable`: `vmd check` warns
-about it (`ref-target-unreadable`), and the record's own structural errors, or the issue its collection's schema got
-(`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A reference whose address is the record's root
-(no fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address
-(§7.4) still fails, since a resolve returns the node's value, while a reference's status only says whether its target exists.
+proved singular. That holds for every form of reference, Markdown links, `$ref` objects and typed strings alike. A first step that
+names exactly one node of the record is singular even where the root's sections may repeat (§7.4), so `j.md#done`, a link to an
+explicit anchor in such a journal, is not `ambiguous`. A reference declared `cardinality: many` whose selector matches nothing is
+resolved through the aliases, as a reference to one node is (§13.6): when its first step reaches no name of the record and an
+anchor alias has that step as its `from`, the reference follows the alias, and is `aliased`. Otherwise, in a record that exists,
+it is valid: `ok`, with no targets. A reference into a record that readers refuse cannot be resolved below the root: a record with
+a structural error, which has no value view, or a record of a collection whose schema cannot be used (§9.1). It is not dangling
+but `unreadable`: `vmd check` warns about it (`ref-target-unreadable`), and the record's own structural errors, or the issue its
+collection's schema got (`schema-invalid`, `feature-unsupported` or `storage-failed`), say what to fix. A reference's status does
+not depend on the read mode (§9.5): the strict read mode changes what readers return, not which records a reference can be
+resolved into, so a reference into a record that only the strict mode refuses, for a schema violation, say, is resolved as in the
+default mode, and `vmd check` reports the same statuses in either mode. A reference whose address is the record's root (no
+fragment, or `#` alone, §7.1) names the record, which exists, so it is `ok`. Resolving that same root address as an address (§7.4)
+still fails, since a resolve returns the node's value, while a reference's status only says whether its target exists.
 
 ---
 
@@ -1285,7 +1300,7 @@ error are mostly its consequences; the other units are still parsed, and their e
 | Keyword | Where | Meaning |
 |---|---|---|
 | `x-vmd-list` | an array | a keyed list (§5.6, below) |
-| `x-vmd-ref` | a `$ref` object, or a string with `format: uri-reference` | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any target is allowed: a node, a record, an asset or a directory. A `targets` entry that names a collection of the configuration is that collection, and any other entry is a glob (§11.2) |
+| `x-vmd-ref` | a `$ref` object, or a string with `format: uri-reference`; on the `$ref` member of a `$ref` object, it declares the object (below) | `{"targets": ["tickets", "docs/**"], "cardinality": "one" \| "many", "anchors": "any" \| "explicit"}`; `one` and `any` are the defaults, and without `targets` any target is allowed: a node, a record, an asset or a directory. A `targets` entry that names a collection of the configuration is that collection, and any other entry is a glob (§11.2) |
 | `x-vmd-summary` | any property | `true` or `false`: whether the property is included in default listings and query results; another value is `schema-invalid` |
 | `x-vmd-ordered` | an `enum` | `asc` or `desc`: the order in which the enum lists its values, for `<` and `>` in queries; another value is `schema-invalid` |
 
@@ -1293,7 +1308,13 @@ A keyword that begins with `x-vmd-` and that this version does not define makes 
 and so does a member or a value inside `x-vmd-list` or `x-vmd-ref` that this version does not define, such as
 `x-vmd-list: {type: map, keys: [name], sorted: true}` or `type: set`, so that what a newer minor version adds is never silently
 ignored, and the message tells the reader that the schema may need a newer version (§9.1). A member this version defines whose
-value has the wrong form, such as a `keys` that is not a list, is `schema-invalid`.
+value has the wrong form, such as a `keys` that is not a list, is `schema-invalid`. So is a value of `type`, `cardinality` or
+`anchors` that is not a string, such as `type: 5`: the values these members define are strings, and a newer version would add a
+string, so only a string outside the set is a value this version does not define.
+
+**A declaration on a `$ref` member.** An `x-vmd-ref` on the `$ref` member of a `$ref` object (§8.1) applies to the object: the
+object is the reference, with the targets, cardinality and anchors that the member's declaration gives, and the member is not a
+second, typed reference to the same target, so the link is counted once.
 
 **The spine.** `x-vmd-list` and `x-vmd-ref` are read only along the schema's spine: `properties`, `patternProperties`,
 `additionalProperties`, `prefixItems`, `items`, `$ref` to a fixed location, `allOf`, and `x-vmd-list`'s own `items` and
@@ -1311,7 +1332,10 @@ one location of a schema file, apply together when the spine brings both to one 
 lists, where each object applies its `properties` entry, the patterns that match the name, or else its `additionalProperties`; an
 item, by its index and by a key that a keyed list's `items` names, where each applies its `prefixItems` entry or else its `items`,
 together with its keyed list's schema for that key; and, at a member whose name no `properties` lists, the objects that one
-pattern or one `additionalProperties` brings. Unequal declarations of objects that apply together are `schema-invalid`, and so is
+pattern or one `additionalProperties` brings. A position at which no item can stand, one past the `prefixItems` that
+`items: false` closes, or one whose `prefixItems` entry is `false`, is no instance location of a valid record, so nothing meets
+there, and a path through it is no path. Only the boolean schema `false` closes a position this way; one that admits nothing,
+such as `{not: {}}`, does not. Unequal declarations of objects that apply together are `schema-invalid`, and so is
 an `x-vmd-list` that applies together with `unevaluatedItems`. A name that some `properties` lists counts wherever the schema
 takes it, so two patterns that both match such a name are refused even where no object that applies there lists it, which is
 conservative. Where only a member name in the data brings unequal declarations together, the check waits for the record: two
@@ -1323,7 +1347,8 @@ collection is unaffected.
 **What else is refused.** These are `schema-invalid`:
 
 - `x-vmd-ref` where a string can stand without `format: uri-reference`, since the declaration would then do nothing: the
-  format, or a `type` that allows no string, must apply beside the declaration on every path that reaches it. A schema without
+  format, or a `type` that allows no string, must apply beside the declaration on every path that reaches it, and a declaration
+  reached only through positions that `false` closes (above) needs neither. A schema without
   `type` allows a string, so `x-vmd-ref` without the format is refused there too, and a schema for a `$ref` object writes
   `type: object`;
 - `unevaluatedItems` beside `x-vmd-list` (above), since the validator does not know that `x-vmd-list` evaluates the items, and
@@ -1375,7 +1400,11 @@ either a derived anchor (§6.3) or the key of a section that has no explicit anc
 index into `$sections` or into any other array, in a semantic path (`#links/1`) or in an exact path (`#/$sections/1`). Steps
 through explicit anchors, field names and section members (`#done/$body`) are allowed, in a semantic path or an exact path, and
 so are keyed-list keys, which only a semantic path can use, since an exact path reaches a list item by its position. A reference
-that breaks this is an error (`ref-target-not-allowed`). `anchors: explicit` is the recommended setting for stores used as
+that breaks this is an error (`ref-target-not-allowed`). A reference declared `cardinality: many` breaks it as soon as one of its
+targets is reached only through a title-derived name or a positional step, even where its other targets are reached through
+explicit anchors: where the sections under `log` may repeat (`multimap`), `#log/notes` that matches one section whose key is its
+explicit anchor `notes` and another whose key comes only from its title `Notes` is `ref-target-not-allowed`, since the second
+target would change with a retitle. `anchors: explicit` is the recommended setting for stores used as
 databases, whose references should not change meaning when a title changes or an item is inserted. Under the default,
 `anchors: any`, positional steps are allowed, at the risk that an insertion retargets the reference (§13.5).
 
@@ -1412,18 +1441,22 @@ Each part of vmd has one role towards data that may not be valid:
    an invalid schema included, so that none vanish silently. `cat` and `grep` read a file's bytes and never load schemas (I2
    design, section 3.2), so they are not readers in this sense: they read a refused record's file as they read any other.
 2. **A validator** (`vmd check`, and validation in each mode of §9.4) reports every issue it can find, structural errors, schema
-   violations and constraint violations alike, and fails according to the configured severities (§9.1, Appendix D).
+   violations and constraint violations alike, and fails according to the configured severities (§9.1, Appendix D). It reports
+   the same in either read mode (item 4).
 3. **A validating backend** (§9.4) rejects every update that does not validate. A weakly validating one reports such updates
    after they land, and a backend that does not validate leaves validation to the client.
 4. **A query** is best effort by default. It assumes the backend is correct, which a validating backend guarantees and a weakly
    validating one guarantees except for its latest commits, and it returns every record it can read. A **strict read mode**, set
    per client or per connection, refuses records with structural errors or schema violations, which are then errors, not results,
    and a query that leaves out the records of a collection with an invalid schema fails as a whole in it. It refuses every code of
-   class structural in Appendix D, and these validation codes, which count as schema violations:
-   `schema-violation` (logical types included), `ref-target-not-allowed` (from `x-vmd-ref`), `duplicate-key` at a level declared
-   `type: map` (from `x-vmd-list`), and `filename-mismatch` (the collection's file name rule). Other validation issues, such as
-   dangling references, undeclared duplicates or warnings, do not affect it. It is for uses where correctness matters
-   more than availability, and for backends that do not validate.
+   class structural in Appendix D, and these validation codes, which count as schema violations: `schema-violation` (logical types
+   included), `ref-target-not-allowed` (from `x-vmd-ref`), `duplicate-key` at a level declared `type: map` (from `x-vmd-list`),
+   and `filename-mismatch` (the collection's file name rule). Other validation issues, such as dangling references, undeclared
+   duplicates or warnings, do not affect it. A listing of references (`vmd refs`) behaves as a query does: it returns the
+   references of the records it can read, reports each record it refuses as an error, and fails as a whole when it would leave out
+   the records of a collection whose schema cannot be used. The mode changes what readers return (`get`, `outline`, `ls`, `refs`
+   and queries), not the status of a reference into a refused record, which is the same as in the default mode (§8.5). It is for
+   uses where correctness matters more than availability, and for backends that do not validate.
 5. **A reader on another format version** than the store's reads by the features the data uses (§9.1). It fails on a feature
    it does not know rather than misread it. For a major version it does not support, it refuses a newer store, and reads an older
    one with a warning only when no change in between alters the meaning of existing syntax.
@@ -1918,7 +1951,9 @@ rewrite could not see, such as a reference added on a branch opened before the m
 published URL, the website's redirects, and links outside the store. Resolution through an alias is reported as `aliased` (§8.5),
 and `vmd check --fix` rewrites such a reference to the current address.
 
-A reference that resolves to no live node is resolved through the aliases. Its record path, when no record is at it, follows the
+A reference that resolves to no live node is resolved through the aliases, and so is one declared `cardinality: many` whose
+selector matches nothing (§8.5): after `## Setup` is renamed to `## Install`, `related: "notes.md#setup"` with `cardinality: many`
+reaches the renamed section, as `aliased`, as a reference to one node does. Its record path, when no record is at it, follows the
 record aliases whose `from` is the path, from one alias to the next, until it reaches a path that exists, or one that no record
 alias has as its `from`. In the record reached, the first step of a semantic path, when it reaches no name of the record, then
 follows the record's anchor aliases whose `from` is the step in the same way, until it reaches a name that a first step reaches in
@@ -2592,21 +2627,21 @@ The columns:
 | `collection-conflict` | error | validation | §9.1 | a record that the globs of two or more collections match; it is read unschematized; the record |
 | `filename-mismatch` | error | validation | §9.1 | a record whose file name does not match its collection's `filename`; the record |
 | `ref-dangling` | error | validation | §8.2, §8.5 | a singular reference with no target, a reference of either cardinality whose record does not exist, or one to an asset or directory that does not exist; the reference |
-| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); the reference |
-| `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets, or one whose address crosses a level declared `multimap`, which cannot be proved singular; the reference |
-| `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step; the reference |
+| `ref-target-unreadable` | warning | validation | §8.5 | a reference into a record that readers refuse, one with a structural error or one of a collection whose schema cannot be used, whose address is not the record's root (no fragment, or `#` alone), so that its target cannot be resolved (status `unreadable`); a record that only the strict read mode refuses does not count, since a reference's status does not depend on the read mode; the reference |
+| `ref-ambiguous` | error | validation | §7.4, §8.5 | a singular reference with several targets, or one whose address crosses a level declared `multimap`, which cannot be proved singular, except by a first step that names exactly one node of the record (§7.4); the reference |
+| `ref-target-not-allowed` | error | validation | §9.3 | a target outside the `targets` of `x-vmd-ref`, or, under `anchors: explicit`, an address with a step through a title-derived name or a positional step, for a reference declared `cardinality: many` as soon as one of its targets is reached only through such a step; the reference |
 | `not-representable` | warning in `check`; error when the serializer refuses a value | validation; operation | §5.8 | a value the Markdown serializer cannot write; the offending node |
 | `yaml-ambiguous-string` | warning; off under `yaml_quoting: minimal` | validation | §4.4 | a plain YAML scalar that vmd reads as a string and that a YAML 1.1 reader reads otherwise; the string, or for a mapping key the mapping |
 | `yaml-ambiguous-number` | warning; off under `yaml_quoting: minimal` | validation | §4.4 | a plain YAML scalar that vmd reads as a number and that a YAML 1.1 reader reads otherwise; the number |
 | `multiple-h1` | warning | validation | §5.3 | a Markdown record with several level-1 headings outside container blocks; the root |
 | `heading-html` | warning | validation | §5.3 | HTML in a heading other than the anchor element and the supported inline elements; the section |
-| `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is not repeated in the record; the reference |
-| `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
+| `ref-derived-anchor` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target, or one of its targets under `cardinality: many`, only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is not repeated in the record; the reference |
+| `ref-derived-repeat` | warning | validation | §5.5, §6.3 | a reference whose first step reaches its target, or one of its targets under `cardinality: many`, only by a title-derived name, a derived anchor or a JSON or YAML section's key from its `$title`, and whose slug is repeated in the record, suffixed or not, in place of `ref-derived-anchor`; the reference |
 | `ref-retargeted` | warning | validation | §13.5 | a reference whose resolved exact path differs from the one in the previous index; the reference |
 | `ref-aliased` | warning | validation | §8.5, §13.6 | a reference that resolves only through an alias; the reference |
 | `alias-shadowed` | warning | validation | §13.6 | a live record path, or a live name that an address's first step reaches (§7.3), that has the old name of an alias: an anchor, a key of the root (a JSON or YAML record's top-level key, or a Markdown record's front matter key), or a child section of the root by its key; the node, or the record |
 | `config-invalid` | error | operation | §9.1, §12.1 | a store configuration without `vmd`, or that is not valid, including an unknown code or an out-of-limit severity in `issues`, a malformed glob in `ignore`, `match` or `exclude`, or one with a `.` or `..` segment, a collection name that does not match `[A-Za-z][A-Za-z0-9_-]*`, and a file of more than 1 MiB; a `--config` path that does not exist or cannot be read; none |
-| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, does not hold an object, or is not a valid schema; it has `$id`, an identifier with a string value inside data, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` reached off the spine, `$dynamicRef` included, even where the spine reaches it too; unequal declarations that apply together; `x-vmd-ref` where a string can stand without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; a member of `x-vmd-list` or `x-vmd-ref` whose value has the wrong form; an `x-vmd-summary` that is not a boolean, or an `x-vmd-ordered` that is not `asc` or `desc`. A construct this version does not define, an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is `feature-unsupported` instead, also beside other problems, and a file that cannot be read `storage-failed`, which wins over both. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
+| `schema-invalid` | error | operation | §9.1, §9.2, §9.3 | a collection whose schema cannot be used: its file is missing, as the backend reads it, is more than 1 MiB, does not hold an object, or is not a valid schema; it has `$id`, an identifier with a string value inside data, or YAML anchors, aliases or tags; an `x-vmd-list` or `x-vmd-ref` reached off the spine, `$dynamicRef` included, even where the spine reaches it too; unequal declarations that apply together; `x-vmd-ref` where a string can stand without `format: uri-reference`; `unevaluatedItems` beside `x-vmd-list`; more than one key member, or on `$sections` keys other than `["@key"]`; a member of `x-vmd-list` or `x-vmd-ref` whose value has the wrong form, a `type`, `cardinality` or `anchors` that is not a string included; an `x-vmd-summary` that is not a boolean, or an `x-vmd-ordered` that is not `asc` or `desc`. A construct this version does not define, an unknown `x-vmd-*` keyword or an unknown member or value inside `x-vmd-list` or `x-vmd-ref`, is `feature-unsupported` instead, also beside other problems, and a file that cannot be read `storage-failed`, which wins over both. Reported once; every reader refuses the collection's records, whichever of the three codes the schema got, and a single-record read fails with that code, in one issue about the collection whose `path` is null and whose message names the schema file; `check` checks them for everything but their schema; none |
 | `alias-file-invalid` | error | operation | §11.2, §13.6 | a `.vmd/aliases.jsonl` that is not valid JSONL of alias entries, or that is larger than 16 MiB, refused by its size with a message that names the limit and suggests `vmd alias prune`; none |
 | `format-version-unsupported` | error | operation | §9.1 | a store whose major format version the client does not support: a newer store, or an older one across a change that alters meaning; none |
 | `format-version-older` | warning | operation | §9.1 | a client newer than the store reads a major version it does not support, with no change in between that alters meaning; none |

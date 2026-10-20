@@ -687,13 +687,13 @@ first name is live but whose rest is missing. Cards AH and AI come from the inde
 to an old name, and a retitle that renumbers a heading onto a locked name. Card W5 confirms the agent's readings that the Draft
 v0.14 round marked for the owner. The project owner chose (a) on AC, (b) on AD, (a) on W5 ("Confirm all ten"), (a) on AG, AH and
 AI, and, on AF, the recommendation to keep [AA4](../decisions/AA4.md)'s item 4; AE was answered with a note rather than an option.
-Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm. Section
-numbers refer to Draft v0.15.
+Where the records fill in a detail the cards left open, they mark it as the agent's reading, for the owner to confirm; card W6
+(Draft v0.16) confirmed those readings. Section numbers refer to Draft v0.15.
 
 - [AC](../decisions/AC.md) An alias chain stops at any name a link reaches, keys included, and an alias holds its old name until
   it is pruned
 - [AD](../decisions/AD.md) A `$` step from a section names the section's own member, so `#summary/$body` is singular wherever the
-  section is
+  section is (superseded by AO)
 - [AE](../decisions/AE.md) For now, a schema is refused only by the existing rules; a service that validates untrusted data sets
   its own time budget
 - [AF](../decisions/AF.md) A keyed list's `additional` against the array's `items` still waits for the record
@@ -701,6 +701,37 @@ numbers refer to Draft v0.15.
 - [AH](../decisions/AH.md) Renaming back to an alias's old name is allowed, and turns the alias around
 - [AI](../decisions/AI.md) A retitle may renumber another heading onto a locked name; the live name wins, with the warning
 - [W5](../decisions/W5.md) The agent's readings in Draft v0.14 are confirmed
+
+## Decisions from cards AJ to AO and W6 (Draft v0.16)
+
+Recorded 2026-10-20, and applied to Draft v0.16. Cards AJ and AK ask about the strict read mode before its code (#146): whether a
+link into a record that the mode refuses changes its status, and what `vmd refs` does with refused records. Card AL settles a
+disagreement between §13.6 and the I2 design's section 5.5 over a reference declared `cardinality: many` that matches nothing
+after a rename. Card AM asks when such a reference breaks `anchors: explicit`, and card AN what an `x-vmd-ref` on the `$ref`
+member of a `$ref` object declares. Card AO comes from the independent review of the pull request that resolves references through
+the schema (#133): a link to an explicit anchor in a journal whose top-level sections may repeat. Card W6 confirms the agent's
+readings that the Draft v0.15 round marked for the owner. The project owner chose the recommended option on every card, with no
+note: (a) on AJ, AK, AM and AN, (b) on AL and AO, and (a) on W6 ("Confirm all eight"). Where the records fill in a detail the
+cards left open, they mark it as the agent's reading, for the owner to confirm. Section numbers refer to Draft v0.16.
+
+- [AJ](../decisions/AJ.md) A reference's status does not depend on the read mode
+- [AK](../decisions/AK.md) In the strict read mode, a listing of references behaves as a query does
+- [AL](../decisions/AL.md) A reference declared `cardinality: many` that matches nothing follows the anchor aliases
+- [AM](../decisions/AM.md) A many-reference under `anchors: explicit` is breached when any target is reached by a title or a
+  position
+- [AN](../decisions/AN.md) An `x-vmd-ref` on the `$ref` member of a `$ref` object declares the object, one reference
+- [AO](../decisions/AO.md) The proof that an address names one node looks its first step up in the record
+- [W6](../decisions/W6.md) The agent's readings in Draft v0.15 are confirmed
+
+Two more changes are applied without a decision of their own. Each is an agent's reading of a pull request that implements an
+earlier decision, which the draft now states, for the owner to confirm; the records of those decisions hold the label:
+
+- §9.3 and Appendix D's `schema-invalid` row: a value of `type`, `cardinality` or `anchors` in `x-vmd-list` or `x-vmd-ref` that is
+  not a string, such as `type: 5`, is of the wrong form, `schema-invalid`, and not an unknown value; from the pull request that
+  makes unknown members and values `feature-unsupported` (#130), recorded in [AA2](../decisions/AA2.md);
+- §9.3: a position that `items: false`, or a `prefixItems` entry that is `false`, closes is no instance location, so no
+  declarations meet there and a path through it needs no format; from the pull request for such positions (#136), recorded in
+  [AA4](../decisions/AA4.md).
 
 ## Decisions given in conversation
 

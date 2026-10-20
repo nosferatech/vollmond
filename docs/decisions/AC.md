@@ -64,8 +64,9 @@ This amends [Z2](Z2.md)'s rule and the reading [W4](W4.md) confirmed (its item 7
 name"), in the same direction, by widening what a live name is from anchors to every name a first step reaches, so it supersedes
 both. Z2's other details stand, and so do W4's other nine items.
 
-**Agent's reading, for the owner to confirm.** Six details that neither the card nor the chat settles, which Draft v0.15 states
-as follows; item 3 points at the cards that decided two of its cases:
+**Agent's reading, confirmed by the owner on [W6](W6.md) (2026-10-13).** Six details that neither the card nor the chat settles,
+which Draft v0.15 states as follows. W6 confirmed items 1, 2, 4, 5 and 6 (its items 1 to 5); item 3 points at the cards that
+decided two of its cases:
 
 1. The refusal is an operation error whose message names the alias and suggests `vmd alias prune`. The draft gives it no code
    yet: the code is named when the lock is implemented (I5), and then goes into Appendix D and core's table of codes together,
@@ -129,3 +130,6 @@ aliases in `docs/nested-keys.json`, `{"n": {"a": 1}, "b": 2}`, where `a` is only
 `references/aliases/check-alias-shadowed-keys` and updates the I2 design's section 5.5. The lock has no suite case yet, since the
 suite has no write operations before I4 (conformance README, operations reserved for I4). #48 has a comment that records the lock,
 and #120 the cleverer scheme.
+
+Draft v0.16: card [W6](W6.md) confirmed the agent's readings above (2026-10-13); Draft v0.15 states them as rules without a
+label, so the draft's text keeps them as written.

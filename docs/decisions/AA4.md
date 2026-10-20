@@ -10,7 +10,7 @@ decided_by: owner
 sources:
   card: "AA4"
   design: ["docs/design/i2-validate.md, section 3.3"]
-  prs: [97, 105]
+  prs: [97, 105, 136]
 ---
 
 ## Question
@@ -67,6 +67,15 @@ Appendix D's `feature-unsupported` and `schema-invalid` rows.
 - Item 2's rule is stated as #97 implements it: the format, or a `type` that allows no string, must apply beside the declaration
   on every path that reaches it. #97 says this narrows nothing beyond the card's wording.
 
+**Agent's reading, for the owner to confirm (Draft v0.16).** One detail of items 2 and 4 that the pull request for positions
+closed by `items: false` (#136) found open, which Draft v0.16 states in §9.3: a position at which no item can stand, one past the
+`prefixItems` that `items: false` closes or one whose `prefixItems` entry is `false`, is no instance location of a valid record.
+So nothing meets there (item 4's "apply together"), and a path through it is no path, so a typed reference reached only through
+such positions needs no `format: uri-reference` (item 2's "every path"). Only the boolean schema `false` closes a position; a
+schema that admits nothing, such as `{not: {}}`, does not, since telling those apart would mean deciding whether a schema can be
+satisfied (#136). #136 implements it, and its suite case `validation/schemas/keyed-item-past-items-false` (the schema is usable)
+and the near miss `keyed-item-before-items-false` (`schema-invalid`) pin it.
+
 ## Why
 
 The card's reason: "Each is either the safe side of a gap or what made the security fix possible. Number 7 is the one with
@@ -93,3 +102,6 @@ Draft v0.15: card [AF](AF.md) asked item 4's case of a keyed list's `additional`
 refused it at load, and the owner kept item 4: the meeting waits for the record. §9.3 now names a `prefixItems` entry beside
 `items` there, as the I2 design's section 3.3 did; the rule does not change. #115 (`31fe634`) made the code follow #109, so the
 case `keyed-item-meets-prefix-items` is no longer skipped.
+
+Draft v0.16: §9.3 ("Declarations that meet" and "What else is refused") states the reading from #136 above, for the owner to
+confirm.
