@@ -245,6 +245,16 @@ describe("createFilesystemStorage", () => {
       delete process.env.GIT_CEILING_DIRECTORIES;
     }
   });
+
+  // Node 24 takes about 125,000 arguments in a call.
+  test("reads a path of 150,000 segments as a path the system refuses, and a path of a few as any other", async () => {
+    const root = temporaryDirectory();
+    writeFiles(root, { "a/a/b.md": "# B\n" });
+    const storage = createFilesystemStorage(root);
+    const read = await storage.read(`${"a/".repeat(150_000)}b.md`);
+    expect(read.issues.map((issue) => issue.code)).toEqual(["storage-failed"]);
+    expect(successValue(await storage.read("a/a/b.md")).content).toEqual(new TextEncoder().encode("# B\n"));
+  });
 });
 
 describe("createFilesystemStorage in a git working copy", () => {

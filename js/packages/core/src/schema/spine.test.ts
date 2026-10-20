@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 import { succeed } from "../issue/outcome.js";
-import { locationKey, readSchemaSet } from "./schema-set.js";
+import { locationKey, readSchemaSet, type SchemaLocation } from "./schema-set.js";
 import { Spine, type SpineProblem } from "./spine.js";
 import { bareReferenceChain, chain, deepClosures, fanIn, unequalBranches } from "./spine-shapes.testkit.js";
 
@@ -523,4 +523,52 @@ describe("the memo of the listed names' groupings", () => {
     expect(bounded.groupedNames).toBeLessThanOrEqual(100);
     expect(bounded.groupedNames).toBeGreaterThan(0);
   });
+});
+
+describe("a spine with more locations than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  const COUNT = 150_000;
+  const FILES = 10;
+
+  /**
+   * The spine of a root schema whose `allOf` names `FILES` files, each a schema whose `allOf` holds its share of `COUNT`
+   * branches given by `branch`: a schema file holds at most 1 MiB.
+   */
+  async function spread(branch: (index: number) => unknown): Promise<Spine> {
+    const encoder = new TextEncoder();
+    const files = new Map<string, Uint8Array>();
+    const share = COUNT / FILES;
+    const names = Array.from({ length: FILES }, (_, file) => `f${file}.json`);
+    files.set("s.json", encoder.encode(JSON.stringify({ allOf: names.map((name) => ({ $ref: name })) })));
+    for (const [file, name] of names.entries()) {
+      const allOf = Array.from({ length: share }, (_, index) => branch(file * share + index));
+      files.set(name, encoder.encode(JSON.stringify({ allOf })));
+    }
+    const set = await readSchemaSet("s.json", async (path) => succeed(files.get(path) as Uint8Array));
+    expect(set.problems).toEqual([]);
+    return new Spine(set);
+  }
+
+  test("gives each of 150,000 unequal keyed lists that meet as a conflict", async () => {
+    const spine = await spread((index) => ({ "x-vmd-list": { type: index % 2 === 0 ? "map" : "multimap", keys: ["k"] } }));
+    expect(spine.root.conflicts).toHaveLength(COUNT);
+  }, 60_000);
+
+  test("gives each of 150,000 unequal typed references that meet as a conflict", async () => {
+    const spine = await spread((index) => ({ "x-vmd-ref": { cardinality: index % 2 === 0 ? "one" : "many" } }));
+    expect(spine.root.conflicts).toHaveLength(COUNT);
+  }, 60_000);
+
+  test("follows a $dynamicRef to each of 150,000 dynamic anchors of its name", async () => {
+    // The anchors are added to the set in memory: a set read from files holds one per file, and 150,000 files would be slow
+    // to read. Each is a location off the spine with a typed reference, reported once however often it is reached.
+    const schema = { properties: { p: { $dynamicRef: "#a" } }, $defs: { d: { $dynamicAnchor: "a", ...ref("one") } } };
+    const text = new TextEncoder().encode(JSON.stringify(schema));
+    const set = await readSchemaSet("s.json", async () => succeed(text));
+    expect(set.problems).toEqual([]);
+    const anchor = set.dynamicAnchors.get("a") as readonly SchemaLocation[];
+    const many = { ...set, dynamicAnchors: new Map([["a", Array.from({ length: COUNT }, () => anchor[0] as SchemaLocation)]]) };
+    const problems = new Spine(many).check().problems.map((problem) => problem.message);
+    expect(problems).toEqual([expect.stringContaining("x-vmd-ref is reached through $dynamicRef")]);
+  }, 60_000);
 });

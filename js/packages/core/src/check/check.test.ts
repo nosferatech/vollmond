@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Issue } from "../issue/issue.js";
 import { makeIssue } from "../issue/issue.js";
-import { fail, type Outcome } from "../issue/outcome.js";
+import { fail, type Outcome, succeed } from "../issue/outcome.js";
 import { createMemoryStorage, type MemoryFile } from "../storage/memory.js";
 import type { StorageReader } from "../storage/storage.js";
 import { openStore, type Store } from "../store/store.js";
@@ -183,6 +183,81 @@ describe("Store.check", () => {
     expect(outcome.ok).toBe(false);
     expect(outcome.issues).toEqual([broken]);
   });
+});
+
+describe("Store.check with more issues than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call. The store's listing is built in memory where a store of that many files
+  // would be slow to list.
+  const COUNT = 150_000;
+  const CONFIGURATION = { ".vmd/config.yaml": "vmd: 1\n" };
+
+  /** Each code of `issues` with how many issues have it. */
+  const counted = (issues: readonly Issue[]) => {
+    const counts = new Map<string, number>();
+    for (const issue of issues) counts.set(issue.code, (counts.get(issue.code) ?? 0) + 1);
+    return Object.fromEntries(counts);
+  };
+
+  test("gives the path-invalid of each of 150,000 files", async () => {
+    const inner = createMemoryStorage({ files: CONFIGURATION });
+    const files = Array.from({ length: COUNT }, (_, index) => ({
+      path: `a b${index}.png`,
+      size: 0,
+      version: "",
+      modified: null,
+    }));
+    const store = await storeOver(
+      withList(inner, async (query) => {
+        const start = query.cursor === undefined ? 0 : Number(query.cursor);
+        const end = Math.min(start + query.limit, files.length);
+        const remaining = { count: files.length - end, exact: true };
+        return succeed({ items: files.slice(start, end), cursor: end === files.length ? null : String(end), remaining });
+      }),
+    );
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(counted(outcome.issues)).toEqual({ "path-invalid": COUNT });
+  }, 60_000);
+
+  test("gives each of 150,000 issues of one page of the listing", async () => {
+    const inner = createMemoryStorage({ files: CONFIGURATION });
+    const failed = Array.from({ length: COUNT }, (_, index) =>
+      makeIssue({ code: "storage-failed", path: `f${index}.png`, at: null, message: "cannot read" }),
+    );
+    const store = await storeOver(
+      withList(inner, async () => succeed({ items: [], cursor: null, remaining: { count: 0, exact: true } }, failed)),
+    );
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 0, unreadable: 0 });
+    expect(counted(outcome.issues)).toEqual({ "storage-failed": COUNT });
+  }, 60_000);
+
+  test("gives the feature-unsupported of each of 150,000 $ members of a record", async () => {
+    const members = Array.from({ length: COUNT }, (_, index) => `"$m${index}":0`);
+    const store = await storeOf({ ...CONFIGURATION, "r.json": `{${members.join(",")}}` });
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 1 });
+    expect(counted(outcome.issues)).toEqual({ "feature-unsupported": COUNT });
+  }, 60_000);
+
+  test("gives the schema-violation of each of 150,000 failing items of a record", async () => {
+    const store = await storeOf({
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  things:\n    match: ["*.json"]\n    schema: s.json\n',
+      ".vmd/schema/s.json": JSON.stringify({ properties: { a: { items: { type: "string" } } } }),
+      "r.json": JSON.stringify({ a: Array(COUNT).fill(0) }),
+    });
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 0 });
+    expect(counted(outcome.issues)).toEqual({ "schema-violation": COUNT });
+  }, 60_000);
+
+  test("gives the ref-dangling of each of 150,000 dangling references of a record", async () => {
+    // $ref objects in a field rather than links in a $body, which would take seconds to parse as Markdown.
+    const store = await storeOf({ ...CONFIGURATION, "r.json": JSON.stringify({ a: Array(COUNT).fill({ $ref: "x.md" }) }) });
+    const outcome = await store.check();
+    expect(successValue(outcome)).toEqual({ records: 1, unreadable: 0 });
+    expect(counted(outcome.issues)).toEqual({ "ref-dangling": COUNT });
+  }, 60_000);
 });
 
 /** Orders the shown issues as `check` does for these, those without a path first. */

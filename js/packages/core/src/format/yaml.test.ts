@@ -859,3 +859,24 @@ describe("issue classes", () => {
     }
   });
 });
+
+describe("a unit with more issues or problems than a call takes arguments", () => {
+  // Node 24 takes about 125,000 arguments in a call.
+  test("gives the feature-unsupported of each of 150,000 $ members", () => {
+    const issues = issuesOf(Array.from({ length: 150_000 }, (_, index) => `$m${index}: 0\n`).join(""));
+    expect(issues).toHaveLength(150_000);
+    expect(issues.every(([code]) => code === "feature-unsupported")).toBe(true);
+  }, 60_000);
+
+  test("lists 150,000 characters allowed only inside quotes in one syntax-error", () => {
+    const outcome = parse(`a: ${"\u007f".repeat(150_000)}\n`);
+    expect(outcome.ok === false && outcome.issues.map((issue) => issue.code)).toEqual(["syntax-error"]);
+    expect(outcome.ok === false && outcome.issues[0]?.message).toContain("; and 149990 more");
+  }, 60_000);
+
+  test("lists the problems of 150,000 directives in one syntax-error", () => {
+    const outcome = parse(`${"%YAML 1.2\n".repeat(150_000)}---\na: 0\n`);
+    expect(outcome.ok === false && outcome.issues.map((issue) => issue.code)).toEqual(["syntax-error"]);
+    expect(outcome.ok === false && outcome.issues[0]?.message).toContain("; and 149989 more");
+  }, 60_000);
+});

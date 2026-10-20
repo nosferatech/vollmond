@@ -87,7 +87,7 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
     paths.push({ path: file.path, kind: found.kind });
     if (found.kind === "record") records.push({ path: file.path, collections: found.collections });
   }
-  issues.push(...pathRuleIssues(paths));
+  for (const issue of pathRuleIssues(paths)) issues.push(issue);
 
   const scope = options.records === undefined ? null : new Set(options.records);
   const inScope = (path: string) => scope === null || scope.has(path);
@@ -124,12 +124,12 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
       // be used, which is checked bound to none.
       const bound = schema === null || schema.ok ? await store.binding(record.path) : null;
       const binding = bound?.ok === true ? bound.value : bindRecord(parsed.value, schema?.ok === true ? schema.value : null);
-      issues.push(...binding.issues);
+      for (const issue of binding.issues) issues.push(issue);
     } else {
       unreadable += 1;
-      issues.push(...parsed.issues);
+      for (const issue of parsed.issues) issues.push(issue);
     }
-    issues.push(...(await resolver.value.issuesOf(record.path, parsed.ok ? parsed.value : null)));
+    for (const issue of await resolver.value.issuesOf(record.path, parsed.ok ? parsed.value : null)) issues.push(issue);
   }
   for (const collection of store.configuration.collections) {
     if (!collectionsInScope.has(collection)) continue;
@@ -157,7 +157,7 @@ async function listAll(store: CheckedStore): Promise<Outcome<FileInfo[]>> {
     });
     if (!page.ok) return fail(page.issues);
     files.push(...page.value.items);
-    issues.push(...page.issues);
+    for (const issue of page.issues) issues.push(issue);
     cursor = page.value.cursor;
   } while (cursor !== null);
   return succeed(files, issues);

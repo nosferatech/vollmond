@@ -491,7 +491,8 @@ export class Spine {
       if (dynamic !== undefined) {
         // A $dynamicRef lands on its own target, or on any $dynamicAnchor of its name that the dynamic scope holds.
         const targets = dynamic.target === null ? [] : [dynamic.target];
-        if (dynamic.anchor !== null) targets.push(...(this.#set.dynamicAnchors.get(dynamic.anchor) ?? []));
+        const anchors = dynamic.anchor === null ? [] : (this.#set.dynamicAnchors.get(dynamic.anchor) ?? []);
+        for (const anchor of anchors) targets.push(anchor);
         for (const target of targets) pending.push({ location: target, via: via ?? "$dynamicRef" });
       }
     }
@@ -1464,8 +1465,8 @@ class Shape implements SchemaShape {
     const refs = declarations.get("x-vmd-ref") ?? [];
     const listsEqual = allEqual(lists);
     const refsEqual = allEqual(refs);
-    if (!listsEqual) conflicts.push(...lists.map((found) => found.location));
-    if (!refsEqual) conflicts.push(...refs.map((found) => found.location));
+    if (!listsEqual) for (const found of lists) conflicts.push(found.location);
+    if (!refsEqual) for (const found of refs) conflicts.push(found.location);
     const firstList = lists[0];
     const firstRef = refs[0];
     this.list =
