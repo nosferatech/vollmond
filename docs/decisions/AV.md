@@ -72,5 +72,5 @@ The project owner chose (c) on the review desk on 2026-10-20, with no note. The 
 ## Applied in
 
 #165 (`a6e6c8e`): the code, the I2 design's table of logical types (section 3.4) and its property test 2, and the suite cases
-`values/logical-types/leap-seconds-at-2359-utc-valid` and `leap-seconds-elsewhere-invalid`. Draft v0.19: §4.3's "Leap seconds";
-J1's record.
+`values/logical-types/leap-seconds-at-2359-utc-valid` and `leap-seconds-elsewhere-invalid`. Draft v0.19 (#168): §4.3's "Leap
+seconds"; J1's record.
