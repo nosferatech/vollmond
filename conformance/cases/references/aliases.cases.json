@@ -90,6 +90,24 @@
         {"code": "ref-dangling", "severity": "error", "path": "refs/journal.md", "at": "/$body"},
         {"code": "ref-ambiguous", "severity": "error", "path": "refs/journal.md", "at": "/$body"}
       ]}
+    },
+    {
+      "id": "refs-many-record-alias-no-match",
+      "description": "A typed reference declared cardinality: many whose record path follows a record alias, docs/old.md to docs/current.md, and whose fragment matches nothing there is ok with no targets, as for an old section name, since a reference to one node through the same alias stays dangling; for contrast, one whose fragment matches there is aliased, with that node (§8.5, §13.6, decision AU).",
+      "spec": ["8.5", "9.3", "13.6"],
+      "input": {"record": "refs/many.yaml"},
+      "expect": {"result": [
+        {"from": {"path": "refs/many.yaml", "at": "/nothing"}, "raw": "../docs/old.md#nothing", "status": "ok", "targets": []},
+        {"from": {"path": "refs/many.yaml", "at": "/matched"}, "raw": "../docs/old.md#room-rule", "status": "aliased", "targets": [{"path": "docs/current.md", "at": "/$sections/0", "address": "#room-rule"}]}
+      ]}
+    },
+    {
+      "id": "check-many-record-alias-no-match",
+      "spec": ["8.5", "13.6", "D"],
+      "operation": "check",
+      "description": "The same references in check: the one that matches nothing raises nothing, and the one that resolves through the alias is a ref-aliased warning (§8.5, Appendix D, decision AU).",
+      "input": {"records": ["refs/many.yaml"]},
+      "expect": {"issues": [{"code": "ref-aliased", "severity": "warning", "path": "refs/many.yaml", "at": "/matched"}]}
     }
   ]
 }

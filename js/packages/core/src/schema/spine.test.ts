@@ -573,8 +573,8 @@ describe("a spine with more locations than a call takes arguments", () => {
   }, 60_000);
 });
 
-// Which declaration applies where a $ref object's schema and its $ref member's both declare x-vmd-ref, unequal, is not decided,
-// so the check refuses the schema until it is.
+// A $ref object's schema and its $ref member's both declare the one reference the object is, so unequal declarations are
+// refused, compared as written.
 describe("a $ref object whose schema and whose $ref member's both declare x-vmd-ref", () => {
   const member = (declaration: unknown) => ({ type: "string", format: "uri-reference", "x-vmd-ref": declaration });
   const refusal = "an x-vmd-ref on a $ref object and an unequal one on its $ref member";

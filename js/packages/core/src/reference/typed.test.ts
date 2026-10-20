@@ -221,7 +221,7 @@ describe("a $ref object with x-vmd-ref on its $ref member", () => {
     expect(codes(allowed[0] as Reference)).toEqual([]);
   });
 
-  test("makes the schema unusable where the object's schema declares an unequal x-vmd-ref, which applies being undecided", async () => {
+  test("makes the schema unusable where the object's schema declares an unequal x-vmd-ref, both applying to one reference", async () => {
     const schema = (objectTargets: string) =>
       `type: object\nproperties:\n  both: {type: object, x-vmd-ref: {targets: ["${objectTargets}"]}, properties: {$ref: ${typed('{targets: ["docs/**"]}')}}}\n`;
     const files = (objectTargets: string) => ({
@@ -338,10 +338,29 @@ describe("cardinality: many", () => {
     // A chain that reaches no name leaves the reference as the live store does.
     const unknown = await one("many", "../docs/t.md#unknown");
     expect(unknown).toMatchObject({ status: "ok", targets: [], issues: [] });
-    // A record alias: the record part resolves only through it, whatever the fragment matches.
+    // A record alias whose record has no match for the fragment leads nowhere either, as for an old section name: a single
+    // reference through it stays dangling, so a many-reference is ok with nothing.
     const moved = await one("many", "../docs/old.md#nothing");
-    expect(moved).toMatchObject({ status: "aliased", targets: [] });
-    expect(codes(moved)).toEqual(["ref-aliased"]);
+    expect(moved).toMatchObject({ status: "ok", targets: [], issues: [] });
+    expect(await one("parent", "../docs/old.md#nothing")).toMatchObject({ status: "dangling", targets: [] });
+    // Where the fragment matches there, the reference resolves through the alias.
+    const found = await one("many", "../docs/old.md#done");
+    expect(found).toMatchObject({ status: "aliased", targets: [{ path: "docs/t.md", at: "/$sections/0" }] });
+    expect(codes(found)).toEqual(["ref-aliased"]);
+  });
+
+  test("checks targets against the record a record alias leads to, also where nothing matches there", async () => {
+    // docs/old.md leads to docs/t.md, which docs/** allows; other/** allows neither.
+    const store = await storeOf({
+      ".vmd/schema/typed.schema.yaml": TYPED_SCHEMA.replace(
+        "properties:\n",
+        `properties:\n  manyOther: ${typed('{cardinality: many, targets: ["other/**"]}')}\n`,
+      ),
+      "typed/r.yaml": "manyOther: ../docs/old.md#nothing\n",
+    });
+    const [reference] = successValue(await store.references({ from: "typed/r.yaml" }));
+    expect(reference).toMatchObject({ status: "ok", targets: [] });
+    expect(codes(reference as Reference)).toEqual(["ref-target-not-allowed"]);
   });
 });
 

@@ -687,7 +687,7 @@ export class OracleSpine {
         if (jcs(schema["x-vmd-ref"] as Value) === jcs(memberSchema["x-vmd-ref"] as Value)) continue;
         report(
           at(object, "x-vmd-ref"),
-          `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`,
+          `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; declarations that meet must be equal`,
         );
       }
     }

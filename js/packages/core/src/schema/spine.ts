@@ -1272,15 +1272,12 @@ export class Spine {
 }
 
 /**
- * The refusal of an `x-vmd-ref` at a location that may hold a `$ref` object, beside an unequal one on its `$ref` member.
- *
- * TODO(#24): which of the two applies is an open question for the project owner, recorded in
- * https://github.com/nosferatech/vollmond/issues/24#issuecomment-6295156256, with three options: unequal declarations are
- * refused, as here; the member's wins; the object's wins. Until it is answered the schema is refused, so that no record is
- * read under a choice nobody made, and the two are compared as written, as declarations that meet at one location are.
+ * The refusal of an `x-vmd-ref` at a location that may hold a `$ref` object, beside an unequal one on its `$ref` member. Both
+ * apply to the one reference the object is, so they must be equal, compared as written, as declarations that meet at one
+ * location are.
  */
 function refMemberMessage(object: SchemaLocation, member: SchemaLocation): string {
-  return `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; which one applies is not decided, so they must be equal`;
+  return `an x-vmd-ref on a $ref object and an unequal one on its $ref member apply to one reference, from ${locationKey(object)}, ${locationKey(member)}; declarations that meet must be equal`;
 }
 
 /**
