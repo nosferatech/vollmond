@@ -145,6 +145,9 @@ export async function checkStore(store: CheckedStore, options: CheckOptions = {}
   let scope: ReadonlySet<string> | null = options.records === undefined ? null : new Set(options.records);
   // Deviation from the I2 design, recorded in issue #26: a change to the alias file, or a file created, changed or removed at a
   // path an alias names, can change where any reference through an alias leads, so it makes the check one of the whole store.
+  // The paths an alias names overlap on purpose: a record alias's old path is also the record of the anchor aliases recorded
+  // under it, and either entry alone covers that path, so dropping one changes nothing while dropping both lets a file created
+  // at an old path whose anchor aliases a reference went through slip by.
   const aliasPaths = resolver.value.aliasPaths();
   if (changedPaths !== null && !changedPaths.has(ALIASES_PATH) && ![...changedPaths].some((path) => aliasPaths.has(path))) {
     const versions = new Map(listed.value.map((file) => [file.path, file.version]));
@@ -234,9 +237,9 @@ interface CitingReference {
  * cites a changed path. It loops over the records listed now, never over the snapshot's: a record whose version is the one the
  * snapshot lists is looked at through the snapshot's rows, and any other, changed since or added, through its own references,
  * resolved now; without a current snapshot, every record is. A record unchanged since the snapshot makes the same references,
- * and each one's route passes through the path its URI names, the directories above it, its targets, and the paths its aliases
- * name; a change at an alias's path makes the check one of the whole store, so a stale snapshot costs work and never hides a
- * record.
+ * and what each one reaches depends only on what is at the path its URI names or below it, at its targets, and at the paths its
+ * aliases name; a change at an alias's path makes the check one of the whole store, so a stale snapshot costs work and never
+ * hides a record.
  */
 async function changedScope(
   store: CheckedStore,
@@ -274,7 +277,9 @@ async function changedScope(
 
 /**
  * Whether a reference made in the record at `citing` cites one of `paths`: the path its URI names, or the path of one of its
- * targets, is one of them, or is a directory above one.
+ * targets, is one of them, or is a directory above one. The named path counts as a directory whether or not the URI ends in
+ * `/`, since a link to a path where no file is but files are below resolves to that directory, so a file created or removed
+ * below it changes what the link reaches.
  */
 function cites(citing: string, reference: CitingReference, paths: ReadonlySet<string>): boolean {
   const reaches = (path: string, directory: boolean) => {
@@ -283,7 +288,7 @@ function cites(citing: string, reference: CitingReference, paths: ReadonlySet<st
     return false;
   };
   const named = resolveReferenceUri(citing, reference.uri);
-  if (named.kind === "store" && reaches(named.path, named.directory)) return true;
+  if (named.kind === "store" && (reaches(named.path, named.directory) || reaches(named.path, true))) return true;
   return reference.targets.some((target) => reaches(target.path, target.kind === "directory"));
 }
 

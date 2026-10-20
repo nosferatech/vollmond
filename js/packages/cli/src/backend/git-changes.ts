@@ -24,6 +24,13 @@ const REMOVED_VARIABLES = [
   "GIT_CONFIG_COUNT",
 ];
 
+/**
+ * The oldest git `--changed` runs: 2.30 taught `git rev-parse` `--end-of-options` ("git rev-parse" learned the
+ * "--end-of-options" to help scripts to safely take a parameter that is supposed to be a revision, git's
+ * Documentation/RelNotes/2.30.0, read on 2026-10-20), which keeps the revision from being read as an option.
+ */
+const MINIMUM_GIT = [2, 30] as const;
+
 /** A revision's tree: the repository's top level, and each regular file's blob id by its path from the top level. */
 export interface RevisionTree {
   /** The real path of the working tree's top level, as git gives it. */
@@ -41,15 +48,23 @@ export interface RevisionTree {
  * through a shell, with the revision after `--end-of-options` so that it is never read as an option, `core.fsmonitor` off,
  * and without the variables that would point git elsewhere; nothing in the working tree, its index or its filters is run.
  *
- * Fails with `storage-failed` when git cannot be run, when `directory` is in no git working tree, and when the repository has
- * no such revision.
+ * Fails with `storage-failed` when git cannot be run or is older than 2.30, when `directory` is in no git working tree, and
+ * when the repository has no such revision.
  */
 export async function revisionTree(directory: string, revision: string): Promise<Outcome<RevisionTree>> {
-  const top = await runGit(directory, ["rev-parse", "--show-toplevel"]);
-  if (!top.ok) {
-    if (top.missing) return storageFailed("--changed needs git, which cannot be run here: it is not on PATH");
-    return storageFailed(`--changed needs the store to be in a git repository: ${top.reason}`);
+  const version = await runGit(directory, ["version"]);
+  if (!version.ok) {
+    if (version.missing) return storageFailed("--changed needs git, which cannot be run here: it is not on PATH");
+    return storageFailed(`--changed needs git, which fails here: ${version.reason}`);
   }
+  const found = /^git version (\d+)\.(\d+)\S*/.exec(version.output.trim());
+  const [major, minor] = found === null ? [0, 0] : [Number(found[1]), Number(found[2])];
+  if (major < MINIMUM_GIT[0] || (major === MINIMUM_GIT[0] && minor < MINIMUM_GIT[1])) {
+    const shown = found === null ? JSON.stringify(version.output.trim()) : found[0].slice("git version ".length);
+    return storageFailed(`--changed needs git ${MINIMUM_GIT.join(".")} or later, and this git is ${shown}`);
+  }
+  const top = await runGit(directory, ["rev-parse", "--show-toplevel"]);
+  if (!top.ok) return storageFailed(`--changed needs the store to be in a git repository: ${top.reason}`);
   const root = top.output.replace(/\n$/, "");
   const tree = await runGit(root, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${revision}^{tree}`]);
   if (!tree.ok) return storageFailed(`git has no revision ${revision} in the store's repository`);

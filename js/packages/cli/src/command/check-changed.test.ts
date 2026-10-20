@@ -167,6 +167,28 @@ describe("check --changed's failures and guards", () => {
     const result = await vmd(root, null, "check", "--changed", "HEAD");
     expect(reported(result.stdout)).toEqual(["a.md ref-dangling"]);
     for (const kind of ["fsmonitor", "clean", "diff"]) expect(existsSync(`${marker}-${kind}`)).toBe(false);
+    // The near miss: git's own working-tree commands in that repository run each of them, so the plants are live.
+    git(root, "status", "--short");
+    git(root, "diff");
+    git(root, "add", "a.md");
+    for (const kind of ["fsmonitor", "clean", "diff"]) expect(existsSync(`${marker}-${kind}`)).toBe(true);
+  });
+
+  test("refuses a git older than 2.30, which cannot be told where its options end, and says so", async () => {
+    const root = repository({ ".vmd/config.yaml": "vmd: 1\n", "a.md": "# A\n" });
+    const bin = temporaryDirectory();
+    writeFileSync(join(bin, "git"), "#!/bin/sh\necho 'git version 2.29.2'\n", { mode: 0o755 });
+    const saved = process.env.PATH;
+    process.env.PATH = `${bin}:${saved ?? ""}`;
+    try {
+      const result = await vmd(root, null, "check", "--changed", "HEAD");
+      expect(result.stderr).toMatch(/^error storage-failed: --changed needs git 2\.30 or later, and this git is 2\.29\.2\n/);
+      expect(result.exitCode).toBe(1);
+    } finally {
+      process.env.PATH = saved;
+    }
+    // The near miss: the git on PATH, newer, is taken.
+    expect((await vmd(root, null, "check", "--changed", "HEAD")).exitCode).toBe(0);
   });
 
   test("checks records that git ignores or that a nested repository holds, which differ from REV by not being there", async () => {

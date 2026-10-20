@@ -260,4 +260,24 @@ describe("a check of what changed, against a full check (the review's cases)", (
       expect(reported(inc)).toEqual(reported(full));
     }
   });
+
+  test("a directory created at the path a dangling reference names, with a snapshot and without one", async () => {
+    const before = {
+      ".vmd/config.yaml": 'vmd: 1\ncollections:\n  runs:\n    match: ["r/*.json"]\n    schema: run.schema.json\n',
+      ".vmd/schema/run.schema.json": JSON.stringify({
+        properties: { see: { type: "string", format: "uri-reference", "x-vmd-ref": { targets: ["d/**"] } } },
+      }),
+      "r/a.json": '{"see": "../x"}',
+      "u.md": "# U\n\n[x](x)\n",
+    };
+    const after = { ...before, "x/y.md": "# Y\n" };
+    // The new directory changes what the references reach, so a check that misses it reports the old result.
+    expect(reported(await (await storeOf(before)).check())).not.toEqual(reported(await (await storeOf(after)).check()));
+    for (const cache of [undefined, createMemoryIndexCache()]) {
+      if (cache !== undefined) await (await storeOf(before, cache)).check();
+      const full = await (await storeOf(after)).check();
+      const inc = await (await storeOf(after, cache)).check({ changed: ["x/y.md"] });
+      expect(reported(inc)).toEqual(reported(full));
+    }
+  });
 });
