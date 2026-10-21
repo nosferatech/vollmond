@@ -1,0 +1,44 @@
+# anchored-document.schema.yaml: what vampiredb's scripts/docs.sh checks of a document's form, as far as a schema of the
+# value view can say it. See ../README.md, "The trial configuration".
+#
+# The header table opens the document, so it is prose in the root's $body, and its rows are read as text until vampiredb
+# moves the header to front matter. A row is read as docs.sh reads it: `| **Name** | ` at the start of a line, then the
+# keyword, optionally in backticks, then ` — ` and prose or the end of the row. Left out: the Component slugs, which would
+# copy docs/components.md, and docs.sh's window of the first 12 lines.
+#
+# The heading rule applies, as docs.sh's does, only to a document that has an anchor somewhere: an explicit anchor on any
+# heading, or an anchor element in any $body. In such a document every numbered heading carries an anchor.
+$defs:
+  section:                                     # the spine: sections keyed by their section key, at every level
+    type: object
+    properties:
+      $sections: { type: array, items: { $ref: "#/$defs/section" }, x-vmd-list: { type: map, keys: ["@key"] } }
+  numbered-headings-anchored:                  # this section and those below it: a numbered heading carries an anchor
+    if: { properties: { $title: { pattern: "^([0-9]+(\\.[0-9]+)*|A\\.[0-9]+)\\.? |^Appendix [A-Z]" } } }
+    then: { required: [$anchor] }
+    properties:
+      $sections: { items: { $ref: "#/$defs/numbered-headings-anchored" } }
+  has-anchor:                                  # this section, or one below it, has an anchor
+    anyOf:
+      - required: [$anchor]
+      - { required: [$body], properties: { $body: { pattern: "<a id=\"" } } }
+      - { required: [$sections], properties: { $sections: { contains: { $ref: "#/$defs/has-anchor" } } } }
+type: object
+required: [$title, $body]
+properties:
+  $body:
+    type: string
+    allOf:
+      - pattern: "(?:^|\\n)\\| \\*\\*Type\\*\\* \\| `?(?:Design|Investigation|Analysis|Report|Convention|Guideline|Record)`?(?: — | \\|(?:\\n|$))"
+      - pattern: "(?:^|\\n)\\| \\*\\*Status\\*\\* \\| `?(?:Draft|Accepted|Implemented|Deprecated)`?(?: — | \\|(?:\\n|$))"
+      - if: { pattern: "(?:^|\\n)\\| \\*\\*Status\\*\\* \\| `?Implemented`?(?: — | \\|(?:\\n|$))" }     # Implemented is for a Design
+        then: { pattern: "(?:^|\\n)\\| \\*\\*Type\\*\\* \\| `?Design`?(?: — | \\|(?:\\n|$))" }
+      - if: { pattern: "(?:^|\\n)\\| \\*\\*Type\\*\\* \\| `?(?:Design|Investigation|Analysis|Report)`?(?: — | \\|(?:\\n|$))" }
+        then: { pattern: "(?:^|\\n)\\| \\*\\*Component\\*\\* \\| `?[a-z0-9]" }                       # names its Component
+      - if: { pattern: "(?:^|\\n)\\| \\*\\*Type\\*\\* \\| `?(?:Convention|Guideline|Record)`?(?: — | \\|(?:\\n|$))" }
+        then: { pattern: "(?:^|\\n)\\| \\*\\*Scope\\*\\* \\| [^|\\s]" }                              # says where it applies
+      - not:                                   # at most ten Components, counted before the prose that follows ` — `
+          pattern: "(?:^|\\n)\\| \\*\\*Component\\*\\* \\| (?!—)(?:[ \\t]*[^,|\\n\\s](?:(?! — )[^,|\\n])*,(?:[ \\t]*,)*){10}[ \\t]*[^,|\\n\\s]"
+  $sections: { type: array, items: { $ref: "#/$defs/section" }, x-vmd-list: { type: map, keys: ["@key"] } }
+if: { $ref: "#/$defs/has-anchor" }
+then: { properties: { $sections: { items: { $ref: "#/$defs/numbered-headings-anchored" } } } }

@@ -11,7 +11,7 @@ Each language has its own top-level directory. The TypeScript implementation is 
 and `js/packages/conformance` (the conformance runner, private). A Python implementation will go in `python/`. Plans,
 specification and decisions (`docs/decisions/`, one vmd record per decision) are in `docs/`, and the conformance suite in
 `conformance/`; both are shared by all languages and stay at the root. `examples/` holds configurations for stores kept outside
-this repository, with their demonstrations, such as `examples/vampiredb/` (task I1.11).
+this repository, with their demonstrations, such as `examples/vampiredb/` (tasks I1.11 and I2.7).
 
 Prerequisites: Node 24 or later and npm; `vmd check --changed` also needs git 2.30 or later. Run the commands below in `js/`.
 
