@@ -1252,9 +1252,12 @@ configuration over a made-up store in CI, each rule firing once and each near mi
 | a link to a missing file | only when it has a `#` | `ref-dangling` for every relative link |
 | a link to a document without anchors | skipped ("its links are plain Markdown") | resolved: headings, derived anchors, with `ref-derived-anchor` |
 | reference links and definitions | not read (its pattern is `[text](target)`) | read |
-| links and code-comment references from outside `docs/` (the repository's `README.md`, `.rs` files) | read: among its 2,290 references | outside the store, not seen |
-| links from `docs/` to outside it | not checked | outside the store, not checked (§8.2); autolinks are not references |
-| a duplicate anchor id | yes | `duplicate-anchor` |
+| links and code-comment references from outside `docs/` (the repository's `README.md`, `.rs` files) | read: 11 of its 2,290 references, 10 code comments in `.rs` files and 1 in a `Cargo.toml` | outside the store, not seen |
+| code references (`` `docs/design/X.md#id` (§N) ``) in a fenced block of a document in `docs/` | read, as in `.rs` files: 271 of its 2,290 references | not references: the block is code |
+| a link from `docs/` with `#` to a file outside `docs/` | checked as any link: a missing file is reported, and so is a missing id in a file with anchors | not checked: the link leaves the store (§8.2) |
+| other links from `docs/` to outside it | not checked | outside the store, not checked (§8.2); autolinks are not references |
+| a link whose text spans lines | reported at the line of its `[` | reported at the line of its destination |
+| a duplicate anchor id | yes; the first element wins, so links to the id pass | `duplicate-anchor`, and `ref-ambiguous` on every link to the id |
 | a numbered heading without an anchor, in a document with anchors | yes, in every tracked `.md` file | `schema-violation` in the collection's documents only (section 8.2) |
 | header fields: Type, Status, Implemented only for a Design, Component and Scope present, at most ten Components | yes | `schema-violation`, as patterns on prose, with the differences of section 8.2 |
 | header fields: Component slugs from `docs/components.md` | yes | no |
@@ -1263,10 +1266,10 @@ configuration over a made-up store in CI, each rule firing once and each near mi
 | ticket citations | yes | no: not vmd's |
 | file names | letters, digits, `_`, `-`, `.` | `path-invalid` (§3.2), which is narrower for the first character |
 
-`examples/vampiredb/check-demo.mjs`, in the style of I1.11's `demo.mjs`, runs both tools on the checkout. It matches `docs.sh`'s
-link problems inside `docs/` with vmd's issues by file, line and target, so that "every broken link `docs.sh` reports inside
-`docs/`, `vmd` reports too" is a check rather than a claim. Since `docs.sh` reports nothing today, the demonstration plants faults
-in a copy of the docs, each once:
+[`examples/vampiredb/check-demo.mjs`](../../examples/vampiredb/check-demo.mjs), in the style of I1.11's `demo.mjs`, runs both
+tools on the checkout, `docs.sh` in its check mode. Since `docs.sh` reports nothing today, it then plants faults, each on its own,
+in a copy of the files `docs.sh` reads. The copy is a git repository of its own, so that `docs.sh` reads there what it reads in
+the checkout. The faults are:
 
 - an anchor id renamed;
 - an anchored heading deleted;
@@ -1274,11 +1277,30 @@ in a copy of the docs, each once:
 - a duplicate anchor;
 - a numbered heading without its anchor;
 - a reference link to a missing anchor;
-- a wrong shown number.
+- a wrong shown number;
+- one for each other row of the table above that a fault can show;
+- every anchor element of every Markdown file renamed at once, which makes every reference `docs.sh` checks a problem.
 
-It records which tool reports each fault, against the table above. It then times `vmd check` cold and warm, the median of ten,
-on the unmodified store, and checks that the store is unchanged (a digest before and after), as I1.11 did. I2.7's
-[`check.mjs`](../../examples/vampiredb/check.mjs) already runs the check and the digest.
+Each fault declares what each tool reports, and the run fails when either reports otherwise. For each fault the script also
+matches the two tools' link problems by file, line and target, in both directions: every link problem `docs.sh` reports in a
+file inside `docs/` must be a vmd issue, or fall in a class of the table above that says why vmd does not report it, and the
+same holds for every broken reference vmd reports. "Every broken link `docs.sh` reports inside `docs/`, `vmd` reports too" is
+then a check, with the links that leave the store and the code references in fenced blocks as its stated exceptions. It then
+times `vmd check` cold and warm, the median of ten, on the unmodified store, and fails when the warm median is not under the
+budget of section 9. Last, it checks that nothing changed, by digests before and after of the store, of the files `docs.sh`
+reads in the checkout with HEAD and `git status`, and of the ticket directory `docs.sh` reads. The three scripts of
+`examples/vampiredb/` share the vmd runner, the digest and the timing statistics in its `shared.mjs`.
+
+The record of the run is on [#28](https://github.com/nosferatech/vollmond/issues/28) and in the directory's
+[README](../../examples/vampiredb/README.md#the-i2-demonstration-i28). The run changed the table above in four places, two rows
+corrected and two added:
+
+- `docs.sh` checks a `#` link from `docs/` that leaves it;
+- it reads code references in fenced blocks;
+- the two tools give a different line for a link whose text spans lines;
+- vmd raises `ref-ambiguous` on the links to a duplicated id.
+
+It found no vmd bug.
 
 ### 8.4 The anchor elements in a list item's later paragraphs (#20, open item 1)
 
@@ -1309,10 +1331,19 @@ of each range shows.
 | validate one record against it | 25 to 36 µs | |
 
 So a **cold check without a cache** costs about 60 ms of Node and imports (I1 §7), 40 ms for the validator, 950 to 1,250 ms of
-parsing, a few milliseconds of validation and 15 to 20 ms of resolution: about 1.1 to 1.4 s (U until I2.8 measures it), within the
-budget already. A **warm check** re-parses nothing: the listing and hashing (10 ms), reading 37 parse entries and 37 bindings (U:
-the rows of Minimal_Log are a few hundred kilobytes), resolution (15 to 20 ms) and output. A few hundred milliseconds, including
-Node's start, is the expectation (U).
+parsing, a few milliseconds of validation and 15 to 20 ms of resolution: about 1.1 to 1.4 s, within the budget already. A
+**warm check** re-parses nothing: the listing and hashing (10 ms), reading 37 parse entries and 37 bindings (U: the rows of
+Minimal_Log are a few hundred kilobytes), resolution (15 to 20 ms) and output. A few hundred milliseconds, including Node's start,
+is the expectation (U).
+
+**I2.8 measured both** (M, 2026-10-20, [#28](https://github.com/nosferatech/vollmond/issues/28)), on the docs as they are now:
+46 records and 4.4 MB rather than 37 (section 8.1). Each check ran ten times in a fresh process, with a load average of about 5:
+
+- cold, with no index: a median of 1.70 s (1.68 to 1.76 s), above the estimate of 1.1 to 1.4 s, which was made for the smaller
+  docs; its stages were not measured again;
+- warm: a median of 194 ms (192 to 197 ms), ten times under the budget.
+
+Under a load average rising from 7 to 40, the medians were 3.0 s cold and 0.50 s warm.
 
 What keeps it so:
 
@@ -1613,7 +1644,7 @@ implements; a *spec* answer is in Draft v0.11 before the pull request starts.
 | F | I2.5 local index (#25) | E2 | 4 | property test 5; the CI guard of section 9; the per-user cache with its eviction, and a test that nothing in the checkout is read or written as cache; `ls`'s store-wide count and `outline`'s refs-in counts |
 | G | I2.6 commands `check`, `refs`, `schema`, `index` (#26) | F | 4 (`--no-cache`), 11 (`--strict`) | command tests over a fixture store for each option, stream and exit code of section 7.5; `--changed` in a temporary git repository, a `git mv` among them |
 | H | I2.7 vampiredb trial (#27) | C (draft), G (final) | (none) | `examples/vampiredb/` holds the configuration and schema of section 8.2; `vmd check` runs over the store with them |
-| K | I2.8 demonstration (#28) | G, H | (none; #20's open item 1 sets its numbers) | `check-demo.mjs` and its record in #28: the comparison of section 8.3, the planted faults, cold and warm timings, the store unchanged |
+| K | I2.8 demonstration (#28) | G, H | (none) | `check-demo.mjs` and its record in #28: the comparison of section 8.3, the planted faults, cold and warm timings, the store unchanged |
 
 A starts at once. After A, C, E1 and Y run in parallel, and D follows C. **The critical path is A, C, D, E2, F, G, K**: the
 binding needs schemas, typed references need the binding, the index caches what the binding gives, and the commands read the
