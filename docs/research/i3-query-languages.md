@@ -76,12 +76,13 @@ The examples treat three sources as the three collections of one store:
   `superseded_by` (arrays of typed references to other decisions, such as `[C20.md]`), `sections` (the specification's sections
   it touches, such as `"§7.4"`), `decided_by` and `sources` (cards, chat times, pull request and issue numbers, commits). Sections:
   Question, Options, Decision, Why, Owner's note (key `owners-note`) and Applied in. Bodies link other decisions in Markdown.
-- **`tickets/`**, collection `tickets`: an eternal-circle-like ticket store, as it will be after the importer of I3.7 (**H**:
-  today the 338 tickets carry their fields in a header table in prose). Fields from the header rows: `status` (Open, In progress,
-  Blocked, Closed), `resolution`, `severity` (Critical to Unknown, `x-vmd-ordered: desc`), `type`, `pattern`, `component` (an
-  array, such as `[log-v2, sim]`), `area`, `opened` (a date) and `found_during`. A ticket's key is its id, `VDB-0171`.
+- **`tickets/`**, collection `tickets`: a ticket store shaped like the draft's Appendix A, as eternal-circle's tickets will be
+  after the importer of I3.7 (**H**: today those tickets carry their fields in a header table in prose). Fields: `status` (Open,
+  In progress, Blocked, Closed), `severity` (Critical to Unknown, `x-vmd-ordered: desc`), `type`, `component` (an array, such as
+  `[log-v3, sim]`), `opened` (a date) and `parent`. A ticket's key is its id, such as `TKT-0001` (an illustrative id).
 - **`docs/`**, collection `docs`: vampiredb's design documents (real), long Markdown files whose sections carry explicit anchors
-  and link one another. `design/Minimal_Log.md` alone is about 182k tokens in 13 top-level sections.
+  and link one another. `design/Minimal_Log.md` alone is 667 KB, roughly 165k tokens, as the draft's review measured it
+  ([review, section 3](../draft/vollmond-proposal-review.md#3-agent-ergonomics)).
 
 Two facts the examples rely on, measured on this repository today: `vmd refs F7.md` over `docs/decisions/` lists three references,
 all from C20 (`#superseded_by/0`, `#decision/$body`, `#applied-in/$body`); and following `superseded_by` from F4 any number of
@@ -124,14 +125,18 @@ purpose, outside the repository. The scripts are not part of this document.
 
 - SQL (SQLite and SQL/PGQ), PRQL and KQL ran against a throwaway database built from real data: the 308 decision records of
   `docs/decisions/` (front matter parsed with the `yaml` package, sections split at `## `, Markdown links to `*.md` and the
-  `supersedes` and `superseded_by` fields turned into reference rows) and the 338 eternal-circle tickets (Status, Severity and
-  Component read from their header tables, as the I3.7 importer would). One reference was added by hand for S6: decision G3d
-  cites an open ticket. This database stands in for vmd's index and is not vmd: its section keys come from a simple
+  `supersedes` and `superseded_by` fields turned into reference rows) and a synthetic set of six tickets in the header-table
+  form, read as the I3.7 importer would (status, severity and component). For S6, two references were added by hand: decision
+  G3d cites an open ticket and U21 a closed one, so that a decision superseded only by U21 is a near miss. The same queries
+  were also run over eternal-circle's real tickets, with results consistent with its generated index; they are not reported
+  here, since that store is internal. This database stands in for vmd's index and is not vmd: its section keys come from a simple
   slug, and it holds only links to `.md` files in the same directory. SQLite ran in Node 24.21.0's `node:sqlite` (SQLite 3.53.4)
   and Python 3.9.6's `sqlite3` (SQLite 3.51.0); SQL/PGQ in DuckDB 1.4.4 with the `duckpgq` extension; PRQL through `prqlc`
   0.13.14, compiled to SQLite; KQL through `duckdb-kql` 1.0.11, a third-party translator to DuckDB, which shows that the text
-  parses as KQL to that translator, not what Kusto would answer. All four agree: S2 gives four tickets, one Critical and three
-  High, the log-v3 rows that eternal-circle's generated `tickets/+index.md` lists; S5b gives C20's three
+  parses as KQL to that translator, not what Kusto would answer. All four agree: over the synthetic tickets, S2 gives the two
+  log-v3 tickets that are not closed and are High or Critical, S6 gives G3c alone (G3d, superseded only by U21, is left out),
+  and S8 gives six counts, the ticket with two components counted under each;
+  over the decisions, S5b gives C20's three
   references, as `vmd refs F7.md` does; S7 gives G3, G3a, G3c, G3d and U21, with G3d and U21 accepted; S9 gives 10 accepted
   decisions for `§7.4`.
 - jq, JSONPath, JMESPath and XQuery ran on a small synthetic store of 12 records and 8 reference rows, in the export shape of
