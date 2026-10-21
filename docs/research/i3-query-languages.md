@@ -1,6 +1,7 @@
 # Query languages for vmd: prior art for phase I3
 
-Research for phase I3 (querying), 2026-10-20, written before any design. The project owner asked for it on the review desk:
+Research for phase I3 (querying), 2026-10-20 and 2026-10-21, written before any design. The project owner asked for it on the
+review desk on 2026-10-21 (UTC):
 
 > I think we should try to first do some research into prior art. There are some interesting choices to be made, whether we only
 > want a simple path language or we want to expand it into a larger query language (which could be a sql dialect + graph
@@ -15,20 +16,23 @@ change the proposal.
 **A reader in a hurry** can read the scenarios (section 3), the two comparison tables (section 5), the observations (section 6)
 and the open questions (section 7), and turn to an approach's section in 4 for its examples. In short:
 
-- VQL as drafted already answers the lookups, filters, projections and section searches, and backlinks through `vmd refs`. What
-  it cannot say is everything that crosses records: following a reference, joins over references, closure, counts, and
-  parameters bound outside the query text.
+- The draft's VQL expresses the lookups, filters, projections and section searches, and backlinks through `vmd refs` and
+  `@refs`. It cannot express following a reference, joins over references, closure or counts, and it has no parameters bound
+  outside the query text.
 - Every other language needs vmd to export what only vmd computes (section keys, canonical addresses, resolved references, enum
-  order), and that mapping is nearly the same for all of them.
+  order); the mappings they need overlap almost entirely (O).
 - None of them resolves a vmd address, and none keeps §7.4's proof that an address names one node, unless it hands addresses to
   vmd's own resolver.
-- Graph languages (Cypher, SPARQL, Datalog) read best for references and closure; SQL can do everything with recursive CTEs and
-  runs over the portable index's JSONL through DuckDB; GraphQL cannot express closure; the libraries for two implementations,
-  TypeScript and Python, are strong for SQL, SPARQL and jq and weak for Cypher, Datalog and MongoDB.
+- Graph languages (Cypher, SPARQL, Datalog) express references and closure in one pattern or rule, and they read best there
+  (O). SQL can express every scenario, closure through recursive CTEs, and DuckDB reads the portable index's JSONL directly.
+  GraphQL cannot express closure.
+- Libraries exist for both TypeScript and Python for SQL, SPARQL, jq, GraphQL (parsers only), Cypher (native engines) and
+  Datalog (in two different syntaxes). MongoDB's query language has an in-memory engine in TypeScript only; Python has testing
+  mocks.
 
 **How claims are marked**, as in the [parser survey](parser-survey.md):
 
-- **D**: documented. The source is linked, and was read on 2026-10-20.
+- **D**: documented. The source is linked, and was read on 2026-10-20, or on 2026-10-21 where a passage says so.
 - **M**: measured. The example was run on 2026-10-20, as section 4 describes.
 - **H**: hypothetical. A mapping of vmd's data onto another model, or an extension of a language, that does not exist. Every
   example that relies on one says so.
@@ -160,7 +164,7 @@ draft, and the syntax is only a placeholder to make the examples concrete. Each 
 |---|---|---|
 | follow a typed reference in a field path | `supersedes->title` | path traversal through links in EdgeQL, Dataview and GraphQL (sections 4.11, 4.9, 4.4) |
 | repeat a step one or more times | `superseded_by->+` | SPARQL 1.1 property paths (`+`), Cypher's variable-length patterns (sections 4.7, 4.6) |
-| several values for one field | `status:(open OR blocked)` | Lucene's "field grouping": "Lucene supports using parentheses to group multiple clauses to a single field", as in `title:(+return +"pink panther")` ([Lucene 9.12.0 classic query parser](https://lucene.apache.org/core/9_12_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html), read on 2026-10-20); GitHub's issue search has a comma form, `label:"bug","wip"` (section 4.11) |
+| several values for one field | `status:(open OR blocked)` | Lucene's "field grouping": "Lucene supports using parentheses to group multiple clauses to a single field", as in `title:(+return +"pink panther")` ([Lucene 10.3.0 classic query parser](https://lucene.apache.org/core/10_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html), read on 2026-10-21); GitHub's issue search documents a comma form for labels, `label:"bug","wip"` (section 4.11) |
 | a command that evaluates a selector | `vmd select SELECTOR` | the selector-language design of #47 |
 | counts per value, as a parameter | `--count-by component,severity` | Solr's facets: `facet.field` gives "a facet count using that Term as the constraint", and `facet.pivot` counts across several fields ([Solr 10.0 guide, Faceting](https://solr.apache.org/guide/solr/latest/query-guide/faceting.html), read on 2026-10-20) |
 | named parameters | `{section}` with `--param section=§7.4` | GraphQL variables and SQL's bound parameters (sections 4.4, 4.2) |
@@ -264,8 +268,10 @@ vmd query decisions 'sections:{section} status:{status}' --param section=§7.4 -
   one item, and a reference declared `cardinality: one` names one target, so `decisions/G9.md#supersedes/0->title` could be proved
   singular from the schema.
 - CLI: one argument, single-quoted (§12.4). `->` holds `>`, which the shell reads as a redirection when unquoted.
-- Portable index: VQL was designed to run in the browser over `records-*.jsonl` (§14.4); traversals and closure need `refs-*.jsonl`
-  as well, and counts need nothing more.
+- Portable index: the draft has a website "load it whole and run VQL in the browser" over `records-*.jsonl` (§14.4), but those
+  lines hold the record's key, title and summary fields only (§14.2). S2, S3 and S8 filter, project or count other fields, or a
+  section's text, so they need the value views (`values/<path>.json`) or the nodes as well; traversals and closure need
+  `refs-*.jsonl`. That is the same standard as the other approaches' cells.
 
 ### 4.2 A SQL dialect over vmd's index tables
 
@@ -323,8 +329,8 @@ WHERE substr(source_exact_path, 1, 11) <> '/$sections/';
 - **Recursive CTEs**: `WITH RECURSIVE`; with `UNION` "repeated rows are discarded", which stops cycles, while `UNION ALL` can
   loop on cyclic data; the recursive table appears once in the recursive select's FROM, and the recursive select may not use
   aggregates (D, [sqlite.org/lang_with.html](https://sqlite.org/lang_with.html)).
-- **FTS5**: `CREATE VIRTUAL TABLE ... USING fts5(...)`, `MATCH`, `snippet()`; part of the amalgamation since 3.9.0 but enabled
-  only with `SQLITE_ENABLE_FTS5`; the default `unicode61` tokenizer is case-independent and removes Latin diacritics (D,
+- **FTS5**: `CREATE VIRTUAL TABLE ... USING fts5(...)`, `MATCH`, `snippet()`; in the amalgamation since 3.9.0, "currently disabled by
+  default for the source-tree configure script and enabled by default for the amalgamation configure script"; the default `unicode61` tokenizer is case-independent and removes Latin diacritics (D,
   [sqlite.org/fts5.html](https://sqlite.org/fts5.html)). Its folding is not vmd's simple case folding (O: likely to differ on
   edge cases, not measured).
 - **Parameters**: `?`, `?NNN`, `:AAAA`, `@AAAA`, `$AAAA` (D, [sqlite.org/lang_expr.html](https://sqlite.org/lang_expr.html)).
@@ -338,6 +344,8 @@ WHERE substr(source_exact_path, 1, 11) <> '/$sections/';
     DuckDB v1.4.4" (D, [duckdb.org graph queries guide](https://duckdb.org/docs/current/guides/sql_features/graph_queries));
     quantifiers `*`, `+`, `{n,m}`, `{,m}`, `{n,}`; "DuckPGQ only supports finding ANY SHORTEST path between nodes, which is
     non-deterministic"; `OPTIONAL MATCH` not supported (D, [duckpgq.org/documentation/sql_pgq](https://duckpgq.org/documentation/sql_pgq/)).
+    That limit is on unbounded searches: a bounded `->{1,10}` without `ANY SHORTEST` runs on DuckDB 1.4.4 and gives S7's five
+    decisions with their hop counts (M).
   - Oracle Database: quantifiers `{n}`, `{n, m}`, `{, m}`, `?`, with "the maximum upper bound limit ... 10", and no path
     variables (D, [Oracle Property Graph Developer's Guide 23.2, SQL GRAPH_TABLE Queries](https://docs.oracle.com/en/database/oracle/property-graph/23.2/spgdg/sql-graph-queries.html);
     a 23.2 page, possibly dated for 23ai's later releases, U).
@@ -352,13 +360,13 @@ WHERE substr(source_exact_path, 1, 11) <> '/$sections/';
 
 | Library | Runtime | Licence | Latest (as read) | Notes |
 |---|---|---|---|---|
-| `node:sqlite` | Node | (Node) | in Node since v22.5.0 | "Stability: 1.2 - Release candidate" since v25.7.0; unflagged but "still experimental" in v23.4.0/v22.13.0 (D, [nodejs.org/api/sqlite.html](https://nodejs.org/api/sqlite.html)), so experimental in Node 24, which vmd requires. Node 24.21's build has JSON and FTS5 (M) |
+| `node:sqlite` | Node | (Node) | in Node since v22.5.0 | "Stability: 1.2 - Release candidate" in Node 24, since v24.15.0, whose changelog says "SQLite is now a release candidate" (D, [nodejs.org v24 sqlite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html), read on 2026-10-20); on Node 24.21.0 it loads without a warning, and its build has JSON and FTS5 (M) |
 | `better-sqlite3` | Node (native addon, prebuilt binaries) | MIT | 13.0.3, 2026-08-05 (npm registry) | bundled SQLite 3.53.4 with `SQLITE_ENABLE_FTS5` and `SQLITE_ENABLE_JSON1` (D, [docs/compilation.md](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/compilation.md)); a native module, which vmd's reference implementation avoids for its index (§14.3) |
 | `sql.js` | browser and Node (Wasm) | MIT | 1.15.1, 2026-10-19 | in-memory, "doesn't persist the changes" (D, [github.com/sql-js/sql.js](https://github.com/sql-js/sql.js)); its Makefile enables FTS3, not FTS5 (D, [Makefile](https://raw.githubusercontent.com/sql-js/sql.js/master/Makefile)) |
 | SQLite's own Wasm build | browser | public domain | | "enable the use of sqlite3 in modern WASM-capable browsers", with OPFS persistence (D, [sqlite.org/wasm](https://sqlite.org/wasm/doc/trunk/index.md)); FTS5 in it not stated (U) |
 | `sqlite3` | Python stdlib | PSF | | "requires the third-party SQLite library", an optional module whose SQLite version depends on the build (D, [docs.python.org sqlite3](https://docs.python.org/3/library/sqlite3.html)); `:name` and `?` placeholders |
 | `@duckdb/node-api` | Node | MIT | 1.5.6-r.2, 2026-10-20 | DuckDB's current Node client |
-| `@duckdb/duckdb-wasm` | browser | MIT | 1.33.1-dev57.0 tagged latest, 2026-06-22 | the docs give 1.5.5 as the latest stable (D, Wasm overview); the npm `latest` tag is a dev build (M, registry) |
+| `@duckdb/duckdb-wasm` | browser | MIT | 1.33.1-dev57.0 tagged latest, 2026-06-22 | the docs give 1.5.6 as the latest stable (D, Wasm overview); the npm `latest` tag is a dev build (M, registry) |
 | `duckdb` | Python | MIT | 1.5.6, 2026-09-28 (PyPI) | `duckpgq` needs 1.4.4 (above) |
 
 Versions and dates are from registry.npmjs.org and pypi.org, read on 2026-10-20.
@@ -497,7 +505,8 @@ SELECT DISTINCT id, title FROM GRAPH_TABLE (store
   COLUMNS (d.id, d.title)
 ) ORDER BY id;
 
--- S7: + is one or more hops; duckpgq requires ANY SHORTEST for a path search
+-- S7: + is one or more hops; an unbounded ->+ needs ANY SHORTEST in duckpgq,
+-- while a bounded ->{1,10} runs without it and gives the same five decisions (M)
 FROM GRAPH_TABLE (store
   MATCH p = ANY SHORTEST (a:decisions WHERE a.id = 'F4')-[s:superseded_by]->+(b:decisions)
   COLUMNS (b.id, b.status, b.status = 'accepted' AS in_force, path_length(p) AS hops)
@@ -524,7 +533,9 @@ header (D, [prql-lang.org target](https://prql-lang.org/book/project/target.html
 **Prior art and libraries.**
 - `loop` "Iteratively applies `step` function to `initial` relation until the `step` returns an empty table", is marked
   "Experimental", and compiles to `WITH RECURSIVE` with `UNION ALL` (D, [loop](https://prql-lang.org/book/reference/stdlib/transforms/loop.html)),
-  so it does not stop on a cycle (M: the compiled S7 below uses `UNION ALL`).
+  so it does not stop on a cycle (M: the compiled S7 below uses `UNION ALL`). The same page warns that "loop may produce
+  references to the recursive CTE in sub-queries, which is not supported by some database engines, e.g. SQLite"; S7's step is a
+  single `SELECT`, and it ran on SQLite (M).
 - `join side:{inner|left|right|full} rel (condition)`, with `==col` for equal names and `a=artists` aliases (D,
   [join](https://prql-lang.org/book/reference/stdlib/transforms/join.html)); `group {cols} (aggregate {...})` (D,
   [group](https://prql-lang.org/book/reference/stdlib/transforms/group.html)); `sort {-age}` for descending (D,
@@ -653,7 +664,7 @@ select {d.id, d.title, d.date}
 | S4 section search | yes with FTS5 (whole tokens, prefix); `LIKE` otherwise | partly: substring only, excerpt via s-string | yes (`has`, `hasprefix`) |
 | S5 refs both ways | yes, through `refs` (H columns) | yes | yes |
 | S6 multi-hop | yes: joins, or PGQ `MATCH` | yes: joins | yes: joins or `graph-match` |
-| S7 closure | yes: `WITH RECURSIVE` with `UNION`; PGQ `->+` (duckpgq, ANY SHORTEST) | yes, through experimental `loop` (`UNION ALL`, no cycle stop) | yes, with an explicit upper bound |
+| S7 closure | yes: `WITH RECURSIVE` with `UNION`; PGQ `->+` with `ANY SHORTEST`, or a bounded `->{1,10}` (duckpgq) | yes, through experimental `loop` (`UNION ALL`, no cycle stop) | yes, with an explicit upper bound |
 | S8 aggregate | yes (`json_each`) | yes, with an unnest view (H) | yes (`mv-expand`) |
 | S9 parameters | yes: `:name`, `?`, `$name` | yes: `$name` | yes: `declare query_parameters` with defaults |
 
@@ -662,10 +673,10 @@ select {d.id, d.title, d.date}
   `['date']`-style quoting of vmd's lower-case names hurts.
 - **Implementation (D for what exists, O for effort).** SQL: nothing to write for the language; the work is building and
   keeping the tables (§14.2 plus the H columns), generating per-collection views from schemas, and an FTS table. Node 24's
-  `node:sqlite` has JSON and FTS5 but is experimental there; `better-sqlite3` is a native module; sql.js lacks FTS5; Python's
+  `node:sqlite` has JSON and FTS5 and is a release candidate there; `better-sqlite3` is a native module; sql.js lacks FTS5; Python's
   `sqlite3` depends on the system's SQLite. Two engines answering the same SQL text identically is not a given across SQLite
-  builds and DuckDB (O). A from-scratch interpreter for even a SQL subset is large (O; decision v0.1-6 allows SQL "if libraries
-  exist or an interpreter is feasible"). PGQ: DuckDB 1.4.4 only for duckpgq, not 1.5.x, not shown in Wasm; Oracle is a server.
+  builds and DuckDB (O). A from-scratch interpreter for even a SQL subset is large (O; decision v0.1-6 allows SQL "if they have a
+  libraries for common langugages, or if implementing interpreter from scratch was feasible", the owner's words). PGQ: DuckDB 1.4.4 only for duckpgq, not 1.5.x, not shown in Wasm; Oracle is a server.
   PRQL: a Rust compiler with JS and Python bindings, pre-1.0, plus an SQL engine underneath. KQL: no engine for TypeScript.
 - **Agent reliability (O, with one data point).** Agents write SQLite and DuckDB SQL often; BIRD, a text-to-SQL benchmark over
   unfamiliar databases, lists human performance at 92.96 execution accuracy and its top entry at 82.95 (D,
@@ -882,12 +893,13 @@ query {
 ```
 
 S9. Variables are part of the language, with a default value; the agent keeps the document and passes
-`{"section": "§7.4"}`.
+`{"sections": ["§7.4"]}`. Hasura's `_contains` takes a `jsonb` value, so the variable is typed `jsonb` and holds the list (H, as
+the `sections` field's type is).
 
 ```graphql
-query DecisionsTouching($section: String!, $status: String = "accepted") {
+query DecisionsTouching($sections: jsonb!, $status: String = "accepted") {
   decisions(
-    where: {sections: {_contains: [$section]}, status: {_eq: $status}},
+    where: {sections: {_contains: $sections}, status: {_eq: $status}},
     order_by: [{date: desc}, {_path: asc}]
   ) {
     id
@@ -1092,14 +1104,15 @@ S8. Aggregate: unnest the components, then `group_by` on a composite key.
 
 S9. A saved program with named parameters, run as
 `jq -n -c -f touching.jq --arg section '§7.4' --arg status accepted records.jsonl`. `--arg` always binds
-a string; `--argjson` binds any JSON value (D, manual).
+a string; `--argjson` binds any JSON value (D, manual). Dates descend and ties keep path order, as in S3; over the decisions
+it gives the ten that SQL's S9 gives, in the same order (M, 2026-10-21).
 
 ```jq
 # touching.jq
 [inputs | select(.collection == "decisions"
                  and .value.status == $status
                  and any(.value.sections[]?; . == $section))]
-| sort_by(.value.date) | reverse | .[]
+| group_by(.value.date) | reverse | .[] | sort_by(.path)[]
 | {id: .value.id, title: .value.title, date: .value.date}
 ```
 
@@ -1161,15 +1174,17 @@ that "users should, therefore, only expect minimal differences between crafting 
   - **Kùzu**, the embedded Cypher database often cited for this: its repository is archived (read-only) since 2025-10-10,
     last release v0.11.3, MIT (D, GitHub API for `kuzudb/kuzu`; npm `kuzu` and `kuzu-wasm` 0.11.3 of 2025-10-10; PyPI `kuzu`
     0.11.3).
-  - **LadybugDB**, its maintained fork: "an embedded graph database", "Flexible Property Graph Data Model and Cypher query
+  - **LadybugDB**, whose README says that "The database was formerly known as Kuzu" (read on 2026-10-21): "an embedded graph database", "Flexible Property Graph Data Model and Cypher query
     language", "Wasm (WebAssembly) bindings for fast, secure execution in the browser" (D,
     [README](https://github.com/LadybugDB/ladybug)). MIT; v0.21.2 released 2026-10-01; npm `@ladybugdb/core` 0.21.2
-    (2026-10-01), PyPI `ladybug` 0.21.2 (2026-10-01) (D, registries). Kùzu used a typed schema of node and relationship
+    (2026-10-01), PyPI `ladybug` 0.21.2 (2026-10-01) (D, registries), the two packages binding one engine, as DuckDB's do. Kùzu used a typed schema of node and relationship
     tables; whether Ladybug's Cypher dialect differs from Neo4j's in the constructs used below was not checked (U).
   - **FalkorDBLite**: "FalkorDB embedded in a Python package", which "provides a built-in Redis server with FalkorDB module"
     (D, [PyPI](https://pypi.org/project/falkordblite/), 0.11.0 of 2026-10-19). It runs a server process, and FalkorDB itself
     is under the Server Side Public License v1 (D,
-    [LICENSE.txt](https://github.com/FalkorDB/FalkorDB/blob/master/LICENSE.txt)). Python only.
+    [LICENSE.txt](https://github.com/FalkorDB/FalkorDB/blob/master/LICENSE.txt)). An npm package `falkordblite` 0.3.0, MIT,
+    "Embedded FalkorDB for Node.js/TypeScript", was published on 2026-05-02 (D, [registry.npmjs.org/falkordblite](https://registry.npmjs.org/falkordblite),
+    read on 2026-10-21); whether it also runs a server process was not checked (U).
   - No pure TypeScript or pure Python Cypher interpreter of note was found (O: not searched exhaustively).
 - SQL/PGQ (a pointer only; section 4.2 covers it): ISO SQL:2023 Part 16 puts Cypher-like `MATCH` patterns inside SQL's
   `GRAPH_TABLE`. DuckPGQ is "a DuckDB community extension for graph workloads that supports the SQL/PGQ standard", and
@@ -1191,7 +1206,9 @@ that "users should, therefore, only expect minimal differences between crafting 
 - Parameters `$name`; labels, relationship types and property keys cannot be parameters (D,
   [parameters](https://neo4j.com/docs/cypher-manual/current/syntax/parameters/)).
 - GQL: `FOR x IN list` is GQL's form of Cypher's `UNWIND` (D, Neo4j
-  [analogous Cypher](https://neo4j.com/docs/cypher-manual/current/appendix/gql-conformance/analogous-cypher/)); `FILTER
+  [analogous Cypher](https://neo4j.com/docs/cypher-manual/current/appendix/gql-conformance/analogous-cypher/)), and Cypher 25
+  has it natively since Neo4j 2026.04, as "a GQL-conformant alias for `UNWIND`" (D, [FOR](https://neo4j.com/docs/cypher-manual/current/clauses/for/),
+  read on 2026-10-21); `FILTER
   [WHERE] cond`, `NEXT` to chain statements, and aggregation with `RETURN ... GROUP BY` (D for Spanner only, as above).
 
 #### The scenarios
@@ -1226,13 +1243,15 @@ RETURN d.id, d.status, d.date, s.body AS decision
 ORDER BY d.date DESC, d.path
 ```
 
-**S4. Search inside sections.** No full text: a case-folded substring test. The excerpt is the start of the body, since
-Cypher has no function that finds a substring's position (U: none found in the functions list).
+**S4. Search inside sections.** No full text: a case-folded substring test. The excerpt is cut around the hit with
+`string.indexOf(input, value)`, which Neo4j 2026.05 added for Cypher 25 only (D, [string functions](https://neo4j.com/docs/cypher-manual/current/functions/string/),
+read on 2026-10-21); before it, the excerpt could only be the start of the body.
 
 ```cypher
 MATCH (d:Decision)-[:SECTION]->(s:Section {key: 'owners-note'})
 WHERE toLower(s.body) CONTAINS 'selector'
-RETURN s.address, substring(s.body, 0, 100) AS excerpt
+WITH d, s, string.indexOf(toLower(s.body), 'selector') AS i
+RETURN s.address, substring(s.body, CASE WHEN i < 40 THEN 0 ELSE i - 40 END, 120) AS excerpt
 ORDER BY d.path
 ```
 
@@ -1288,8 +1307,8 @@ RETURN component, t.severity AS severity, count(*) AS tickets
 ORDER BY component, severity
 ```
 
-GQL, as Spanner writes it (secondary source): `FOR component IN t.component` in place of `UNWIND`, and an explicit
-`GROUP BY component, severity` after the `RETURN` (U for the ISO text).
+GQL: `FOR component IN t.component` in place of `UNWIND`, which Cypher 25 also accepts (above), and, as Spanner writes it (a
+secondary source), an explicit `GROUP BY component, severity` after the `RETURN` (U for the ISO text).
 
 **S9. Parameterised.** `$section` and `$status` are passed beside the query.
 
@@ -1303,11 +1322,13 @@ ORDER BY d.date DESC, d.path
 #### For the comparison
 
 - Expressiveness: S1 partly (no addresses; by key, or by the canonical address only); S2 yes (enum order by hand); S3 yes;
-  S4 partly (substring, no tokens or excerpt around the hit; full-text indexes are a Neo4j feature, not checked, U); S5 yes,
+  S4 partly (substring, no tokens; the excerpt around the hit needs Cypher 25; full-text indexes are a Neo4j feature, not
+  checked, U); S5 yes,
   both directions are one arrow; S6 yes; S7 yes; S8 yes; S9 yes.
 - Readability (O): the best of the group for S5 to S7, where the arrow picture is the question; ordinary for S2 and S8.
 - Implementation (O, with D facts): no TypeScript or Python Cypher interpreter to reuse; the embedded engines are native
-  (C++) with Node, Python and Wasm bindings, and the best-known one (Kùzu) is archived, its fork a year old. vmd would load
+  (C++) with Node, Python and Wasm bindings: LadybugDB, the renamed continuation of the archived Kùzu, and FalkorDBLite, which
+  bundles a server and whose engine is under the SSPL. vmd would load
   its index into the engine (a copy), or write its own Cypher subset, which is large: patterns, quantifiers, implicit
   grouping, null semantics.
 - Agent reliability (O): Cypher is widely documented and agents write it often; no measurement found.
@@ -1525,9 +1546,8 @@ for a Markdown link), `:ref/target-path`, `:ref/target` (the resolved entity) an
   (D, [built_ins.cljc](https://github.com/tonsky/datascript/blob/master/src/datascript/built_ins.cljc)). It is written in
   ClojureScript, so the JS bundle carries that runtime (O).
 - Python: **pyDatalog**, "a pure-python implementation of Datalog", LGPL, led by Pierre Carbonnelle (D,
-  [docs](https://pydatalog.readthedocs.io/en/latest/)); PyPI shows a release 0.22.4 uploaded 2026-06-13 while the release
-  list's highest numbered entries are 0.9.x (D, [PyPI](https://pypi.org/project/pyDatalog/)); whether it is maintained is
-  unclear (U). Its syntax is Python operators (`factorial[N] = N*factorial[N-1]`), not Datomic's EDN, so the two
+  [docs](https://pydatalog.readthedocs.io/en/latest/)); PyPI shows releases 0.22.0 to 0.22.4 uploaded from 2026-06-11 to
+  2026-06-13 (D, [PyPI](https://pypi.org/pypi/pyDatalog/json), read on 2026-10-21), so it is active. Its syntax is Python operators (`factorial[N] = N*factorial[N-1]`), not Datomic's EDN, so the two
   implementations would not share a query text. No Python port of DataScript was found (U, not searched exhaustively).
 - Markdown prior art: **Logseq**'s advanced queries are Datalog over DataScript ("Logseq queries are based on datomic,
   which is based on datalog"; "The respective database is ... called Datascript"), with pages and blocks as entities, e.g.
@@ -1667,13 +1687,15 @@ Datomic.
   recursive rule; S8 yes; S9 yes, `:in` parameters are first-class. No ordering or paging in the language anywhere.
 - Readability (O): uniform and small, but EDN and logic variables are unfamiliar to most readers of tickets and docs.
 - Implementation (O, with D facts): DataScript covers the TypeScript side, under EPL-1.0 and with a ClojureScript runtime;
-  Python has no Datomic-syntax engine, so a second implementation means writing one. A Datalog core (joins, `not`,
+  Python has pyDatalog, which is active but has its own syntax, so the two implementations would not share a query text, and
+  a Python engine for Datomic's syntax would have to be written. A Datalog core (joins, `not`,
   recursion to a fixed point) is small to write compared with SQL or Cypher (O).
 - Agent reliability (O): less training material than SQL or Cypher; Logseq users report the syntax is "fussy"
   (secondary, forum). No measurement found.
-- Singular address (§7.4): the nearest analogue of the guarantee among the graph languages and Datalog. A lookup ref on a `:db.unique/identity`
-  attribute names exactly one entity by declaration, as vmd proves a step singular from `type: map` (D for Datomic). The
-  find-scalar `.` only takes one value; it proves nothing.
+- Singular address (§7.4): a partial analogue. A lookup ref on a `:db.unique/value` or `:db.unique/identity` attribute names
+  at most one entity, by the attribute's declared uniqueness, as a `type: map` level lets vmd prove a step unique; but "Lookup
+  refs cannot be used in the body of a query though they can be used as inputs in a parameterized query" (D,
+  [identity](https://docs.datomic.com/schema/identity.html)). The find-scalar `.` only takes one value; it proves nothing.
 - CLI: EDN in single quotes is shell-safe (`?x`, `#{}`, `[]`, `"`); `%` and `$` are inside single quotes. Rules make
   queries two arguments. Portable index: facts can be loaded from the JSONL lines into DataScript in a browser (H).
 
@@ -1682,8 +1704,8 @@ Datomic.
 #### Description
 
 Dataview is an Obsidian plugin that indexes a vault's Markdown metadata and answers queries written in fenced ```` ```dataview ````
-blocks inside notes. A query is a query type (`LIST`, `TABLE`, `TASK`, `CALENDAR`), then at most one `FROM` (sources: folders,
-tags, links), then data commands (`WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, `LIMIT`) executed top to bottom, each on the
+blocks inside notes. A query is a query type (`LIST`, `TABLE`, `TASK`, `CALENDAR`), then at most one `FROM` (sources: tags,
+folders, specific files, links), then data commands (`WHERE`, `SORT`, `GROUP BY`, `FLATTEN`, `LIMIT`) executed top to bottom, each on the
 previous command's result. Its unit is the page (a file), plus list items and tasks; it has no section, heading or body text
 model.
 
@@ -1694,8 +1716,9 @@ So the examples assume either string comparison or front matter rewritten as `"[
 
 #### Prior art and sources
 
-- Sources: `#tag`, `"folder"`, `[[note]]` for "all pages which link **to** `[[note]]`", `outgoing([[note]])` for the links
-  from it, combined with `and`, `or`, `!` and parentheses (D, [sources](https://blacksmithgu.github.io/obsidian-dataview/reference/sources/)).
+- Sources, "four source types": `#tag`, `"folder"`, a specific file by its full path, `"folder/File"`, and `[[note]]` for
+  "all pages which link **to** `[[note]]`", with `outgoing([[note]])` for the links from it, combined with `and`, `or`, `!` and
+  parentheses (D, [sources](https://blacksmithgu.github.io/obsidian-dataview/reference/sources/)).
 - Query types `LIST`, `TABLE ... AS "Header"`, `TABLE WITHOUT ID`, `TASK`, `CALENDAR` (D, [query types](https://blacksmithgu.github.io/obsidian-dataview/queries/query-types/));
   `LIST WITHOUT ID length(rows) + " pages of type " + key` with `GROUP BY type` shows the group's `key` and `rows` (D,
   [query-types.md](https://github.com/blacksmithgu/obsidian-dataview/blob/master/docs/docs/queries/query-types.md)).
@@ -1727,10 +1750,12 @@ So the examples assume either string comparison or front matter rewritten as `"[
 
 #### The scenarios
 
-S1. Not expressible: DQL returns pages and fields, never a section's text. The nearest is a link to the heading.
+S1. Not expressible: DQL returns pages and fields, never a section's text. The nearest is a link to the heading, written as a
+header link, which `meta()` reports as of type `"header"` (D, [functions](https://blacksmithgu.github.io/obsidian-dataview/reference/functions/)),
+from the specific file `"decisions/F7"`.
 
 ```dataview
-LIST WITHOUT ID link("decisions/F7", "Decision")
+LIST WITHOUT ID [[decisions/F7#Decision]]
 FROM "decisions/F7"
 ```
 
@@ -1756,8 +1781,10 @@ notes are block quotes, not lists.
 
 S5 (a) forward, with front matter written as links (H: `supersedes: ["[[F9]]"]`), indexing through the link; (b) pages
 linking to F7 by `FROM [[F7]]`, which gives citing pages, not the field, section or status of each reference. Whether a
-Markdown link `[F7](F7.md)` in a body counts as a link here was not verified (U); a quoted front matter link is "only a link
-for dataview" and does not appear in Obsidian's outgoing links (D, types of metadata).
+Markdown link `[F7](F7.md)` in a body counts as a link here was not verified (U); Dataview's documentation says a quoted front matter link
+is "only a link for dataview" (D, types of metadata), while Obsidian's own Properties now read a quoted `"[[Link]]"` in a text or
+list property as an internal link (D, [Obsidian help, Properties](https://obsidian.md/help/properties): "Internal links in text properties must be
+surrounded with quotes", read on 2026-10-21).
 
 ```dataview
 LIST WITHOUT ID map(supersedes, (d) => d.title)
@@ -1960,25 +1987,33 @@ db.tickets.aggregate([
 ])
 ```
 
-S9. Partly: the query language has no parameters of its own (`$lookup`'s `let` variables exist only inside a sub-pipeline,
-D, [$lookup](https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/)); the host program substitutes them,
-so the reusable thing is a function, not a query text.
+S9. Partly: `find` and `aggregate` take a `let` document of variables, "Added in MongoDB 5.0", read as `$$name`, and "To use
+a variable to filter results, you must access the variable within the `$expr` operator" (D, [find command](https://www.mongodb.com/docs/manual/reference/command/find/),
+[db.collection.find()](https://www.mongodb.com/docs/manual/reference/method/db.collection.find/)). The variables are untyped,
+have no defaults, and work only inside expressions, so the filter is written with the aggregation operators `$in`, which
+"fails with an error" when its second argument is not an array, and `$ifNull`, which "treats undefined values and missing fields
+as null" (D, [$in](https://www.mongodb.com/docs/manual/reference/operator/aggregation/in/),
+[$ifNull](https://www.mongodb.com/docs/manual/reference/operator/aggregation/ifNull/), read on 2026-10-21).
 
 ```javascript
-const section = "§7.4", status = "accepted";
 db.decisions.find(
-  { sections: section, status: status },
-  { _id: 0, id: 1, title: 1 }
+  { $expr: { $and: [
+      { $in: ["$$section", { $ifNull: ["$sections", []] }] },
+      { $eq: ["$status", "$$status"] } ] } },
+  { _id: 0, id: 1, title: 1 },
+  { let: { section: "§7.4", status: "accepted" } }
 ).sort({ date: -1, _id: 1 })
 ```
 
 #### For the comparison
 
 - Expressiveness: S1 yes; S2 yes, enum order lost; S3 yes; S4 partly (regex, no tokens, no excerpt, address hand-built);
-  S5 yes with an H `refs` collection; S6 yes (two `$lookup`s); S7 yes (`$graphLookup`, unordered); S8 yes; S9 partly (host
-  language parameters).
+  S5 yes with an H `refs` collection; S6 yes (two `$lookup`s); S7 yes (`$graphLookup`, unordered); S8 yes; S9 partly (`let`
+  variables: untyped, no defaults, only inside `$expr`).
 - Readability (O): `find` reads well for S1-S3; pipelines (S4, S6) are verbose JSON that is hard to scan.
-- Implementation (D/O): mingo covers the operators used here in TypeScript (D); Python has only testing mocks, mongomock
+- Implementation (D/M/O): mingo has the operators used here in TypeScript (D), but has the names more than the semantics: its
+  `$lookup` with `localField`, `foreignField` and a `pipeline`, as in S6, returned every open ticket for every decision, whatever
+  the keys (M, mingo 7.2.5, in the review of this document, run again on 2026-10-21); Python has only testing mocks, mongomock
   without `$text` and with stages missing (D), so a Python implementation means writing an evaluator (O: large, since the
   operator set is large and its semantics, for example comparison across BSON types, are defined by MongoDB's server).
   vmd would also have to pick a subset, specify it, and test it in the conformance suite (O).
@@ -2028,8 +2063,8 @@ runs over one exported value, a record's value view or an array of records (the 
   `singular-query` is `@` or `$` followed only by name segments and index segments
   (`singular-query-segments = *(S (name-segment / index-segment))`). Comparisons accept only singular
   queries, "each of which selects at most one node" (§2.3.5.1). So JSONPath proves "at most one" from the
-  syntax alone, while vmd proves "exactly one level of unique keys" from the schema and the first step
-  (§7.4). The difference matters for vmd: a keyed-list step (`#benchmarks/append-4k`, a section by `@key`)
+  syntax alone, while vmd proves, from the schema and the record's first step, that every step crosses a level
+  whose keys are unique, so that the address names one node or none (§7.4). The difference matters for vmd: a keyed-list step (`#benchmarks/append-4k`, a section by `@key`)
   is a filter in JSONPath (`[?@.name=='append-4k']`) and therefore never singular there; only vmd's exact
   path (`$['$sections'][0]['$body']`) maps onto a singular query.
 - The JSONPath Compliance Test Suite "may be used to test implementations of JSONPath RFC 9535"
@@ -2437,7 +2472,7 @@ inherits all of 4.2's tables.
   read on 2026-10-20). The general search syntax has `>`, `>=`, `<`, `<=`, ranges `n..n` and `n..*`, ISO 8601
   dates, and `NOT` "only ... for string keywords"
   ([docs.github.com, understanding the search syntax](https://docs.github.com/en/search-github/getting-started-with-searching-on-github/understanding-the-search-syntax),
-  read on 2026-10-20). The comma OR (`status:open,blocked`) is a form VQL does not have.
+  read on 2026-10-20). The comma OR is documented for `label:`; VQL has no such form.
 - **Lucene's classic query parser** (Lucene 10.3.0,
   [lucene.apache.org, queryparser.classic](https://lucene.apache.org/core/10_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html),
   read on 2026-10-20): `field:term`, phrases, `?` and `*` wildcards, `/regex/`, fuzzy `~`, ranges
@@ -2465,7 +2500,7 @@ rests on the approach's H mapping of vmd's data (section 4). S5 is split into (a
 | 4.7 SPARQL | yes | yes | yes | part | yes / yes | yes | yes | yes | yes |
 | 4.8 Datalog | part | yes | part | part | yes / yes | yes | yes | yes | yes |
 | 4.9 Dataview DQL | no | yes | part | no | part / part | part | no | yes | part |
-| 4.10 MongoDB | yes | yes | yes | part | yes / yes | yes | yes | yes | part |
+| 4.10 MongoDB | yes | yes | yes | part | yes / yes | yes | yes | yes | part (`let`) |
 | JSONPath | yes | part | part | part | no / part | no | no | no | part |
 | JMESPath | yes | yes | yes | part | no / part | no | no | no | part |
 | XQuery 3.1 | yes | yes | yes | yes | yes / yes | yes | yes | yes | yes |
@@ -2488,16 +2523,16 @@ was found for these languages on data like vmd's, apart from one benchmark figur
 
 | Approach | TypeScript | Python | Agents (O) | Singular address (§7.4) | CLI | Portable index (§14.4) |
 |---|---|---|---|---|---|---|
-| 4.1 path language | vmd's own; the draft estimates a few hundred lines (§10.6) | the same | GitHub-search syntax, already a skill-file's worth; no model knows the H extensions | native: addresses are proved, selectors are not, and only addresses are references or write targets | one short single-quoted argument | designed for it: VQL over `records-*.jsonl` in the browser |
-| 4.2 SQL | `node:sqlite` (experimental in Node 24), `better-sqlite3` (native), `sql.js` (Wasm, no FTS5), DuckDB for Node and Wasm | `sqlite3` (standard library, the system's SQLite), `duckdb` | the most familiar; BIRD's top entry scores 82.95 against humans' 92.96 on unfamiliar databases; the H views are where an agent errs | keys prove at most one row of a table, not an address; a scalar subquery silently takes the first row | long, and SQL's string literals are single-quoted ([sqlite.org/lang_expr](https://sqlite.org/lang_expr.html)), which ends a single-quoted shell argument | DuckDB reads `records-*.jsonl` directly (M), and DuckDB-Wasm runs in the browser |
+| 4.1 path language | vmd's own; the draft estimates a few hundred lines (§10.6) | the same | GitHub-search syntax, already a skill-file's worth; no model knows the H extensions | native: addresses are proved, selectors are not, and only addresses are references or write targets | one short single-quoted argument | VQL in the browser over `records-*.jsonl` covers summary fields only; S2, S3 and S8 also need `values/*.json` or the nodes, and references `refs-*.jsonl` |
+| 4.2 SQL | `node:sqlite` (built in; a release candidate in Node 24), `better-sqlite3` (native), `sql.js` (Wasm, no FTS5), DuckDB for Node and Wasm | `sqlite3` (standard library, the system's SQLite), `duckdb` | the most familiar; BIRD's top entry scores 82.95 against humans' 92.96 on unfamiliar databases; the H views are where an agent errs | keys prove at most one row of a table, not an address; a scalar subquery silently takes the first row | long, and SQL's string literals are single-quoted ([sqlite.org/lang_expr](https://sqlite.org/lang_expr.html)), which ends a single-quoted shell argument | DuckDB reads `records-*.jsonl` directly (M), and DuckDB-Wasm runs in the browser |
 | 4.3 PRQL | `prqlc` 0.13.14 bindings (pre-1.0), plus a SQL engine | the same | little text to learn from | none | strings in double quotes fit a single-quoted argument; `$name` parameters | as SQL |
 | 4.4 GraphQL | `graphql` 17.0.2; vmd writes the schema generator, filters and resolvers | `graphql-core` 3.3.0, the same | syntax well known; the filter vocabulary differs per server | list and non-list field types: the cardinality is in the schema, checked at execution | poor: multi-line, braces, `$variables` | `graphql-js` runs in the browser; resolvers need the targets' values |
 | 4.5 jq | `jq-wasm`, `jq-web` (Wasm) | `jq` 1.13.0 (a C extension) | high for filters, lower for `INDEX`, `recurse`, `def` | none; `first` and `limit` take the first match | single-quoted; members written `.["$body"]` | needs the value views and computed fields inlined (H) |
-| 4.6 Cypher, GQL | LadybugDB (the maintained fork of the archived Kùzu; native and Wasm) | LadybugDB; FalkorDBLite (a bundled server, SSPL) | familiar | none | single-quoted; Cypher's strings take double quotes too ([Neo4j](https://neo4j.com/docs/cypher-manual/current/values-and-types/boolean-numeric-string/)) | a graph built from `nodes` and `refs` lines (H) |
+| 4.6 Cypher, GQL | LadybugDB (formerly Kùzu; native and Wasm); `falkordblite` | LadybugDB, from the same engine; FalkorDBLite (a bundled server, SSPL) | familiar | none | single-quoted; Cypher's strings take double quotes too ([Neo4j](https://neo4j.com/docs/cypher-manual/current/values-and-types/boolean-numeric-string/)) | a graph built from `nodes` and `refs` lines (H) |
 | 4.7 SPARQL | Comunica 5.4.1, Oxigraph 0.5.12 (Wasm) | rdflib 7.6.0, pyoxigraph 0.5.12 | known from Wikidata; prefixes and IRIs trip writers | none, though an address maps naturally onto an IRI with a fragment | fine in single quotes | triples built from the lines (H); RDF loses the order of arrays |
-| 4.8 Datalog | DataScript 1.8.1 (EPL-1.0, a ClojureScript runtime) | no engine with Datomic's syntax | little text to learn from | lookup refs on a unique attribute name one entity by declaration, the nearest analogue | fine; rules are a second argument | facts loaded into DataScript (H) |
+| 4.8 Datalog | DataScript 1.8.1 (EPL-1.0, a ClojureScript runtime) | pyDatalog 0.22.4, active, in its own syntax; none in Datomic's | little text to learn from | lookup refs on a unique attribute name at most one entity, but only as a query's input | fine; rules are a second argument | facts loaded into DataScript (H) |
 | 4.9 Dataview DQL | nothing outside Obsidian; no specification | nothing | small, SQL-like | none | moderate | close to records plus refs, but a reimplementation |
-| 4.10 MongoDB | mingo 7.2.5 | testing mocks only (mongomock, mongita) | fluent; the renaming of `$` members is a trap | none; `$elemMatch` projection returns the first match | every operator starts with `$`; single quotes | documents in memory, through mingo |
+| 4.10 MongoDB | mingo 7.2.5, whose `$lookup` with a `pipeline` gave wrong results for S6 (M) | testing mocks only (mongomock, mongita) | fluent; the renaming of `$` members is a trap | none; `$elemMatch` projection returns the first match | every operator starts with `$`; single quotes | documents in memory, through mingo |
 
 ## 6. Observations
 
@@ -2518,7 +2553,7 @@ was found for these languages on data like vmd's, apart from one benchmark figur
    data once, as part of the index (§14.2, §14.4), is useful whichever language uses it, and the browser site of §16 needs some of
    it anyway.
 4. **Some of vmd's semantics do not survive a mapping.** VQL matches a field or a section by the same name (`status:open` and
-   `## Status`, v0.1-4), resolves a field term upwards through a section's ancestors (§10.4), folds case by Unicode simple case
+   `## Status`, §10.3), resolves a field term upwards through a section's ancestors (§10.4), folds case by Unicode simple case
    folding (F10), and orders ties by path bytes, then document order (C25). In the mapped languages these become, in turn: two
    different columns or properties; an explicit join to the ancestors; ASCII-only `NOCASE` and `LIKE` in SQLite, FTS5's own
    tokenizer, Cypher's `toLower`, a regex flag; and orders that MongoDB's `$group` and `$graphLookup`, and Datalog's sets, leave
@@ -2528,31 +2563,34 @@ was found for these languages on data like vmd's, apart from one benchmark figur
    projection the first element, jq's `first` and JMESPath's `[0]` the first match. §5.7 rejects exactly that for references. The
    draft already keeps engine results away from references: an engine's results "are addresses with projected values" (§18.2),
    and only singular addresses are references or write targets (§7.4).
-6. **§7.4's guarantee has analogues, of three kinds.** JSONPath proves a query singular from its syntax alone (name and index
-   steps); GraphQL and Datomic declare cardinality in the schema (a non-list field type; a lookup ref on a unique attribute); SQL
-   keys constrain a table. vmd's proof is the second kind, from the schema and the record's first step. In every approach but the
+6. **§7.4's guarantee has partial analogues, of three kinds.** JSONPath proves a query singular from its syntax alone (name and
+   index steps); GraphQL declares cardinality in the schema (a non-list field type, checked when the result is coerced); Datomic's
+   lookup refs and SQL's keys rest on declared uniqueness, and give at most one entity or row, a lookup ref only as a query's
+   input. vmd's proof is closest to the second kind, from the schema and the record's first step. In every approach but the
    first, the guarantee holds only where the query hands an address to vmd's resolver (the H `node(address:)` field of 4.4, the H
    `vmd_resolve` of 4.2) instead of resolving it itself.
 7. **The graph scenarios are where the languages differ most.** S5 to S7 read most directly in Cypher's arrows, SPARQL's property
    paths (`^` for backlinks, `+` for closure) and Datalog's rules. SQL needs a recursive CTE, longer but in every SQLite. SQL/PGQ
-   reads like Cypher, but its one embeddable implementation, `duckpgq`, is a research project that runs on DuckDB 1.4.4 only and
-   finds `ANY SHORTEST` paths only. GraphQL cannot express S7 at all. MongoDB's `$graphLookup` can, unordered.
+   reads like Cypher; its one embeddable implementation, `duckpgq`, is a research project that runs on DuckDB 1.4.4 only, and
+   needs `ANY SHORTEST` for an unbounded path, though not for a bounded one. GraphQL cannot express S7 at all. MongoDB's `$graphLookup` can, unordered.
 8. **Two implementations narrow the field.** The owner's requirement asks that an implementation without git or SQLite be able to
-   implement the core, in several programming languages (v0.1-6). With mature libraries on both the TypeScript and the Python
-   side: SQL (SQLite, DuckDB), SPARQL (Oxigraph on both, Comunica, rdflib), jq (Wasm and a C extension), GraphQL (parsers and
-   executors only), JSONPath and JMESPath. Weak on one side: MongoDB (Python has testing mocks), Datalog (no Datomic-syntax engine
-   in Python), Cypher (native engines only, the best known archived), Dataview (nothing outside Obsidian), KQL (nothing for
-   TypeScript). Several of the strong ones are native code (SQLite through `better-sqlite3`, DuckDB, the jq extension) or a WebAssembly
-   build (`sql.js`, `jq-wasm`, Oxigraph), while the reference implementation keeps its index in a form that "needs no native
-   modules" (§14.3), and `node:sqlite`, built into Node, is still experimental in Node 24, which vmd requires.
+   implement the core, in several programming languages (v0.1-6). Libraries exist on both the TypeScript and the Python side for
+   SQL (SQLite, DuckDB), SPARQL (Oxigraph on both, Comunica, rdflib), jq (Wasm and a C extension), GraphQL (parsers and executors
+   only), JSONPath and JMESPath, and for Cypher through native engines (LadybugDB on npm and PyPI from one engine, FalkorDBLite).
+   Datalog has engines on both sides in two different syntaxes (DataScript in Datomic's, pyDatalog in its own). MongoDB's
+   language has an in-memory engine in TypeScript only, mingo, which got S6 wrong; Python has testing mocks. Dataview has nothing
+   outside Obsidian, and KQL nothing for TypeScript. Some of these are native code (SQLite through `better-sqlite3`, DuckDB,
+   LadybugDB, the jq extension), some WebAssembly (`sql.js`, `jq-wasm`, Oxigraph's JavaScript build), which is not a native
+   module, and `node:sqlite` is built into Node and a release candidate in Node 24. The draft's "needs no native modules" (§14.3)
+   describes how the reference implementation stores its index, not a rule for query libraries.
 9. **The shell is part of the language.** §1.3 and §12.4 keep VQL free of characters a shell expands. The others bring their own
    hazards: SQL's single-quoted strings inside a single-quoted argument, `$` in GraphQL variables, SQLite and PRQL parameters and
    MongoDB operators, `>` in Cypher's arrows and in the path extension's `->`. Most of the larger languages would in practice be
    given in a file, not on the command line (`-f q.sql`).
-10. **Prior art shows filter languages growing by parameters rather than by syntax.** GitHub's issue search gained `AND`, `OR` and
-    nesting; Solr counts by facets passed as parameters; VQL already puts sorting, projection and paging in parameters (§10.1).
-    Dataview, the closest product to vmd's use, stops at pages and their fields and links, exactly where vmd's sections, prose,
-    typed references and closure begin. Logseq, another Markdown tool, chose Datalog (a secondary source, 4.8).
+10. **Prior art has grown filter languages both by syntax and by parameters.** GitHub's issue search added syntax: `AND`, `OR`
+    and parentheses nested up to five levels. Solr counts by facets passed as request parameters, and VQL already puts sorting,
+    projection and paging in parameters (§10.1). Among tools for Markdown notes, Dataview stops at pages and their fields and links,
+    where vmd's sections, prose, typed references and closure begin, and Logseq chose Datalog (a secondary source, 4.8).
 
 ## 7. Open questions for the discussion
 
@@ -2561,16 +2599,17 @@ was found for these languages on data like vmd's, apart from one benchmark figur
 2. **One language, or a core with engines?** §10.1 and §18.2 already allow engines beside VQL, and §21 puts GraphQL and the SQL
    profile in I8. Does the cross-record part go into VQL, into an engine, or into both?
 3. **If VQL grows, how far?** Reference traversal (`->`), closure (`+`), value groups, counts as a parameter, and bound parameters
-   are the five extensions the scenarios ask for (4.1). Which of them, and is closure in the core profile (§19.2)?
+   are the five extensions the scenarios ask for (4.1). Which of them, and does closure belong in the Query profile, which today requires "VQL core and the parameters of
+   §10.5" (§19.2)?
 4. **The selector language of #47 and the query language**: one grammar, a subset, or two? A selector is stored in records and
    falls under §9.1's versioning; a query is not.
 5. **What an engine returns.** Must every engine's results be addresses with projected values (§18.2), or may one return rows and
    aggregates, as S8 needs?
 6. **How alike must engines be?** Must a second engine reproduce VQL's semantics (case folding, field and section equivalence,
    enum order, tie order) and pass the conformance suite, or may its answers differ, as documented?
-7. **Native dependencies.** Does a language whose implementations are native code or WebAssembly (SQLite, DuckDB, Oxigraph, jq)
-   meet v0.1-6's requirement, and the index's choice to need no native modules (§14.3)? Which approach must the Python
-   implementation support (§21)?
+7. **Dependencies.** Does a language whose implementations are native code (SQLite through `better-sqlite3`, DuckDB,
+   LadybugDB) or WebAssembly builds (`sql.js`, Oxigraph, jq) meet v0.1-6's requirement? Is `node:sqlite`, built into Node and a
+   release candidate in Node 24, acceptable? Which approach must the Python implementation support (§21)?
 8. **The shared data.** Should the data every mapping needs (computed keys and addresses, references with their field and their
    resolved target, enum order, section bodies) be specified as part of the index (§14.2, §14.4) independently of the language?
 9. **Agents.** Is agent reliability worth measuring before choosing, for example by having agents write these nine scenarios in
@@ -2578,7 +2617,22 @@ was found for these languages on data like vmd's, apart from one benchmark figur
 
 ## Appendix. Sources, by group of approaches
 
-The links each approach used, as its research recorded them, every one read on 2026-10-20.
+The links each approach used, as its research recorded them, every one read on 2026-10-20. The corrections after review read
+these on 2026-10-21: [Lucene 10.3.0](https://lucene.apache.org/core/10_3_0/queryparser/org/apache/lucene/queryparser/classic/package-summary.html),
+[Neo4j's FOR](https://neo4j.com/docs/cypher-manual/current/clauses/for/) and
+[string functions](https://neo4j.com/docs/cypher-manual/current/functions/string/),
+[LadybugDB's README](https://github.com/LadybugDB/ladybug), [falkordblite on npm](https://registry.npmjs.org/falkordblite),
+[pyDatalog on PyPI](https://pypi.org/pypi/pyDatalog/json),
+[MongoDB's `$in`](https://www.mongodb.com/docs/manual/reference/operator/aggregation/in/) and
+[`$ifNull`](https://www.mongodb.com/docs/manual/reference/operator/aggregation/ifNull/), and
+[Obsidian's Properties](https://obsidian.md/help/properties). They also used copies made on 2026-10-20 by the review of this
+document of [Node 24's sqlite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html),
+[MongoDB's find command](https://www.mongodb.com/docs/manual/reference/command/find/),
+[Datomic's identity](https://docs.datomic.com/schema/identity.html),
+[Dataview's sources](https://blacksmithgu.github.io/obsidian-dataview/reference/sources/) and
+[functions](https://blacksmithgu.github.io/obsidian-dataview/reference/functions/), [SQLite's FTS5](https://sqlite.org/fts5.html),
+[PRQL's loop](https://prql-lang.org/book/reference/stdlib/transforms/loop.html) and
+[DuckDB-Wasm](https://duckdb.org/docs/current/clients/wasm/overview).
 
 ### SQL and pipelines
 
@@ -2589,12 +2643,13 @@ The links each approach used, as its research recorded them, every one read on 2
 - https://sqlite.org/datatype3.html — BINARY is memcmp; NOCASE folds only ASCII letters.
 - https://sqlite.org/wasm/doc/trunk/index.md — SQLite's own Wasm build, OPFS persistence.
 - https://duckdb.org/docs/current/guides/sql_features/graph_queries — duckpgq syntax; not in DuckDB 1.5.x, use 1.4.4.
-- https://duckpgq.org/documentation/sql_pgq/ — quantifiers; ANY SHORTEST only; no OPTIONAL MATCH.
+- https://duckpgq.org/documentation/sql_pgq/ — quantifiers; ANY SHORTEST for path searches; no OPTIONAL MATCH.
 - https://docs.oracle.com/en/database/oracle/property-graph/23.2/spgdg/sql-graph-queries.html — Oracle GRAPH_TABLE; bounded quantifiers, max 10.
 - https://duckdb.org/docs/current/data/json/loading_json — read_json, read_ndjson, globs.
-- https://duckdb.org/docs/current/clients/wasm/overview — DuckDB-Wasm, remote files, latest stable 1.5.5.
+- https://duckdb.org/docs/current/clients/wasm/overview — DuckDB-Wasm, remote files, latest stable 1.5.6.
 - https://duckdb.org/docs/current/clients/wasm/extensions — extensions in Wasm (json, fts; community subset).
-- https://nodejs.org/api/sqlite.html — node:sqlite added v22.5.0, experimental until release candidate in v25.7.0.
+- https://nodejs.org/api/sqlite.html — node:sqlite added v22.5.0; https://nodejs.org/docs/latest-v24.x/api/sqlite.html
+  — a release candidate in Node 24 since v24.15.0.
 - https://github.com/WiseLibs/better-sqlite3 and https://github.com/WiseLibs/better-sqlite3/blob/master/docs/compilation.md — MIT; FTS5 and JSON1 enabled; SQLite 3.53.4.
 - https://github.com/sql-js/sql.js and https://raw.githubusercontent.com/sql-js/sql.js/master/Makefile — Wasm, in-memory, MIT; FTS3 not FTS5.
 - https://docs.python.org/3/library/sqlite3.html — depends on the system SQLite; placeholders.
