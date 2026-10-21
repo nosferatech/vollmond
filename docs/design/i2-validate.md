@@ -1257,6 +1257,7 @@ configuration over a made-up store in CI, each rule firing once and each near mi
 | a link from `docs/` with `#` to a file outside `docs/` | checked as any link: a missing file is reported, and so is a missing id in a file with anchors | not checked: the link leaves the store (§8.2) |
 | other links from `docs/` to outside it | not checked | outside the store, not checked (§8.2); autolinks are not references |
 | a link whose text spans lines | reported at the line of its `[` | reported at the line of its destination |
+| links that only one tool reads as links | reads a link inside an HTML block or a fence of tildes | reads a link with brackets in its text (`[a [b] c](…)`), which `docs.sh`'s pattern skips, saying so only when the target names a `.md` file |
 | a duplicate anchor id | yes; the first element wins, so links to the id pass | `duplicate-anchor`, and `ref-ambiguous` on every link to the id |
 | a numbered heading without an anchor, in a document with anchors | yes, in every tracked `.md` file | `schema-violation` in the collection's documents only (section 8.2) |
 | header fields: Type, Status, Implemented only for a Design, Component and Scope present, at most ten Components | yes | `schema-violation`, as patterns on prose, with the differences of section 8.2 |
@@ -1292,15 +1293,18 @@ reads in the checkout with HEAD and `git status`, and of the ticket directory `d
 `examples/vampiredb/` share the vmd runner, the digest and the timing statistics in its `shared.mjs`.
 
 The record of the run is on [#28](https://github.com/nosferatech/vollmond/issues/28) and in the directory's
-[README](../../examples/vampiredb/README.md#the-i2-demonstration-i28). The run changed the table above in four places, two rows
-corrected and two added:
+[README](../../examples/vampiredb/README.md#the-i2-demonstration-i28). The demonstration changed the table above in five places, two
+rows corrected and three added:
 
 - `docs.sh` checks a `#` link from `docs/` that leaves it;
 - it reads code references in fenced blocks;
 - the two tools give a different line for a link whose text spans lines;
-- vmd raises `ref-ambiguous` on the links to a duplicated id.
+- vmd raises `ref-ambiguous` on the links to a duplicated id;
+- some links only one of the tools reads as links.
 
-It found no vmd bug.
+The last are disagreements that no class explains, so the faults that plant them declare them, and any other disagreement in no
+class fails the run. The match finds where a link starts in the file's bytes, from the destination vmd reports, and compares
+resolved paths, so that two disagreements near each other are not paired as one link. It found no vmd bug.
 
 ### 8.4 The anchor elements in a list item's later paragraphs (#20, open item 1)
 
@@ -1337,11 +1341,11 @@ Minimal_Log are a few hundred kilobytes), resolution (15 to 20 ms) and output. A
 is the expectation (U).
 
 **I2.8 measured both** (M, 2026-10-20, [#28](https://github.com/nosferatech/vollmond/issues/28)), on the docs as they are now:
-46 records and 4.4 MB rather than 37 (section 8.1). Each check ran ten times in a fresh process, with a load average of about 5:
+46 records and 4.4 MB rather than 37 (section 8.1). Each check ran ten times in a fresh process, with a load average of about 3:
 
-- cold, with no index: a median of 1.70 s (1.68 to 1.76 s), above the estimate of 1.1 to 1.4 s, which was made for the smaller
+- cold, with no index: a median of 1.69 s (1.68 to 1.71 s), above the estimate of 1.1 to 1.4 s, which was made for the smaller
   docs; its stages were not measured again;
-- warm: a median of 194 ms (192 to 197 ms), ten times under the budget.
+- warm: a median of 194 ms (192 to 198 ms), ten times under the budget.
 
 Under a load average rising from 7 to 40, the medians were 3.0 s cold and 0.50 s warm.
 

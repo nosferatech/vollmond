@@ -8,10 +8,11 @@
 // Build the TypeScript code first (`npm ci && npm run build` in `js/`). `bash`, `python3` and `git` must be on the path. The
 // script:
 //
-//  1. takes a digest of the store (every entry under `docs/`), of every file `docs.sh` reads in the checkout (the files
-//     `git ls-files --cached --others --exclude-standard` lists), of the checkout's HEAD and `git status`, and of the ticket
-//     directory `docs.sh` reads (`TICKETS_DIR`, else `~/eternal-circle/tickets`) when it exists. Git runs with
-//     `GIT_OPTIONAL_LOCKS=0`, so that it does not refresh the checkout's index;
+//  1. makes a marker file in a temporary directory, then takes a digest of the store (every entry under `docs/`), of every
+//     file `docs.sh` reads in the checkout (the files `git ls-files --cached --others --exclude-standard` lists), of the
+//     checkout's HEAD, `git status` and the stat of its git index, and of the ticket directory `docs.sh` reads
+//     (`TICKETS_DIR`, else `~/eternal-circle/tickets`) when it exists. Git runs with `GIT_OPTIONAL_LOCKS=0`, so that it does
+//     not refresh the checkout's index;
 //  2. runs `docs.sh` on the checkout in its check mode, the only mode that writes nothing but its `mktemp` files, with
 //     `TMPDIR` set to a new temporary directory, and `vmd --json check --all` on the store, with the local index in a
 //     temporary cache directory;
@@ -21,14 +22,17 @@
 //  4. plants each fault of FAULTS in the copy on its own, runs both tools, and compares what each reports beyond what it
 //     reported on the unmodified copy with what the fault declares; then puts the copy's files back as they were;
 //  5. matches the two tools' link problems, for each fault: every link problem `docs.sh` reports in a file inside `docs/`
-//     must be a vmd issue at the same file and line with the same target, or fall in a class that says why vmd does not
-//     report it (the target leaves the store; a code reference inside a fenced block, which vmd reads as code). Every
-//     broken reference vmd reports must likewise be a `docs.sh` problem, or fall in a class that says why `docs.sh` does
-//     not report it. A problem in no class is a failure;
+//     must be a vmd issue in the same file, whose target resolves to the same path, for a link that starts on the line
+//     `docs.sh` gives; or fall in a class that says why vmd does not report it (the target leaves the store; a code
+//     reference inside a fenced block, which vmd reads as code). Every broken reference vmd reports must likewise be a
+//     `docs.sh` problem, or fall in a class that says why `docs.sh` does not report it. A problem in no class is a failure,
+//     unless the fault declares it;
 //  6. times `vmd check --all` over the unmodified store, N runs each (10 by default), each in a fresh process: cold, with an
 //     empty cache each time, and warm, with a cache filled once before; and fails when the warm median is not under the
 //     phase's budget of two seconds;
-//  7. checks that every digest of step 1 is what it was, and removes its temporary directory.
+//  7. checks that every digest of step 1 is what it was, and that `find -newer` over the whole checkout (`.git/`, ignored
+//     and untracked files included) and over the ticket directory finds nothing modified since the marker; and removes its
+//     temporary directories.
 //
 // It prints each fault with what each tool reported, the match counts by class, the timings and a summary. It exits with 1
 // when a check fails, and with 2 when it cannot start; otherwise with 0.
@@ -50,7 +54,9 @@ const ANCHOR_ELEMENT = /<a id="([^"\n]+)"><\/a>/g;
  * The planted faults, each applied on its own to the copy. `edits` are literal: each `find` must occur exactly once in its
  * file, and `append` adds a paragraph at the end; `create` adds a file. `docsSh` and `vmd` give the problems each tool must
  * report beyond those of the unmodified copy, as counts by kind (`docs.sh`, see `docsShKind`) or by code (vmd); a kind or
- * code not named must not appear. `row` names the row of the comparison table it shows. A fault with `expect: "every
+ * code not named must not appear. `classes` gives, in the same way, the classes in which step 5 places the link problems of
+ * both tools, and `unexplained` the problems it can place in no class, by tool (none by default): a fault that plants a
+ * disagreement no class explains declares it there. `row` names the row of the comparison table it shows. A fault with `expect: "every
  * reference"` declares no counts: `docs.sh` must report every reference it checks on the unmodified copy (the number its
  * summary line gives) as one whose anchor is missing, and nothing else, and the matching of step 5 must explain each one.
  */
@@ -69,6 +75,7 @@ const FAULTS = [
     // 7 links in the file and 2 in Decision_Log.md inside docs/, and 2 code-comment references in .rs files.
     docsSh: { "no-anchor": 11 },
     vmd: { "ref-dangling": 9 },
+    classes: { matched: 9, "source outside docs/": 2 },
   },
   {
     id: "2",
@@ -84,6 +91,7 @@ const FAULTS = [
     // 4 links in the file and 1 in Decision_Log.md.
     docsSh: { "no-anchor": 5 },
     vmd: { "ref-dangling": 5 },
+    classes: { matched: 5 },
   },
   {
     id: "3a",
@@ -92,6 +100,7 @@ const FAULTS = [
     edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: [a missing design](design/Missing_Design.md#overview)." }],
     docsSh: { "not-a-file": 1 },
     vmd: { "ref-dangling": 1 },
+    classes: { matched: 1 },
   },
   {
     id: "3b",
@@ -100,6 +109,7 @@ const FAULTS = [
     edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: [a missing design](design/Missing_Design.md)." }],
     docsSh: {},
     vmd: { "ref-dangling": 1 },
+    classes: { "vmd: no fragment": 1 },
   },
   {
     id: "4",
@@ -109,6 +119,7 @@ const FAULTS = [
     // vmd: the duplicate, and each of the 6 links to #api (1 in the file, 5 in Decision_Log.md) has two targets.
     docsSh: { duplicate: 1 },
     vmd: { "duplicate-anchor": 1, "ref-ambiguous": 6 },
+    classes: { "vmd: duplicate id": 6 },
   },
   {
     id: "5",
@@ -117,6 +128,7 @@ const FAULTS = [
     edits: [{ file: "docs/design/Lock_Ranks.md", append: "## 12. A planted heading\n\nIts text." }],
     docsSh: { "heading-no-anchor": 1 },
     vmd: { "schema-violation": 1 },
+    classes: {},
   },
   {
     id: "6",
@@ -130,6 +142,7 @@ const FAULTS = [
     ],
     docsSh: {},
     vmd: { "ref-dangling": 1 },
+    classes: { "vmd: link definition": 1 },
   },
   {
     id: "7",
@@ -140,6 +153,7 @@ const FAULTS = [
     ],
     docsSh: { "shown-number": 1 },
     vmd: {},
+    classes: {},
   },
   {
     id: "8",
@@ -153,6 +167,7 @@ const FAULTS = [
     ],
     docsSh: {},
     vmd: { "ref-dangling": 1 },
+    classes: { "vmd: into a document without anchors": 1 },
   },
   {
     id: "9a",
@@ -161,6 +176,7 @@ const FAULTS = [
     edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: [outside](../NO_SUCH_FILE.md#overview)." }],
     docsSh: { "not-a-file": 1 },
     vmd: {},
+    classes: { "leaves the store": 1 },
   },
   {
     id: "9b",
@@ -169,6 +185,7 @@ const FAULTS = [
     edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: [outside](../README.md#no-such-section)." }],
     docsSh: {},
     vmd: {},
+    classes: {},
   },
   {
     id: "10",
@@ -183,6 +200,7 @@ const FAULTS = [
     ],
     docsSh: { type: 1 },
     vmd: { "schema-violation": 1 },
+    classes: {},
   },
   {
     id: "11",
@@ -197,6 +215,7 @@ const FAULTS = [
     ],
     docsSh: { "component-unknown": 1 },
     vmd: {},
+    classes: {},
   },
   {
     id: "12",
@@ -205,6 +224,7 @@ const FAULTS = [
     edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: see ticket 0158." }],
     docsSh: { ticket: 1 },
     vmd: {},
+    classes: {},
   },
   {
     id: "13a",
@@ -213,6 +233,7 @@ const FAULTS = [
     edits: [{ file: "docs/design/Planted Name.md", create: plantedDocument("Planted Name") }],
     docsSh: { "file-name": 1 },
     vmd: { "path-invalid": 1 },
+    classes: {},
   },
   {
     id: "13b",
@@ -221,6 +242,7 @@ const FAULTS = [
     edits: [{ file: "docs/design/_Planted.md", create: plantedDocument("Planted") }],
     docsSh: {},
     vmd: { "path-invalid": 1 },
+    classes: {},
   },
   {
     id: "14",
@@ -228,6 +250,44 @@ const FAULTS = [
     row: "every link docs.sh checks, at once",
     renameEveryAnchor: true,
     expect: "every reference",
+  },
+  {
+    id: "15",
+    name: "a link inside an HTML block, and a link with brackets in its text, to one missing id three lines apart",
+    row: "links that only one tool reads as links",
+    edits: [
+      {
+        file: "docs/design/Lock_Ranks.md",
+        append: "<details>\n[hidden](#planted-missing)\n</details>\n\n[a [nested] link](#planted-missing)",
+      },
+    ],
+    // docs.sh reads the first, which vmd reads as HTML; vmd reads the second, which docs.sh's pattern cannot read. They are
+    // two disagreements, and must not be paired.
+    docsSh: { "no-anchor": 1 },
+    vmd: { "ref-dangling": 1 },
+    classes: {},
+    unexplained: { "docs.sh": 1, vmd: 1 },
+  },
+  {
+    id: "16",
+    name: "a link inside a fence of tildes",
+    row: "links that only one tool reads as links",
+    edits: [{ file: "docs/design/Lock_Ranks.md", append: "~~~\n[in a tilde fence](#planted-in-tilde)\n~~~" }],
+    // docs.sh knows only fences of backticks; vmd reads the block as code.
+    docsSh: { "no-anchor": 1 },
+    vmd: {},
+    classes: {},
+    unexplained: { "docs.sh": 1 },
+  },
+  {
+    id: "17",
+    name: "on one line, a link with # out of docs/ and a link without # inside it, to files of the same name",
+    row: "a link from docs/ with # to a file outside docs/; a link to a missing file",
+    edits: [{ file: "docs/ARCHITECTURE.md", append: "Planted: [out](../Gone.md#overview) and [in](design/Gone.md)." }],
+    // Two different disagreements on one line, which a match by file name alone would pair.
+    docsSh: { "not-a-file": 1 },
+    vmd: { "ref-dangling": 1 },
+    classes: { "leaves the store": 1, "vmd: no fragment": 1 },
   },
 ];
 
@@ -300,7 +360,24 @@ function checkoutDigest() {
   const head = git(checkout, ["rev-parse", "HEAD"]).toString("utf8").trim();
   const status = git(checkout, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
   hash.update(head).update("\0").update(status);
-  return { files: files.length, head, digest: hash.digest("hex").slice(0, 16) };
+  const indexPath = path.resolve(checkout, git(checkout, ["rev-parse", "--git-path", "index"]).toString("utf8").trim());
+  const index = fs.statSync(indexPath, { bigint: true });
+  return {
+    files: files.length,
+    head,
+    digest: hash.digest("hex").slice(0, 16),
+    index: { ino: index.ino.toString(), size: index.size.toString(), mtimeNs: index.mtimeNs.toString() },
+  };
+}
+
+/**
+ * Gives the entries under `root`, of any kind and at any depth, whose modification time is later than `marker`'s, through
+ * `find -newer`: a file written, or an entry created or removed in a directory, since the marker was made.
+ */
+function newerThan(root, marker) {
+  const found = spawnSync("find", [root, "-newer", marker], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+  if (found.status !== 0) fail(`find over ${root} exited with ${found.status}: ${found.stderr.trim()}`);
+  return found.stdout.split("\n").filter((line) => line !== "");
 }
 
 /** Every digest of step 1. */
@@ -312,6 +389,9 @@ function digests() {
   };
 }
 
+const markerDir = fs.mkdtempSync(path.join(os.tmpdir(), "vmd-vampiredb-check-demo-marker-"));
+const marker = path.join(markerDir, "started");
+fs.writeFileSync(marker, "");
 const before = digests();
 console.log(
   `checkout ${checkout} at ${before.checkout.head}: ${before.checkout.files} files docs.sh reads, sha256 ${before.checkout.digest}`,
@@ -344,9 +424,18 @@ for (const what of ["store", "checkout", "tickets"]) {
     fail(`the ${what} changed: ${JSON.stringify(before[what])} -> ${JSON.stringify(after[what])}`);
 }
 if (fs.existsSync(path.join(store, ".vmd"))) fail("a .vmd/ exists in the store");
+const modified = [...newerThan(checkout, marker), ...(fs.existsSync(ticketsDir) ? newerThan(ticketsDir, marker) : [])];
+if (modified.length > 0)
+  fail(
+    `${modified.length} entries of the checkout or the ticket directory were modified during the run: ${modified.slice(0, 10).join(", ")}`,
+  );
+fs.rmSync(markerDir, { recursive: true, force: true });
 const same = (what) => (JSON.stringify(after[what]) === JSON.stringify(before[what]) ? "unchanged" : "CHANGED");
 console.log(
-  `\nafter: store ${same("store")} (sha256 ${after.store.digest}), checkout ${same("checkout")} (sha256 ${after.checkout.digest}), ticket directory ${same("tickets")}`,
+  `\nafter: store ${same("store")} (sha256 ${after.store.digest}), checkout ${same("checkout")} (sha256 ${after.checkout.digest}, with the stat of its git index), ticket directory ${same("tickets")}`,
+);
+console.log(
+  `entries modified during the run, by find -newer over the whole checkout and the ticket directory: ${modified.length}`,
 );
 
 for (const failure of failures) console.log(`FAILED: ${failure}`);
@@ -458,6 +547,7 @@ function demonstrate() {
   const total = (key) => results.reduce((n, r) => n + (r.classes[key] ?? 0), 0);
   const LINK_CLASSES = ["matched", "matched, text across lines", "derived", "leaves the store", "fenced code reference"];
   const unexplainedDocsSh = results.reduce((n, r) => n + r.unexplained.filter((u) => u.startsWith("docs.sh")).length, 0);
+  const unexplainedVmd = results.reduce((n, r) => n + r.unexplained.filter((u) => u.startsWith("vmd")).length, 0);
   console.log(`\nsummary
   docs.sh on the checkout   exit ${onCheckout.status}: ${onCheckout.summary}
   vmd on the store          exit ${vmdOnStore.status}: ${vmdOnStore.issues.length} issues (${formatCounts(countBy(vmdOnStore.issues, (i) => `${i.severity} ${i.code}`))})
@@ -470,8 +560,13 @@ function demonstrate() {
     a code reference in a fenced block                  ${total("fenced code reference")}
     in no class                                         ${unexplainedDocsSh}
   docs.sh problems in files outside docs/: ${total("source outside docs/")}
-  vmd broken references docs.sh does not report: no # ${total("vmd: no fragment")}, a link definition ${total("vmd: link definition")}, into a document without anchors ${total("vmd: into a document without anchors")}, after a duplicate id ${total("vmd: duplicate id")}
-  unexplained               ${results.reduce((n, r) => n + r.unexplained.length, 0)}`);
+  vmd broken references docs.sh does not report: no # ${total("vmd: no fragment")}, a link definition ${total("vmd: link definition")}, into a document without anchors ${total("vmd: into a document without anchors")}, after a duplicate id ${total("vmd: duplicate id")}, in no class ${unexplainedVmd}
+  in no class, by fault     ${formatCounts(
+    countBy(
+      results.flatMap((r) => r.unexplained.map(() => r.fault.id)),
+      (id) => `in fault ${id}`,
+    ),
+  )}; each fault declares its own, and any other fails the run`);
 }
 
 /** Runs `docs.sh` in its check mode in `root`, and gives its exit status, summary line, problem lines, notices and time. */
@@ -584,7 +679,10 @@ function plant(fault, copy, copyStore, copyCache, temporary, baseDocsSh, baseVmd
       fault.expect === "every reference"
         ? sameCounts(result.docsShCounts, { "no-anchor": referencesChecked(baseDocsSh.summary) })
         : sameCounts(result.docsShCounts, fault.docsSh) && sameCounts(result.vmdCounts, fault.vmd);
-    result.ok = declared && result.unexplained.length === 0 && result.gone.length === 0;
+    const classesAsDeclared = fault.expect === "every reference" || sameCounts(result.classes, fault.classes ?? {});
+    const unexplainedCounts = countBy(result.unexplained, (line) => (line.startsWith("docs.sh") ? "docs.sh" : "vmd"));
+    const unexplainedAsDeclared = sameCounts(unexplainedCounts, fault.unexplained ?? {});
+    result.ok = declared && classesAsDeclared && unexplainedAsDeclared && result.gone.length === 0;
     if (!result.ok) fail(`fault ${fault.id} (${fault.name}) is not as declared`);
     return result;
   } catch (error) {
@@ -610,16 +708,22 @@ function match(result, copy) {
   // vmd's broken references, and its derived-anchor warnings, by file and line, each to be taken once.
   const vmdLinks = result.newVmd
     .filter((issue) => BROKEN_CODES.has(issue.code) || issue.code === "ref-derived-anchor")
-    .map((issue) => ({ issue, target: vmdTarget(issue), taken: false }));
+    .map((issue) => {
+      const target = vmdTarget(issue);
+      const resolved = path.posix.normalize(
+        target.path === "" ? `docs/${issue.path}` : path.posix.join("docs", path.posix.dirname(issue.path), target.path),
+      );
+      return { issue, target, resolved, taken: false };
+    });
   const anchorsOf = (file) => {
     const absolute = path.join(copy, file);
     if (!fs.existsSync(absolute)) return null;
     return fs.readFileSync(absolute, "utf8").match(ANCHOR_ELEMENT) !== null;
   };
-  // docs.sh gives the line of a link's `[`, and vmd the line of its destination, which is a later line when the link's text
-  // spans lines. A first pass matches on the same line; the second accepts a destination up to MAX_TEXT_LINES later, on a
-  // line that holds `](` and the target as written, for the problems the first pass left.
-  const MAX_TEXT_LINES = 5;
+  // docs.sh gives the line of a link's `[`, and vmd the position of its destination, which is on a later line when the
+  // link's text spans lines. So a vmd issue matches a docs.sh problem when they are in the same file, their targets resolve to
+  // the same path (and the same fragment, where docs.sh gives one), and the link whose destination vmd reports starts on the
+  // line docs.sh gives, as found in the file's bytes.
   const problems = [];
   for (const line of result.newDocsSh) {
     const problem = docsShLink(line);
@@ -627,38 +731,31 @@ function match(result, copy) {
     if (!problem.file.startsWith("docs/")) count("source outside docs/");
     else problems.push({ line, problem, storePath: problem.file.slice("docs/".length), done: false });
   }
-  const sameTarget = (v, p) =>
-    !v.taken &&
-    v.issue.path === p.storePath &&
-    v.target.base === path.posix.basename(p.problem.targetPath || p.problem.file) &&
-    (p.problem.fragment === null || v.target.fragment === p.problem.fragment);
-  for (const pass of ["same line", "later line"]) {
-    for (const p of problems) {
-      if (p.done) continue;
-      const found = vmdLinks.find((v) => {
-        if (!sameTarget(v, p) || v.issue.position === undefined) return false;
-        const lines = v.issue.position.line - p.problem.line;
-        if (pass === "same line") return lines === 0;
-        if (lines < 1 || lines > MAX_TEXT_LINES) return false;
-        const text = lineOf(path.join(copy, p.problem.file), v.issue.position.line) ?? "";
-        return text.includes(`](${v.target.written}`);
-      });
-      if (found === undefined) continue;
-      found.taken = true;
-      p.done = true;
-      const derived = found.issue.code === "ref-derived-anchor";
-      count(derived ? "derived" : pass === "same line" ? "matched" : "matched, text across lines");
-    }
+  const bytesOf = new Map();
+  const startLine = (v) => {
+    if (v.issue.position === undefined) return null;
+    const file = path.join(copy, "docs", v.issue.path);
+    if (!bytesOf.has(file)) bytesOf.set(file, fs.readFileSync(file));
+    return linkStartLine(bytesOf.get(file), v.issue.position.offset);
+  };
+  for (const p of problems) {
+    const found = vmdLinks.find(
+      (v) =>
+        !v.taken &&
+        v.issue.path === p.storePath &&
+        v.resolved === docsShResolved(p.problem) &&
+        (p.problem.fragment === null || v.target.fragment === p.problem.fragment) &&
+        startLine(v) === p.problem.line,
+    );
+    if (found === undefined) continue;
+    found.taken = true;
+    p.done = true;
+    if (found.issue.code === "ref-derived-anchor") count("derived");
+    else count(found.issue.position.line === p.problem.line ? "matched" : "matched, text across lines");
   }
   for (const { line, problem, done } of problems) {
     if (done) continue;
-    // The target, from the repository's root. docs.sh gives a missing file's path as the link writes it, relative to the
-    // link's file, and every other target from the root, as it resolved it (a code reference is written from the root).
-    const fromRoot =
-      problem.kind === "link" && problem.fragment === null
-        ? path.posix.normalize(path.posix.join(path.posix.dirname(problem.file), problem.targetPath))
-        : problem.targetPath;
-    if (!fromRoot.startsWith("docs/")) count("leaves the store");
+    if (!docsShResolved(problem).startsWith("docs/")) count("leaves the store");
     else if (problem.kind === "reference" && insideFence(path.join(copy, problem.file), problem.line))
       count("fenced code reference");
     else result.unexplained.push(`docs.sh ${line}`);
@@ -668,8 +765,7 @@ function match(result, copy) {
     if (v.taken || v.issue.code === "ref-derived-anchor") continue;
     const target = v.target;
     const definition = lineOf(path.join(copy, "docs", v.issue.path), v.issue.position?.line);
-    const targetFile =
-      target.path === "" ? v.issue.path : path.posix.normalize(path.posix.join(path.posix.dirname(v.issue.path), target.path));
+    const targetFile = v.resolved.slice("docs/".length);
     if (target.fragment === null) count("vmd: no fragment");
     else if (/^ {0,3}\[[^\]]+\]:\s/.test(definition ?? "")) count("vmd: link definition");
     else if (anchorsOf(path.posix.join("docs", targetFile)) === false) count("vmd: into a document without anchors");
@@ -680,6 +776,46 @@ function match(result, copy) {
       count("vmd: duplicate id");
     else result.unexplained.push(`vmd ${issueLine(v.issue)}`);
   }
+}
+
+/**
+ * Gives the path from the repository's root that one of `docs.sh`'s link problems targets. `docs.sh` gives a missing file's
+ * path as the link writes it, relative to the link's file, and every other target from the root, as it resolved it (a code
+ * reference is written from the root).
+ */
+function docsShResolved(problem) {
+  return problem.kind === "link" && problem.fragment === null
+    ? path.posix.normalize(path.posix.join(path.posix.dirname(problem.file), problem.targetPath))
+    : path.posix.normalize(problem.targetPath);
+}
+
+/**
+ * Gives the line (from 1) on which the inline link starts whose destination starts at byte `destination` of `bytes`: the
+ * line of the `[` that opens the text before its `](`, found by walking back over balanced, unescaped brackets. Gives null
+ * when the bytes before the destination are not `](` or `](<`, as for a link definition, or when no `[` balances.
+ */
+function linkStartLine(bytes, destination) {
+  const at = (i) => String.fromCharCode(bytes[i]);
+  let close = destination - 2;
+  if (at(destination - 1) === "<") close--;
+  if (close < 0 || at(close) !== "]" || at(close + 1) !== "(") return null;
+  const escaped = (i) => {
+    let slashes = 0;
+    while (i - 1 - slashes >= 0 && at(i - 1 - slashes) === "\\") slashes++;
+    return slashes % 2 === 1;
+  };
+  let depth = 0;
+  for (let i = close; i >= 0; i--) {
+    const c = at(i);
+    if ((c !== "[" && c !== "]") || escaped(i)) continue;
+    depth += c === "]" ? 1 : -1;
+    if (depth === 0) {
+      let line = 1;
+      for (let k = 0; k < i; k++) if (bytes[k] === 0x0a) line++;
+      return line;
+    }
+  }
+  return null;
 }
 
 /**

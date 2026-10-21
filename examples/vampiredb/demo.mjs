@@ -5,7 +5,9 @@
 //
 //   node examples/vampiredb/demo.mjs CHECKOUT [--fast] [--runs N]
 //
-// Build the TypeScript code first (`npm ci && npm run build` in `js/`). The script:
+// Build the TypeScript code first (`npm ci && npm run build` in `js/`). Every command, in a fresh process or in this one,
+// keeps the local index in a new temporary cache directory (`XDG_CACHE_HOME`), so that the user's own cache is never touched;
+// the script refuses to start (exit 2) when the system's temporary directory is inside CHECKOUT. The script:
 //
 //  1. lists the store with `vmd --json ls`, in a fresh process, and checks that every record is readable;
 //  2. runs `vmd --json outline PATH` for every record, each in a fresh process;
@@ -24,15 +26,17 @@
 //  6. runs `vmd get` on `#ID` for each anchor element that anchors nothing (`anchor-element-ignored`), and counts the store's
 //     links to it, which vmd cannot resolve;
 //  7. times `vmd outline design/Minimal_Log.md`: cold, in a fresh process each run, and warm, `runCli` again in one process;
+//     both with `--no-cache`, so that each run parses the record rather than reading it from the index;
 //  8. checks that the store's entries (files, directories and symbolic links) are what they were before, byte for byte,
 //     and that no `.vmd/` was created.
 //
 // It prints every failure with its record, address, issue and class, the validation issues the parse found in each record,
 // the ignored anchor elements, and a summary. It exits with 1 when any check failed; the ignored elements are not failures.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { config, fingerprint, formatStats, js, runVmd, stats, vmdMain } from "./shared.mjs";
+import { config, fingerprint, formatStats, js, runVmd, stats, temporaryInsideCheckout, vmdMain } from "./shared.mjs";
 
 const TIMED_RECORD = "design/Minimal_Log.md";
 
@@ -50,6 +54,16 @@ if (!fs.existsSync(vmdMain)) {
   console.error(`${vmdMain} is missing: run npm ci && npm run build in ${js}`);
   process.exit(2);
 }
+const temporaryRefusal = temporaryInsideCheckout(checkout);
+if (temporaryRefusal !== null) {
+  console.error(temporaryRefusal);
+  process.exit(2);
+}
+// The local index lives in a temporary cache directory of the demonstration's own, for the fresh processes and for the
+// commands run in this process alike, so that the user's cache is never read or written; it is removed at exit.
+const cache = fs.mkdtempSync(path.join(os.tmpdir(), "vmd-vampiredb-demo-"));
+process.env.XDG_CACHE_HOME = cache;
+process.on("exit", () => fs.rmSync(cache, { recursive: true, force: true }));
 const core = await import(pathToFileURL(path.join(js, "packages/core/dist/index.js")).href);
 const { runCli } = await import(pathToFileURL(path.join(js, "packages/cli/dist/cli.js")).href);
 const { createFilesystemStorage } = await import(pathToFileURL(path.join(js, "packages/cli/dist/backend/filesystem.js")).href);
@@ -63,7 +77,7 @@ const failures = [];
 const fail = (record, address, issue, detail, kind = "triage") => failures.push({ record, address, issue, detail, kind });
 
 /** Runs the built `vmd` in a fresh process with the store and the configuration, and gives its output and time. */
-const vmd = (args) => runVmd(store, args);
+const vmd = (args) => runVmd(store, args, { cache });
 
 const before = fingerprint(store);
 console.log(`store ${store}: ${before.entries} entries, sha256 ${before.digest}`);
@@ -387,15 +401,15 @@ function escapeRegExp(text) {
 // 7. Timing.
 const cold = [];
 for (let i = 0; i < runs; i++) {
-  const run = vmd(["outline", TIMED_RECORD]);
+  const run = vmd(["--no-cache", "outline", TIMED_RECORD]);
   if (run.status !== 0) fail(TIMED_RECORD, "", "timed outline", `exit ${run.status}`);
   cold.push(run.ms);
 }
 const warm = [];
-await runCli(["--store", store, "--config", config, "outline", TIMED_RECORD]);
+await runCli(["--store", store, "--config", config, "--no-cache", "outline", TIMED_RECORD]);
 for (let i = 0; i < runs; i++) {
   const started = performance.now();
-  await runCli(["--store", store, "--config", config, "outline", TIMED_RECORD]);
+  await runCli(["--store", store, "--config", config, "--no-cache", "outline", TIMED_RECORD]);
   warm.push(performance.now() - started);
 }
 const size = fs.statSync(path.join(store, TIMED_RECORD)).size;
