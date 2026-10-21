@@ -5,7 +5,9 @@
 //
 //   node examples/vampiredb/demo.mjs CHECKOUT [--fast] [--runs N]
 //
-// Build the TypeScript code first (`npm ci && npm run build` in `js/`). The script:
+// Build the TypeScript code first (`npm ci && npm run build` in `js/`). Every command, in a fresh process or in this one,
+// keeps the local index in a new temporary cache directory (`XDG_CACHE_HOME`), so that the user's own cache is never touched;
+// the script refuses to start (exit 2) when the system's temporary directory is inside CHECKOUT. The script:
 //
 //  1. lists the store with `vmd --json ls`, in a fresh process, and checks that every record is readable;
 //  2. runs `vmd --json outline PATH` for every record, each in a fresh process;
@@ -24,20 +26,18 @@
 //  6. runs `vmd get` on `#ID` for each anchor element that anchors nothing (`anchor-element-ignored`), and counts the store's
 //     links to it, which vmd cannot resolve;
 //  7. times `vmd outline design/Minimal_Log.md`: cold, in a fresh process each run, and warm, `runCli` again in one process;
-//  8. checks that the store's files are byte for byte what they were before, and that no `.vmd/` was created.
+//     both with `--no-cache`, so that each run parses the record rather than reading it from the index;
+//  8. checks that the store's entries (files, directories and symbolic links) are what they were before, byte for byte,
+//     and that no `.vmd/` was created.
 //
 // It prints every failure with its record, address, issue and class, the validation issues the parse found in each record,
 // the ignored anchor elements, and a summary. It exits with 1 when any check failed; the ignored elements are not failures.
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { config, fingerprint, formatStats, js, runVmd, stats, temporaryInsideCheckout, vmdMain } from "./shared.mjs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const js = path.resolve(here, "../../js");
-const vmdMain = path.join(js, "packages/cli/dist/main.js");
-const config = path.join(here, "config.yaml");
 const TIMED_RECORD = "design/Minimal_Log.md";
 
 const argv = process.argv.slice(2);
@@ -54,6 +54,16 @@ if (!fs.existsSync(vmdMain)) {
   console.error(`${vmdMain} is missing: run npm ci && npm run build in ${js}`);
   process.exit(2);
 }
+const temporaryRefusal = temporaryInsideCheckout(checkout);
+if (temporaryRefusal !== null) {
+  console.error(temporaryRefusal);
+  process.exit(2);
+}
+// The local index lives in a temporary cache directory of the demonstration's own, for the fresh processes and for the
+// commands run in this process alike, so that the user's cache is never read or written; it is removed at exit.
+const cache = fs.mkdtempSync(path.join(os.tmpdir(), "vmd-vampiredb-demo-"));
+process.env.XDG_CACHE_HOME = cache;
+process.on("exit", () => fs.rmSync(cache, { recursive: true, force: true }));
 const core = await import(pathToFileURL(path.join(js, "packages/core/dist/index.js")).href);
 const { runCli } = await import(pathToFileURL(path.join(js, "packages/cli/dist/cli.js")).href);
 const { createFilesystemStorage } = await import(pathToFileURL(path.join(js, "packages/cli/dist/backend/filesystem.js")).href);
@@ -67,46 +77,10 @@ const failures = [];
 const fail = (record, address, issue, detail, kind = "triage") => failures.push({ record, address, issue, detail, kind });
 
 /** Runs the built `vmd` in a fresh process with the store and the configuration, and gives its output and time. */
-function vmd(args) {
-  const started = performance.now();
-  let stdout;
-  let status = 0;
-  try {
-    stdout = execFileSync(process.execPath, [vmdMain, "--store", store, "--config", config, ...args], {
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    stdout = error.stdout ?? "";
-    status = error.status ?? 1;
-  }
-  return { stdout, status, ms: performance.now() - started };
-}
+const vmd = (args) => runVmd(store, args, { cache });
 
-/** A digest of every file under the store root, by path, to show that the demonstration changed nothing. */
-function fingerprint() {
-  const hash = createHash("sha256");
-  const files = fs.readdirSync(store, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
-  const paths = files.map((entry) => path.relative(store, path.join(entry.parentPath, entry.name))).sort();
-  for (const file of paths)
-    hash
-      .update(`${file}\0`)
-      .update(fs.readFileSync(path.join(store, file)))
-      .update("\0");
-  return { files: paths.length, digest: hash.digest("hex").slice(0, 16) };
-}
-
-const stats = (samples) => {
-  const sorted = [...samples].sort((a, b) => a - b);
-  const median =
-    sorted.length % 2 === 1 ? sorted[sorted.length >> 1] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
-  return { min: sorted[0], median, max: sorted[sorted.length - 1] };
-};
-const ms = (s) => `min ${s.min.toFixed(0)} ms, median ${s.median.toFixed(0)} ms, max ${s.max.toFixed(0)} ms`;
-
-const before = fingerprint();
-console.log(`store ${store}: ${before.files} files, sha256 ${before.digest}`);
+const before = fingerprint(store);
+console.log(`store ${store}: ${before.entries} entries, sha256 ${before.digest}`);
 console.log(
   `node ${process.versions.node}, unicode ${process.versions.unicode}, ${fast ? "--fast (openStore)" : "get through runCli"}`,
 );
@@ -427,22 +401,22 @@ function escapeRegExp(text) {
 // 7. Timing.
 const cold = [];
 for (let i = 0; i < runs; i++) {
-  const run = vmd(["outline", TIMED_RECORD]);
+  const run = vmd(["--no-cache", "outline", TIMED_RECORD]);
   if (run.status !== 0) fail(TIMED_RECORD, "", "timed outline", `exit ${run.status}`);
   cold.push(run.ms);
 }
 const warm = [];
-await runCli(["--store", store, "--config", config, "outline", TIMED_RECORD]);
+await runCli(["--store", store, "--config", config, "--no-cache", "outline", TIMED_RECORD]);
 for (let i = 0; i < runs; i++) {
   const started = performance.now();
-  await runCli(["--store", store, "--config", config, "outline", TIMED_RECORD]);
+  await runCli(["--store", store, "--config", config, "--no-cache", "outline", TIMED_RECORD]);
   warm.push(performance.now() - started);
 }
 const size = fs.statSync(path.join(store, TIMED_RECORD)).size;
 
 // 8. Nothing changed.
-const after = fingerprint();
-if (after.digest !== before.digest || after.files !== before.files)
+const after = fingerprint(store);
+if (after.digest !== before.digest || after.entries !== before.entries)
   fail("", "", "store changed", `${before.digest} -> ${after.digest}`);
 if (fs.existsSync(path.join(store, ".vmd"))) fail("", "", "store changed", "a .vmd directory exists in the store");
 
@@ -465,7 +439,7 @@ if (failures.length === 0) console.log("  none");
 for (const f of failures) console.log(`  ${f.kind}: ${f.record}${f.address} [${f.issue}] ${f.detail}`);
 console.log(`
 summary
-  documents          ${records.length} (of ${before.files} files), ${listing.value.unreadable.count} unreadable
+  documents          ${records.length} (of ${before.entries} entries), ${listing.value.unreadable.count} unreadable
   sections           ${totals.sections}, of which ${totals.headings} with a heading (line scan: ${scan.headings} ATX headings)
   anchors            ${totals.explicit} explicit, ${totals.derived} derived, ${totals.block} block (line scan: ${scan.anchorElements} <a id= elements)
   validation issues  ${warnings.length} ${JSON.stringify(byCode)}
@@ -476,7 +450,7 @@ summary
   ls                 ${listed.ms.toFixed(0)} ms, one fresh process
   outline, all       ${outlineMs.toFixed(0)} ms for ${records.length} fresh processes
   ${TIMED_RECORD} (${size} bytes), ${runs} runs:
-    cold             ${ms(stats(cold))} (vmd outline in a fresh process, wall clock)
-    warm             ${ms(stats(warm))} (runCli again in one process, store opened each time)
+    cold             ${formatStats(stats(cold))} (vmd outline in a fresh process, wall clock)
+    warm             ${formatStats(stats(warm))} (runCli again in one process, store opened each time)
   store unchanged    ${after.digest === before.digest ? "yes" : "NO"} (sha256 ${after.digest}), no .vmd/: ${fs.existsSync(path.join(store, ".vmd")) ? "NO" : "yes"}`);
 process.exitCode = failures.length === 0 ? 0 : 1;

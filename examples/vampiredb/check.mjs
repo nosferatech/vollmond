@@ -18,17 +18,11 @@
 // the schema cannot be used (`config-invalid`, `schema-invalid`, `feature-unsupported`, `storage-failed`), when the warm run
 // reports other issues than the cold one or reads any record other than from the index, or when the store changed; otherwise
 // with 0, whatever the documents' issues are, since those are the trial's result.
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { config, fingerprint, js, runVmd, temporaryInsideCheckout, vmdMain } from "./shared.mjs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const js = path.resolve(here, "../../js");
-const vmdMain = path.join(js, "packages/cli/dist/main.js");
-const config = path.join(here, "config.yaml");
 /** The codes that say the trial's own configuration or schema cannot be used, rather than something about a document. */
 const SETUP_CODES = new Set(["config-invalid", "schema-invalid", "feature-unsupported", "storage-failed"]);
 
@@ -42,11 +36,9 @@ if (!fs.statSync(store, { throwIfNoEntry: false })?.isDirectory()) {
   console.error(`${store} is not a directory: CHECKOUT is a vampiredb checkout, whose docs/ is the store`);
   process.exit(2);
 }
-const checkout = fs.realpathSync(argv[0]);
-const temporary = fs.realpathSync(os.tmpdir());
-const fromCheckout = path.relative(checkout, temporary);
-if (!fromCheckout.startsWith("..") && !path.isAbsolute(fromCheckout)) {
-  console.error(`the temporary directory ${temporary} is inside ${checkout}: set TMPDIR to a directory outside the checkout`);
+const temporaryRefusal = temporaryInsideCheckout(argv[0]);
+if (temporaryRefusal !== null) {
+  console.error(temporaryRefusal);
   process.exit(2);
 }
 if (!fs.existsSync(vmdMain)) {
@@ -54,50 +46,8 @@ if (!fs.existsSync(vmdMain)) {
   process.exit(2);
 }
 
-/**
- * A digest of every entry under the store root, by path and kind, with a file's bytes and a symbolic link's target, to show
- * that the check changed nothing: a new, removed or changed file, directory or link changes it.
- */
-function fingerprint() {
-  const hash = createHash("sha256");
-  const entries = fs
-    .readdirSync(store, { recursive: true, withFileTypes: true })
-    .map((entry) => ({ entry, relative: path.relative(store, path.join(entry.parentPath, entry.name)) }))
-    .sort((a, b) => (a.relative < b.relative ? -1 : a.relative > b.relative ? 1 : 0));
-  for (const { entry, relative } of entries) {
-    const absolute = path.join(store, relative);
-    const kind = entry.isFile() ? "file" : entry.isDirectory() ? "directory" : entry.isSymbolicLink() ? "link" : "other";
-    hash.update(`${relative}\0${kind}\0`);
-    if (kind === "file") hash.update(fs.readFileSync(absolute));
-    if (kind === "link") hash.update(fs.readlinkSync(absolute));
-    hash.update("\0");
-  }
-  return { entries: entries.length, digest: hash.digest("hex").slice(0, 16) };
-}
-
-/** Runs the built `vmd --json check --all` in a fresh process with the cache in `cache`, and gives its output and time. */
-function check(cache) {
-  const started = performance.now();
-  let stdout;
-  let stderr = "";
-  let status = 0;
-  try {
-    stdout = execFileSync(process.execPath, [vmdMain, "--store", store, "--config", config, "--json", "check", "--all"], {
-      encoding: "utf8",
-      env: { ...process.env, XDG_CACHE_HOME: cache },
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (error) {
-    stdout = error.stdout ?? "";
-    stderr = error.stderr ?? "";
-    status = error.status ?? 1;
-  }
-  return { stdout, stderr, status, ms: performance.now() - started };
-}
-
 const failures = [];
-const before = fingerprint();
+const before = fingerprint(store);
 console.log(`store ${store}: ${before.entries} entries, sha256 ${before.digest}`);
 console.log(`configuration ${path.relative(process.cwd(), config)}, node ${process.versions.node}`);
 
@@ -105,7 +55,7 @@ const cache = fs.mkdtempSync(path.join(os.tmpdir(), "vmd-vampiredb-check-"));
 const runs = [];
 try {
   for (const name of ["cold", "warm"]) {
-    const run = check(cache);
+    const run = runVmd(store, ["--json", "check", "--all"], { cache });
     let output;
     try {
       output = JSON.parse(run.stdout);
@@ -149,7 +99,7 @@ console.log(
 for (const run of runs)
   console.log(`${run.name}: ${run.ms.toFixed(0)} ms, ${run.output.value?.fromIndex ?? 0} records from the index`);
 
-const after = fingerprint();
+const after = fingerprint(store);
 if (after.digest !== before.digest || after.entries !== before.entries) failures.push("the store changed");
 if (fs.existsSync(path.join(store, ".vmd"))) failures.push("a .vmd/ exists in the store");
 const unchanged = after.digest === before.digest ? ", unchanged" : "";

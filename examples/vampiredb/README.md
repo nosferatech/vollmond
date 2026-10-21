@@ -1,7 +1,9 @@
 # vampiredb demonstrations
 
-Two runs over the `docs/` of a vampiredb checkout, which neither modifies: the I1 demonstration of reading, and the I2 trial of
-checking.
+Three runs over the `docs/` of a vampiredb checkout, which none modifies: the I1 demonstration of reading, the I2 trial of
+checking, and the I2 demonstration, which compares that check with vampiredb's own checker. The three scripts share
+[`shared.mjs`](shared.mjs): running the built `vmd`, the digest of a directory tree, the guard on the temporary directory, and
+the timing statistics.
 
 ## The I1 demonstration (I1.11)
 
@@ -31,8 +33,10 @@ A second check compares vmd with the files, through a line scan that does not us
 - `#ID` of every other element must give a block that starts with the element (after any list marker), at the element's line,
   whose text is in the file. The one exception is an element vmd reports as anchoring nothing: there `get` must find nothing.
 
-It also times `vmd outline design/Minimal_Log.md` and checks that the store's files are unchanged. It exits with 1 when a check
-fails. Its header comment lists the steps.
+It also times `vmd outline design/Minimal_Log.md` and checks that the store is unchanged. It exits with 1 when a check fails. Its
+header comment lists the steps. Since I2.8 the digest is `shared.mjs`'s, which covers every entry under the store root: a
+directory or a symbolic link created, removed or changed fails the check, where the digest of the runs below covered files
+only.
 
 ### Result
 
@@ -255,3 +259,143 @@ Each guard of `check.mjs` fired once, on copies of the docs:
 
 The near miss passes: a temporary directory beside the checkout whose name starts with the checkout's. An issue without a
 position prints as its path alone.
+
+## The I2 demonstration (I2.8)
+
+The demonstration of phase I2 ([implementation plan](../../docs/plan/implementation-plan.md), task I2.8, issue
+[#28](https://github.com/nosferatech/vollmond/issues/28)): `vmd check` with the trial's configuration, compared with
+vampiredb's own checker, `scripts/docs.sh`, so that "every broken link `docs.sh` reports inside `docs/`, `vmd` reports too" is
+a check rather than a claim, and each difference has a stated reason.
+
+```sh
+cd js && npm ci && npm run build && cd ..
+node examples/vampiredb/check-demo.mjs ~/vampiredb    # 3 to 4 minutes; --runs N sets the timing runs (10)
+```
+
+[`check-demo.mjs`](check-demo.mjs) runs `docs.sh` in its check mode, the one that writes nothing but its temporary files, and
+`vmd check --all`, both on the checkout. Since `docs.sh` reports nothing there, it then makes a copy in a temporary directory:
+the files `docs.sh` reads, which are the files git lists as tracked or untracked and not ignored, plus all of `docs/`. The copy
+is a git repository of its own whose index holds exactly those files. Both tools must report on the copy what they report on the
+checkout. The script then plants each fault below in the copy on its own, runs both tools, and compares what each reports beyond
+the unmodified copy with what the fault declares. It puts the files back after each fault.
+
+For every fault it also matches the two tools' link problems, in both directions:
+
+- each link problem `docs.sh` reports in a file under `docs/` must be a vmd `ref-dangling` or `ref-ambiguous` in the same file,
+  whose target resolves to the same path (and the same fragment), for a link that starts on the line `docs.sh` gives. vmd
+  reports the position of a link's destination, so the script finds where that link starts by walking back from its `](` to
+  the `[` that balances it, in the file's bytes. Otherwise the problem must fall in a class that says why vmd does not report
+  it;
+- each broken reference vmd reports must be a `docs.sh` problem in the same way, or fall in a class that says why `docs.sh`
+  does not report it.
+
+A problem in no class fails the run, unless the fault that plants it declares it: faults 15 and 16 plant links that only one
+tool reads as links, which no class explains. The script then times the check over the unmodified store, cold and warm, and
+fails when the warm median is not under the phase's budget of two seconds. Last, it checks that nothing changed:
+
+- by digests before and after of the store; of every file `docs.sh` reads in the checkout, with HEAD, `git status` and the stat
+  of the git index (git runs without optional locks, so that it does not rewrite the index); and of the ticket directory
+  `docs.sh` reads (`~/eternal-circle/tickets`);
+- and by `find -newer` over the whole checkout, `.git/`, ignored and untracked files included, and over the ticket directory,
+  against a marker file made before the first digest: no entry may have been modified during the run.
+
+It removes its temporary directories, and refuses to start when they would be inside the checkout. Its header comment lists the
+steps.
+
+### Result
+
+Run on 2026-10-20 against the vampiredb checkout at `~/vampiredb` (`0588e29f`), with Node 24.21.0 on macOS:
+
+| | |
+|---|---|
+| `docs.sh` on the checkout | exit 0: "39 documents, all conforming; 451 anchors and 2290 references to them checked" |
+| `vmd check` on the store | exit 4: 46 records, 2,073 references; the 1 error and 2 warnings of the trial (above) |
+| anchors | `docs.sh`'s 451 are vmd's 167 explicit anchors and 284 block anchors (`demo.mjs --fast`) |
+| the copy | faithful: both tools report there what they report on the checkout |
+| faults | 20, each as declared |
+| links matched | all 2,298 link problems `docs.sh` reported inside `docs/` are in the classes below, but for the 2 that faults 15 and 16 declare |
+| time, 10 runs each in fresh processes | load average about 3: cold, with no index: min 1,676 ms, median 1,687 ms, max 1,712 ms; warm, from the index: min 192 ms, median 194 ms, max 198 ms, which is 1,806 ms under the budget |
+| an earlier run, under a load average of 7 rising to 40 | cold: median 3,018 ms (2,305 to 4,403); warm: median 497 ms (430 to 561), 1,503 ms under the budget |
+| unchanged | the store, the 1,560 files `docs.sh` reads in the checkout, HEAD, `git status` and the git index, and the ticket directory; `find -newer` finds no entry of the checkout or the ticket directory modified during the run |
+
+**The faults.** Each was planted on its own. "Nothing" means that the tool reported nothing beyond the unmodified copy.
+
+| fault | `docs.sh` | `vmd check` |
+|---|---|---|
+| 1. `<a id="component-tables">` of `design/Lock_Ranks.md` renamed | 11 "finds no anchor": 9 links in `docs/`, 2 code comments in `.rs` files | 9 `ref-dangling`, the same 9 links |
+| 2. the heading `### 1.1 … <a id="what-check-cannot-see">` deleted | 5 "finds no anchor" | 5 `ref-dangling`, the same links |
+| 3a. a link to a missing file, with `#` | "which is not a file" | `ref-dangling` |
+| 3b. a link to a missing file, without `#` | nothing | `ref-dangling` |
+| 4. `<a id="api"></a>` repeated on a new paragraph | "duplicate anchor id"; the first element wins, so the links to `#api` pass | `duplicate-anchor`, and `ref-ambiguous` on each of the 6 links to `#api` |
+| 5. `## 12. A planted heading` without an anchor | "has no anchor" | `schema-violation` |
+| 6. a reference link whose definition names a missing anchor | nothing | `ref-dangling` at the definition |
+| 7. `[§5.4](#no-cycle)` shown as `[§5.3]` | "shows §5.3 but anchor … is now §5.4" | nothing |
+| 8. a link to a missing id in `guidelines/Working_Practices.md`, which has no anchors | nothing | `ref-dangling` |
+| 9a. `[…](../NO_SUCH_FILE.md#overview)` from `docs/` | "which is not a file" | nothing: the link leaves the store |
+| 9b. `[…](../README.md#no-such-section)` from `docs/` | nothing: the root `README.md` has no anchors | nothing: the link leaves the store |
+| 10. a Type `Guidline` | "unrecognised type" | `schema-violation` |
+| 11. a Component `planted-slug` | "is not defined in docs/components.md" | nothing |
+| 12. "ticket 0158" | "a ticket is cited by its id alone" | nothing |
+| 13a. a document `design/Planted Name.md` | "a file name under docs/ uses only …" | `path-invalid` |
+| 13b. a document `design/_Planted.md` | nothing | `path-invalid` |
+| 14. every `<a id="…"></a>` in every Markdown file renamed | 2,290 "finds no anchor": every reference it checks | 2,001 `ref-dangling`, 7 `ref-derived-anchor` |
+| 15. `[hidden](#planted-missing)` inside a `<details>` block, then `[a [nested] link](#planted-missing)` three lines later | the first: "finds no anchor"; its pattern cannot read the second | the second: `ref-dangling`; the first is HTML |
+| 16. `[…](#planted-in-tilde)` inside a fence of tildes | "finds no anchor": it knows only fences of backticks | nothing: the block is code |
+| 17. on one line, `[…](../Gone.md#overview)` and `[…](design/Gone.md)` | the first: "which is not a file" | the second: `ref-dangling` |
+
+Faults 15 to 17 come from the review of the first version of the script, which paired fault 15's two links as one link whose
+text spans lines, and would have paired fault 17's by their file name. Each is now two disagreements: fault 15's are in no class,
+as it declares, and fault 17's are "the target leaves the store" and "no `#`".
+
+**The match, over all faults.** The 2,298 link problems `docs.sh` reported inside `docs/`:
+
+| class | problems |
+|---|---|
+| vmd reports the same link, on the same line | 2,001 |
+| vmd reports the same link at its destination, on a later line: the link's text spans lines, and `docs.sh` gives the line of its `[` | 15 |
+| vmd resolves it through the heading's derived name, with the warning `ref-derived-anchor`: in fault 14, 7 links whose id was also the heading's slug | 7 |
+| the target leaves the store (faults 9a and 17) | 2 |
+| a code reference in a fenced block, `` `docs/design/X.md#id` (§N) ``, which `docs.sh` reads as it reads `.rs` comments, and vmd reads as code (fault 14) | 271 |
+| in no class: a link only `docs.sh` reads as one, inside an HTML block (15) or a fence of tildes (16), as the faults declare | 2 |
+
+`docs.sh` also reported 13 problems in files outside `docs/`, which are outside the store: fault 1's two `.rs` comments, and
+fault 14's 11 code-comment references, 10 in `.rs` files and 1 in a `Cargo.toml`. The broken references vmd reported that
+`docs.sh` does not are links without `#` (3b, 17), a link definition (6), a link into a document without anchors (8), the 6
+links to the duplicated id (4), and, in no class as fault 15 declares, a link with brackets in its text, which `docs.sh`'s
+pattern cannot read.
+
+**vmd bugs: none found.** Every difference is one of the documented differences of the I2 design (section 8.3), whose table
+this demonstration changed in five places: `docs.sh` does check links from `docs/` that leave it, it reads code references in
+fenced blocks, the two tools give different lines for a link whose text spans lines, vmd reports every link to a duplicated id,
+and some links only one of the tools reads as links.
+
+**The checks fail when they should.** Each guard of `check-demo.mjs` fired once, on a scratch checkout built from vampiredb's
+files, or with the script mutated in a scratch copy; vampiredb was never the target:
+
+| fault | result |
+|---|---|
+| no CHECKOUT; a checkout without `docs/`; one without `scripts/docs.sh`; the temporary directory inside the checkout; vmd not built; `python3` not on the path | exit 2 |
+| `docs.sh` exits with 2 (a `TICKETS_DIR` that does not exist) | exit 1 |
+| vmd fails to run the check | exit 1 |
+| the copy made unfaithful (a broken link added to it) | exit 1 |
+| a fault's text to replace not found | exit 1 |
+| a fault's declared count one off | exit 1 |
+| the class "leaves the store" removed (fault 9a), the class of fenced code references removed (fault 14), the class "no `#`" removed (fault 3b) | exit 1, each |
+| the check that the link starts on `docs.sh`'s line removed (fault 15); targets compared by file name only (fault 17) | exit 1, each |
+| a fault that removes one of the unmodified copy's issues | exit 1 |
+| a fault not taken out of the copy | exit 1 |
+| a cold run given a filled cache; a warm run given an empty one | exit 1, each |
+| a budget of 100 ms | exit 1 |
+| the store, a file of the checkout outside `docs/`, or the ticket directory changed during the run; a `.vmd/` created in the store | exit 1, each |
+| an ignored file written in the checkout during the run, which no digest covers | exit 1, from `find -newer` alone |
+| the checkout's git index touched during the run | exit 1 |
+
+The near misses pass: the run on the scratch checkout, and a temporary directory beside the checkout whose name starts with
+the checkout's. `check.mjs` and `demo.mjs --fast` give the same results as before they moved to `shared.mjs`.
+
+**`demo.mjs` and the cache.** Since I2.8 `demo.mjs` keeps the local index in a temporary cache directory of its own, as
+`check.mjs` does, for its fresh processes and for the commands it runs in its own process, and refuses to start when the
+temporary directory is inside the checkout. Before, its commands used the user's cache: the review of I2.8 saw one `--fast`
+run write 87 files there. Its timings of `outline` run with `--no-cache`, so that each run parses the record, as the I1
+timings above did; before, the cold runs came after the index was filled. A `--fast` run with `XDG_CACHE_HOME` pointing at an
+empty directory leaves that directory empty, with 0 failures.
