@@ -138,7 +138,7 @@ purpose, outside the repository. The scripts are not part of this document.
   and Python 3.9.6's `sqlite3` (SQLite 3.51.0); SQL/PGQ in DuckDB 1.4.4 with the `duckpgq` extension; PRQL through `prqlc`
   0.13.14, compiled to SQLite; KQL through `duckdb-kql` 1.0.11, a third-party translator to DuckDB, which shows that the text
   parses as KQL to that translator, not what Kusto would answer. All four agree: over the synthetic tickets, S2 gives the two
-  log-v3 tickets that are not closed and are High or Critical, S6 gives G3c alone (G3d, superseded only by U21, is left out),
+  log-v3 tickets that are not closed and are High or Critical, S6 gives G3c alone (G3a, superseded only by U21, is left out),
   and S8 gives six counts, the ticket with two components counted under each;
   over the decisions, S5b gives C20's three
   references, as `vmd refs F7.md` does; S7 gives G3, G3a, G3c, G3d and U21, with G3d and U21 accepted; S9 gives 10 accepted
@@ -1693,7 +1693,7 @@ Datomic.
 - Agent reliability (O): less training material than SQL or Cypher; Logseq users report the syntax is "fussy"
   (secondary, forum). No measurement found.
 - Singular address (§7.4): a partial analogue. A lookup ref on a `:db.unique/value` or `:db.unique/identity` attribute names
-  at most one entity, by the attribute's declared uniqueness, as a `type: map` level lets vmd prove a step unique; but "Lookup
+  at most one entity, by the attribute's declared uniqueness, as a `type: map` level, or the strict default, lets vmd prove a step unique; but "Lookup
   refs cannot be used in the body of a query though they can be used as inputs in a parameterized query" (D,
   [identity](https://docs.datomic.com/schema/identity.html)). The find-scalar `.` only takes one value; it proves nothing.
 - CLI: EDN in single quotes is shell-safe (`?x`, `#{}`, `[]`, `"`); `%` and `$` are inside single quotes. Rules make
