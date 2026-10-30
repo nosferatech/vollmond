@@ -23,7 +23,7 @@
   "dependencies": {
     "@hyperjump/browser": "1.6.0",
     "@hyperjump/json-schema": "1.18.0",
-    "@hyperjump/json-schema-formats": "1.0.8",
+    "@hyperjump/json-schema-formats": "1.1.0",
     "jsonc-parser": "3.3.1",
     "mdast-util-from-markdown": "2.1.0",
     "mdast-util-gfm-autolink-literal": "2.0.1",
