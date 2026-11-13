@@ -28,7 +28,7 @@
     "mdast-util-from-markdown": "2.1.0",
     "mdast-util-gfm-autolink-literal": "2.0.1",
     "mdast-util-gfm-strikethrough": "2.0.1",
-    "mdast-util-gfm-table": "2.0.0",
+    "mdast-util-gfm-table": "2.0.1",
     "mdast-util-gfm-task-list-item": "2.0.0",
     "micromark": "4.0.3",
     "micromark-core-commonmark": "2.0.4",
