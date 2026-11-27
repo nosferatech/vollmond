@@ -17,9 +17,9 @@
     "conformance": "node packages/conformance/dist/main.js"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "fast-check": "4.10.2",
+    "@biomejs/biome": "2.6.8",
+    "fast-check": "4.11.0",
     "typescript": "7.0.2",
-    "vitest": "5.0.4"
+    "vitest": "5.1.1"
   }
 }
